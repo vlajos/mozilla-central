@@ -43,7 +43,12 @@ public:
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
 
 protected:
-  //TODO[nrc] comment
+  /**
+   * Implementations should contain either a texture host (for OMTC) or a texture
+   * image (for on-mtc), these methods should be used to convert one to the other,
+   * the texture host may be a temprorary wrapper. The *OnWhite versions may
+   * return NULL if component alpha is never supported.
+   */
   virtual TextureImage* GetTextureImage() = 0;
   virtual TextureImage* GetTextureImageOnWhite() = 0;
   virtual TemporaryRef<TextureHost> GetTextureHost() = 0;
@@ -61,7 +66,16 @@ protected:
 class AContentHost : public BufferHost
 {
 public:
-  //TODO[nrc] comment
+  /**
+   * Update the content host.
+   * aTextureIdentifier identifies the texture host which should be updated.
+   * aNewBack is the new data
+   * aUpdated is the region which should be updated
+   * aNewfront may point to the old data in this content host after the call
+   * aNewBackResult may point to the updated data in this content host
+   * aNewValidRegionFront is the valid region in aNewFront
+   * aUpdatedRegionBack is the region in aNewBackResult which has been updated
+   */
   virtual void UpdateThebes(const TextureIdentifier& aTextureIdentifier,
                             const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
@@ -73,6 +87,10 @@ public:
                             nsIntRegion* aUpdatedRegionBack) = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
+
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
+#endif
 };
 
 class ContentHost : public AContentHost, protected CompositingThebesLayerBuffer
@@ -116,6 +134,13 @@ public:
   {
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
+
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump()
+  {
+    return mTextureHost->Dump();
+  }
+#endif
 
 protected:
   virtual TextureImage* GetTextureImage();

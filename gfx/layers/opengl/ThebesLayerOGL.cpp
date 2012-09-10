@@ -220,7 +220,9 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 class ThebesLayerBufferOGL : public CompositingThebesLayerBuffer
 {
 public:
-    enum { PAINT_WILL_RESAMPLE = ThebesLayerBuffer::PAINT_WILL_RESAMPLE };
+  enum { PAINT_WILL_RESAMPLE = ThebesLayerBuffer::PAINT_WILL_RESAMPLE };
+
+  virtual TextureImage* GetTextureImage() { return mTexImage; }
 
 protected:
   ThebesLayerBufferOGL(ThebesLayer* aLayer, LayerOGL* aOGLLayer, Compositor* aCompositor)
@@ -231,7 +233,6 @@ protected:
     , mTexImageOnWhite(nullptr)
   {}
 
-  virtual TextureImage* GetTextureImage() { return mTexImage; }
   virtual TextureImage* GetTextureImageOnWhite() { return mTexImageOnWhite; }
   virtual TemporaryRef<TextureHost> GetTextureHost()
   {
@@ -805,15 +806,13 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
 
 #ifdef MOZ_DUMP_PAINTING
-  //TODO[nrc] move to compositor
-  /*
   if (gfxUtils::sDumpPainting) {
     nsRefPtr<gfxImageSurface> surf = 
-      gl()->GetTexImage(mTextureHost->GetTextureHandle(), false, mTextureHost->GetShaderProgramType());
+      gl()->GetTexImage(mBuffer->GetTextureImage()->GetTextureID(), false,
+                       mBuffer->GetTextureImage()->GetShaderProgramType());
     
     WriteSnapshotToDumpFile(this, surf);
   }
-  */
 #endif
 
   EffectChain effectChain;
@@ -958,15 +957,10 @@ ShadowThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
 
 #ifdef MOZ_DUMP_PAINTING
-  //TODO[nrc] move to compositor
-  /*
   if (gfxUtils::sDumpPainting) {
-    nsRefPtr<gfxImageSurface> surf = 
-      gl()->GetTexImage(mTextureHost->GetTextureHandle(), false, mTextureHost->GetShaderProgramType());
-    
+    nsRefPtr<gfxImageSurface> surf = mBuffer->Dump();
     WriteSnapshotToDumpFile(this, surf);
   }
-  */
 #endif
 
   EffectChain effectChain;

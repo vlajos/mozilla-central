@@ -212,21 +212,30 @@ public:
    * NB: this initial implementation only forwards RGBA data for
    * ImageLayers.  This is slow, and will be optimized.
    */
-  //TODO[nrc] remove this one if not used
+  //TODO[nrc] remove this one when not used (image bridge)
   void PaintedImage(ShadowableLayer* aImage,
                     const SharedImage& aNewFrontImage);
 
-  //TODO[nrc] comment
+  /**
+   * Communicate to the compositor that the texture identified by aLayer
+   * and aIdentifier has been updated to aImage.
+   */
   void UpdateTexture(ShadowableLayer* aLayer,
                      TextureIdentifier aIdentifier,
                      const SharedImage& aImage);
-  //TODO[nrc] comment
+
+  /**
+   * Communicate to the compositor that aRegion in the texture identified by aLayer
+   * and aIdentifier has been updated to aThebesBuffer.
+   */
   void UpdateTextureRegion(ShadowableLayer* aThebes,
                            TextureIdentifier aIdentifier,
                            const ThebesBuffer& aThebesBuffer,
                            const nsIntRegion& aUpdatedRegion);
 
-  //TODO[nrc] comment
+  /**
+   * Communicate the picture rect of a YUV image in aLayer to the compositor
+   */
   void UpdatePictureRect(ShadowableLayer* aLayer,
                          const nsIntRect& aRect);
 
@@ -256,7 +265,6 @@ public:
   bool HasShadowManager() const { return !!mShadowManager; }
   PLayersChild* GetShadowManager() const { return mShadowManager; }
 
-  //TODO[nrc]
   /**
    * The following Alloc/Open/Destroy interfaces abstract over the
    * details of working with surfaces that are shared across
@@ -332,7 +340,9 @@ public:
     mParentBackend = aIdentifier.mParentBackend;
   }
 
-  //TODO[nrc] comment
+  /**
+   * Create texture or buffer clients, see comments in CompositingFactory
+   */
   TemporaryRef<TextureClient> CreateTextureClientFor(const TextureHostType& aTextureHostType,
                                                      const BufferType& aBufferType,
                                                      ShadowableLayer* aLayer,
@@ -577,12 +587,22 @@ public:
     mShadowTransform = aMatrix;
   }
 
-  //TODO[nrc] comment; make pure virtual when each layer type implements it
-  // the layer can store the host how ever it wants - one-to-one or mapping from the id, or even not at all (e.g., colour layers)
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost) {} //= 0;
+  /**
+   * Add aTextureHost to a layer. This call should be passed directtly to
+   * the layer's buffer host, aTextureIdentifier can be used however the
+   * buffer host/client want to.
+   */
+  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+                              TextureHost* aTextureHost) {}
 
-  //TODO[nrc] comment; make pure virtual when each layer type implements it
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier, const SharedImage& aFront, SharedImage* aNewBack) {} // = 0;
+  /**
+   * Pass aFront to in to the texture host identified by this layer and
+   * aTextureIdentifier. After this call, aNewBack should point to the old
+   * data in the texture.
+   */
+  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
+                           const SharedImage& aFront,
+                           SharedImage* aNewBack) {}
 
   // These getters can be used anytime.
   const nsIntRect* GetShadowClipRect() { return mUseShadowClipRect ? &mShadowClipRect : nullptr; }

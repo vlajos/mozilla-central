@@ -16,6 +16,7 @@
 
 class gfxContext;
 class gfxASurface;
+class gfxImageSurface;
 class nsIWidget;
 
 namespace mozilla {
@@ -73,17 +74,23 @@ const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 
 
-//TODO[nrc] comment
-// goes Compositor to ShadowLayerForwarder on LayerManager init
-  //TODO[nrc] add BufferType, use it
+/**
+ * Sent from the compositor to the drawing LayerManager, includes properties
+ * of the compositor and should (in the future) include information (BufferType)
+ * about what kinds of buffer and texture clients to create.
+ */
 struct TextureHostIdentifier
 {
   LayersBackend mParentBackend;
   PRInt32 mMaxTextureSize;
 };
 
-//TODO[nrc] comment
-// goes LayerManager to Compositor on TextureClient creation
+/**
+ * Identifies a texture client/host pair and their type. Sent with updates
+ * from a drawing layers to a compositing layer, it should be passed directly
+ * to the BufferHost. How the identifier is used depends on the buffer
+ * client/host pair.
+ */
 struct TextureIdentifier
 {
   BufferType mBufferType;
@@ -111,7 +118,11 @@ public:
   virtual ~Texture() {}
 };
 
-//TODO[nrc]
+/**
+ * A view on a texture host where the texture host is internally represented as tiles
+ * (contrast with a tiled buffer, where each texture is a tile). For iteration by
+ * the tile's buffer.
+ */
 class TileIterator
 {
 public:
@@ -126,25 +137,31 @@ class TextureHost : public RefCounted<TextureHost>
 public:
   TextureHost() : mFlags(NoFlags) {}
   virtual ~TextureHost() {}
-  /* This will return an identifier that can be sent accross a process or
-   * thread boundary and used to construct a DrawableTextureClient object
-   * which can then be used for rendering. If the process is identical to the
-   * current process this may return the same object and will only be thread
-   * safe.
-   */
-  //virtual TextureIdentifier GetIdentifierForProcess(/*base::ProcessHandle* aProcess*/) = 0; //TODO[nrc]
 
-  /* Perform any precomputation (e.g. texture upload) that needs to happen to the
-   * texture before rendering.
+  /**
+   * Update the texture host from a SharedImage, may return the old
+   * content of the texture, a pointer to the new image, or null. The
+   * texture client should know what to expect
    */
-  //virtual void PrepareForRendering() {}
-
-  //TODO[nrc] comments
   virtual const SharedImage* Update(const SharedImage& aImage) { return nullptr; }
-  virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {}
+  /**
+   * Update the texture host from a SurfaceDescriptor, aOldBuffer points
+   * to the old content of the texture host. Returns true if the texture
+   * host could be properly updated
+   */
   virtual bool Update(const SurfaceDescriptor& aNewBuffer,
                       SurfaceDescriptor* aOldBuffer) { return false; }
+  /**
+   * Updates a region of the texture host from aSurface
+   */
+  virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {}
+
+  /**
+   * Lock the texture host for compositing, returns an effect that should
+   * be used to composite this texture.
+   */
   virtual Effect* Lock(const gfx::Filter& aFilter) { return nullptr; }
+  // Unlock the texture host after compositing
   virtual void Unlock() {}
 
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
@@ -155,11 +172,16 @@ public:
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
   virtual TileIterator* GetAsTileIterator() { return nullptr; }
+
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
+#endif
 protected:
   TextureFlags mFlags;
 };
 
-/* This can be used as an offscreen rendering target by the compositor, and
+/**
+ * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
 class Surface : public RefCounted<Surface>
@@ -382,18 +404,19 @@ public:
                          TextureFormat aFormat) = 0;
 
   /**
-   * TODO[nrc] comment
+   * Create a new texture host of a kind specified by aIdentifier
    */
   virtual TemporaryRef<TextureHost>
     CreateTextureHost(const TextureIdentifier &aIdentifier, TextureFlags aFlags) = 0;
 
   /**
-   * TODO[nrc] comment
+   * Create a new buffer host of a kind specified by aType
    */
   virtual TemporaryRef<BufferHost> 
     CreateBufferHost(BufferType aType) = 0;
 
-  /* This creates a Surface that can be used as a rendering target by this
+  /**
+   * This creates a Surface that can be used as a rendering target by this
    * compositor.
    */
   virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
@@ -453,7 +476,11 @@ class ShadowableLayer;
 class CompositingFactory
 {
 public:
-  // TODO[nrc] comment
+  /**
+   * The Create*Client methods each create, configure, and return a new buffer
+   * or texture client. If necessary, a message will be sent to the compositor
+   * to create a corresponding buffer or texture host.
+   */
   static TemporaryRef<ImageClient> CreateImageClient(LayersBackend aBackendType,
                                                      BufferType aImageHostType,
                                                      ShadowLayerForwarder* aLayerForwarder,
@@ -476,7 +503,8 @@ public:
                                                          bool aStrict = false);
 
   static BufferType TypeForImage(Image* aImage);
-  static TemporaryRef<Compositor> CreateCompositorForWidget(nsIWidget *aWidget);
+  //todo: needed?
+  //static TemporaryRef<Compositor> CreateCompositorForWidget(nsIWidget *aWidget);
 };
 
 }

@@ -49,19 +49,7 @@ public:
                                      const nsIntRegion& aFrontUpdatedRegion,
                                      nsIntRegion& aLayerValidRegion) {}
 
-  //TODO[nrc] comment for MapBuffer/UnmapBuffer
-  /**
-   * When BasicThebesLayerBuffer is used with layers that hold
-   * SurfaceDescriptor, this buffer only has a valid gfxASurface in
-   * the scope of an AutoOpenSurface for that SurfaceDescriptor.  That
-   * is, it's sort of a "virtual buffer" that's only mapped and
-   * unmapped within the scope of AutoOpenSurface.  None of the
-   * underlying buffer attributes (rect, rotation) are affected by
-   * mapping/unmapping.
-   *
-   * These helpers just exist to provide more descriptive names of the
-   * map/unmap process.
-   */
+  // call before and after painting into this content client
   virtual void BeginPaint() {}
   virtual void EndPaint() {}
 };
@@ -96,6 +84,14 @@ public:
                                                      const nsIntSize& aSize,
                                                      PRUint32 aFlags);
 
+  /**
+   * Begin/End Paint map a gfxASurface from the texture client
+   * into the buffer of ThebesLayerBuffer. The surface is only
+   * valid when the texture client is locked, so is mapped out
+   * of ThebesLayerBuffer when we are done painting.
+   * None of the underlying buffer attributes (rect, rotation)
+   * are affected by mapping/unmapping.
+   */
   virtual void BeginPaint();
   virtual void EndPaint();
 
@@ -132,7 +128,8 @@ protected:
   ShadowableLayer* mLayer;
 
   RefPtr<TextureClient> mTextureClient;
-  // keep a record of texture clients we have created and need to keep around, then unlock
+  // keep a record of texture clients we have created and need to keep
+  // around, then unlock when we are done painting
   nsTArray<RefPtr<TextureClient>> mOldTextures;
 
   bool mIsNewBuffer;

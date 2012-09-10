@@ -794,8 +794,6 @@ ShadowImageLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aCl
   
         mImageVersion = imgVersion;
       }
-      //TODO[nrc] what if there is an image and it is not YUV?
-      // is that possible?
     }
   }
 
@@ -817,13 +815,6 @@ ShadowImageLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aCl
                         gfx::Point(aOffset.x, aOffset.y),
                         gfx::ToFilter(mFilter),
                         clipRect);
-}
-
-bool
-ShadowImageLayerOGL::LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize)
-{
-  //TODO[nrc] remove this - we shouldn't be doing LoadAsTexture on shadow side
-  return true;
 }
 
 void

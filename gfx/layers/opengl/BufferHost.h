@@ -18,6 +18,7 @@ public:
 
   virtual BufferType GetType() = 0;
 
+  // composite the contents of this buffer host to the compositor's surface
   virtual void Composite(EffectChain& aEffectChain,
                          float aOpacity,
                          const gfx::Matrix4x4& aTransform,
@@ -26,7 +27,8 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr) = 0;
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost) = 0;
+  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+                              TextureHost* aTextureHost) = 0;
 };
 
 }

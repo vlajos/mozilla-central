@@ -70,7 +70,7 @@ public:
                     nsIntRegion* aNewBackValidRegion,
                     OptionalThebesBuffer* aReadOnlyFront,
                     nsIntRegion* aFrontUpdatedRegion)
-  { NS_ERROR("Should not be called with Compsoitor system"); }
+  { NS_ERROR("Should not be called"); }
 
   virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
                            const ThebesBuffer& aNewFront,

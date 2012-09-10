@@ -28,15 +28,12 @@ class TextureClient : public RefCounted<TextureClient>
 public:
   virtual ~TextureClient() {}
   /* This will return an identifier that can be sent accross a process or
-   * thread boundary and used to construct a DrawableTextureHost object
+   * thread boundary and used to construct a TextureHost object
    * which can then be used as a texture for rendering by a compatible
    * compositor. This texture should have been created with the
    * TextureHostIdentifier specified by the compositor that this identifier
-   * is to be used with. If the process is identical to the current process
-   * this may return the same object and will only be thread safe.
+   * is to be used with.
    */
-  //virtual TextureIdentifier GetIdentifierForProcess(/*base::ProcessHandle* aProcess*/) = 0; //TODO[nrc]
-
   virtual const TextureIdentifier& GetIdentifier()
   {
     return mIdentifier;
@@ -47,20 +44,19 @@ public:
     mIdentifier.mDescriptor = aDescriptor;
   }
 
-  /* This requests a DrawTarget to draw into the current texture. Once the
-   * user is finished with the DrawTarget it should call Unlock.
-   */
-  virtual TemporaryRef<gfx::DrawTarget> LockDT() { return nullptr; } 
-
-  /* This requests a gfxContext to draw into the current texture. Once the
-   * user is finished with the gfxContext it should call Unlock.
+  /**
+   * The Lock* methods lock the texture client for drawing into, providing some 
+   * object that can be used for drawing to. Once the user is finished
+   * with the object it should call Unlock.
    */
   virtual already_AddRefed<gfxContext> LockContext()  { return nullptr; }
-
-  //TODO[nrc] comments
+  virtual TemporaryRef<gfx::DrawTarget> LockDT() { return nullptr; } 
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual SharedTextureHandle LockHandle(GLContext* aGL, TextureImage::TextureShareType aFlags) { return 0; }
+
+  // ensure that the texture client is suitable for the given size and content type
+  // and that any initialisation has taken place
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) = 0;
 
   /**

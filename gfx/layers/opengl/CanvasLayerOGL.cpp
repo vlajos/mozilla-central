@@ -294,7 +294,6 @@ ShadowCanvasLayerOGL::~ShadowCanvasLayerOGL()
 {
 }
 
-//TODO[nrc] these methods are pretty much shared with ShadowImageLayerOGL, can I pull 'em up to ShadowLayer?
 void
 ShadowCanvasLayerOGL::EnsureImageHost(BufferType aHostType)
 {

@@ -187,7 +187,7 @@ public:
 
 
   /////////////////////////////////////
-  //TODO get rid of these once the individual layers are done
+  //TODO[nrc] get rid of these once the individual layers are done
 
   void MakeCurrent(bool aForce = false) {
     mCompositor->MakeCurrent(aForce);

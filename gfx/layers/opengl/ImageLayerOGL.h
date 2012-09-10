@@ -172,10 +172,8 @@ public:
 
   virtual void Disconnect();
 
-  //TODO[nrc] comment
   virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
 
-  //TODO[nrc] comment
   virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
                            const SharedImage& aFront,
                            SharedImage* aNewBack);
@@ -184,7 +182,6 @@ public:
 
   // LayerOGL impl
   virtual void Destroy();
-  virtual bool LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize);
 
   virtual Layer* GetLayer();
 

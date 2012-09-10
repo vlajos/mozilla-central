@@ -58,7 +58,6 @@ private:
   gfx::IntSize mSize;
 };
 
-//TODO[nrc] kill this once I sort out TextureOGL
 class TextureHostOGL : public TextureHost
 {
 public:
@@ -134,9 +133,13 @@ public:
   virtual nsIntRect GetTileRect() { return mTexImage->GetTileRect(); }
   virtual size_t GetTileCount() { return mTexImage->GetTileCount(); }
   virtual bool NextTile() { return mTexImage->NextTile(); }
-  //bool InUpdate() { return mTexImage->InUpdate(); }
-  //void EndUpdate() { mTexImage->EndUpdate(); }
-  //gfxASurface* BeginUpdate(nsIntRegion& aRegion) { return mTexImage->BeginUpdate(aRegion); }
+
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump()
+  {
+    return mGL->GetTexImage(GetTextureHandle(), false, mTexImage->GetShaderProgramType());
+  }
+#endif
 
 protected:
   TextureImageAsTextureHost(GLContext* aGL)
@@ -148,14 +151,15 @@ protected:
   nsRefPtr<TextureImage> mTexImage;
 
   friend class CompositorOGL;
-  // YUCK! this is because BasicBufferOGL and SurfaceBufferOGL use this class like a texture image
-  // below method is meant only for ContentHost
+  
+  // The below method and constructor are meant for using the texture host in place
+  // of a texture image where code is shared between OGL and compositor layers.
   friend class ContentHost;
   friend class ThebesLayerBufferOGL;
   TextureImage* GetTextureImage() { return mTexImage; }
 
-  // TODO[nrc] comment
-  // constructor for using without the TextureHost capabilites (probably a bad idea)
+  // Constructor for wrapping a texture host around an existing TextureImage.
+  // The texture host will not have a corresponding texture client.
   TextureImageAsTextureHost(TextureImage* aTexImage, GLContext* aGL)
     : mGL(aGL)
     , mTexImage(aTexImage)
@@ -197,7 +201,7 @@ protected:
 class TextureHostOGLShared : public TextureHostOGL
 {
 public:
-  ~TextureHostOGLShared()
+  virtual ~TextureHostOGLShared()
   {
     mGL->MakeCurrent();
     mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
@@ -209,12 +213,6 @@ public:
   virtual gfx::IntSize GetSize()
   {
     return mSize;
-  }
-
-  //TODO[nrc] delete
-  void SetSize(const gfx::IntSize& aSize)
-  {
-    mSize = aSize;
   }
 
   virtual GLuint GetTextureHandle()
@@ -231,7 +229,6 @@ protected:
     : mGL(aGL)
   {}
 
-  bool mInverted;
   GLContext* mGL;
   GLuint mTextureHandle;
   gl::SharedTextureHandle mSharedHandle;
@@ -243,13 +240,11 @@ protected:
 class TextureHostOGLSharedWithBuffer : public TextureHostOGLShared
 {
 public:
-  //TODO[nrc] don't we need to de-allocate?
-  ~TextureHostOGLSharedWithBuffer()
+  //TODO: do we need to de-allocate mBuffer?
+  virtual ~TextureHostOGLSharedWithBuffer()
   {}
 
   virtual const SharedImage* Update(const SharedImage& aImage);
-  virtual Effect* Lock(const gfx::Filter& aFilter);
-  virtual void Unlock();
 
 protected:
   TextureHostOGLSharedWithBuffer(GLContext* aGL)

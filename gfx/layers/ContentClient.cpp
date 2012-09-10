@@ -11,24 +11,6 @@
 namespace mozilla {
 namespace layers {
 
-//TODO[nrc] AutoBufferTracker comment
-/**
- * AutoOpenBuffer is a helper that builds on top of AutoOpenSurface,
- * which we need to get a gfxASurface from a SurfaceDescriptor.  For
- * other layer types, simple lexical scoping of AutoOpenSurface is
- * easy.  For ThebesLayers, the lifetime of buffer mappings doesn't
- * exactly match simple lexical scopes, so naively putting
- * AutoOpenSurfaces on the stack doesn't always work.  We use this
- * helper to track openings instead.
- *
- * Any surface that's opened while painting this ThebesLayer will
- * notify this helper and register itself for unmapping.
- *
- * We ignore buffer destruction here because the shadow layers
- * protocol already ensures that destroyed buffers stay alive until
- * end-of-transaction.
- */
-
 ContentClientBasic::ContentClientBasic(BasicLayerManager* aManager)
   : mManager(aManager)
 {}

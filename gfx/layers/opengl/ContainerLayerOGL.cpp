@@ -142,6 +142,7 @@ ContainerRender(Container* aContainer,
   /**
    * Setup our temporary surface for rendering the contents of this container.
    */
+  //TODO gl
   GLuint containerSurface;
   RefPtr<Surface> surface;
 

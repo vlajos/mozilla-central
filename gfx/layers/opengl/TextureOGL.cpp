@@ -221,7 +221,9 @@ TextureHostOGLShared::Update(const SharedImage& aImage)
   SharedTextureHandle newHandle = texture.handle();
   nsIntSize size = texture.size();
   mSize = gfx::IntSize(size.width, size.height);
-  mInverted = texture.inverted();
+  if (texture.inverted()) {
+    mFlags |= NeedsYFlip;
+  }
   mShareType = texture.shareType();
 
   if (mSharedHandle &&
@@ -235,75 +237,6 @@ TextureHostOGLShared::Update(const SharedImage& aImage)
 
 Effect*
 TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
-{
-  GLContext::SharedHandleDetails handleDetails;
-  if (!mGL->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
-    NS_ERROR("Failed to get shared handle details");
-    return nullptr;
-  }
-
-  MakeTextureIfNeeded(mGL, mTextureHandle);
-
-  mGL->fBindTexture(handleDetails.mTarget, mTextureHandle);
-  if (!mGL->AttachSharedHandle(mShareType, mSharedHandle)) {
-    NS_ERROR("Failed to bind shared texture handle");
-    return nullptr;
-  }
-
-  if (handleDetails.mProgramType == gl::RGBALayerProgramType) {
-    return new EffectRGBA(this, true, aFilter, mInverted);
-  } else if (handleDetails.mProgramType == gl::RGBALayerExternalProgramType) {
-    gfx::Matrix4x4 textureTransform;
-    LayerManagerOGL::ToMatrix4x4(handleDetails.mTextureTransform, textureTransform);
-    return new EffectRGBAExternal(this, textureTransform, true, aFilter, mInverted);
-  } else {
-    NS_RUNTIMEABORT("Shader type not yet supported");
-    return nullptr;
-  }
-}
-
-void
-TextureHostOGLShared::Unlock()
-{
-  mGL->DetachSharedHandle(mShareType, mSharedHandle);
-  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
-}
-
-//TODO[nrc] we can surely share more code with TextureHostOGLShared
-const SharedImage*
-TextureHostOGLSharedWithBuffer::Update(const SharedImage& aImage)
-{
-  NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSharedTextureDescriptor,
-               "Invalid descriptor");
-
-  //TODO[nrc] do I even need this?
-  //if (mBuffer.type() != SurfaceDescriptor::TSharedTextureDescriptor) {
-  //  mBuffer = SharedTextureDescriptor(TextureImage::ThreadShared, 0, nsIntSize(0, 0), false);
-  //}
-
-  SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
-  SharedTextureDescriptor texture = surface.get_SharedTextureDescriptor();
-
-  SharedTextureHandle newHandle = texture.handle();
-  nsIntSize size = texture.size();
-  mSize = gfx::IntSize(size.width, size.height);
-  if (texture.inverted()) {
-    mFlags |= NeedsYFlip;
-  }
-  mShareType = texture.shareType();
-
-  if (mSharedHandle &&
-      newHandle != mSharedHandle) {
-    mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
-  }
-  mSharedHandle = newHandle;
-
-  mBuffer = SharedImage(surface);
-  return &mBuffer;
-}
-
-Effect*
-TextureHostOGLSharedWithBuffer::Lock(const gfx::Filter& aFilter)
 {
   GLContext::SharedHandleDetails handleDetails;
   if (!mGL->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
@@ -335,10 +268,18 @@ TextureHostOGLSharedWithBuffer::Lock(const gfx::Filter& aFilter)
 }
 
 void
-TextureHostOGLSharedWithBuffer::Unlock()
+TextureHostOGLShared::Unlock()
 {
   mGL->DetachSharedHandle(mShareType, mSharedHandle);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
+}
+
+const SharedImage*
+TextureHostOGLSharedWithBuffer::Update(const SharedImage& aImage)
+{
+  TextureHostOGLShared::Update(aImage);
+  mBuffer = SharedImage(aImage.get_SurfaceDescriptor());
+  return &mBuffer;
 }
 
 
