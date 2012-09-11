@@ -816,8 +816,7 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
 #endif
 
   EffectChain effectChain;
-  // TODO: Handle mask layers.
-  RefPtr<Effect> effectMask;
+  effectChain.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(mMaskLayer);
 
   mBuffer->Composite(effectChain,
                      GetEffectiveOpacity(),

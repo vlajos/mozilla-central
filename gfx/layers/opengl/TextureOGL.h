@@ -92,9 +92,6 @@ protected:
   GLenum mWrapMode;
 };
 
-class BasicBufferOGL;
-class SurfaceBufferOGL;
-
 //thin TextureHost wrapper around a TextureImage
 class TextureImageAsTextureHost : public TextureHostOGL, public TileIterator
 {

@@ -223,10 +223,12 @@ struct EffectMask : public Effect
   EffectMask(TextureHost *aMaskTexture,
              const gfx::Matrix4x4 &aMaskTransform)
     : Effect(EFFECT_MASK), mMaskTexture(aMaskTexture)
+    , mIs3D(false)
     , mMaskTransform(aMaskTransform)
   {}
 
   RefPtr<TextureHost> mMaskTexture;
+  bool mIs3D;
   gfx::Matrix4x4 mMaskTransform;
 };
 
@@ -379,12 +381,7 @@ struct EffectSolidColor : public Effect
 struct EffectChain
 {
   // todo - define valid grammar
-  Effect* mEffects[EFFECT_MAX];
-
-  EffectChain()
-  {
-    memset(mEffects, 0, EFFECT_MAX * sizeof(Effect*));
-  }
+  RefPtr<Effect> mEffects[EFFECT_MAX];
 };
 
 class Compositor : public RefCounted<Compositor>

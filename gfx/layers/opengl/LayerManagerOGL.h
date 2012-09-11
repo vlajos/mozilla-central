@@ -347,6 +347,8 @@ public:
 
   static void ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut);
 
+  // helper method to create a mask effect for a mask layer
+  static EffectMask* MakeMaskEffect(Layer* aMaskLayer);
 
 private:
   RefPtr<CompositorOGL> mCompositor;
@@ -412,7 +414,7 @@ public:
   GLContext *gl() const { return mOGLManager->gl(); }
   virtual void CleanupResources() = 0;
 
-  /*
+  /**
    * Loads the result of rendering the layer as an OpenGL texture in aTextureUnit.
    * Will try to use an existing texture if possible, or a temporary
    * one if not. It is the callee's responsibility to release the texture.
@@ -428,10 +430,21 @@ public:
     return false;
   }
 
+  /**
+   * Get a texture host representation of the layer. This should not be used
+   * for normal rendering. It is used for using the layer as a mask layer, any
+   * layer that can be used as a mask layer should override this method.
+   */
+  virtual TemporaryRef<TextureHost> AsTextureHost()
+  {
+    return nullptr;
+  }
+
 protected:
   LayerManagerOGL *mOGLManager;
   bool mDestroyed;
 };
+
 
 } /* layers */
 } /* mozilla */

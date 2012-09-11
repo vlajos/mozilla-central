@@ -18,8 +18,7 @@ RenderColorLayer(ColorLayer* aLayer, LayerManagerOGL *aManager,
   effects.mEffects[EFFECT_SOLID_COLOR] = effectColor;
   nsIntRect visibleRect = aLayer->GetEffectiveVisibleRegion().GetBounds();
 
-  // TODO: Create an EffectMask (with appropriate transform) for this.
-  // program->LoadMask(aLayer->GetMaskLayer());
+  effects.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(aLayer->GetMaskLayer());
 
   gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
   float opacity = aLayer->GetEffectiveOpacity();

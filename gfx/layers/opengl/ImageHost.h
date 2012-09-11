@@ -20,6 +20,8 @@ public:
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
 
+  virtual TemporaryRef<TextureHost> GetTextureHost() { return nullptr; }
+
 protected:
   ImageHost(Compositor* aCompositor)
     : mCompositor(aCompositor)
@@ -49,6 +51,8 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr);
 
   virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+
+  virtual TemporaryRef<TextureHost> GetTextureHost() { return mTextureHost; }
 
 private:
   RefPtr<TextureHost> mTextureHost;

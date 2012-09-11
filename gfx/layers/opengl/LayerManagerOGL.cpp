@@ -353,5 +353,19 @@ LayerManagerOGL::ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut)
   aOut._44 = aIn._44;
 }
 
+/* static */ EffectMask*
+LayerManagerOGL::MakeMaskEffect(Layer* aMaskLayer)
+{
+  if (aMaskLayer) {
+    LayerOGL* maskLayerOGL = static_cast<LayerOGL*>(aMaskLayer->ImplData());
+    RefPtr<TextureHost> maskHost = maskLayerOGL->AsTextureHost();
+    Matrix4x4 transform;
+    ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
+    return new EffectMask(maskHost, transform);
+  }
+
+  return nullptr;
+}
+
 } /* layers */
 } /* mozilla */

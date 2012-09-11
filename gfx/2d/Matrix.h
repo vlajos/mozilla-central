@@ -194,6 +194,13 @@ public:
     }
     return true;
   }
+
+  Matrix As2D() const
+  {
+    MOZ_ASSERT(Is2D(), "Matrix is not a 2D affine transform");
+
+    return Matrix(_11, _12, _21, _22, _41, _42);
+  }
 };
 
 }

@@ -247,17 +247,17 @@ ContainerRender(Container* aContainer,
     nsIntRect viewport = aContainer->gl()->ViewportRect();
     aManager->SetupPipeline(viewport.width, viewport.height);
 
+
+    EffectChain effectChain;
     MaskType maskType = MaskNone;
     if (aContainer->GetMaskLayer()) {
+      EffectMask* maskEffect = LayerManagerOGL::MakeMaskEffect(aContainer->GetMaskLayer());
       if (!aContainer->GetTransform().CanDraw2D()) {
-        maskType = Mask3d;
-      } else {
-        maskType = Mask2d;
+        maskEffect->mIs3D = true;
       }
+      effectChain.mEffects[EFFECT_MASK] = maskEffect;
     }
 
-    // TODO: Handle mask layers.
-    EffectChain effectChain;
     RefPtr<Effect> effect = new EffectSurface(surface);
     effectChain.mEffects[EFFECT_SURFACE] = effect;
     gfx::Matrix4x4 transform;

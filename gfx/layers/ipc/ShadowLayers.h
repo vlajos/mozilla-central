@@ -781,6 +781,7 @@ bool IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface);
 ipc::SharedMemory::SharedMemoryType OptimalShmemType();
 
 
+
 } // namespace layers
 } // namespace mozilla
 

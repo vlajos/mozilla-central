@@ -189,6 +189,9 @@ public:
                            const nsIntRect& aClipRect,
                            Surface* aPreviousSurface = nullptr);
 
+  virtual TemporaryRef<TextureHost> AsTextureHost();
+
+
   virtual void CleanupResources();
 
 private:

@@ -364,11 +364,8 @@ ShadowCanvasLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aC
   }
 #endif
 
-  // TODO: Handle mask layers.
-
   EffectChain effectChain;
-  RefPtr<Effect> effect;
-  RefPtr<Effect> effectMask;
+  effectChain.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(mMaskLayer);
 
   gfx::Matrix4x4 transform;
   mOGLManager->ToMatrix4x4(GetEffectiveTransform(), transform);

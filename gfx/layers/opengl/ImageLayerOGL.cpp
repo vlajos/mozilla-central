@@ -801,9 +801,8 @@ ShadowImageLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aCl
     return;
   }
 
-  // TODO: Handle mask layers.
   EffectChain effectChain;
-  RefPtr<Effect> effectMask;
+  effectChain.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(mMaskLayer);
 
   gfx::Matrix4x4 transform;
   LayerManagerOGL::ToMatrix4x4(GetEffectiveTransform(), transform);
@@ -815,6 +814,12 @@ ShadowImageLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aCl
                         gfx::Point(aOffset.x, aOffset.y),
                         gfx::ToFilter(mFilter),
                         clipRect);
+}
+
+TemporaryRef<TextureHost> 
+ShadowImageLayerOGL::AsTextureHost()
+{
+  return mImageHost->GetTextureHost();
 }
 
 void
