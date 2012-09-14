@@ -55,15 +55,15 @@ public:
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual SharedTextureHandle LockHandle(GLContext* aGL, TextureImage::TextureShareType aFlags) { return 0; }
 
-  // ensure that the texture client is suitable for the given size and content type
-  // and that any initialisation has taken place
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) = 0;
-
   /**
    * This unlocks the current DrawableTexture and allows the host to composite
    * it directly.
    */
   virtual void Unlock() {}
+
+  // ensure that the texture client is suitable for the given size and content type
+  // and that any initialisation has taken place
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) = 0;
 
   void SetDescriptor(const SurfaceDescriptor& aDescriptor)
   {
@@ -145,6 +145,20 @@ protected:
 
   GLContext* mGL;
   gfx::IntSize mSize;
+
+  friend class CompositingFactory;
+};
+
+// there is no corresponding texture host for ImageBridge clients
+// we only use the texture client to update the host
+class TextureClientBridge : public TextureClient
+{
+public:
+  // always ok
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
+
+protected:
+  TextureClientBridge(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
 
   friend class CompositingFactory;
 };

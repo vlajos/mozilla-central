@@ -171,6 +171,12 @@ TextureClientSharedGL::Unlock()
   mDescriptor = SurfaceDescriptor();
 }
 
+TextureClientBridge::TextureClientBridge(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
+  : TextureClient(aLayerForwarder, aBufferType)
+{
+  mIdentifier.mTextureType = TEXTURE_BRIDGE;
+}
+
 /* static */ BufferType
 CompositingFactory::TypeForImage(Image* aImage) {
   if (!aImage) {
@@ -210,6 +216,11 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
   case BUFFER_TEXTURE:
     if (aParentBackend == LAYERS_OPENGL) {
       result = new ImageClientTexture(aLayerForwarder, aLayer, aFlags);
+    }
+    break;
+  case BUFFER_BRIDGE:
+    if (aParentBackend == LAYERS_OPENGL) {
+      result = new ImageClientBridge(aLayerForwarder, aLayer, aFlags);
     }
     break;
   case BUFFER_UNKNOWN:
@@ -285,6 +296,9 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
     if (aParentBackend == LAYERS_OPENGL) {
       result = new TextureClientShmem(aLayerForwarder, aBufferHostType);
     }
+    break;
+  case TEXTURE_BRIDGE:
+    result = new TextureClientBridge(aLayerForwarder, aBufferHostType);
     break;
   default:
     return result.forget();

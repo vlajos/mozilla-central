@@ -142,8 +142,6 @@ ContainerRender(Container* aContainer,
   /**
    * Setup our temporary surface for rendering the contents of this container.
    */
-  //TODO gl
-  GLuint containerSurface;
   RefPtr<Surface> surface;
 
   nsIntPoint childOffset(aOffset);
@@ -181,8 +179,7 @@ ContainerRender(Container* aContainer,
       }
     }
 
-    //TODO gl
-    aContainer->gl()->PushViewportRect();
+    aManager->SaveViewport();
     surfaceRect -= gfx::IntPoint(childOffset.x, childOffset.y);
     if (surfaceCopyNeeded) {
       surface = aManager->GetCompositor()->CreateSurfaceFromSurface(surfaceRect, aPreviousSurface);
@@ -205,7 +202,7 @@ ContainerRender(Container* aContainer,
    * Render this container's contents.
    */
   for (PRUint32 i = 0; i < children.Length(); i++) {
-    //TODO why LayerOGL and not just Layer?
+    //TODO[nrc] should be LayerComposited, not OGL, no real dependence on OGL
     LayerOGL* layerToRender = static_cast<LayerOGL*>(children.ElementAt(i)->ImplData());
 
     if (layerToRender->GetLayer()->GetEffectiveVisibleRegion().IsEmpty()) {
@@ -219,8 +216,8 @@ ContainerRender(Container* aContainer,
     }
 
     layerToRender->RenderLayer(childOffset, scissorRect, surface);
-    //TODO gl
-    aContainer->gl()->MakeCurrent();
+    // invariant: our GL context should be current here, I don't think we can
+    // assert it though
   }
 
 
@@ -228,30 +225,18 @@ ContainerRender(Container* aContainer,
     // Unbind the current surface and rebind the previous one.
     aManager->GetCompositor()->SetSurfaceTarget(aPreviousSurface);
 #ifdef MOZ_DUMP_PAINTING
-    /* TODO: This needs to be re-written to use the Compositor API (which will likely require
-     * additions to the Compositor API).
-     */
-    /*
     if (gfxUtils::sDumpPainting) {
-      nsRefPtr<gfxImageSurface> surf = 
-        aContainer->gl()->GetTexImage(containerSurface, true, aManager->GetFBOLayerProgramType());
-
+      nsRefPtr<gfxImageSurface> surf = surface->Dump(aManager->GetCompositor());
       WriteSnapshotToDumpFile(aContainer, surf);
-      
-    }*/
+    }
 #endif
 
-    // TODO: Handle this in the Compositor.
-    // Restore the viewport
-    aContainer->gl()->PopViewportRect();
-    nsIntRect viewport = aContainer->gl()->ViewportRect();
-    aManager->SetupPipeline(viewport.width, viewport.height);
-
+    aManager->RestoreViewport();
 
     EffectChain effectChain;
     MaskType maskType = MaskNone;
     if (aContainer->GetMaskLayer()) {
-      EffectMask* maskEffect = LayerManagerOGL::MakeMaskEffect(aContainer->GetMaskLayer());
+      EffectMask* maskEffect = aManager->MakeMaskEffect(aContainer->GetMaskLayer());
       if (!aContainer->GetTransform().CanDraw2D()) {
         maskEffect->mIs3D = true;
       }

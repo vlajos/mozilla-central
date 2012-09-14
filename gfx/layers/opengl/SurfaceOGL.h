@@ -8,17 +8,41 @@
 
 #include "Compositor.h"
 
+#ifdef MOZ_DUMP_PAINTING
+#include "CompositorOGL.h"
+#endif
+
 namespace mozilla {
 
 namespace layers {
 
 class SurfaceOGL : public Surface
 {
-  // TODO: Release the GL texture and FBO on destruction.
 public:
+  SurfaceOGL(GLContext* aGL)
+    : mGL(aGL) 
+  {}
+
+  ~SurfaceOGL()
+  {
+    mGL->fDeleteTextures(1, &mTexture);
+    mGL->fDeleteFramebuffers(1, &mFBO);
+  }
+
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor)
+  {
+    CompositorOGL* compositorOGL = static_cast<CompositorOGL*>(aCompositor);
+    return mGL->GetTexImage(mTexture, true, compositorOGL->GetFBOLayerProgramType());
+  }
+#endif
+
   gfx::IntSize mSize;
   GLuint mTexture;
   GLuint mFBO;
+
+private:
+  GLContext* mGL;
 };
 
 

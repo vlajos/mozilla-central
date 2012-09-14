@@ -51,7 +51,9 @@ using namespace mozilla::gl;
 LayerManagerOGL::LayerManagerOGL(nsIWidget *aWidget, int aSurfaceWidth, int aSurfaceHeight,
                                  bool aIsRenderingToEGLSurface)
 {
+  //TODO[nrc] sort this when we only need Compositor API
   mCompositor = new CompositorOGL(aWidget, aSurfaceWidth, aSurfaceHeight, aIsRenderingToEGLSurface);
+  ShadowLayerManager::mCompositor = mCompositor;
 }
 
 void
@@ -353,7 +355,7 @@ LayerManagerOGL::ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut)
   aOut._44 = aIn._44;
 }
 
-/* static */ EffectMask*
+EffectMask*
 LayerManagerOGL::MakeMaskEffect(Layer* aMaskLayer)
 {
   if (aMaskLayer) {

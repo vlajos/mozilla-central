@@ -91,7 +91,7 @@ public:
   {
   }
 
-  ~YUVImageHost();
+  virtual ~YUVImageHost();
 
   virtual BufferType GetType() { return BUFFER_YUV; }
 
@@ -115,11 +115,39 @@ public:
     mPictureRect = aPictureRect;
   }
 
-private:
+protected:
   RefPtr<TextureHost> mTextures[3];
   nsIntRect mPictureRect;
 };
 
+class ImageHostBridge : public YUVImageHost
+{
+public:
+  ImageHostBridge(Compositor* aCompositor)
+    : YUVImageHost(aCompositor)
+    , mImageContainerID(0)
+    , mImageVersion(0)
+  {}
+
+  virtual BufferType GetType() { return BUFFER_BRIDGE; }
+
+  virtual const SharedImage* UpdateImage(const TextureIdentifier& aTextureIdentifier,
+                                         const SharedImage& aImage);
+
+  virtual void Composite(EffectChain& aEffectChain,
+                         float aOpacity,
+                         const gfx::Matrix4x4& aTransform,
+                         const gfx::Point& aOffset,
+                         const gfx::Filter& aFilter,
+                         const gfx::Rect& aClipRect,
+                         const nsIntRegion* aVisibleRegion = nullptr);
+
+  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+
+protected:
+  PRUint32 mImageContainerID;
+  PRUint32 mImageVersion;
+};
 
 }
 }

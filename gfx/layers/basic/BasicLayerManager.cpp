@@ -1089,6 +1089,7 @@ BasicShadowLayerManager::ForwardTransaction()
         break;
       }
       case EditReply::TOpImageSwap: {
+        NS_WARNING("Shouldn't get used with Compositor");
         MOZ_LAYERS_LOG(("[LayersForwarder] BufferSwap (image bridge)"));
 
         const OpImageSwap& ois = reply.get_OpImageSwap();

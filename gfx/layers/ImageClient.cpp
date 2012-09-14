@@ -233,5 +233,26 @@ ImageClientYUV::Updated(ShadowableLayer* aLayer)
   mLayerForwarder->UpdatePictureRect(aLayer, mPictureRect);
 }
 
+ImageClientBridge::ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
+                                     ShadowableLayer* aLayer,
+                                     TextureFlags aFlags)
+{
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_BRIDGE, BUFFER_BRIDGE, aLayer, aFlags, true);
+}
+
+bool
+ImageClientBridge::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
+{
+  mTextureClient->SetDescriptor(aContainer->GetAsyncContainerID());
+
+  return true;
+}
+
+void
+ImageClientBridge::Updated(ShadowableLayer* aLayer)
+{
+  mTextureClient->Updated(aLayer);
+}
+
 }
 }

@@ -199,7 +199,7 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
 {
   // TODO: Fix texture handling.
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(mMaskLayer);
+  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
   RefPtr<Effect> effect;
   //TODO[nrc] should use a texture host
   RefPtr<TextureHostOGL> texture; //= new TextureOGL(gl(), aTile.mTextureHandle,

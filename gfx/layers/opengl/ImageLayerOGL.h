@@ -168,7 +168,10 @@ public:
 
   // ShadowImageLayer impl
   virtual void Swap(const SharedImage& aFront,
-                    SharedImage* aNewBack);
+                    SharedImage* aNewBack)
+  {
+    NS_ERROR("Not implemented");
+  }
 
   virtual void Disconnect();
 

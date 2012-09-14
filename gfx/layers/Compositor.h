@@ -186,6 +186,10 @@ protected:
  */
 class Surface : public RefCounted<Surface>
 {
+public:
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor) { return nullptr; }
+#endif
 };
 
 enum SurfaceInitMode
@@ -387,6 +391,10 @@ struct EffectChain
 class Compositor : public RefCounted<Compositor>
 {
 public:
+  Compositor()
+    : mCompositorID(0)
+  {}
+
   /* Request a texture host identifier that may be used for creating textures
    * accross process or thread boundaries that are compatible with this
    * compositor.
@@ -451,6 +459,11 @@ public:
    */
   virtual void EndFrame() = 0;
 
+  // save the current viewport
+  virtual void SaveViewport() = 0;
+  // resotre the previous viewport and return its bounds
+  virtual gfx::IntRect RestoreViewport() = 0;
+
   /* Whether textures created by this compositor can receive partial updates.
    */
   virtual bool SupportsPartialTextureUpdate() = 0;
@@ -460,6 +473,21 @@ public:
 #endif // MOZ_DUMP_PAINTING
 
   virtual ~Compositor() {}
+
+  // these methods refer to the ID of the Compositor in terms of the Compositor
+  // IPDL protocol and CompositorParent
+  void SetCompositorID(PRUint32 aID)
+  {
+    NS_ASSERTION(mCompositorID==0, "The compositor ID must be set only once.");
+    mCompositorID = aID;
+  }
+  PRUint32 GetCompositorID() const
+  {
+    return mCompositorID;
+  }
+
+protected:
+  PRUint32 mCompositorID;
 };
 
 

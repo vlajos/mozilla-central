@@ -114,17 +114,29 @@ public:
     mTarget = aTarget;
   }
 
-  //TODO[nrc] can I get rid of this?
-  void SetClamping(GLuint aTexture)
+  virtual void SaveViewport()
   {
-    mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, aTexture);
-    mGLContext->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
-    mGLContext->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
+    mGLContext->PushViewportRect();
+  }
+  virtual gfx::IntRect RestoreViewport()
+  {
+    mGLContext->PopViewportRect();
+    nsIntRect viewport = mGLContext->ViewportRect();
+    return gfx::IntRect(viewport.x,
+                        viewport.y,
+                        viewport.width,
+                        viewport.height);
   }
 
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const { return "OGL"; }
 #endif // MOZ_DUMP_PAINTING
+
+  gl::ShaderProgramType GetFBOLayerProgramType() {
+    if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
+      return gl::RGBARectLayerProgramType;
+    return gl::RGBALayerProgramType;
+  }
 
 private:
   /** 
@@ -218,12 +230,6 @@ private:
     NS_ASSERTION(ProgramProfileOGL::ProgramExists(aType, aMask),
                  "Invalid program type.");
     return mPrograms[aType].mVariations[aMask];
-  }
-
-  gl::ShaderProgramType GetFBOLayerProgramType() {
-    if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
-      return gl::RGBARectLayerProgramType;
-    return gl::RGBALayerProgramType;
   }
 
   /* Create a FBO backed by a texture.

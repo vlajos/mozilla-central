@@ -303,6 +303,13 @@ public:
     return mCompositor->mWidgetSize;
   }
 
+  /**
+   * Set the size of the surface we're rendering to.
+   */
+  void SetSurfaceSize(int width, int height)
+  {
+    mCompositor->SetSurfaceSize(width, height);
+  }
 
 
   ///////////////////////////////
@@ -337,21 +344,23 @@ public:
   void SetWorldTransform(const gfxMatrix& aMatrix);
   gfxMatrix& GetWorldTransform(void);
 
-  /**
-   * Set the size of the surface we're rendering to.
-   */
-  void SetSurfaceSize(int width, int height)
+  void SaveViewport()
   {
-    mCompositor->SetSurfaceSize(width, height);
+    mCompositor->SaveViewport();
+  }
+  void RestoreViewport()
+  {
+    gfx::IntRect viewport = mCompositor->RestoreViewport();
+    SetupPipeline(viewport.width, viewport.height);
   }
 
   static void ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut);
 
-  // helper method to create a mask effect for a mask layer
-  static EffectMask* MakeMaskEffect(Layer* aMaskLayer);
+  virtual EffectMask* MakeMaskEffect(Layer* aMaskLayer);
 
 private:
-  RefPtr<CompositorOGL> mCompositor;
+  //TODO[nrc] remove, ShadowLayerManager has a strong ref
+  CompositorOGL* mCompositor;
 
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;

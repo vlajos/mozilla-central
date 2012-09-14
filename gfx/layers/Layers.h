@@ -467,6 +467,9 @@ public:
 
   virtual bool IsCompositingCheap() { return true; }
 
+  // helper method to create a mask effect for a mask layer
+  virtual EffectMask* MakeMaskEffect(Layer* aMaskLayer) { return nullptr; }
+
 protected:
   nsRefPtr<Layer> mRoot;
   gfx::UserData mUserData;

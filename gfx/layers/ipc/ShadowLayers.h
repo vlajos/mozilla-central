@@ -473,20 +473,17 @@ public:
 
   void SetCompositorID(PRUint32 aID)
   {
-    NS_ASSERTION(mCompositorID==0, "The compositor ID must be set only once.");
-    mCompositorID = aID;
-  }
-  PRUint32 GetCompositorID() const
-  {
-    return mCompositorID;
+    NS_ASSERTION(mCompositor, "No compositor");
+    mCompositor->SetCompositorID(aID);
   }
 
 protected:
   ShadowLayerManager()
-  : mCompositorID(0) {}
+  : mCompositor(nullptr)
+  {}
 
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
-  PRUint32 mCompositorID;
+  RefPtr<Compositor> mCompositor;
 };
 
 
@@ -737,14 +734,8 @@ public:
 
 protected:
   ShadowImageLayer(LayerManager* aManager, void* aImplData)
-    : ImageLayer(aManager, aImplData), 
-      mImageContainerID(0),
-      mImageVersion(0)
+    : ImageLayer(aManager, aImplData)
   {}
-
-  // ImageBridge protocol:
-  PRUint32 mImageContainerID;
-  PRUint32 mImageVersion;
 };
 
 

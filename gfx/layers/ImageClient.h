@@ -78,7 +78,6 @@ public:
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
                          const SharedImage& aBuffer);
-
   virtual void Updated(ShadowableLayer* aLayer);
 private:
   ShadowLayerForwarder* mLayerForwarder;
@@ -86,6 +85,24 @@ private:
   RefPtr<TextureClient> mTextureClientU;
   RefPtr<TextureClient> mTextureClientV;
   nsIntRect mPictureRect;
+};
+
+// we store the ImageBridge id in the TextureClientIdentifier
+class ImageClientBridge : public ImageClient
+{
+public:
+  ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
+                    ShadowableLayer* aLayer,
+                    TextureFlags aFlags);
+  virtual ~ImageClientBridge();
+
+  virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
+  virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
+                         const SharedImage& aBuffer) {}
+  virtual void Updated(ShadowableLayer* aLayer);
+
+private:
+  RefPtr<TextureClient> mTextureClient;
 };
 
 }

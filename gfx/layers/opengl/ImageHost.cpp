@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/layers/ImageContainerParent.h"
 #include "ipc/AutoOpenSurface.h"
 #include "ImageHost.h"
 
@@ -113,12 +114,20 @@ YUVImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
                           const SharedImage& aImage)
 {
   NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YUV, "BufferType mismatch.");
-    
-  const YUVImage& yuv = aImage.get_YUVImage();
+  
+  if (aImage.type() == SharedImage::TYUVImage) {
+    // update all channels at once
+    const YUVImage& yuv = aImage.get_YUVImage();
 
-  mTextures[0]->Update(SurfaceDescriptor(yuv.Ydata()));
-  mTextures[1]->Update(SurfaceDescriptor(yuv.Udata()));
-  mTextures[2]->Update(SurfaceDescriptor(yuv.Vdata()));
+    mTextures[0]->Update(SurfaceDescriptor(yuv.Ydata()));
+    mTextures[1]->Update(SurfaceDescriptor(yuv.Udata()));
+    mTextures[2]->Update(SurfaceDescriptor(yuv.Vdata()));
+
+    return &aImage;
+  }
+
+  // update a single channel
+  mTextures[aTextureIdentifier.mDescriptor]->Update(aImage);
 
   return &aImage;
 }
@@ -152,6 +161,72 @@ YUVImageHost::AddTextureHost(const TextureIdentifier& aTextureIdentifier, Textur
 {
   NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YUV, "BufferType mismatch.");
   mTextures[aTextureIdentifier.mDescriptor] = aTextureHost;
+}
+
+const SharedImage*
+ImageHostBridge::UpdateImage(const TextureIdentifier& aTextureIdentifier,
+                             const SharedImage& aImage)
+{
+  // The image data will be queried at render time
+  PRUint64 newID = aTextureIdentifier.mDescriptor;
+  if (newID != mImageContainerID) {
+    mImageContainerID = newID;
+    mImageVersion = 0;
+  }
+
+  return &aImage;
+}
+
+void
+ImageHostBridge::Composite(EffectChain& aEffectChain,
+                           float aOpacity,
+                           const gfx::Matrix4x4& aTransform,
+                           const gfx::Point& aOffset,
+                           const gfx::Filter& aFilter,
+                           const gfx::Rect& aClipRect,
+                           const nsIntRegion* aVisibleRegion /* = nullptr */)
+{
+  ImageContainerParent::SetCompositorIDForImage(mImageContainerID,
+                                                mCompositor->GetCompositorID());
+  PRUint32 imgVersion = ImageContainerParent::GetSharedImageVersion(mImageContainerID);
+  if (imgVersion != mImageVersion) {
+    SharedImage* img = ImageContainerParent::GetSharedImage(mImageContainerID);
+    if (img &&
+        img->type() == SharedImage::TYUVImage) {
+      TextureIdentifier textureId;
+      textureId.mBufferType = BUFFER_YUV;
+      textureId.mTextureType = TEXTURE_SHMEM;
+      textureId.mDescriptor = 3;
+      YUVImageHost::UpdateImage(textureId, *img);
+  
+      mImageVersion = imgVersion;
+    }
+  }
+
+  YUVImageHost::Composite(aEffectChain,
+                          aOpacity,
+                          aTransform,
+                          aOffset,
+                          aFilter,
+                          aClipRect,
+                          aVisibleRegion);
+}
+
+void
+ImageHostBridge::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+{
+  // ImageHostBridge does not have a texture host corresponding to its TextureClient,
+  // so we ignore the args to this method. But we need to create the YUV texture hosts
+  // for later.
+
+  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_BRIDGE, "BufferType mismatch.");
+
+  TextureIdentifier id;
+  id.mBufferType = BUFFER_YUV;
+  id.mTextureType = TEXTURE_SHMEM;
+  mTextures[0] = mCompositor->CreateTextureHost(id, NoFlags);
+  mTextures[1] = mCompositor->CreateTextureHost(id, NoFlags);
+  mTextures[2] = mCompositor->CreateTextureHost(id, NoFlags);
 }
 
 }

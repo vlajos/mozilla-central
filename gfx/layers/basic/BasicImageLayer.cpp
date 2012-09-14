@@ -213,6 +213,10 @@ private:
 
   BufferType GetImageClientType()
   {
+    if (mContainer->IsAsync()) {
+      return BUFFER_BRIDGE;
+    }
+
     nsRefPtr<gfxASurface> surface;
     AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
 
@@ -239,13 +243,6 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   }
 
   if (!mContainer) {
-    return;
-  }
-
-  if (mContainer->IsAsync()) {
-    PRUint32 containerID = mContainer->GetAsyncContainerID();
-    BasicManager()->PaintedImage(BasicManager()->Hold(this),
-                                 SharedImageID(containerID));
     return;
   }
 

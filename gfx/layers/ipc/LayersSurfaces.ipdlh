@@ -47,10 +47,6 @@ struct SurfaceDescriptorGralloc {
   PGrallocBuffer buffer;
 };
 
-struct SharedImageID {
-  PRUint64 id;
-};
-
 union SurfaceDescriptor {
   Shmem;
   SurfaceDescriptorD3D10;
@@ -69,7 +65,6 @@ struct YUVImage {
 union SharedImage {
   SurfaceDescriptor;
   YUVImage;
-  SharedImageID;
   null_t;
 };
 

@@ -709,10 +709,6 @@ ShadowImageLayerOGL::SwapTexture(const TextureIdentifier& aTextureIdentifier,
     return;
   }
 
-  if (aFront.type() == SharedImage::TSharedImageID) {
-    NS_ERROR("ImageBridge should not use SwapTexture");
-  }
-
   mImageHost->UpdateImage(aTextureIdentifier, aFront);
   *aNewBack = aFront;
 }
@@ -725,32 +721,6 @@ ShadowImageLayerOGL::EnsureImageHost(BufferType aHostType)
     RefPtr<BufferHost> bufferHost = mOGLManager->GetCompositor()->CreateBufferHost(aHostType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
   }
-}
-
-void
-ShadowImageLayerOGL::Swap(const SharedImage& aNewFront,
-                          SharedImage* aNewBack)
-{
-  if (mDestroyed) {
-    *aNewBack = aNewFront;
-    return;
-  }
-
-  if (aNewFront.type() != SharedImage::TSharedImageID) {
-    NS_ERROR("Only ImageBridge should use Swap");
-    *aNewBack = aNewFront;
-    return;
-  }
-
-  // We are using ImageBridge protocol. The image data will be queried at render
-  // time in the parent side.
-  PRUint64 newID = aNewFront.get_SharedImageID().id();
-  if (newID != mImageContainerID) {
-    mImageContainerID = newID;
-    mImageVersion = 0;
-  }
-
-  *aNewBack = aNewFront;
 }
 
 void
@@ -778,31 +748,13 @@ void
 ShadowImageLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
 {
   mOGLManager->MakeCurrent();
-  if (mImageContainerID) {
-    ImageContainerParent::SetCompositorIDForImage(mImageContainerID,
-                                                  mOGLManager->GetCompositorID());
-    PRUint32 imgVersion = ImageContainerParent::GetSharedImageVersion(mImageContainerID);
-    if (imgVersion != mImageVersion) {
-      SharedImage* img = ImageContainerParent::GetSharedImage(mImageContainerID);
-      if (img && (img->type() == SharedImage::TYUVImage)) {
-        RefPtr<BufferHost> bufferHost = mOGLManager->GetCompositor()->CreateBufferHost(BUFFER_YUV);
-        mImageHost = static_cast<ImageHost*>(bufferHost.get());
-        TextureIdentifier textureId;
-        textureId.mBufferType = BUFFER_YUV;
-        textureId.mTextureType = TEXTURE_SHMEM;
-        mImageHost->UpdateImage(textureId, *img);
-  
-        mImageVersion = imgVersion;
-      }
-    }
-  }
 
   if (!mImageHost) {
     return;
   }
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(mMaskLayer);
+  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
 
   gfx::Matrix4x4 transform;
   LayerManagerOGL::ToMatrix4x4(GetEffectiveTransform(), transform);

@@ -413,7 +413,7 @@ CompositorOGL::SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTra
   // looking correct.
   // XXX: We keep track of whether the window size changed, so we could skip
   // this update if it hadn't changed since the last call. We will need to
-  // track changes to aTransformPolicy and mWorldMatrix for this to work
+  // track changes to aTransformPolicy and aWorldTransform for this to work
   // though.
 
   // Matrix to transform (0, 0, aWidth, aHeight) to viewport space (-1.0, 1.0,
@@ -495,6 +495,8 @@ CompositorOGL::CreateBufferHost(BufferType aType)
     return new ImageHostShared(this);
   case BUFFER_TEXTURE:
     return new ImageHostTexture(this);
+  case BUFFER_BRIDGE:
+    return new ImageHostBridge(this);
   case BUFFER_THEBES:
     return new ContentHostTexture(this);
   case BUFFER_DIRECT:
@@ -526,8 +528,6 @@ CompositorOGL::CreateTextureHost(const TextureIdentifier &aIdentifier,
       result = new TextureImageAsTextureHost(mGLContext);
     }
     break;
-  case TEXTURE_BRIDGE:
-    break;
   case TEXTURE_UNKNOWN:
   default:
     return nullptr;
@@ -542,7 +542,7 @@ CompositorOGL::CreateTextureHost(const TextureIdentifier &aIdentifier,
 TemporaryRef<Surface>
 CompositorOGL::CreateSurface(const gfx::IntRect &aRect, SurfaceInitMode aInit)
 {
-  RefPtr<SurfaceOGL> surface = new SurfaceOGL();
+  RefPtr<SurfaceOGL> surface = new SurfaceOGL(mGLContext);
   CreateFBOWithTexture(aRect, aInit, 0, &(surface->mFBO), &(surface->mTexture));
   return surface.forget();
 }
@@ -550,7 +550,7 @@ CompositorOGL::CreateSurface(const gfx::IntRect &aRect, SurfaceInitMode aInit)
 TemporaryRef<Surface>
 CompositorOGL::CreateSurfaceFromSurface(const gfx::IntRect &aRect, const Surface *aSource)
 {
-  RefPtr<SurfaceOGL> surface = new SurfaceOGL();
+  RefPtr<SurfaceOGL> surface = new SurfaceOGL(mGLContext);
   const SurfaceOGL* sourceSurface = static_cast<const SurfaceOGL*>(aSource);
   if (aSource) {
     CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->mFBO,
@@ -867,7 +867,7 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
     mWidget->GetClientBounds(rect);
   }
 
-  //TODO[nrc] sort this rect bullshit
+  //TODO[nrc] sort this rect/gfxRect bullshit
   gfxRect grect(rect);
   grect = aTransform.TransformBounds(grect);
   rect.SetRect(grect.X(), grect.Y(), grect.Width(), grect.Height());
@@ -1290,6 +1290,8 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   }
 
   mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
+  // in case rendering has used some other GL context
+  MakeCurrent();
 }
 
 void

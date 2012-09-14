@@ -365,7 +365,7 @@ ShadowCanvasLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aC
 #endif
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = LayerManagerOGL::MakeMaskEffect(mMaskLayer);
+  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
 
   gfx::Matrix4x4 transform;
   mOGLManager->ToMatrix4x4(GetEffectiveTransform(), transform);
