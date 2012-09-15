@@ -120,7 +120,7 @@ CPPSRCS += \
         ImageLayerD3D10.cpp \
         LayerManagerD3D10.cpp \
         ReadbackManagerD3D10.cpp \
-	ShadowLayerUtilsD3D10.cpp \
+        ShadowLayerUtilsD3D10.cpp \
         ThebesLayerD3D10.cpp \
         $(NULL)
 endif

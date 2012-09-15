@@ -6,6 +6,7 @@
 #ifndef MOZILLA_GFX_COMPOSITOR_H
 #define MOZILLA_GFX_COMPOSITOR_H
 
+#include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/gfx/Rect.h"
 #include "mozilla/gfx/Matrix.h"
@@ -20,7 +21,6 @@ class gfxImageSurface;
 class nsIWidget;
 
 namespace mozilla {
-
 namespace gfx {
 class DrawTarget;
 }
@@ -34,7 +34,6 @@ class SharedImage;
 class Image;
 class ISurfaceDeAllocator;
 class BufferHost;
-class SurfaceDescriptor;
 
 enum TextureFormat
 {
