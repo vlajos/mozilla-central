@@ -20,15 +20,24 @@ class ImageClient : public BufferClient
 {
 public:
   virtual ~ImageClient() {}
-  //TODO[nrc] comments
 
-  // returns false if this is the wrong kind of ImageClient for aContainer
-  // note returning true does not necessarily imply success
+  /**
+   * Update this ImageClient from aContainer in aLayer
+   * returns false if this is the wrong kind of ImageClient for aContainer
+   * note returning true does not necessarily imply success
+   */
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer) = 0;
 
+  /**
+   * Set the buffer of a texture client (identified by aTextureIdentifier) to
+   * aBuffer. Intended to be used with a buffer from the compositor
+   */
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
                          const SharedImage& aBuffer) = 0;
 
+  /**
+   * Notify the compositor that this image client has been updated
+   */
   virtual void Updated(ShadowableLayer* aLayer) = 0;
 };
 
@@ -38,7 +47,6 @@ public:
   ImageClientTexture(ShadowLayerForwarder* aLayerForwarder,
                      ShadowableLayer* aLayer,
                      TextureFlags aFlags);
-  virtual ~ImageClientTexture();
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
@@ -55,7 +63,6 @@ public:
   ImageClientShared(ShadowLayerForwarder* aLayerForwarder,
                     ShadowableLayer* aLayer,
                     TextureFlags aFlags);
-  virtual ~ImageClientShared();
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
 
@@ -73,7 +80,6 @@ public:
   ImageClientYUV(ShadowLayerForwarder* aLayerForwarder,
                  ShadowableLayer* aLayer,
                  TextureFlags aFlags);
-  virtual ~ImageClientYUV();
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
@@ -94,7 +100,6 @@ public:
   ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
                     ShadowableLayer* aLayer,
                     TextureFlags aFlags);
-  virtual ~ImageClientBridge();
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,

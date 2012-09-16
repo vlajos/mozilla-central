@@ -8,7 +8,6 @@
 
 #include "gfxTypes.h"
 #include "gfxASurface.h"
-#include "Compositor.h"
 #include "nsRegion.h"
 #include "nsPoint.h"
 #include "nsRect.h"
@@ -63,6 +62,11 @@ class ShadowLayerForwarder;
 class ShadowLayerManager;
 class SpecificLayerAttributes;
 class Compositor;
+struct TextureIdentifier;
+struct TextureHostIdentifier;
+struct EffectMask;
+
+typedef uint32_t TextureFlags;
 
 #define MOZ_LAYER_DECL_NAME(n, e)                           \
   virtual const char* Name() const { return n; }            \
@@ -371,12 +375,7 @@ public:
    * Returns a TextureHostIdentifier which describes properties of the backend
    * used to decide what kind of texture and buffer clients to create
    */
-  virtual TextureHostIdentifier GetTextureHostIdentifier()
-  {
-    //TODO[nrc] make pure virtual when all layer managers use Compositor
-    NS_ERROR("Should have been overridden");
-    return TextureHostIdentifier();
-  }
+  virtual TextureHostIdentifier GetTextureHostIdentifier();
 
   /**
    * returns the maximum texture size on this layer backend, or PR_INT32_MAX

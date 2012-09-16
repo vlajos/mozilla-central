@@ -91,8 +91,6 @@ public:
   {
   }
 
-  virtual ~YUVImageHost();
-
   virtual BufferType GetType() { return BUFFER_YUV; }
 
   // aImage contains all three plains, we could also send them seperately and 

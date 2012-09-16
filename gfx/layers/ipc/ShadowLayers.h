@@ -651,7 +651,7 @@ public:
   SwapTexture(const TextureIdentifier& aTextureIdentifier,
               const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
               OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
-              OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion);
+              OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {}
   virtual void
   Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
        OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
