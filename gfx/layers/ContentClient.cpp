@@ -103,7 +103,7 @@ ContentClientRemote::GetUpdatedRegion(const nsIntRegion& aRegionToDraw,
 
   NS_ASSERTION(BufferRect().Contains(aRegionToDraw.GetBounds()),
                "Update outside of buffer rect!");
-  NS_ABORT_IF_FALSE(!mTextureClient, "should have a back buffer by now");
+  NS_ABORT_IF_FALSE(mTextureClient, "should have a back buffer by now");
 
   return updatedRegion;
 }
