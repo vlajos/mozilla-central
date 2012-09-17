@@ -78,6 +78,7 @@ public:
     : mLayerForwarder(aLayerForwarder)
     , mLayer(aLayer)
     , mTextureClient(nullptr)
+    , mIsNewBuffer(false)
   {}
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
