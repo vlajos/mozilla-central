@@ -21,7 +21,7 @@ public:
 
   BasicThebesLayer(BasicLayerManager* aLayerManager) :
     ThebesLayer(aLayerManager, static_cast<BasicImplData*>(this)),
-    mContentClient(new ContentClientBasic(aLayerManager))
+    mContentClient(nullptr)
   {
     MOZ_COUNT_CTOR(BasicThebesLayer);
   }
@@ -73,6 +73,7 @@ public:
   }
 
 protected:
+  // only to be used by sub-classes
   BasicThebesLayer(BasicLayerManager* aLayerManager, ContentClientBasic* aContentClient) :
     ThebesLayer(aLayerManager, static_cast<BasicImplData*>(this)),
     mContentClient(aContentClient)

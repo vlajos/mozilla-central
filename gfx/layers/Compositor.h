@@ -187,6 +187,8 @@ protected:
 class Surface : public RefCounted<Surface>
 {
 public:
+  virtual ~Surface() {}
+
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor) { return nullptr; }
 #endif

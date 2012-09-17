@@ -73,6 +73,10 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
                "Can only draw in drawing phase");
   nsRefPtr<gfxASurface> targetSurface = aContext->CurrentSurface();
 
+  if (!mContentClient) {
+    mContentClient = new ContentClientBasic(BasicManager());
+  }
+
   nsTArray<ReadbackProcessor::Update> readbackUpdates;
   if (aReadback && UsedForReadback()) {
     aReadback->GetThebesLayerUpdates(this, &readbackUpdates);
