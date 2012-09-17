@@ -239,6 +239,7 @@ ContentClientTexture::SetBackBufferAndAttrs(const TextureIdentifier& aTextureIde
   // to a texture it owns, then we probably got back the same buffer
   // we pushed in the update and all is well.  If not, ...
   MOZ_ASSERT(OptionalThebesBuffer::Tnull_t == aReadOnlyFrontBuffer.type());
+  MOZ_ASSERT(mTextureClient);
 
   if (OptionalThebesBuffer::Tnull_t == aBuffer.type()) {
     mTextureClient->SetDescriptor(SurfaceDescriptor());
@@ -261,9 +262,7 @@ ContentClientTexture::SetBackBufferAndAttrs(const TextureIdentifier& aTextureIde
 void
 ContentClientTexture::SyncFrontBufferToBackBuffer()
 {
-  MOZ_ASSERT(mTextureClient);
-  MOZ_ASSERT(GetBuffer());
-  MOZ_ASSERT(!mIsNewBuffer);
+  // nothing to do
 }
 
 
