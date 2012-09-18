@@ -73,14 +73,6 @@ public:
   }
 
 protected:
-  // only to be used by sub-classes
-  BasicThebesLayer(BasicLayerManager* aLayerManager, ContentClientBasic* aContentClient) :
-    ThebesLayer(aLayerManager, static_cast<BasicImplData*>(this)),
-    mContentClient(aContentClient)
-  {
-    MOZ_COUNT_CTOR(BasicThebesLayer);
-  }
-
   virtual void
   PaintBuffer(gfxContext* aContext,
               const nsIntRegion& aRegionToDraw,
@@ -117,7 +109,7 @@ class BasicShadowableThebesLayer : public BasicThebesLayer,
 
 public:
   BasicShadowableThebesLayer(BasicShadowLayerManager* aManager)
-    : BasicThebesLayer(aManager, nullptr)
+    : BasicThebesLayer(aManager)
   {
     MOZ_COUNT_CTOR(BasicShadowableThebesLayer);
   }
