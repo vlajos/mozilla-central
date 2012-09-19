@@ -46,7 +46,7 @@ ImageHostTexture::Composite(EffectChain& aEffectChain,
     nsIntRect tileRect = it->GetTileRect();
     gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
     gfx::Rect sourceRect(0, 0, tileRect.width, tileRect.height);
-    mCompositor->DrawQuad(rect, &sourceRect, &aClipRect, aEffectChain,
+    mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
                           aOpacity, aTransform, aOffset);
   } while (it->NextTile());
 
@@ -91,7 +91,7 @@ ImageHostShared::Composite(EffectChain& aEffectChain,
   }
 
   gfx::Rect rect(0, 0, mTextureHost->GetSize().width, mTextureHost->GetSize().height);
-  mCompositor->DrawQuad(rect, nullptr, &aClipRect, aEffectChain,
+  mCompositor->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
                         aOpacity, aTransform, aOffset);
 
   mTextureHost->Unlock();
@@ -149,7 +149,7 @@ YUVImageHost::Composite(EffectChain& aEffectChain,
   aEffectChain.mEffects[EFFECT_YCBCR] = effect;
   gfx::Rect rect(0, 0, mPictureRect.width, mPictureRect.height);
   gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y, mPictureRect.width, mPictureRect.height);
-  mCompositor->DrawQuad(rect, &sourceRect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+  mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
 
   mTextures[0]->Unlock();
   mTextures[1]->Unlock();

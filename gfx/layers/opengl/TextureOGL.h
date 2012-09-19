@@ -98,7 +98,7 @@ class TextureImageAsTextureHost : public TextureHostOGL, public TileIterator
 public:
   virtual gfx::IntSize GetSize()
   {
-    NS_ASSERTION(mSize == gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height),
+    NS_ASSERTION(mSize == gfx::IntSize(mTexImage->GetTileRect().width, mTexImage->GetTileRect().height),
                  "mSize not synced with mTexImage");
     return mSize;
   }

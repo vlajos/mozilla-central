@@ -224,7 +224,7 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
     gfx::Rect sourceRect(rect->x - aTextureOffset.x, rect->y - aTextureOffset.y,
                          rect->width, rect->height);
     gfx::Rect quadRect(rect->x, rect->y, rect->width, rect->height);
-    mOGLManager->GetCompositor()->DrawQuad(quadRect, &sourceRect, &clipRect, effectChain,
+    mOGLManager->GetCompositor()->DrawQuad(quadRect, &sourceRect, nullptr, &clipRect, effectChain,
                                            GetEffectiveOpacity(), transform, offset);
   }
 }

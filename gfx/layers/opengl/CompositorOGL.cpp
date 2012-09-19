@@ -333,10 +333,10 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
 // than the rectangle given by |aTexCoordRect|.
 void 
 CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
-                                                const gfx::IntRect& aTexCoordRect,
-                                                const gfx::IntSize& aTexSize,
-                                                GLenum aWrapMode /* = LOCAL_GL_REPEAT */,
-                                                bool aFlipped /* = false */)
+                                              const gfx::IntRect& aTexCoordRect,
+                                              const gfx::IntSize& aTexSize,
+                                              GLenum aWrapMode /* = LOCAL_GL_REPEAT */,
+                                              bool aFlipped /* = false */)
 {
   NS_ASSERTION(aProg->HasInitialized(), "Shader program not correctly initialized");
   GLuint vertAttribIndex =
@@ -926,7 +926,8 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
 
 void
 CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
-                        const gfx::Rect *aClipRect, const EffectChain &aEffectChain,
+                        const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
+                        const EffectChain &aEffectChain,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset)
 {
@@ -937,6 +938,13 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   gfx::IntRect intSourceRect;
   if (aSourceRect) {
     aSourceRect->ToIntRect(&intSourceRect);
+  }
+
+  gfx::IntRect intTextureRect;
+  if (aTextureRect) {
+    aTextureRect->ToIntRect(&intTextureRect);
+  } else {
+    aRect.ToIntRect(&intTextureRect);
   }
 
   gfx::IntRect intClipRect;
@@ -1058,7 +1066,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskLayerTransform(maskQuadTransform);
     }
 
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, gfx::IntSize(aRect.width, aRect.height), texture->GetWrapMode(), flipped);
+    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(), texture->GetWrapMode(), flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1102,7 +1110,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskLayerTransform(maskQuadTransform);
     }
 
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, gfx::IntSize(aRect.width, aRect.height), texture->GetWrapMode(), flipped);
+    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(), texture->GetWrapMode(), flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1211,7 +1219,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskTextureUnit(3);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, gfx::IntSize(aRect.width, aRect.height));
+    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size());
 
   } else if (aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA]) {
     EffectComponentAlpha* effectComponentAlpha =
@@ -1252,7 +1260,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
         program->SetMaskLayerTransform(maskQuadTransform);
       }
 
-      BindAndDrawQuadWithTextureRect(program, intSourceRect, gfx::IntSize(aRect.width, aRect.height), textureOnBlack->GetWrapMode());
+      BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(), textureOnBlack->GetWrapMode());
 
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);

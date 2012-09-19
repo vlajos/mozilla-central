@@ -25,7 +25,7 @@ RenderColorLayer(ColorLayer* aLayer, LayerManagerOGL *aManager,
   gfx::Matrix4x4 transform;
   aManager->ToMatrix4x4(aLayer->GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-  aManager->GetCompositor()->DrawQuad(rect, nullptr, &clipRect, effects, opacity, transform,
+  aManager->GetCompositor()->DrawQuad(rect, nullptr, nullptr, &clipRect, effects, opacity, transform,
                                       gfx::Point(aOffset.x, aOffset.y));
 }
 

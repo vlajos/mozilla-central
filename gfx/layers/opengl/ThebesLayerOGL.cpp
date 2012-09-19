@@ -97,9 +97,9 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
   RefPtr<TextureHost> texHost = GetTextureHost();
   RefPtr<TextureHost> texHostOnWhite = GetTextureHostOnWhite();
-  if (Effect* effect = texHost->Lock(aFilter)) {
+  if (RefPtr<Effect> effect = texHost->Lock(aFilter)) {
     if (texHostOnWhite) {
-      if (Effect* effectOnWhite = texHostOnWhite->Lock(aFilter)) {
+      if (RefPtr<Effect> effectOnWhite = texHostOnWhite->Lock(aFilter)) {
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] = new EffectComponentAlpha(texHostOnWhite, texHost);
       } else {
         return;
@@ -203,9 +203,10 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
                            tileScreenRect.width, tileScreenRect.height);
             gfx::Rect sourceRect(tileRegionRect.x, tileRegionRect.y,
                                  tileRegionRect.width, tileRegionRect.height);
-            mCompositor->DrawQuad(rect, &sourceRect, &aClipRect, aEffectChain,
-                                  aOpacity, aTransform,
-                                  aOffset);
+            gfx::Rect textureRect(tileRect.x, tileRect.y,
+                                  tileRect.width, tileRect.height);
+            mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
+                                  aOpacity, aTransform, aOffset);
         }
       }
     }

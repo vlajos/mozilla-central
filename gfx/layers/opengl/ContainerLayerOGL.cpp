@@ -249,7 +249,7 @@ ContainerRender(Container* aContainer,
     aManager->ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 
     gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
-    aManager->GetCompositor()->DrawQuad(rect, nullptr, nullptr, effectChain, opacity,
+    aManager->GetCompositor()->DrawQuad(rect, nullptr, nullptr, nullptr, effectChain, opacity,
                                         transform, gfx::Point(aOffset.x, aOffset.y));
 
   }
