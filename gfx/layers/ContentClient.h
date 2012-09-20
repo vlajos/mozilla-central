@@ -134,6 +134,7 @@ protected:
   nsTArray<RefPtr<TextureClient>> mOldTextures;
 
   bool mIsNewBuffer;
+  bool mFrontAndBackBufferDiffer;
 };
 
 class ContentClientDirect : public ContentClientRemote
@@ -170,8 +171,7 @@ private:
     // intended to be used for creating temporaries
     : ContentClientRemote(nullptr, nullptr, NoFlags)
   {
-    nsRefPtr<gfxASurface> oldBuffer;
-    oldBuffer = SetBuffer(aBuffer, aRect, aRotation);
+    SetBuffer(aBuffer, aRect, aRotation);
   }
 
   void SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
@@ -180,7 +180,6 @@ private:
                                      const nsIntPoint& aRotation,
                                      const nsIntRegion& aUpdateRegion);
 
-  bool mFrontAndBackBufferDiffer;
   OptionalThebesBuffer mROFrontBuffer;
   nsIntRegion mFrontUpdatedRegion;
 };
@@ -204,6 +203,9 @@ public:
   virtual void SyncFrontBufferToBackBuffer(); 
 
   virtual BufferType GetType() { return BUFFER_THEBES; }
+protected:
+  nsIntRect mBackBufferRect;
+  nsIntPoint mBackBufferRectRotation;
 };
 
 }

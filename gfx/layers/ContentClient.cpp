@@ -243,29 +243,37 @@ ContentClientTexture::SetBackBufferAndAttrs(const TextureIdentifier& aTextureIde
 
   if (OptionalThebesBuffer::Tnull_t == aBuffer.type()) {
     mTextureClient->SetDescriptor(SurfaceDescriptor());
+    mFrontAndBackBufferDiffer = false;
   } else {
     mTextureClient->SetDescriptor(aBuffer.get_ThebesBuffer().buffer());
-    gfxASurface* backBuffer = GetBuffer();
-    if (!backBuffer) {
-      backBuffer = mTextureClient->LockSurface();
-      mTextureClient->Unlock();
-    }
-
-    nsRefPtr<gfxASurface> oldBuffer;
-    oldBuffer = SetBuffer(backBuffer,
-                          aBuffer.get_ThebesBuffer().rect(),
-                          aBuffer.get_ThebesBuffer().rotation());
+    mBackBufferRect = aBuffer.get_ThebesBuffer().rect();
+    mBackBufferRectRotation = aBuffer.get_ThebesBuffer().rotation();
+    mFrontAndBackBufferDiffer = true;
   }
-  mIsNewBuffer = false;
+
   aLayerValidRegion = aValidRegion;
 }
 
 void
 ContentClientTexture::SyncFrontBufferToBackBuffer()
 {
-  // nothing to do
-}
+  if (!mFrontAndBackBufferDiffer) {
+    return;
+  }
 
+  gfxASurface* backBuffer = GetBuffer();
+  NS_ASSERTION(!mTextureClient ||
+                 backBuffer, 
+               "SyncFrontBufferToBackBuffer called outside of Begin/End Paint?");
+
+  nsRefPtr<gfxASurface> oldBuffer;
+  oldBuffer = SetBuffer(backBuffer,
+                        mBackBufferRect,
+                        mBackBufferRectRotation);
+
+  mIsNewBuffer = false;
+  mFrontAndBackBufferDiffer = false;
+}
 
 }
 }
