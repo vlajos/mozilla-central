@@ -43,24 +43,15 @@ public:
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
 
 protected:
-  /**
-   * Implementations should contain either a texture host (for OMTC) or a texture
-   * image (for on-mtc), these methods should be used to convert one to the other,
-   * the texture host may be a temprorary wrapper. The *OnWhite versions may
-   * return NULL if component alpha is never supported.
-   */
-  virtual TextureImage* GetTextureImage() = 0;
-  virtual TextureImage* GetTextureImageOnWhite() = 0;
-  virtual TemporaryRef<TextureHost> GetTextureHost() = 0;
-  virtual TemporaryRef<TextureHost> GetTextureHostOnWhite() = 0;
-
   virtual nsIntPoint GetOriginOffset() = 0;
 
   bool PaintWillResample() { return mPaintWillResample; }
 
   bool mPaintWillResample;
-  RefPtr<Compositor> mCompositor;
   bool mInitialised;
+  RefPtr<Compositor> mCompositor;
+  RefPtr<TextureHost> mTextureHost;
+  RefPtr<TextureHost> mTextureHostOnWhite;
 };
 
 class AContentHost : public BufferHost
@@ -152,7 +143,6 @@ protected:
     return mBufferRect.TopLeft() - mBufferRotation;
   }
 
-  RefPtr<TextureHost> mTextureHost;
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
 };

@@ -151,6 +151,10 @@ TextureImageAsTextureHost::Lock(const gfx::Filter& aFilter)
   NS_ASSERTION(mTexImage->GetContentType() != gfxASurface::CONTENT_ALPHA,
                "Image layer has alpha image");
 
+  if (mTexImage->InUpdate()) {
+    mTexImage->EndUpdate();
+  }
+
   if (mTexImage->GetShaderProgramType() == gl::BGRXLayerProgramType) {
     return new EffectBGRX(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (mTexImage->GetShaderProgramType() == gl::BGRALayerProgramType) {
@@ -159,6 +163,12 @@ TextureImageAsTextureHost::Lock(const gfx::Filter& aFilter)
     NS_RUNTIMEABORT("Shader type not yet supported");
     return nullptr;
   }
+}
+
+TextureImageHost::TextureImageHost(GLContext* aGL, TextureImage* aTexImage)
+  : TextureImageAsTextureHost(aGL)
+{
+  mTexImage = aTexImage;
 }
 
 TextureImageAsTextureHostWithBuffer::~TextureImageAsTextureHostWithBuffer()

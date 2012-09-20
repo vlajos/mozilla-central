@@ -98,8 +98,6 @@ class TextureImageAsTextureHost : public TextureHostOGL, public TileIterator
 public:
   virtual gfx::IntSize GetSize()
   {
-    NS_ASSERTION(mSize == gfx::IntSize(mTexImage->GetTileRect().width, mTexImage->GetTileRect().height),
-                 "mSize not synced with mTexImage");
     return mSize;
   }
 
@@ -148,19 +146,18 @@ protected:
   nsRefPtr<TextureImage> mTexImage;
 
   friend class CompositorOGL;
-  
-  // The below method and constructor are meant for using the texture host in place
-  // of a texture image where code is shared between OGL and compositor layers.
-  friend class ContentHost;
-  friend class ThebesLayerBufferOGL;
-  TextureImage* GetTextureImage() { return mTexImage; }
+};
 
-  // Constructor for wrapping a texture host around an existing TextureImage.
-  // The texture host will not have a corresponding texture client.
-  TextureImageAsTextureHost(TextureImage* aTexImage, GLContext* aGL)
-    : mGL(aGL)
-    , mTexImage(aTexImage)
-  {}
+// a TextureImageAsTextureHost for use with main thread composition
+// i.e., where we draw to it directly, and do not have a texture client
+class TextureImageHost : public TextureImageAsTextureHost
+{
+public:
+  TextureImageHost(GLContext* aGL, TextureImage* aTexImage);
+
+  //TODO[nrc] override TextureImageAsTextureHost methods to do nothing
+  TextureImage* GetTextureImage() { return mTexImage; }
+  void SetTextureImage(TextureImage* aTexImage) { mTexImage = aTexImage; }
 };
 
 class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost

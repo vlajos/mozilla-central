@@ -170,7 +170,8 @@ private:
     // intended to be used for creating temporaries
     : ContentClientRemote(nullptr, nullptr, NoFlags)
   {
-    SetBuffer(aBuffer, aRect, aRotation);
+    nsRefPtr<gfxASurface> oldBuffer;
+    oldBuffer = SetBuffer(aBuffer, aRect, aRotation);
   }
 
   void SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
@@ -202,7 +203,7 @@ public:
 
   virtual void SyncFrontBufferToBackBuffer(); 
 
-  virtual BufferType GetType() { return BUFFER_TEXTURE; }
+  virtual BufferType GetType() { return BUFFER_THEBES; }
 };
 
 }

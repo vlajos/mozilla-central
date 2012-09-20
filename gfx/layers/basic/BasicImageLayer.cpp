@@ -235,8 +235,6 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     return;
   }
 
-  NS_ASSERTION(!aContext, "Shadowable layer should not paint to a context");
-
   if (aMaskLayer) {
     static_cast<BasicImplData*>(aMaskLayer->ImplData())
       ->Paint(aContext, nullptr);

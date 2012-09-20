@@ -74,10 +74,10 @@ ContentClientRemote::BeginPaint()
 void
 ContentClientRemote::EndPaint()
 {
-  SetBuffer(nullptr);
   if (mTextureClient) {
     mTextureClient->Unlock();
   }
+  SetBuffer(nullptr);
   mOldTextures.Clear();
 }
 
@@ -251,9 +251,10 @@ ContentClientTexture::SetBackBufferAndAttrs(const TextureIdentifier& aTextureIde
       mTextureClient->Unlock();
     }
 
-    SetBuffer(backBuffer,
-              aBuffer.get_ThebesBuffer().rect(),
-              aBuffer.get_ThebesBuffer().rotation());
+    nsRefPtr<gfxASurface> oldBuffer;
+    oldBuffer = SetBuffer(backBuffer,
+                          aBuffer.get_ThebesBuffer().rect(),
+                          aBuffer.get_ThebesBuffer().rotation());
   }
   mIsNewBuffer = false;
   aLayerValidRegion = aValidRegion;

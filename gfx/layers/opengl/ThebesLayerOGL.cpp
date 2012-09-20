@@ -69,192 +69,24 @@ SetAntialiasingFlags(Layer* aLayer, gfxContext* aTarget)
       !(aLayer->GetContentFlags() & Layer::CONTENT_COMPONENT_ALPHA));
 }
 
-void
-CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
-                                        float aOpacity,
-                                        const gfx::Matrix4x4& aTransform,
-                                        const gfx::Point& aOffset,
-                                        const gfx::Filter& aFilter,
-                                        const gfx::Rect& aClipRect,
-                                        const nsIntRegion* aVisibleRegion)
-{
-  NS_ASSERTION(aVisibleRegion, "Requires a visible region");
-  NS_ASSERTION(mInitialised, "Composite with uninitialised buffer!");
-
-  TextureImage* texImage = GetTextureImage();
-  TextureImage* texImageOnWhite = GetTextureImageOnWhite();
-
-  if (!texImage || !mInitialised)
-    return;
-
-  if (texImage->InUpdate()) {
-    texImage->EndUpdate();
-  }
-
-  if (texImageOnWhite && texImageOnWhite->InUpdate()) {
-    texImageOnWhite->EndUpdate();
-  }
-
-  RefPtr<TextureHost> texHost = GetTextureHost();
-  RefPtr<TextureHost> texHostOnWhite = GetTextureHostOnWhite();
-  if (RefPtr<Effect> effect = texHost->Lock(aFilter)) {
-    if (texHostOnWhite) {
-      if (RefPtr<Effect> effectOnWhite = texHostOnWhite->Lock(aFilter)) {
-        aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] = new EffectComponentAlpha(texHostOnWhite, texHost);
-      } else {
-        return;
-      }
-    } else {
-        aEffectChain.mEffects[effect->mType] = effect;
-    }
-  } else {
-    return;
-  }
-
-  nsIntRegion tmpRegion;
-  const nsIntRegion* renderRegion;
-  if (PaintWillResample()) {
-    // If we're resampling, then the texture image will contain exactly the
-    // entire visible region's bounds, and we should draw it all in one quad
-    // to avoid unexpected aliasing.
-    tmpRegion = aVisibleRegion->GetBounds();
-    renderRegion = &tmpRegion;
-  } else {
-    renderRegion = aVisibleRegion;
-  }
-
-  nsIntRegion region(*renderRegion);
-  nsIntPoint origin = GetOriginOffset();
-  region.MoveBy(-origin);           // translate into TexImage space, buffer origin might not be at texture (0,0)
-
-  // Figure out the intersecting draw region
-  nsIntSize texSize = texImage->GetSize();
-  nsIntRect textureRect = nsIntRect(0, 0, texSize.width, texSize.height);
-  textureRect.MoveBy(region.GetBounds().TopLeft());
-  nsIntRegion subregion;
-  subregion.And(region, textureRect);
-  if (subregion.IsEmpty())  // Region is empty, nothing to draw
-    return;
-
-  nsIntRegion screenRects;
-  nsIntRegion regionRects;
-
-  // Collect texture/screen coordinates for drawing
-  nsIntRegionRectIterator iter(subregion);
-  while (const nsIntRect* iterRect = iter.Next()) {
-    nsIntRect regionRect = *iterRect;
-    nsIntRect screenRect = regionRect;
-    screenRect.MoveBy(origin);
-
-    screenRects.Or(screenRects, screenRect);
-    regionRects.Or(regionRects, regionRect);
-  }
-
-  texImage->BeginTileIteration();
-
-  if (texImageOnWhite) {
-    NS_ASSERTION(texImage->GetTileCount() == texImageOnWhite->GetTileCount(),
-                 "Tile count mismatch on component alpha texture");
-    texImageOnWhite->BeginTileIteration();
-  }
-
-  bool usingTiles = (texImage->GetTileCount() > 1);
-  do {
-    if (texImageOnWhite) {
-      NS_ASSERTION(texImageOnWhite->GetTileRect() == texImage->GetTileRect(), "component alpha textures should be the same size.");
-    }
-
-    nsIntRect tileRect = texImage->GetTileRect();
-
-    // Draw texture. If we're using tiles, we do repeating manually, as texture
-    // repeat would cause each individual tile to repeat instead of the
-    // compound texture as a whole. This involves drawing at most 4 sections,
-    // 2 for each axis that has texture repeat.
-    for (int y = 0; y < (usingTiles ? 2 : 1); y++) {
-      for (int x = 0; x < (usingTiles ? 2 : 1); x++) {
-        nsIntRect currentTileRect(tileRect);
-        currentTileRect.MoveBy(x * texSize.width, y * texSize.height);
-
-        nsIntRegionRectIterator screenIter(screenRects);
-        nsIntRegionRectIterator regionIter(regionRects);
-
-        const nsIntRect* screenRect;
-        const nsIntRect* regionRect;
-        while ((screenRect = screenIter.Next()) &&
-               (regionRect = regionIter.Next())) {
-            nsIntRect tileScreenRect(*screenRect);
-            nsIntRect tileRegionRect(*regionRect);
-
-            // When we're using tiles, find the intersection between the tile
-            // rect and this region rect. Tiling is then handled by the
-            // outer for-loops and modifying the tile rect.
-            if (usingTiles) {
-                tileScreenRect.MoveBy(-origin);
-                tileScreenRect = tileScreenRect.Intersect(currentTileRect);
-                tileScreenRect.MoveBy(origin);
-
-                if (tileScreenRect.IsEmpty())
-                  continue;
-
-                tileRegionRect = regionRect->Intersect(currentTileRect);
-                tileRegionRect.MoveBy(-currentTileRect.TopLeft());
-            }
-            gfx::Rect rect(tileScreenRect.x, tileScreenRect.y,
-                           tileScreenRect.width, tileScreenRect.height);
-            gfx::Rect sourceRect(tileRegionRect.x, tileRegionRect.y,
-                                 tileRegionRect.width, tileRegionRect.height);
-            gfx::Rect textureRect(tileRect.x, tileRect.y,
-                                  tileRect.width, tileRect.height);
-            mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
-                                  aOpacity, aTransform, aOffset);
-        }
-      }
-    }
-
-    if (texImageOnWhite)
-        texImageOnWhite->NextTile();
-  } while (texImage->NextTile());
-
-}
-
 
 class ThebesLayerBufferOGL : public CompositingThebesLayerBuffer
 {
 public:
   enum { PAINT_WILL_RESAMPLE = ThebesLayerBuffer::PAINT_WILL_RESAMPLE };
 
-  virtual TextureImage* GetTextureImage() { return mTexImage; }
-
 protected:
   ThebesLayerBufferOGL(ThebesLayer* aLayer, LayerOGL* aOGLLayer, Compositor* aCompositor)
     : CompositingThebesLayerBuffer(aCompositor)
     , mLayer(aLayer)
     , mOGLLayer(aOGLLayer)
-    , mTexImage(nullptr)
-    , mTexImageOnWhite(nullptr)
   {}
 
-  virtual TextureImage* GetTextureImageOnWhite() { return mTexImageOnWhite; }
-  virtual TemporaryRef<TextureHost> GetTextureHost()
-  {
-    return new TextureImageAsTextureHost(mTexImage, gl());
-  }
-  virtual TemporaryRef<TextureHost> GetTextureHostOnWhite()
-  {
-    if (!mTexImageOnWhite) {
-      return nullptr;
-    }
-
-    return new TextureImageAsTextureHost(mTexImageOnWhite, gl());
-  }
-
-
+  //TODO[nrc] get rid of the GL stuff
   GLContext* gl() const { return mOGLLayer->gl(); }
 
   ThebesLayer* mLayer;
   LayerOGL* mOGLLayer;
-  nsRefPtr<TextureImage> mTexImage;
-  nsRefPtr<TextureImage> mTexImageOnWhite;
 };
 
 // This implementation is the fast-path for when our TextureImage is
@@ -270,6 +102,7 @@ public:
     : ThebesLayerBufferOGL(aLayer, aLayer, aCompositor)
     , ThebesLayerBuffer(SizedToVisibleBounds)
   {
+    
   }
   virtual ~SurfaceBufferOGL() {}
 
@@ -278,7 +111,7 @@ public:
                                 PRUint32 aFlags)
   {
     // Let ThebesLayerBuffer do all the hard work for us! :D
-    return ThebesLayerBuffer::BeginPaint(mLayer, 
+    return ThebesLayerBuffer::BeginPaint(mLayer,
                                          aContentType, 
                                          aFlags);
   }
@@ -289,8 +122,14 @@ public:
   {
     NS_ASSERTION(gfxASurface::CONTENT_ALPHA != aType,"ThebesBuffer has color");
 
-    mTexImage = CreateClampOrRepeatTextureImage(gl(), aSize, aType, aFlags);
-    return mTexImage ? mTexImage->GetBackingSurface() : nullptr;
+    nsRefPtr<TextureImage> texImage = CreateClampOrRepeatTextureImage(gl(), aSize, aType, aFlags);
+    if (!texImage) {
+      mTextureHost = nullptr;
+      return nullptr;
+    }
+
+    mTextureHost = new TextureImageHost(gl(), texImage);
+    return texImage->GetBackingSurface();
   }
 
 protected:
@@ -384,15 +223,22 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   bool canReuseBuffer;
   nsIntRect destBufferRect;
 
+  nsRefPtr<TextureImage> texImage = mTextureHost
+                                    ? static_cast<TextureImageHost*>(mTextureHost.get())->GetTextureImage()
+                                    : nullptr;
+  nsRefPtr<TextureImage> texImageOnWhite = mTextureHostOnWhite 
+                                           ? static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->GetTextureImage()
+                                           : nullptr;
+
   while (true) {
     mode = mLayer->GetSurfaceMode();
     contentType = aContentType;
     neededRegion = mLayer->GetVisibleRegion();
     // If we're going to resample, we need a buffer that's in clamp mode.
     canReuseBuffer = neededRegion.GetBounds().Size() <= mBufferRect.Size() &&
-      mTexImage &&
+      texImage &&
       (!(aFlags & PAINT_WILL_RESAMPLE) ||
-       mTexImage->GetWrapMode() == LOCAL_GL_CLAMP_TO_EDGE);
+       texImage->GetWrapMode() == LOCAL_GL_CLAMP_TO_EDGE);
 
     if (canReuseBuffer) {
       if (mBufferRect.Contains(neededRegion.GetBounds())) {
@@ -434,19 +280,19 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       neededRegion = destBufferRect;
     }
 
-    if (mTexImage &&
-        (mTexImage->GetContentType() != contentType ||
-         (mode == Layer::SURFACE_COMPONENT_ALPHA) != (mTexImageOnWhite != nullptr))) {
+    if (texImage &&
+        (texImage->GetContentType() != contentType ||
+         (mode == Layer::SURFACE_COMPONENT_ALPHA) != (texImageOnWhite != nullptr))) {
       // We're effectively clearing the valid region, so we need to draw
       // the entire needed region now.
       result.mRegionToInvalidate = mLayer->GetValidRegion();
       validRegion.SetEmpty();
-      mTexImage = nullptr;
-      mTexImageOnWhite = nullptr;
+      texImage = nullptr;
+      texImageOnWhite = nullptr;
       mBufferRect.SetRect(0, 0, 0, 0);
       mBufferRotation.MoveTo(0, 0);
       // Restart decision process with the cleared buffer. We can only go
-      // around the loop one more iteration, since mTexImage is null now.
+      // around the loop one more iteration, since texImage is null now.
       continue;
     }
 
@@ -527,12 +373,12 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   NS_ASSERTION(!(aFlags & PAINT_WILL_RESAMPLE) || destBufferRect == neededRegion.GetBounds(),
                "If we're resampling, we need to validate the entire buffer");
 
-  if (!destBuffer && !mTexImage) {
+  if (!destBuffer && !texImage) {
     return result;
   }
 
   if (destBuffer) {
-    if (mTexImage && (mode != Layer::SURFACE_COMPONENT_ALPHA || mTexImageOnWhite)) {
+    if (texImage && (mode != Layer::SURFACE_COMPONENT_ALPHA || texImageOnWhite)) {
       // BlitTextureImage depends on the FBO texture target being
       // TEXTURE_2D.  This isn't the case on some older X1600-era Radeons.
       if (mOGLLayer->OGLManager()->FBOTextureTarget() == LOCAL_GL_TEXTURE_2D) {
@@ -587,12 +433,13 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
 
         destBuffer->Resize(destBufferRect.Size());
 
-        gl()->BlitTextureImage(mTexImage, srcRect,
+        gl()->BlitTextureImage(texImage, srcRect,
                                destBuffer, dstRect);
         destBuffer->MarkValid();
+
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
-          gl()->BlitTextureImage(mTexImageOnWhite, srcRect,
+          gl()->BlitTextureImage(texImageOnWhite, srcRect,
                                  destBufferOnWhite, dstRect);
           destBufferOnWhite->MarkValid();
         }
@@ -606,15 +453,26 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       }
     }
 
-    mTexImage = destBuffer.forget();
+    texImage = destBuffer.forget();
     if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
-      mTexImageOnWhite = destBufferOnWhite.forget();
+      texImageOnWhite = destBufferOnWhite.forget();
     }
     mBufferRect = destBufferRect;
     mBufferRotation = nsIntPoint(0,0);
   }
   NS_ASSERTION(canHaveRotation || mBufferRotation == nsIntPoint(0,0),
                "Rotation disabled, but we have nonzero rotation?");
+
+  if (mTextureHost) {
+    static_cast<TextureImageHost*>(mTextureHost.get())->SetTextureImage(texImage);
+  } else {
+    mTextureHost = new TextureImageHost(gl(), texImage);
+  }
+  if (mTextureHostOnWhite) {
+    static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
+  } else {
+    mTextureHostOnWhite = new TextureImageHost(gl(), texImage);
+  }
 
   nsIntRegion invalidate;
   invalidate.Sub(mLayer->GetValidRegion(), destBufferRect);
@@ -637,8 +495,8 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   // if it wants more to be repainted than we request.
   if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
     nsIntRegion drawRegionCopy = result.mRegionToDraw;
-    gfxASurface *onBlack = mTexImage->BeginUpdate(drawRegionCopy);
-    gfxASurface *onWhite = mTexImageOnWhite->BeginUpdate(result.mRegionToDraw);
+    gfxASurface *onBlack = texImage->BeginUpdate(drawRegionCopy);
+    gfxASurface *onWhite = texImageOnWhite->BeginUpdate(result.mRegionToDraw);
     NS_ASSERTION(result.mRegionToDraw == drawRegionCopy,
                  "BeginUpdate should always modify the draw region in the same way!");
     FillSurface(onBlack, result.mRegionToDraw, nsIntPoint(0,0), gfxRGBA(0.0, 0.0, 0.0, 1.0));
@@ -659,8 +517,8 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
     surf->SetAllowUseAsSource(false);
     result.mContext = new gfxContext(surf);
   } else {
-    result.mContext = new gfxContext(mTexImage->BeginUpdate(result.mRegionToDraw));
-    if (mTexImage->GetContentType() == gfxASurface::CONTENT_COLOR_ALPHA) {
+    result.mContext = new gfxContext(texImage->BeginUpdate(result.mRegionToDraw));
+    if (texImage->GetContentType() == gfxASurface::CONTENT_COLOR_ALPHA) {
       gfxUtils::ClipToRegion(result.mContext, result.mRegionToDraw);
       result.mContext->SetOperator(gfxContext::OPERATOR_CLEAR);
       result.mContext->Paint();
@@ -807,13 +665,14 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
 
 #ifdef MOZ_DUMP_PAINTING
-  if (gfxUtils::sDumpPainting) {
+  //TODO[nrc]
+  /*if (gfxUtils::sDumpPainting) {
     nsRefPtr<gfxImageSurface> surf = 
       gl()->GetTexImage(mBuffer->GetTextureImage()->GetTextureID(), false,
-                       mBuffer->GetTextureImage()->GetShaderProgramType());
+                        mBuffer->GetTextureImage()->GetShaderProgramType());
     
     WriteSnapshotToDumpFile(this, surf);
-  }
+  }*/
 #endif
 
   EffectChain effectChain;
@@ -850,6 +709,7 @@ ThebesLayerOGL::CleanupResources()
 ShadowThebesLayerOGL::ShadowThebesLayerOGL(LayerManagerOGL *aManager)
   : ShadowThebesLayer(aManager, nullptr)
   , LayerOGL(aManager)
+  , mBuffer(nullptr)
 {
 #ifdef FORCE_BASICTILEDTHEBESLAYER
   NS_ABORT();
@@ -875,6 +735,8 @@ ShadowThebesLayerOGL::EnsureBuffer(BufferType aHostType)
   if (!mBuffer ||
       mBuffer->GetType() != aHostType) {
     RefPtr<BufferHost> bufferHost = mOGLManager->GetCompositor()->CreateBufferHost(aHostType);
+    NS_ASSERTION(bufferHost->GetType() == BUFFER_THEBES ||
+                 bufferHost->GetType() == BUFFER_DIRECT, "bad buffer type");
     mBuffer = static_cast<AContentHost*>(bufferHost.get());
   }
 }

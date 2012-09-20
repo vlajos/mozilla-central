@@ -121,7 +121,7 @@ public:
 /**
  * A view on a texture host where the texture host is internally represented as tiles
  * (contrast with a tiled buffer, where each texture is a tile). For iteration by
- * the tile's buffer.
+ * the texture's buffer host.
  */
 class TileIterator
 {

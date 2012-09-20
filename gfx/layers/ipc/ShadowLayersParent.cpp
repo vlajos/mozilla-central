@@ -165,7 +165,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
       nsRefPtr<ShadowThebesLayer> layer =
         layer_manager()->CreateShadowThebesLayer();
-      layer->SetAllocator(this);
       AsShadowLayer(edit.get_OpCreateThebesLayer())->Bind(layer);
       break;
     }
@@ -300,10 +299,11 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       MOZ_LAYERS_LOG(("[ParentSide] CreateTextureHost"));
 
       const OpCreateTextureHost& op = edit.get_OpCreateTextureHost();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
+      ShadowLayer* layer = AsShadowLayer(op)->AsLayer()->AsShadowLayer();
       const TextureIdentifier textureId = AsTextureId(op);
       TextureFlags flags = static_cast<TextureFlags>(op.textureFlags());
-      layer_manager()->CreateTextureHostFor(shadow->AsLayer()->AsShadowLayer(), textureId, flags);
+      layer_manager()->CreateTextureHostFor(layer, textureId, flags);
+      layer->SetAllocator(this);
 
       break;
     }
