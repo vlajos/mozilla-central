@@ -1,0 +1,332 @@
+/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#ifndef GFX_LAYERMANAGEROGL_H
+#define GFX_LAYERMANAGEROGL_H
+
+#include "Compositor.h"
+
+#include "mozilla/layers/ShadowLayers.h"
+
+#include "mozilla/TimeStamp.h"
+
+
+#ifdef XP_WIN
+#include <windows.h>
+#endif
+
+#include "gfxContext.h"
+#include "gfx3DMatrix.h"
+#include "nsIWidget.h"
+
+namespace mozilla {
+namespace layers {
+
+class CompositeLayer;
+class ShadowThebesLayer;
+class ShadowContainerLayer;
+class ShadowImageLayer;
+class ShadowCanvasLayer;
+class ShadowColorLayer;
+
+class THEBES_API CompositeLayerManager :
+    public ShadowLayerManager
+{
+public:
+  CompositeLayerManager(nsIWidget *aWidget, int aSurfaceWidth = -1, int aSurfaceHeight = -1,
+                        bool aIsRenderingToEGLSurface = false);
+  virtual ~CompositeLayerManager()
+  {
+    Destroy();
+  }
+
+  virtual void Destroy();
+
+  /**
+   * Initializes the layer manager with a given GLContext. If aContext is null
+   * then the layer manager will try to create one for the associated widget.
+   *
+   * \param aContext an existing GL context to use. USe nullptr to create a new context
+   *
+   * \return True is initialization was succesful, false when it was not.
+   */
+  bool Initialize(nsRefPtr<GLContext> aContext = nullptr, bool force = false)
+  {
+    return mCompositor->Initialize(force, aContext);
+  }
+
+  Compositor* GetCompositor() const { return mCompositor; }
+
+  /**
+   * Sets the clipping region for this layer manager. This is important on 
+   * windows because using OGL we no longer have GDI's native clipping. Therefor
+   * widget must tell us what part of the screen is being invalidated,
+   * and we should clip to this.
+   *
+   * \param aClippingRegion Region to clip to. Setting an empty region
+   * will disable clipping.
+   */
+  void SetClippingRegion(const nsIntRegion& aClippingRegion)
+  {
+    mClippingRegion = aClippingRegion;
+  }
+
+  /**
+   * LayerManager implementation.
+   */
+  virtual ShadowLayerManager* AsShadowManager()
+  {
+    return this;
+  }
+
+  void BeginTransaction();
+
+  void BeginTransactionWithTarget(gfxContext* aTarget);
+
+  void EndConstruction();
+
+  virtual bool EndEmptyTransaction();
+  virtual void EndTransaction(DrawThebesLayerCallback aCallback,
+                              void* aCallbackData,
+                              EndTransactionFlags aFlags = END_DEFAULT);
+
+  virtual void SetRoot(Layer* aLayer) { mRoot = aLayer; }
+
+  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize)
+  {
+    return mCompositor->CanUseCanvasLayerForSize(aSize);
+  }
+
+  virtual void CreateTextureHostFor(ShadowLayer* aLayer,
+                                    const TextureIdentifier& aTextureIdentifier,
+                                    TextureFlags aFlags)
+  {
+    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(aTextureIdentifier, aFlags);
+    aLayer->AddTextureHost(aTextureIdentifier, textureHost);
+  }
+
+  virtual TextureHostIdentifier GetTextureHostIdentifier()
+  {
+    return mCompositor->GetTextureHostIdentifier();
+  }
+
+  virtual PRInt32 GetMaxTextureSize() const
+  {
+    return mCompositor->GetMaxTextureSize();
+  }
+
+  virtual already_AddRefed<ThebesLayer> CreateThebesLayer();
+
+  virtual already_AddRefed<ContainerLayer> CreateContainerLayer();
+
+  virtual already_AddRefed<ImageLayer> CreateImageLayer();
+
+  virtual already_AddRefed<ColorLayer> CreateColorLayer();
+
+  virtual already_AddRefed<CanvasLayer> CreateCanvasLayer();
+
+  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
+  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
+  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer();
+  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer();
+  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer();
+  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer();
+
+  virtual LayersBackend GetBackendType() { return mCompositor->GetBackendType(); }
+  virtual void GetBackendName(nsAString& name) { name.AssignLiteral("Composite"); }
+
+  virtual already_AddRefed<gfxASurface>
+    CreateOptimalMaskSurface(const gfxIntSize &aSize);
+
+
+  DrawThebesLayerCallback GetThebesLayerCallback() const
+  { return mThebesLayerCallback; }
+
+  void* GetThebesLayerCallbackData() const
+  { return mThebesLayerCallbackData; }
+
+  /*
+   * Helper functions for our layers
+   */
+  void CallThebesLayerDrawCallback(ThebesLayer* aLayer,
+                                   gfxContext* aContext,
+                                   const nsIntRegion& aRegionToDraw)
+  {
+    NS_ASSERTION(mThebesLayerCallback,
+                 "CallThebesLayerDrawCallback without callback!");
+    mThebesLayerCallback(aLayer, aContext,
+                         aRegionToDraw, nsIntRegion(),
+                         mThebesLayerCallbackData);
+  }
+
+
+
+  /////////////////////////////////////
+  //TODO[nrc] get rid of these once the individual layers are done
+
+  void MakeCurrent(bool aForce = false) {
+    mCompositor->MakeCurrent(aForce);
+  }
+
+
+
+
+  const nsIntSize& GetWidgetSize() {
+    return mCompositor->mWidgetSize;
+  }
+
+  /**
+   * Set the size of the surface we're rendering to.
+   */
+  void SetSurfaceSize(int width, int height)
+  {
+    mCompositor->SetSurfaceSize(width, height);
+  }
+
+
+  ///////////////////////////////
+
+
+
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() const { return "OGL(Compositor)"; }
+#endif // MOZ_LAYERS_HAVE_LOG
+
+
+  enum WorldTransforPolicy {
+    ApplyWorldTransform,
+    DontApplyWorldTransform
+  };
+
+  /**
+   * Setup the viewport and projection matrix for rendering
+   * to a window of the given dimensions.
+   */
+  void SetupPipeline(int aWidth, int aHeight)
+  {
+    mCompositor->SetupPipeline(aWidth, aHeight, mWorldMatrix);
+  }
+
+  /**
+   * Setup World transform matrix.
+   * Transform will be ignored if it is not PreservesAxisAlignedRectangles
+   * or has non integer scale
+   */
+  void SetWorldTransform(const gfxMatrix& aMatrix);
+  gfxMatrix& GetWorldTransform(void);
+
+  void SaveViewport()
+  {
+    mCompositor->SaveViewport();
+  }
+  void RestoreViewport()
+  {
+    gfx::IntRect viewport = mCompositor->RestoreViewport();
+    SetupPipeline(viewport.width, viewport.height);
+  }
+
+  static void ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut);
+
+  virtual EffectMask* MakeMaskEffect(Layer* aMaskLayer);
+
+private:
+  /** Region we're clipping our current drawing to. */
+  nsIntRegion mClippingRegion;
+
+  /** Current root layer. */
+  CompositeLayer *RootLayer() const;
+
+  /**
+   * Render the current layer tree to the active target.
+   */
+  void Render();
+
+  void WorldTransformRect(nsIntRect& aRect);
+
+  /* Thebes layer callbacks; valid at the end of a transaciton,
+   * while rendering */
+  DrawThebesLayerCallback mThebesLayerCallback;
+  void *mThebesLayerCallbackData;
+  gfxMatrix mWorldMatrix;
+};
+
+
+
+
+
+
+
+
+
+/**
+ * General information and tree management for OGL layers.
+ */
+class LayerOGL
+{
+public:
+  LayerOGL(LayerManagerOGL *aManager)
+    : mOGLManager(aManager), mDestroyed(false)
+  { }
+
+  virtual ~LayerOGL() { }
+
+  virtual LayerOGL *GetFirstChildOGL() {
+    return nullptr;
+  }
+
+  /* Do NOT call this from the generic LayerOGL destructor.  Only from the
+   * concrete class destructor
+   */
+  virtual void Destroy() = 0;
+
+  virtual Layer* GetLayer() = 0;
+
+  virtual void RenderLayer(const nsIntPoint& aOffset,
+                           const nsIntRect& aClipRect,
+                           Surface* aPreviousSurface = nullptr) = 0;
+
+  typedef mozilla::gl::GLContext GLContext;
+
+  LayerManagerOGL* OGLManager() const { return mOGLManager; }
+  GLContext *gl() const { return mOGLManager->gl(); }
+  virtual void CleanupResources() = 0;
+
+  /**
+   * Loads the result of rendering the layer as an OpenGL texture in aTextureUnit.
+   * Will try to use an existing texture if possible, or a temporary
+   * one if not. It is the callee's responsibility to release the texture.
+   * Will return true if a texture could be constructed and loaded, false otherwise.
+   * The texture will not be transformed, i.e., it will be in the same coord
+   * space as this.
+   * Any layer that can be used as a mask layer should override this method.
+   * aSize will contain the size of the image.
+   */
+  virtual bool LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize)
+  {
+    NS_WARNING("LoadAsTexture called without being overriden");
+    return false;
+  }
+
+  /**
+   * Get a texture host representation of the layer. This should not be used
+   * for normal rendering. It is used for using the layer as a mask layer, any
+   * layer that can be used as a mask layer should override this method.
+   */
+  virtual TemporaryRef<TextureHost> AsTextureHost()
+  {
+    return nullptr;
+  }
+
+protected:
+  LayerManagerOGL *mOGLManager;
+  bool mDestroyed;
+};
+
+
+} /* layers */
+} /* mozilla */
+
+#endif /* GFX_LAYERMANAGEROGL_H */
