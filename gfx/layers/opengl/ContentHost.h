@@ -134,11 +134,6 @@ public:
 #endif
 
 protected:
-  virtual TextureImage* GetTextureImage();
-  virtual TextureImage* GetTextureImageOnWhite() { return nullptr; }
-  virtual TemporaryRef<TextureHost> GetTextureHost() { return mTextureHost; }
-  virtual TemporaryRef<TextureHost> GetTextureHostOnWhite() { return nullptr; }
-
   virtual nsIntPoint GetOriginOffset() {
     return mBufferRect.TopLeft() - mBufferRotation;
   }
