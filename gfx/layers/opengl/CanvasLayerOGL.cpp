@@ -6,6 +6,7 @@
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
+
 #include "gfxSharedImageSurface.h"
 
 #include "CanvasLayerOGL.h"
@@ -282,105 +283,3 @@ IsValidSharedTexDescriptor(const SurfaceDescriptor& aDescriptor)
   return aDescriptor.type() == SurfaceDescriptor::TSharedTextureDescriptor;
 }
 
-ShadowCanvasLayerOGL::ShadowCanvasLayerOGL(LayerManagerOGL* aManager)
-  : ShadowCanvasLayer(aManager, nullptr)
-  , LayerOGL(aManager)
-  , mImageHost(nullptr)
-{
-  mImplData = static_cast<LayerOGL*>(this);
-}
-
-ShadowCanvasLayerOGL::~ShadowCanvasLayerOGL()
-{
-}
-
-void
-ShadowCanvasLayerOGL::EnsureImageHost(BufferType aHostType)
-{
-  if (!mImageHost ||
-      mImageHost->GetType() != aHostType) {
-    RefPtr<BufferHost> bufferHost = mOGLManager->GetCompositor()->CreateBufferHost(aHostType);
-    mImageHost = static_cast<ImageHost*>(bufferHost.get());
-  }
-}
-
-void
-ShadowCanvasLayerOGL::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
-{
-  EnsureImageHost(aTextureIdentifier.mBufferType);
-
-  if (CanUseOpaqueSurface()) {
-    aTextureHost->AddFlag(UseOpaqueSurface);
-  }
-  mImageHost->AddTextureHost(aTextureIdentifier, aTextureHost);
-}
-
-void
-ShadowCanvasLayerOGL::SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                                  const SharedImage& aFront,
-                                  SharedImage* aNewBack)
-{
-  if (mDestroyed ||
-      !mImageHost) {
-    *aNewBack = aFront;
-    return;
-  }
-
-  *aNewBack = *mImageHost->UpdateImage(aTextureIdentifier, aFront);
-}
-
-void
-ShadowCanvasLayerOGL::Destroy()
-{
-  if (!mDestroyed) {
-    mDestroyed = true;
-  }
-}
-
-Layer*
-ShadowCanvasLayerOGL::GetLayer()
-{
-  return this;
-}
-
-void
-ShadowCanvasLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
-{
-  if (!mImageHost) {
-    return;
-  }
-
-  mOGLManager->MakeCurrent();
-
-  gfxPattern::GraphicsFilter filter = mFilter;
-#ifdef ANDROID
-  // Bug 691354
-  // Using the LINEAR filter we get unexplained artifacts.
-  // Use NEAREST when no scaling is required.
-  gfxMatrix matrix;
-  bool is2D = GetEffectiveTransform().Is2D(&matrix);
-  if (is2D && !matrix.HasNonTranslationOrFlip()) {
-    filter = gfxPattern::FILTER_NEAREST;
-  }
-#endif
-
-  EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
-
-  gfx::Matrix4x4 transform;
-  mOGLManager->ToMatrix4x4(GetEffectiveTransform(), transform);
-  gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-
-  mImageHost->Composite(effectChain,
-                        GetEffectiveOpacity(),
-                        transform,
-                        gfx::Point(aOffset.x, aOffset.y),
-                        gfx::ToFilter(filter),
-                        clipRect);
-}
-
-void
-ShadowCanvasLayerOGL::CleanupResources()
-{
-  mImageHost = nullptr;
-}

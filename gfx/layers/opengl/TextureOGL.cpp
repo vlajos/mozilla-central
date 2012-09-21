@@ -5,6 +5,7 @@
 
 #include "TextureOGL.h"
 #include "ipc/AutoOpenSurface.h"
+#include "gfx2DGlue.h"
 
 namespace mozilla {
 namespace layers {
@@ -269,7 +270,7 @@ TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
     return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerExternalProgramType) {
     gfx::Matrix4x4 textureTransform;
-    LayerManagerOGL::ToMatrix4x4(handleDetails.mTextureTransform, textureTransform);
+    ToMatrix4x4(handleDetails.mTextureTransform, textureTransform);
     return new EffectRGBAExternal(this, textureTransform, true, aFilter, mFlags & NeedsYFlip);
   } else {
     NS_RUNTIMEABORT("Shader type not yet supported");

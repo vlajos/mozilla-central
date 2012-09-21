@@ -13,20 +13,12 @@
 #include "nsString.h"
 #include "GLContext.h"
 #include "gfx3DMatrix.h"
+#include "LayersTypes.h"
 
 namespace mozilla {
 namespace layers {
 
 class Layer;
-
-// The kinds of mask layer a shader can support
-// We rely on the items in this enum being sequential
-enum MaskType {
-  MaskNone = 0,   // no mask layer
-  Mask2d,         // mask layer for layers with 2D transforms
-  Mask3d,         // mask layer for layers with 3D transforms
-  NumMaskTypes
-};
 
 /**
  * This struct represents the shaders that make up a program and the uniform

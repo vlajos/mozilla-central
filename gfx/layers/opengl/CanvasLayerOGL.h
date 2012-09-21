@@ -9,7 +9,6 @@
 
 #include "LayerManagerOGL.h"
 #include "gfxASurface.h"
-//#include "ImageHost.h"
 #if defined(MOZ_WIDGET_GTK2) && !defined(MOZ_PLATFORM_MAEMO)
 #include "GLXLibrary.h"
 #include "mozilla/X11Util.h"
@@ -91,62 +90,6 @@ protected:
   }
 };
 
-// NB: eventually we'll have separate shadow canvas2d and shadow
-// canvas3d layers, but currently they look the same from the
-// perspective of the compositor process
-class ShadowCanvasLayerOGL : public ShadowCanvasLayer,
-                             public LayerOGL
-{
-  typedef gl::TextureImage TextureImage;
-
-public:
-  ShadowCanvasLayerOGL(LayerManagerOGL* aManager);
-  virtual ~ShadowCanvasLayerOGL();
-
-  // CanvasLayer impl
-  virtual void Initialize(const Data& aData)
-  {
-    NS_RUNTIMEABORT("Incompatibe surface type");
-  }
-
-  // This isn't meaningful for shadow canvas.
-  virtual void Updated(const nsIntRect&) {}
-
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator) {}
-
-  // ShadowCanvasLayer impl
-  virtual void Swap(const SharedImage& aNewFront,
-                    bool needYFlip,
-                    SharedImage* aNewBack)
-  {
-    NS_ERROR("Should never be called");
-  }
-
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
-
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                           const SharedImage& aFront,
-                           SharedImage* aNewBack);
-
-  virtual void Disconnect()
-  {
-    Destroy();
-  }
-
-  // LayerOGL impl
-  void Destroy();
-  Layer* GetLayer();
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr);
-
-  virtual void CleanupResources();
-
-private:
-  void EnsureImageHost(BufferType aHostType);
-
-  RefPtr<ImageHost> mImageHost;
-};
 
 } /* layers */
 } /* mozilla */

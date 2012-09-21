@@ -18,6 +18,8 @@ namespace layers {
 
 class SurfaceOGL : public Surface
 {
+  typedef mozilla::gl::GLContext GLContext;
+
 public:
   SurfaceOGL(GLContext* aGL)
     : mGL(aGL) 

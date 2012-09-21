@@ -8,6 +8,7 @@
 #include "ReusableTileStoreOGL.h"
 #include "BasicTiledThebesLayer.h"
 #include "gfxImageSurface.h"
+#include "gfx2DGlue.h"
 
 namespace mozilla {
 namespace layers {
@@ -199,7 +200,8 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
 {
   // TODO: Fix texture handling.
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
+  //TODO[nrc] need to restore this line
+  //effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
   RefPtr<Effect> effect;
   //TODO[nrc] should use a texture host
   RefPtr<TextureHostOGL> texture; //= new TextureOGL(gl(), aTile.mTextureHandle,
@@ -215,7 +217,7 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
   }
 
   gfx::Matrix4x4 transform;
-  mOGLManager->ToMatrix4x4(aTransform, transform);
+  ToMatrix4x4(aTransform, transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
   gfx::Point offset(aOffset.x, aOffset.y);
 

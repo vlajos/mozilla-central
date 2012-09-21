@@ -6,10 +6,9 @@
 #ifndef GFX_LAYERMANAGEROGL_H
 #define GFX_LAYERMANAGEROGL_H
 
+#include "Layers.h"
 #include "CompositorOGL.h"
 #include "LayerManagerOGLProgram.h"
-
-#include "mozilla/layers/ShadowLayers.h"
 
 #include "mozilla/TimeStamp.h"
 
@@ -39,18 +38,13 @@ namespace mozilla {
 namespace layers {
 
 class LayerOGL;
-class ShadowThebesLayer;
-class ShadowContainerLayer;
-class ShadowImageLayer;
-class ShadowCanvasLayer;
-class ShadowColorLayer;
 
 /**
  * This is the LayerManager used for OpenGL 2.1 and OpenGL ES 2.0.
- * This can be used either on the main thread or the compositor.
+ * This should only be used on the main thread.
  */
 class THEBES_API LayerManagerOGL :
-    public ShadowLayerManager
+    public LayerManager
 {
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::ShaderProgramType ProgramType;
@@ -96,14 +90,6 @@ public:
     mClippingRegion = aClippingRegion;
   }
 
-  /**
-   * LayerManager implementation.
-   */
-  virtual ShadowLayerManager* AsShadowManager()
-  {
-    return this;
-  }
-
   void BeginTransaction();
 
   void BeginTransactionWithTarget(gfxContext* aTarget);
@@ -122,19 +108,6 @@ public:
     return mCompositor->CanUseCanvasLayerForSize(aSize);
   }
 
-  virtual void CreateTextureHostFor(ShadowLayer* aLayer,
-                                    const TextureIdentifier& aTextureIdentifier,
-                                    TextureFlags aFlags)
-  {
-    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(aTextureIdentifier, aFlags);
-    aLayer->AddTextureHost(aTextureIdentifier, textureHost);
-  }
-
-  virtual TextureHostIdentifier GetTextureHostIdentifier()
-  {
-    return mCompositor->GetTextureHostIdentifier();
-  }
-
   virtual PRInt32 GetMaxTextureSize() const
   {
     return mCompositor->GetMaxTextureSize();
@@ -149,13 +122,6 @@ public:
   virtual already_AddRefed<ColorLayer> CreateColorLayer();
 
   virtual already_AddRefed<CanvasLayer> CreateCanvasLayer();
-
-  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
-  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
-  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer();
-  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer();
-  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer();
-  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer();
 
   virtual LayersBackend GetBackendType() { return LAYERS_OPENGL; }
   virtual void GetBackendName(nsAString& name) { name.AssignLiteral("OpenGL"); }
@@ -184,10 +150,6 @@ public:
                          mThebesLayerCallbackData);
   }
 
-
-
-  /////////////////////////////////////
-  //TODO[nrc] get rid of these once the individual layers are done
 
   void MakeCurrent(bool aForce = false) {
     mCompositor->MakeCurrent(aForce);
@@ -354,13 +316,8 @@ public:
     SetupPipeline(viewport.width, viewport.height);
   }
 
-  static void ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut);
-
-  virtual EffectMask* MakeMaskEffect(Layer* aMaskLayer);
-
 private:
-  //TODO[nrc] remove, ShadowLayerManager has a strong ref
-  CompositorOGL* mCompositor;
+  RefPtr<CompositorOGL> mCompositor;
 
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;

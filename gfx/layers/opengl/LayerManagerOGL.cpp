@@ -51,9 +51,7 @@ using namespace mozilla::gl;
 LayerManagerOGL::LayerManagerOGL(nsIWidget *aWidget, int aSurfaceWidth, int aSurfaceHeight,
                                  bool aIsRenderingToEGLSurface)
 {
-  //TODO[nrc] sort this when we only need Compositor API
   mCompositor = new CompositorOGL(aWidget, aSurfaceWidth, aSurfaceHeight, aIsRenderingToEGLSurface);
-  ShadowLayerManager::mCompositor = mCompositor;
 }
 
 void
@@ -270,104 +268,6 @@ LayerManagerOGL::WorldTransformRect(nsIntRect& aRect)
   aRect.SetRect(grect.X(), grect.Y(), grect.Width(), grect.Height());
 }
 
-already_AddRefed<ShadowThebesLayer>
-LayerManagerOGL::CreateShadowThebesLayer()
-{
-  if (LayerManagerOGL::mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-#ifdef FORCE_BASICTILEDTHEBESLAYER
-  return nsRefPtr<ShadowThebesLayer>(new TiledThebesLayerOGL(this)).forget();
-#else
-  return nsRefPtr<ShadowThebesLayerOGL>(new ShadowThebesLayerOGL(this)).forget();
-#endif
-}
-
-already_AddRefed<ShadowContainerLayer>
-LayerManagerOGL::CreateShadowContainerLayer()
-{
-  if (LayerManagerOGL::mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-  return nsRefPtr<ShadowContainerLayerOGL>(new ShadowContainerLayerOGL(this)).forget();
-}
-
-already_AddRefed<ShadowImageLayer>
-LayerManagerOGL::CreateShadowImageLayer()
-{
-  if (LayerManagerOGL::mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-  return nsRefPtr<ShadowImageLayerOGL>(new ShadowImageLayerOGL(this)).forget();
-}
-
-already_AddRefed<ShadowColorLayer>
-LayerManagerOGL::CreateShadowColorLayer()
-{
-  if (LayerManagerOGL::mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-  return nsRefPtr<ShadowColorLayerOGL>(new ShadowColorLayerOGL(this)).forget();
-}
-
-already_AddRefed<ShadowCanvasLayer>
-LayerManagerOGL::CreateShadowCanvasLayer()
-{
-  if (LayerManagerOGL::mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-  return nsRefPtr<ShadowCanvasLayerOGL>(new ShadowCanvasLayerOGL(this)).forget();
-}
-
-already_AddRefed<ShadowRefLayer>
-LayerManagerOGL::CreateShadowRefLayer()
-{
-  if (LayerManagerOGL::mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-  return nsRefPtr<ShadowRefLayerOGL>(new ShadowRefLayerOGL(this)).forget();
-}
-
-/* static */ void
-LayerManagerOGL::ToMatrix4x4(const gfx3DMatrix &aIn, gfx::Matrix4x4 &aOut)
-{
-  aOut._11 = aIn._11;
-  aOut._12 = aIn._12;
-  aOut._13 = aIn._13;
-  aOut._14 = aIn._14;
-  aOut._21 = aIn._21;
-  aOut._22 = aIn._22;
-  aOut._23 = aIn._23;
-  aOut._24 = aIn._24;
-  aOut._31 = aIn._31;
-  aOut._32 = aIn._32;
-  aOut._33 = aIn._33;
-  aOut._34 = aIn._34;
-  aOut._41 = aIn._41;
-  aOut._42 = aIn._42;
-  aOut._43 = aIn._43;
-  aOut._44 = aIn._44;
-}
-
-EffectMask*
-LayerManagerOGL::MakeMaskEffect(Layer* aMaskLayer)
-{
-  if (aMaskLayer) {
-    LayerOGL* maskLayerOGL = static_cast<LayerOGL*>(aMaskLayer->ImplData());
-    RefPtr<TextureHost> maskHost = maskLayerOGL->AsTextureHost();
-    Matrix4x4 transform;
-    ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
-    return new EffectMask(maskHost, transform);
-  }
-
-  return nullptr;
-}
 
 } /* layers */
 } /* mozilla */

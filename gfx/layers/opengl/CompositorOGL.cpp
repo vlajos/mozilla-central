@@ -134,7 +134,7 @@ CompositorOGL::CleanupResources()
 bool
 CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
 {
-  ScopedGfxFeatureReporter reporter("GL Layers", force);
+  ScopedGfxFeatureReporter reporter("GL Layers", true);
 
   // Do not allow double initialization
   NS_ABORT_IF_FALSE(mGLContext == nsnull, "Don't reinitialize CompositorOGL");

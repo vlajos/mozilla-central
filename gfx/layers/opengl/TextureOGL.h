@@ -8,6 +8,7 @@
 
 #include "ImageLayerOGL.h"
 #include "CompositorOGL.h"
+#include "GLContext.h"
 
 namespace mozilla {
 namespace layers {
@@ -16,6 +17,7 @@ namespace layers {
 // which is not used anywhere, so what are they for?
 class TextureOGL : public Texture
 {
+  typedef mozilla::gl::GLContext GLContext;
 public:
   TextureOGL(GLContext* aGL, GLuint aTextureHandle, const gfx::IntSize& aSize)
     : mGL(aGL)
@@ -137,6 +139,9 @@ public:
 #endif
 
 protected:
+  typedef mozilla::gl::GLContext GLContext;
+  typedef mozilla::gl::TextureImage TextureImage;
+
   TextureImageAsTextureHost(GLContext* aGL)
     : mGL(aGL)
     , mTexImage(nullptr)
@@ -160,7 +165,8 @@ public:
   void SetTextureImage(TextureImage* aTexImage) { mTexImage = aTexImage; }
 };
 
-class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
+class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost,
+                                                   BufferedTexture
 {
 public:
   ~TextureImageAsTextureHostWithBuffer();
@@ -178,8 +184,10 @@ public:
     mDeAllocator = aDeAllocator;
   }
 
+  virtual BufferedTexture* GetAsBuffered() { return this; }
+
   // returns true if the buffer was reset
-  bool EnsureBuffer(nsIntSize aSize);
+  virtual bool EnsureBuffer(nsIntSize aSize);
 
 protected:
   TextureImageAsTextureHostWithBuffer(GLContext* aGL)
@@ -219,6 +227,9 @@ public:
   virtual void Unlock();
 
 protected:
+  typedef mozilla::gl::GLContext GLContext;
+  typedef mozilla::gl::TextureImage TextureImage;
+
   TextureHostOGLShared(GLContext* aGL)
     : mGL(aGL)
   {}
@@ -252,6 +263,8 @@ protected:
 
 class GLTextureAsTextureHost : public TextureHostOGL
 {
+  typedef mozilla::gl::GLContext GLContext;
+
 public:
   GLTextureAsTextureHost(GLContext* aGL)
     : TextureHostOGL()

@@ -132,6 +132,15 @@ public:
   virtual bool NextTile() = 0;
 };
 
+/**
+ * A view on a texture host where the host has a back buffer
+ */
+class BufferedTexture
+{
+public:
+  virtual bool EnsureBuffer(nsIntSize aSize) = 0;
+};
+
 class TextureHost : public RefCounted<TextureHost>
 {
 public:
@@ -172,6 +181,7 @@ public:
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
   virtual TileIterator* GetAsTileIterator() { return nullptr; }
+  virtual BufferedTexture* GetAsBuffered() { return nullptr; }
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
@@ -396,6 +406,10 @@ public:
   Compositor()
     : mCompositorID(0)
   {}
+  virtual ~Compositor() {}
+
+  virtual bool Initialize() = 0;
+  virtual void Destroy() = 0;
 
   /* Request a texture host identifier that may be used for creating textures
    * accross process or thread boundaries that are compatible with this
@@ -403,6 +417,24 @@ public:
    */
   virtual TextureHostIdentifier
     GetTextureHostIdentifier() = 0;
+
+  /**
+   * Properties of the compositor
+   */
+  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) = 0;
+  virtual PRInt32 GetMaxTextureSize() const = 0;
+
+  /**
+   * Set the target for rendering, intended to be used for the duration of a transaction
+   */
+  virtual void SetTarget(gfxContext *aTarget) = 0;
+
+  //TODO[nrc] this is annoying - we go through the LayerManager to get aWorldTransform
+  // but this call is kind of backend specific, maybe needs better API
+  virtual void SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) = 0;
+  //TODO[nrc] ought to be pre-render or something API
+  virtual void MakeCurrent(bool aForce = false) = 0;
+
 
   /* This creates a texture based on an in-memory bitmap.
    */
@@ -475,8 +507,6 @@ public:
   virtual const char* Name() const = 0;
 #endif // MOZ_DUMP_PAINTING
 
-  virtual ~Compositor() {}
-
   // these methods refer to the ID of the Compositor in terms of the Compositor
   // IPDL protocol and CompositorParent
   void SetCompositorID(PRUint32 aID)
@@ -531,8 +561,6 @@ public:
                                                          bool aStrict = false);
 
   static BufferType TypeForImage(Image* aImage);
-  //todo: needed?
-  //static TemporaryRef<Compositor> CreateCompositorForWidget(nsIWidget *aWidget);
 };
 
 }

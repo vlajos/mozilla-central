@@ -11,12 +11,11 @@
 /* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
 #include "mozilla/Util.h"
 
-#include "mozilla/layers/ShadowLayers.h"
-
 #include "ThebesLayerBuffer.h"
 #include "ThebesLayerOGL.h"
 #include "ContentHost.h"
 #include "gfxUtils.h"
+#include "gfx2DGlue.h"
 #include "gfxTeeSurface.h"
 
 #include "base/message_loop.h"
@@ -661,7 +660,7 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
   //gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aPreviousFrameBuffer);
 
   gfx::Matrix4x4 transform;
-  mOGLManager->ToMatrix4x4(GetEffectiveTransform(), transform);
+  ToMatrix4x4(GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
 
 #ifdef MOZ_DUMP_PAINTING
@@ -676,7 +675,7 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
 #endif
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
+  //effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
 
   mBuffer->Composite(effectChain,
                      GetEffectiveOpacity(),
@@ -706,156 +705,6 @@ ThebesLayerOGL::CleanupResources()
 }
 
 
-ShadowThebesLayerOGL::ShadowThebesLayerOGL(LayerManagerOGL *aManager)
-  : ShadowThebesLayer(aManager, nullptr)
-  , LayerOGL(aManager)
-  , mBuffer(nullptr)
-{
-#ifdef FORCE_BASICTILEDTHEBESLAYER
-  NS_ABORT();
-#endif
-  mImplData = static_cast<LayerOGL*>(this);
-}
-
-ShadowThebesLayerOGL::~ShadowThebesLayerOGL()
-{}
-
-void
-ShadowThebesLayerOGL::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
-{
-  EnsureBuffer(aTextureIdentifier.mBufferType);
-
-  mBuffer->AddTextureHost(aTextureIdentifier, aTextureHost);
-}
-
-
-void
-ShadowThebesLayerOGL::EnsureBuffer(BufferType aHostType)
-{
-  if (!mBuffer ||
-      mBuffer->GetType() != aHostType) {
-    RefPtr<BufferHost> bufferHost = mOGLManager->GetCompositor()->CreateBufferHost(aHostType);
-    NS_ASSERTION(bufferHost->GetType() == BUFFER_THEBES ||
-                 bufferHost->GetType() == BUFFER_DIRECT, "bad buffer type");
-    mBuffer = static_cast<AContentHost*>(bufferHost.get());
-  }
-}
-
-void
-ShadowThebesLayerOGL::SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                                  const ThebesBuffer& aNewFront,
-                                  const nsIntRegion& aUpdatedRegion,
-                                  OptionalThebesBuffer* aNewBack,
-                                  nsIntRegion* aNewBackValidRegion,
-                                  OptionalThebesBuffer* aReadOnlyFront,
-                                  nsIntRegion* aFrontUpdatedRegion)
-{
-  if (mDestroyed ||
-      !mBuffer) {
-    // Don't drop buffers on the floor.
-    *aNewBack = aNewFront;
-    *aNewBackValidRegion = aNewFront.rect();
-    return;
-  }
-  
-  mBuffer->UpdateThebes(aTextureIdentifier,
-                        aNewFront,
-                        aUpdatedRegion,
-                        aNewBack,
-                        mValidRegionForNextBackBuffer,
-                        mValidRegion,
-                        aReadOnlyFront,
-                        aNewBackValidRegion,
-                        aFrontUpdatedRegion);
-
-  // Save the current valid region of our front buffer, because if
-  // we're double buffering, it's going to be the valid region for the
-  // next back buffer sent back to the renderer.
-  //
-  // NB: we rely here on the fact that mValidRegion is initialized to
-  // empty, and that the first time Swap() is called we don't have a
-  // valid front buffer that we're going to return to content.
-  mValidRegionForNextBackBuffer = mValidRegion;
-}
-
-void
-ShadowThebesLayerOGL::Disconnect()
-{
-  Destroy();
-}
-
-void
-ShadowThebesLayerOGL::Destroy()
-{
-  if (!mDestroyed) {
-    mBuffer = nullptr;
-    mDestroyed = true;
-  }
-}
-
-Layer*
-ShadowThebesLayerOGL::GetLayer()
-{
-  return this;
-}
-
-bool
-ShadowThebesLayerOGL::IsEmpty()
-{
-  return !mBuffer;
-}
-
-void
-ShadowThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
-                                  const nsIntRect& aClipRect,
-                                  Surface* aPreviousSurface)
-{
-  if (!mBuffer) {
-    return;
-  }
-
-  gfx::Matrix4x4 transform;
-  mOGLManager->ToMatrix4x4(GetEffectiveTransform(), transform);
-  gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-
-#ifdef MOZ_DUMP_PAINTING
-  if (gfxUtils::sDumpPainting) {
-    nsRefPtr<gfxImageSurface> surf = mBuffer->Dump();
-    WriteSnapshotToDumpFile(this, surf);
-  }
-#endif
-
-  EffectChain effectChain;
-  // TODO: Handle mask layers.
-  RefPtr<Effect> effectMask;
-
-  mBuffer->Composite(effectChain,
-                     GetEffectiveOpacity(), 
-                     transform,
-                     gfx::Point(aOffset.x, aOffset.y),
-                     gfx::FILTER_LINEAR,
-                     clipRect,
-                     &GetEffectiveVisibleRegion());
-}
-void
-
-ShadowThebesLayerOGL::DestroyFrontBuffer()
-{
-  mBuffer = nullptr;
-  mValidRegionForNextBackBuffer.SetEmpty();
-}
-
-void
-ShadowThebesLayerOGL::CleanupResources()
-{
-  DestroyFrontBuffer();
-}
-
-void
-ShadowThebesLayerOGL::SetAllocator(ISurfaceDeAllocator* aAllocator)
-{
-  mBuffer->SetDeAllocator(aAllocator);
-}
 
 } /* layers */
 } /* mozilla */

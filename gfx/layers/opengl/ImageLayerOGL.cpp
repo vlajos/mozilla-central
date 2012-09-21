@@ -8,7 +8,6 @@
 
 #include "ipc/AutoOpenSurface.h"
 #include "ImageLayerOGL.h"
-#include "ImageHost.h"
 #include "gfxImageSurface.h"
 #include "gfxUtils.h"
 #include "yuv_convert.h"
@@ -21,8 +20,6 @@
 #ifdef MOZ_WIDGET_ANDROID
 #include "nsSurfaceTexture.h"
 #endif
-
-#include "TextureOGL.h"
 
 using namespace mozilla::gfx;
 using namespace mozilla::gl;
@@ -679,114 +676,6 @@ ImageLayerOGL::LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize)
   return true;
 }
 
-ShadowImageLayerOGL::ShadowImageLayerOGL(LayerManagerOGL* aManager)
-  : ShadowImageLayer(aManager, nullptr)
-  , LayerOGL(aManager)
-  , mImageHost(nullptr)
-{
-  mImplData = static_cast<LayerOGL*>(this);
-}
-
-ShadowImageLayerOGL::~ShadowImageLayerOGL()
-{}
-
-void
-ShadowImageLayerOGL::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
-{
-  EnsureImageHost(aTextureIdentifier.mBufferType);
-
-  mImageHost->AddTextureHost(aTextureIdentifier, aTextureHost);
-}
-
-void
-ShadowImageLayerOGL::SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                                 const SharedImage& aFront,
-                                 SharedImage* aNewBack)
-{
-  if (mDestroyed ||
-      !mImageHost) {
-    *aNewBack = aFront;
-    return;
-  }
-
-  mImageHost->UpdateImage(aTextureIdentifier, aFront);
-  *aNewBack = aFront;
-}
-
-void
-ShadowImageLayerOGL::EnsureImageHost(BufferType aHostType)
-{
-  if (!mImageHost ||
-      mImageHost->GetType() != aHostType) {
-    RefPtr<BufferHost> bufferHost = mOGLManager->GetCompositor()->CreateBufferHost(aHostType);
-    mImageHost = static_cast<ImageHost*>(bufferHost.get());
-  }
-}
-
-void
-ShadowImageLayerOGL::Disconnect()
-{
-  Destroy();
-}
-
-void
-ShadowImageLayerOGL::Destroy()
-{
-  if (!mDestroyed) {
-    mDestroyed = true;
-    CleanupResources();
-  }
-}
-
-Layer*
-ShadowImageLayerOGL::GetLayer()
-{
-  return this;
-}
-
-void
-ShadowImageLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
-{
-  mOGLManager->MakeCurrent();
-
-  if (!mImageHost) {
-    return;
-  }
-
-  EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
-
-  gfx::Matrix4x4 transform;
-  LayerManagerOGL::ToMatrix4x4(GetEffectiveTransform(), transform);
-  gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-
-  mImageHost->Composite(effectChain,
-                        GetEffectiveOpacity(),
-                        transform,
-                        gfx::Point(aOffset.x, aOffset.y),
-                        gfx::ToFilter(mFilter),
-                        clipRect);
-}
-
-TemporaryRef<TextureHost> 
-ShadowImageLayerOGL::AsTextureHost()
-{
-  return mImageHost->GetTextureHost();
-}
-
-void
-ShadowImageLayerOGL::SetPictureRect(const nsIntRect& aPictureRect)
-{
-  if (mImageHost) {
-    mImageHost->SetPictureRect(aPictureRect);
-  }
-}
-
-void
-ShadowImageLayerOGL::CleanupResources()
-{
-  mImageHost = nullptr;
-}
 
 } /* layers */
 } /* mozilla */

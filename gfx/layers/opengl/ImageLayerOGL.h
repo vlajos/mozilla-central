@@ -7,7 +7,6 @@
 #define GFX_IMAGELAYEROGL_H
 
 #include "mozilla/layers/PLayers.h"
-#include "mozilla/layers/ShadowLayers.h"
 
 #include "LayerManagerOGL.h"
 #include "ImageLayers.h"
@@ -153,56 +152,6 @@ struct CairoOGLBackendData : public ImageBackendData
   GLTexture mTexture;
   gl::ShaderProgramType mLayerProgram;
   gfxIntSize mTextureSize;
-};
-
-class ShadowImageLayerOGL : public ShadowImageLayer,
-                            public LayerOGL
-{
-  typedef gl::TextureImage TextureImage;
-
-public:
-  ShadowImageLayerOGL(LayerManagerOGL* aManager);
-  virtual ~ShadowImageLayerOGL();
-
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator) {}
-
-  // ShadowImageLayer impl
-  virtual void Swap(const SharedImage& aFront,
-                    SharedImage* aNewBack)
-  {
-    NS_ERROR("Not implemented");
-  }
-
-  virtual void Disconnect();
-
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
-
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                           const SharedImage& aFront,
-                           SharedImage* aNewBack);
-
-  virtual void SetPictureRect(const nsIntRect& aPictureRect);
-
-  // LayerOGL impl
-  virtual void Destroy();
-
-  virtual Layer* GetLayer();
-
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr);
-
-  virtual TemporaryRef<TextureHost> AsTextureHost();
-
-
-  virtual void CleanupResources();
-
-private:
-  void EnsureImageHost(BufferType aHostType);
-
-  // A ShadowImageLayer should use only one of the ImageHost
-  // or ImageBridge mechanisms at one time
-  RefPtr<ImageHost> mImageHost;
 };
 
 } /* layers */

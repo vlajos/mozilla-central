@@ -6,9 +6,6 @@
 #ifndef GFX_THEBESLAYEROGL_H
 #define GFX_THEBESLAYEROGL_H
 
-#include "mozilla/layers/PLayers.h"
-#include "mozilla/layers/ShadowLayers.h"
-
 #include "Layers.h"
 #include "LayerManagerOGL.h"
 #include "gfxImageSurface.h"
@@ -55,57 +52,6 @@ private:
   nsRefPtr<Buffer> mBuffer;
 };
 
-class ShadowThebesLayerOGL : public ShadowThebesLayer,
-                             public LayerOGL
-{
-public:
-  ShadowThebesLayerOGL(LayerManagerOGL *aManager);
-  virtual ~ShadowThebesLayerOGL();
-
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
-
-  virtual void Swap(const ThebesBuffer& aNewFront,
-                    const nsIntRegion& aUpdatedRegion,
-                    OptionalThebesBuffer* aNewBack,
-                    nsIntRegion* aNewBackValidRegion,
-                    OptionalThebesBuffer* aReadOnlyFront,
-                    nsIntRegion* aFrontUpdatedRegion)
-  { NS_ERROR("Should not be called"); }
-
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                           const ThebesBuffer& aNewFront,
-                           const nsIntRegion& aUpdatedRegion,
-                           OptionalThebesBuffer* aNewBack,
-                           nsIntRegion* aNewBackValidRegion,
-                           OptionalThebesBuffer* aReadOnlyFront,
-                           nsIntRegion* aFrontUpdatedRegion);
-                           
-  virtual void DestroyFrontBuffer();
-
-  virtual void Disconnect();
-
-  virtual void SetValidRegion(const nsIntRegion& aRegion)
-  {
-    ShadowThebesLayer::SetValidRegion(aRegion);
-  }
-
-  // LayerOGL impl
-  void Destroy();
-  Layer* GetLayer();
-  virtual bool IsEmpty();
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr);
-  virtual void CleanupResources();
-
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
-
-private:
-  void EnsureBuffer(BufferType aHostType);
-
-  nsRefPtr<AContentHost> mBuffer;
-  nsIntRegion mValidRegionForNextBackBuffer;
-};
 
 } /* layers */
 } /* mozilla */

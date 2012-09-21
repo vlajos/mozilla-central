@@ -9,6 +9,7 @@ srcdir      = @srcdir@
 VPATH       = \
   $(srcdir) \
   $(srcdir)/basic \
+  $(srcdir)/composite \
   $(srcdir)/opengl \
   $(srcdir)/d3d9 \
   $(srcdir)/d3d10 \
@@ -35,10 +36,16 @@ EXPORTS = \
         BasicTiledThebesLayer.h \
         BasicThebesLayer.h \
         BasicImplData.h \
+        BufferHost.h \
+        CompositeLayerManager.h \
         Compositor.h \
         CompositorOGL.h \
+        ContentHost.h \
         FrameMetrics.h \
         ImageLayers.h \
+        ImageHost.h \
+        LayerImpl.h \
+        LayerImplDecl.h \
         Layers.h \
         LayersTypes.h \
         LayerManagerOGLShaders.h \
@@ -71,6 +78,12 @@ CPPSRCS = \
         ThebesLayerBuffer.cpp \
         CanvasLayerOGL.cpp \
         ColorLayerOGL.cpp \
+        CompositeCanvasLayer.cpp \
+        CompositeColorLayer.cpp \
+        CompositeContainerLayer.cpp \
+        CompositeImageLayer.cpp \
+        CompositeLayerManager.cpp \
+        CompositeThebesLayer.cpp \
         ContainerLayerOGL.cpp \
         ImageClient.cpp \
         ImageHost.cpp \

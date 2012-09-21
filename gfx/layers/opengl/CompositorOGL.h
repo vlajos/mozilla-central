@@ -36,9 +36,10 @@ public:
    * creates a context for the associated widget. Returns true if initialization
    * is succesful, false otherwise.
    */
-  bool Initialize(bool force = false, nsRefPtr<GLContext> aContext = nsnull);
+  bool Initialize(bool force, nsRefPtr<GLContext> aContext = nullptr);
+  virtual bool Initialize() { return Initialize(true, nullptr); }
 
-  void Destroy();
+  virtual void Destroy();
 
   virtual TemporaryRef<TextureHost>
     CreateTextureHost(const TextureIdentifier &aIdentifier,
@@ -102,7 +103,7 @@ public:
 
   GLContext* gl() const { return mGLContext; }
 
-  void MakeCurrent(bool aForce = false) {
+  virtual void MakeCurrent(bool aForce = false) {
     if (mDestroyed) {
       NS_WARNING("Call on destroyed layer manager");
       return;
@@ -110,7 +111,7 @@ public:
     mGLContext->MakeCurrent(aForce);
   }
 
-  void SetTarget(gfxContext* aTarget)
+  virtual void SetTarget(gfxContext* aTarget)
   {
     mTarget = aTarget;
   }
@@ -316,7 +317,7 @@ private:
    * Setup the viewport and projection matrix for rendering
    * to a window of the given dimensions.
    */
-  void SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
+  virtual void SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
 
   void CleanupResources();
 

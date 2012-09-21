@@ -3,18 +3,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "ColorLayerOGL.h"
+#include "CompositeColorLayer.h"
 #include "LayerImpl.h"
+#include "gfx2DGlue.h"
 
 namespace mozilla {
 namespace layers {
 
-void
-ColorLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
-{
-  RenderColorLayer(this, mOGLManager->GetCompositor(), aOffset, aClipRect);
-}
 
+void
+CompositeColorLayer::RenderLayer(const nsIntPoint& aOffset,
+                                 const nsIntRect& aClipRect,
+                                 Surface*)
+{
+  RenderColorLayer(this, mCompositor, aOffset, aClipRect);
+}
 
 
 } /* layers */
