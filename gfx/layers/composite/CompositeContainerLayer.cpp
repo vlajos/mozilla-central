@@ -51,7 +51,7 @@ CompositeContainerLayer::RemoveChild(Layer *aChild)
 void
 CompositeContainerLayer::Destroy()
 {
-  ContainerDestroy<CompositeLayer, CompositeContainerLayer>(this);
+  ContainerDestroy(this);
 }
 
 CompositeLayer*
@@ -68,8 +68,7 @@ CompositeContainerLayer::RenderLayer(const nsIntPoint& aOffset,
                                      const nsIntRect& aClipRect,
                                      Surface* aPreviousSurface)
 {
-  ContainerRender<CompositeContainerLayer, CompositeLayer, CompositeLayerManager>
-                 (this, aPreviousSurface, aOffset, mCompositeManager, aClipRect);
+  ContainerRender(this, aPreviousSurface, aOffset, mCompositeManager, aClipRect);
 }
 
 void
@@ -111,8 +110,7 @@ CompositeRefLayer::RenderLayer(const nsIntPoint& aOffset,
                                const nsIntRect& aClipRect,
                                Surface* aPreviousSurface)
 {
-  ContainerRender<CompositeRefLayer, CompositeLayer, CompositeLayerManager>
-                 (this, aPreviousSurface, aOffset, mCompositeManager, aClipRect);
+  ContainerRender(this, aPreviousSurface, aOffset, mCompositeManager, aClipRect);
 }
 
 void

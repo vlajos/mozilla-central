@@ -8,29 +8,21 @@
 
 #include "Layers.h"
 #include "LayerManagerOGL.h"
-#include "LayerImplDecl.h"
+#include "LayerImpl.h"
 
 namespace mozilla {
 namespace layers {
 
 class ContainerLayerOGL : public ContainerLayer,
-                          public LayerOGL
+                          public LayerOGL,
+                          private ContainerLayerImpl<ContainerLayerOGL,
+                                                     LayerOGL,
+                                                     LayerManagerOGL>
 {
-  template<class Container>
-  friend void ContainerInsertAfter(Container* aContainer, Layer* aChild, Layer* aAfter);
-  template<class Container>
-  friend void ContainerRemoveChild(Container* aContainer, Layer* aChild);
-  template<class LayerT,
-           class Container>
-  friend void ContainerDestroy(Container* aContainer);
   template<class ContainerT,
-           class LayerT,
-           class ManagerT>
-  friend void ContainerRender(ContainerT* aContainer,
-                              Surface* aPreviousSurface,
-                              const nsIntPoint& aOffset,
-                              ManagerT* aManager,
-                              const nsIntRect& aClipRect);
+         class LayerT,
+         class ManagerT>
+  friend class ContainerLayerImpl;
 
 public:
   ContainerLayerOGL(LayerManagerOGL *aManager);

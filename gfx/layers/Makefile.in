@@ -45,7 +45,6 @@ EXPORTS = \
         ImageLayers.h \
         ImageHost.h \
         LayerImpl.h \
-        LayerImplDecl.h \
         Layers.h \
         LayersTypes.h \
         LayerManagerOGLShaders.h \

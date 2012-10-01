@@ -11,29 +11,21 @@
 
 #include "Layers.h"
 #include "CompositeLayerManager.h"
-#include "LayerImplDecl.h"
+#include "LayerImpl.h"
 
 namespace mozilla {
 namespace layers {
 
 class CompositeContainerLayer : public ShadowContainerLayer,
-                                public CompositeLayer
+                                public CompositeLayer,
+                                private ContainerLayerImpl<CompositeContainerLayer,
+                                                           CompositeLayer,
+                                                           CompositeLayerManager>
 {
-  template<class Container>
-  friend void ContainerInsertAfter(Container* aContainer, Layer* aChild, Layer* aAfter);
-  template<class Container>
-  friend void ContainerRemoveChild(Container* aContainer, Layer* aChild);
-  template<class LayerT,
-           class Container>
-  friend void ContainerDestroy(Container* aContainer);
   template<class ContainerT,
-           class LayerT,
-           class ManagerT>
-  friend void ContainerRender(ContainerT* aContainer,
-                              Surface* aPreviousSurface,
-                              const nsIntPoint& aOffset,
-                              ManagerT* aManager,
-                              const nsIntRect& aClipRect);
+         class LayerT,
+         class ManagerT>
+  friend class ContainerLayerImpl;
 
 public:
   CompositeContainerLayer(CompositeLayerManager *aManager);
@@ -63,16 +55,15 @@ public:
 };
 
 class CompositeRefLayer : public ShadowRefLayer,
-                                public CompositeLayer
+                          public CompositeLayer,
+                          protected ContainerLayerImpl<CompositeRefLayer,
+                                                       CompositeLayer,
+                                                       CompositeLayerManager>
 {
   template<class ContainerT,
-           class LayerT,
-           class ManagerT>
-  friend void ContainerRender(ContainerT* aContainer,
-                              Surface* aPreviousSurface,
-                              const nsIntPoint& aOffset,
-                              ManagerT* aManager,
-                              const nsIntRect& aClipRect);
+         class LayerT,
+         class ManagerT>
+  friend class ContainerLayerImpl;
 
 public:
   CompositeRefLayer(CompositeLayerManager *aManager);

@@ -6,7 +6,6 @@
 #include "ContainerLayerOGL.h"
 #include "gfxUtils.h"
 #include "Compositor.h"
-#include "LayerImpl.h"
 
 namespace mozilla {
 namespace layers {
@@ -39,7 +38,7 @@ ContainerLayerOGL::RemoveChild(Layer *aChild)
 void
 ContainerLayerOGL::Destroy()
 {
-  ContainerDestroy<LayerOGL, ContainerLayerOGL>(this);
+  ContainerDestroy(this);
 }
 
 LayerOGL*
@@ -56,8 +55,7 @@ ContainerLayerOGL::RenderLayer(const nsIntPoint& aOffset,
                                const nsIntRect& aClipRect,
                                Surface* aPreviousSurface)
 {
-  ContainerRender<ContainerLayerOGL, LayerOGL, LayerManagerOGL>
-                 (this, aPreviousSurface, aOffset, mOGLManager, aClipRect);
+  ContainerRender(this, aPreviousSurface, aOffset, mOGLManager, aClipRect);
 }
 
 void
