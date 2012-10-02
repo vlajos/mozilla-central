@@ -48,10 +48,9 @@ using namespace mozilla::gl;
 /**
  * LayerManagerOGL
  */
-LayerManagerOGL::LayerManagerOGL(nsIWidget *aWidget, int aSurfaceWidth, int aSurfaceHeight,
-                                 bool aIsRenderingToEGLSurface)
+LayerManagerOGL::LayerManagerOGL(nsIWidget *aWidget)
 {
-  mCompositor = new CompositorOGL(aWidget, aSurfaceWidth, aSurfaceHeight, aIsRenderingToEGLSurface);
+  mCompositor = new CompositorOGL(aWidget);
 }
 
 void

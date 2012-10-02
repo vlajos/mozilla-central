@@ -21,6 +21,7 @@
 #include "mozilla/Monitor.h"
 #include "mozilla/TimeStamp.h"
 #include "ShadowLayersManager.h"
+#include "CompositeLayerManager.h"
 class nsIWidget;
 
 namespace base {
@@ -76,7 +77,7 @@ public:
                                    bool isFirstPaint) MOZ_OVERRIDE;
   void Destroy();
 
-  LayerManager* GetLayerManager() { return mLayerManager; }
+  CompositeLayerManager* GetLayerManager() { return mLayerManager; }
 
   void SetTransformation(float aScale, nsIntPoint aScrollOffset);
   void AsyncRender();
@@ -236,7 +237,7 @@ private:
                             const gfxPoint& aTranslation,
                             const gfxPoint& aScaleDiff);
 
-  nsRefPtr<LayerManager> mLayerManager;
+  nsRefPtr<CompositeLayerManager> mLayerManager;
   nsIWidget* mWidget;
   TargetConfig mTargetConfig;
   CancelableTask *mCurrentCompositeTask;

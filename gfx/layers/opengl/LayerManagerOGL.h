@@ -50,8 +50,7 @@ class THEBES_API LayerManagerOGL :
   typedef mozilla::gl::ShaderProgramType ProgramType;
 
 public:
-  LayerManagerOGL(nsIWidget *aWidget, int aSurfaceWidth = -1, int aSurfaceHeight = -1,
-                  bool aIsRenderingToEGLSurface = false);
+  LayerManagerOGL(nsIWidget *aWidget);
   virtual ~LayerManagerOGL()
   {
     Destroy();
