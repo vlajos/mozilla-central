@@ -36,7 +36,7 @@ public:
    * creates a context for the associated widget. Returns true if initialization
    * is succesful, false otherwise.
    */
-  bool Initialize(bool force, nsRefPtr<GLContext> aContext = nullptr);
+  bool Initialize(bool force, nsRefPtr<GLContext> aContext);
   virtual bool Initialize() { return Initialize(true, nullptr); }
 
   virtual void Destroy();

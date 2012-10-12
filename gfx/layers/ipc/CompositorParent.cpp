@@ -763,7 +763,10 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
 
   if (aBackendHint == mozilla::layers::LAYERS_OPENGL) {
     mLayerManager =
-      new CompositeLayerManager(new CompositorOGL(mWidget, mEGLSurfaceSize.width, mEGLSurfaceSize.height, mRenderToEGLSurface));
+      new CompositeLayerManager(new CompositorOGL(mWidget,
+                                                  mEGLSurfaceSize.width,
+                                                  mEGLSurfaceSize.height,
+                                                  mRenderToEGLSurface));
     mWidget = nullptr;
     mLayerManager->SetCompositorID(mCompositorID);  
     
