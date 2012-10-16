@@ -29,6 +29,7 @@
 #include "gfxASurface.h"
 #include "jsapi.h"
 #include "LayersTypes.h"
+#include "Compositor.h"
 #include "FrameMetrics.h"
 #include "nsCSSProperty.h"
 
@@ -988,6 +989,61 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
             ReadParam(aMsg, aIter, &aResult->mMayHaveTouchListeners));
   }
 };
+
+template<>
+struct ParamTraits<mozilla::layers::TextureHostIdentifier>
+{
+  typedef mozilla::layers::TextureHostIdentifier paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
+    WriteParam(aMsg, aParam.mParentBackend);
+    WriteParam(aMsg, aParam.mMaxTextureSize);
+  }
+
+  static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
+  {
+    return ReadParam(aMsg, aIter, &aResult->mParentBackend) &&
+           ReadParam(aMsg, aIter, &aResult->mMaxTextureSize);
+  }
+};
+
+template<>
+struct ParamTraits<mozilla::layers::TextureIdentifier>
+{
+  typedef mozilla::layers::TextureIdentifier paramType;
+  
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
+    WriteParam(aMsg, aParam.mBufferType);
+    WriteParam(aMsg, aParam.mTextureType);
+    WriteParam(aMsg, aParam.mDescriptor);
+  }
+
+  static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
+  {
+    return ReadParam(aMsg, aIter, &aResult->mBufferType) &&
+           ReadParam(aMsg, aIter, &aResult->mTextureType) &&
+           ReadParam(aMsg, aIter, &aResult->mDescriptor);
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::layers::BufferType>
+  : public EnumSerializer<mozilla::layers::BufferType,
+                          mozilla::layers::BUFFER_UNKNOWN,
+                          mozilla::layers::BUFFER_DIRECT
+>
+{};
+
+template <>
+struct ParamTraits<mozilla::layers::TextureHostType>
+  : public EnumSerializer<mozilla::layers::TextureHostType,
+                          mozilla::layers::TEXTURE_UNKNOWN,
+                          mozilla::layers::TEXTURE_BRIDGE
+>
+{};
+
 
 } /* namespace IPC */
 
