@@ -114,8 +114,9 @@ public:
   // LayerOGL impl
   void Destroy() {}
   Layer* GetLayer() { return this; }
-  virtual void RenderLayer(int aPreviousFrameBuffer,
-                           const nsIntPoint& aOffset);
+  virtual void RenderLayer(const nsIntPoint& aOffset,
+                           const nsIntRect& aClipRect,
+                           Surface* aPreviousSurface = nullptr);
   virtual void CleanupResources() { }
 
   // Shadow
@@ -137,7 +138,8 @@ public:
                   nsIntRegion aScreenRegion,
                   nsIntPoint aTextureOffset,
                   nsIntSize aTextureBounds,
-                  Layer* aMaskLayer);
+                  Layer* aMaskLayer,
+                  const nsIntRect& aClipRect);
 
 private:
   nsIntRegion                  mRegionToUpload;

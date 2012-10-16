@@ -131,6 +131,26 @@ public:
     MOZ_ASSERT(!oldBuffer);
   }
 
+  /**
+   * When BasicThebesLayerBuffer is used with layers that hold
+   * SurfaceDescriptor, this buffer only has a valid gfxASurface in
+   * the scope of an AutoOpenSurface for that SurfaceDescriptor.  That
+   * is, it's sort of a "virtual buffer" that's only mapped an
+   * unmapped within the scope of AutoOpenSurface.  None of the
+   * underlying buffer attributes (rect, rotation) are affected by
+   * mapping/unmapping.
+   *
+   * These helpers just exist to provide more descriptive names of the
+   * map/unmap process.
+   */
+  void MapBuffer(gfxASurface* aBuffer)
+  {
+    SetBuffer(aBuffer);
+  }
+  void UnmapBuffer()
+  {
+    SetBuffer(nullptr);
+  }
 protected:
   virtual already_AddRefed<gfxASurface>
   CreateBuffer(ContentType, const nsIntSize&, uint32_t)

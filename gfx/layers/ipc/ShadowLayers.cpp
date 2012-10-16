@@ -22,6 +22,10 @@
 #include "RenderTrace.h"
 #include "sampler.h"
 #include "nsXULAppAPI.h"
+#include "TextureClient.h"
+#include "ImageClient.h"
+#include "CanvasClient.h"
+#include "ContentClient.h"
 
 using namespace mozilla::ipc;
 
@@ -533,6 +537,57 @@ ShadowLayerForwarder::DestroySharedSurface(SurfaceDescriptor* aSurface)
   }
 }
 
+TemporaryRef<TextureClient>
+ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHostType,
+                                             const BufferType& aBufferType,
+                                             ShadowableLayer* aLayer,
+                                             TextureFlags aFlags,
+                                             bool aStrict /* = false */)
+{
+  RefPtr<TextureClient> client = CompositingFactory::CreateTextureClient(mParentBackend,
+                                                                         aTextureHostType,
+                                                                         aBufferType,
+                                                                         this, aStrict);
+
+  // send client's id and type (not aImageSourceType) to Compositor
+  TextureIdentifier textureId = client->GetIdentifier();
+  mTxn->AddEdit(OpCreateTextureHost(nullptr, Shadow(aLayer), textureId, aFlags));
+
+  return client.forget();
+}
+
+TemporaryRef<ImageClient>
+ShadowLayerForwarder::CreateImageClientFor(const BufferType& aBufferType,
+                                           ShadowableLayer* aLayer,
+                                           TextureFlags aFlags)
+{
+  RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(mParentBackend,
+                                                                     aBufferType,
+                                                                     this, aLayer, aFlags);
+  return client.forget();
+}
+
+TemporaryRef<CanvasClient>
+ShadowLayerForwarder::CreateCanvasClientFor(const BufferType& aBufferType,
+                                            ShadowableLayer* aLayer,
+                                            TextureFlags aFlags)
+{
+  RefPtr<CanvasClient> client = CompositingFactory::CreateCanvasClient(mParentBackend,
+                                                                       aBufferType,
+                                                                       this, aLayer, aFlags);
+  return client.forget();
+}
+
+TemporaryRef<ContentClient>
+ShadowLayerForwarder::CreateContentClientFor(const BufferType& aBufferType,
+                                             ShadowableLayer* aLayer,
+                                             TextureFlags aFlags)
+{
+  RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(mParentBackend,
+                                                                         aBufferType,
+                                                                         this, aLayer, aFlags);
+  return client.forget();
+}
 
 PLayerChild*
 ShadowLayerForwarder::ConstructShadowFor(ShadowableLayer* aLayer)
@@ -628,6 +683,12 @@ ShadowLayerManager::OpenDescriptorForDirectTexturing(GLContext*,
                                                      GLenum)
 {
   return nullptr;
+}
+
+/*static*/ bool
+ShadowLayerManager::SupportsDirectTexturing()
+{
+  return false;
 }
 
 /*static*/ void

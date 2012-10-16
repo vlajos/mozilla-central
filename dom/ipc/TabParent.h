@@ -33,6 +33,7 @@ namespace mozilla {
 
 namespace layers {
 struct FrameMetrics;
+struct TextureHostIdentifier;
 }
 
 namespace layout {
@@ -255,8 +256,7 @@ protected:
     bool AllowContentIME();
 
     virtual PRenderFrameParent* AllocPRenderFrame(ScrollingBehavior* aScrolling,
-                                                  LayersBackend* aBackend,
-                                                  int32_t* aMaxTextureSize,
+                                                  TextureHostIdentifier* aTextureHostIdentifier,
                                                   uint64_t* aLayersId) MOZ_OVERRIDE;
     virtual bool DeallocPRenderFrame(PRenderFrameParent* aFrame) MOZ_OVERRIDE;
 

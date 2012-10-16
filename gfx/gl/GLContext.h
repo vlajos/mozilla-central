@@ -48,6 +48,7 @@ namespace mozilla {
   namespace layers {
     class LayerManagerOGL;
     class ColorTextureLayerProgram;
+    class TextureImageAsTextureHost;
   }
 
 namespace gl {
@@ -92,6 +93,7 @@ enum ShaderProgramType {
 class TextureImage
 {
     NS_INLINE_DECL_REFCOUNTING(TextureImage)
+    friend class layers::TextureImageAsTextureHost;
 public:
     enum TextureState
     {
@@ -301,10 +303,12 @@ protected:
      * TextureImage from GLContext::CreateTextureImage().  That is,
      * clients must not be given partially-constructed TextureImages.
      */
-    TextureImage(const nsIntSize& aSize,
+    TextureImage(GLContext* aGLContext,
+                 const nsIntSize& aSize,
                  GLenum aWrapMode, ContentType aContentType,
                  Flags aFlags = NoFlags)
-        : mSize(aSize)
+        : mGLContext(aGLContext)
+        , mSize(aSize)
         , mWrapMode(aWrapMode)
         , mContentType(aContentType)
         , mFilter(gfxPattern::FILTER_GOOD)
@@ -315,6 +319,7 @@ protected:
         return nsIntRect(nsIntPoint(0,0), mSize);
     }
 
+    GLContext* mGLContext;
     nsIntSize mSize;
     GLenum mWrapMode;
     ContentType mContentType;
@@ -345,10 +350,9 @@ public:
                       ContentType aContentType,
                       GLContext* aContext,
                       TextureImage::Flags aFlags = TextureImage::NoFlags)
-        : TextureImage(aSize, aWrapMode, aContentType, aFlags)
+        : TextureImage(aContext, aSize, aWrapMode, aContentType, aFlags)
         , mTexture(aTexture)
         , mTextureState(Created)
-        , mGLContext(aContext)
         , mUpdateOffset(0, 0)
     {}
 
@@ -382,7 +386,6 @@ protected:
 
     GLuint mTexture;
     TextureState mTextureState;
-    GLContext* mGLContext;
     nsRefPtr<gfxASurface> mUpdateSurface;
     nsIntRegion mUpdateRegion;
 
@@ -432,7 +435,6 @@ protected:
     nsIntSize mSize;
     unsigned int mTileSize;
     unsigned int mRows, mColumns;
-    GLContext* mGL;
     // A temporary surface to faciliate cross-tile updates.
     nsRefPtr<gfxASurface> mUpdateSurface;
     // The region of update requested

@@ -91,14 +91,18 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
                "Can only draw in drawing phase");
   nsRefPtr<gfxASurface> targetSurface = aContext->CurrentSurface();
 
+  if (!mContentClient) {
+    mContentClient = new ContentClientBasic(BasicManager());
+  }
+
   nsTArray<ReadbackProcessor::Update> readbackUpdates;
   if (aReadback && UsedForReadback()) {
     aReadback->GetThebesLayerUpdates(this, &readbackUpdates);
   }
-  SyncFrontBufferToBackBuffer();
+  mContentClient->SyncFrontBufferToBackBuffer();
 
   bool canUseOpaqueSurface = CanUseOpaqueSurface();
-  Buffer::ContentType contentType =
+  ContentType contentType =
     canUseOpaqueSurface ? gfxASurface::CONTENT_COLOR :
                           gfxASurface::CONTENT_COLOR_ALPHA;
   float opacity = GetEffectiveOpacity();
@@ -107,7 +111,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
     NS_ASSERTION(readbackUpdates.IsEmpty(), "Can't do readback for non-retained layer");
 
     mValidRegion.SetEmpty();
-    mBuffer.Clear();
+    mContentClient->Clear();
 
     nsIntRegion toDraw = IntersectWithClip(GetEffectiveVisibleRegion(), aContext);
 

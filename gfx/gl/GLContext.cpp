@@ -912,17 +912,16 @@ TiledTextureImage::TiledTextureImage(GLContext* aGL,
                                      nsIntSize aSize,
                                      TextureImage::ContentType aContentType,
                                      TextureImage::Flags aFlags)
-    : TextureImage(aSize, LOCAL_GL_CLAMP_TO_EDGE, aContentType, aFlags)
+    : TextureImage(aGL, aSize, LOCAL_GL_CLAMP_TO_EDGE, aContentType, aFlags)
     , mCurrentImage(0)
     , mIterationCallback(nullptr)
     , mInUpdate(false)
     , mRows(0)
     , mColumns(0)
-    , mGL(aGL)
     , mTextureState(Created)
 {
-    mTileSize = (!(aFlags & TextureImage::ForceSingleTile) && mGL->WantsSmallTiles())
-        ? 256 : mGL->GetMaxTextureSize();
+    mTileSize = (!(aFlags & TextureImage::ForceSingleTile) && mGLContext->WantsSmallTiles())
+        ? 256 : mGLContext->GetMaxTextureSize();
     if (aSize != nsIntSize(0,0)) {
         Resize(aSize);
     }
@@ -958,7 +957,7 @@ TiledTextureImage::DirectUpdate(gfxASurface* aSurf, const nsIntRegion& aRegion, 
         if (tileRegion.IsEmpty())
             continue;
 
-        if (mGL->CanUploadSubTextures()) {
+        if (mGLContext->CanUploadSubTextures()) {
           tileRegion.MoveBy(-xPos, -yPos); // translate into tile local space
         } else {
           // If sub-textures are unsupported, expand to tile boundaries
@@ -1178,7 +1177,7 @@ TiledTextureImage::BindTexture(GLenum aTextureUnit)
 void
 TiledTextureImage::ApplyFilter()
 {
-   mGL->ApplyFilterToBoundTexture(mFilter);
+   mGLContext->ApplyFilterToBoundTexture(mFilter);
 }
 
 /*
@@ -1249,7 +1248,7 @@ void TiledTextureImage::Resize(const nsIntSize& aSize)
 
             // Create a new tile.
             nsRefPtr<TextureImage> teximg =
-                    mGL->TileGenFunc(size, mContentType, mFlags);
+                    mGLContext->TileGenFunc(size, mContentType, mFlags);
             if (replace)
                 mImages.ReplaceElementAt(i, teximg.forget());
             else

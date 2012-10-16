@@ -6,11 +6,12 @@
 #ifndef GFX_LAYERMANAGEROGL_H
 #define GFX_LAYERMANAGEROGL_H
 
+#include "Layers.h"
+#include "CompositorOGL.h"
 #include "LayerManagerOGLProgram.h"
 
-#include "mozilla/layers/ShadowLayers.h"
-
 #include "mozilla/TimeStamp.h"
+
 
 #ifdef XP_WIN
 #include <windows.h>
@@ -111,15 +112,12 @@ public:
 
   virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize)
   {
-      if (!mGLContext)
-          return false;
-      int32_t maxSize = mGLContext->GetMaxTextureSize();
-      return aSize <= gfxIntSize(maxSize, maxSize);
+    return mCompositor->CanUseCanvasLayerForSize(aSize);
   }
 
   virtual int32_t GetMaxTextureSize() const
   {
-    return mGLContext->GetMaxTextureSize();
+    return mCompositor->GetMaxTextureSize();
   }
 
   virtual already_AddRefed<ThebesLayer> CreateThebesLayer();
@@ -132,73 +130,12 @@ public:
 
   virtual already_AddRefed<CanvasLayer> CreateCanvasLayer();
 
-  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
-  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
-  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer();
-  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer();
-  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer();
-  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer();
-
   virtual LayersBackend GetBackendType() { return LAYERS_OPENGL; }
   virtual void GetBackendName(nsAString& name) { name.AssignLiteral("OpenGL"); }
 
   virtual already_AddRefed<gfxASurface>
     CreateOptimalMaskSurface(const gfxIntSize &aSize);
 
-  /**
-   * Helper methods.
-   */
-  void MakeCurrent(bool aForce = false) {
-    if (mDestroyed) {
-      NS_WARNING("Call on destroyed layer manager");
-      return;
-    }
-    mGLContext->MakeCurrent(aForce);
-  }
-
-  ShaderProgramOGL* GetBasicLayerProgram(bool aOpaque, bool aIsRGB,
-                                         MaskType aMask = MaskNone)
-  {
-    gl::ShaderProgramType format = gl::BGRALayerProgramType;
-    if (aIsRGB) {
-      if (aOpaque) {
-        format = gl::RGBXLayerProgramType;
-      } else {
-        format = gl::RGBALayerProgramType;
-      }
-    } else {
-      if (aOpaque) {
-        format = gl::BGRXLayerProgramType;
-      }
-    }
-    return GetProgram(format, aMask);
-  }
-
-  ShaderProgramOGL* GetProgram(gl::ShaderProgramType aType,
-                               Layer* aMaskLayer) {
-    if (aMaskLayer)
-      return GetProgram(aType, Mask2d);
-    return GetProgram(aType, MaskNone);
-  }
-
-  ShaderProgramOGL* GetProgram(gl::ShaderProgramType aType,
-                               MaskType aMask = MaskNone) {
-    NS_ASSERTION(ProgramProfileOGL::ProgramExists(aType, aMask),
-                 "Invalid program type.");
-    return mPrograms[aType].mVariations[aMask];
-  }
-
-  ShaderProgramOGL* GetFBOLayerProgram(MaskType aMask = MaskNone) {
-    return GetProgram(GetFBOLayerProgramType(), aMask);
-  }
-
-  gl::ShaderProgramType GetFBOLayerProgramType() {
-    if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
-      return gl::RGBARectLayerProgramType;
-    return gl::RGBALayerProgramType;
-  }
-
-  GLContext* gl() const { return mGLContext; }
 
   DrawThebesLayerCallback GetThebesLayerCallback() const
   { return mThebesLayerCallback; }
@@ -220,7 +157,32 @@ public:
                          mThebesLayerCallbackData);
   }
 
-  GLenum FBOTextureTarget() { return mFBOTextureTarget; }
+
+  void MakeCurrent(bool aForce = false) {
+    mCompositor->MakeCurrent(aForce);
+  }
+
+  ShaderProgramOGL* GetBasicLayerProgram(bool aOpaque, bool aIsRGB,
+                                         MaskType aMask = MaskNone)
+  {
+    return mCompositor->GetBasicLayerProgram(aOpaque, aIsRGB, aMask);
+  }
+
+  ShaderProgramOGL* GetProgram(gl::ShaderProgramType aType,
+                               Layer* aMaskLayer) {
+    if (aMaskLayer)
+      return mCompositor->GetProgram(aType, Mask2d);
+    return mCompositor->GetProgram(aType, MaskNone);
+  }
+
+  ShaderProgramOGL* GetFBOLayerProgram(MaskType aMask = MaskNone) {
+    return mCompositor->GetProgram(GetFBOLayerProgramType(), aMask);
+  }
+
+  gl::ShaderProgramType GetFBOLayerProgramType() {
+    return mCompositor->GetFBOLayerProgramType();
+  }
+
 
   /**
    * Controls how to initialize the texture / FBO created by
@@ -474,8 +436,9 @@ public:
 
   virtual Layer* GetLayer() = 0;
 
-  virtual void RenderLayer(int aPreviousFrameBuffer,
-                           const nsIntPoint& aOffset) = 0;
+  virtual void RenderLayer(const nsIntPoint& aOffset,
+                           const nsIntRect& aClipRect,
+                           Surface* aPreviousSurface = nullptr) = 0;
 
   typedef mozilla::gl::GLContext GLContext;
 
@@ -483,7 +446,7 @@ public:
   GLContext *gl() const { return mOGLManager->gl(); }
   virtual void CleanupResources() = 0;
 
-  /*
+  /**
    * Loads the result of rendering the layer as an OpenGL texture in aTextureUnit.
    * Will try to use an existing texture if possible, or a temporary
    * one if not. It is the callee's responsibility to release the texture.
@@ -499,10 +462,21 @@ public:
     return false;
   }
 
+  /**
+   * Get a texture host representation of the layer. This should not be used
+   * for normal rendering. It is used for using the layer as a mask layer, any
+   * layer that can be used as a mask layer should override this method.
+   */
+  virtual TemporaryRef<TextureHost> AsTextureHost()
+  {
+    return nullptr;
+  }
+
 protected:
   LayerManagerOGL *mOGLManager;
   bool mDestroyed;
 };
+
 
 } /* layers */
 } /* mozilla */

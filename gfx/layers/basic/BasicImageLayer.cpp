@@ -40,12 +40,6 @@ public:
 
   virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
 
-  static void PaintContext(gfxPattern* aPattern,
-                           const nsIntRegion& aVisible,
-                           float aOpacity,
-                           gfxContext* aContext,
-                           Layer* aMaskLayer);
-
   virtual bool GetAsSurface(gfxASurface** aSurface,
                             SurfaceDescriptor* aDescriptor);
 
@@ -465,10 +459,10 @@ BasicShadowImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   // The visible region can extend outside the image, so just draw
   // within the image bounds.
   AutoSetOperator setOperator(aContext, GetOperator());
-  BasicImageLayer::PaintContext(pat,
-                                nsIntRegion(nsIntRect(0, 0, mSize.width, mSize.height)),
-                                GetEffectiveOpacity(), aContext,
-                                aMaskLayer);
+  PaintContext(pat,
+               nsIntRegion(nsIntRect(0, 0, mSize.width, mSize.height)),
+               GetEffectiveOpacity(), aContext,
+               aMaskLayer);
 }
 
 bool

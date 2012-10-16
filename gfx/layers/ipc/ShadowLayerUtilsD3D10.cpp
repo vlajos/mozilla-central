@@ -83,6 +83,12 @@ ShadowLayerManager::OpenDescriptorForDirectTexturing(GLContext*,
   return nullptr;
 }
 
+/*static*/ bool
+ShadowLayerManager::SupportsDirectTexturing()
+{
+  return false;
+}
+
 /*static*/ void
 ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
 {

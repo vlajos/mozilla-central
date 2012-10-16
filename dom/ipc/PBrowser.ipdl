@@ -17,6 +17,7 @@ include DOMTypes;
 include URIParams;
 
 include "gfxMatrix.h";
+include "Compositor.h";
 include "FrameMetrics.h";
 include "IPC/nsGUIEventIPC.h";
 include "mozilla/dom/TabMessageUtils.h";
@@ -27,7 +28,7 @@ using IPC::Principal;
 using gfxMatrix;
 using gfxRect;
 using gfxSize;
-using mozilla::layers::LayersBackend;
+using mozilla::layers::TextureHostIdentifier;
 using mozilla::layers::FrameMetrics;
 using mozilla::layout::ScrollingBehavior;
 using mozilla::WindowsHandle;
@@ -203,7 +204,7 @@ parent:
      */
     sync PRenderFrame()
         returns (ScrollingBehavior scrolling,
-                 LayersBackend backend, int32_t maxTextureSize, uint64_t layersId);
+                 TextureHostIdentifier textureHostIdentifier, uint64_t layersId);
 
     /** 
      * Starts an offline application cache update.

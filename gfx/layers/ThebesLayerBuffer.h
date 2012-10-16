@@ -134,6 +134,14 @@ public:
    */
   gfxASurface* GetBuffer() { return mBuffer; }
 
+  /**
+   * Complete the drawing operation. The region to draw must have been
+   * drawn before this is called. The contents of the buffer are drawn
+   * to aTarget.
+   */
+  void DrawTo(ThebesLayer* aLayer, gfxContext* aTarget, float aOpacity,
+              gfxASurface* aMask, const gfxMatrix* aMaskTransform);
+
 protected:
   enum XSide {
     LEFT, RIGHT
@@ -152,8 +160,8 @@ protected:
                           gfxASurface* aMask,
                           const gfxMatrix* aMaskTransform);
   void DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
-                              gfxASurface* aMask = nullptr,
-                              const gfxMatrix* aMaskTransform = nullptr);
+                              gfxASurface* aMask,
+                              const gfxMatrix* aMaskTransform);
 
   /**
    * |BufferRect()| is the rect of device pixels that this

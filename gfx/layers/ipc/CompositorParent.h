@@ -21,6 +21,7 @@
 #include "mozilla/Monitor.h"
 #include "mozilla/TimeStamp.h"
 #include "ShadowLayersManager.h"
+#include "CompositeLayerManager.h"
 class nsIWidget;
 
 namespace base {
@@ -33,6 +34,7 @@ namespace layers {
 class AsyncPanZoomController;
 class Layer;
 class LayerManager;
+struct TextureHostIdentifier;
 
 // Represents (affine) transforms that are calculated from a content view.
 struct ViewTransform {
@@ -77,7 +79,7 @@ public:
                                    bool isFirstPaint) MOZ_OVERRIDE;
   void Destroy();
 
-  LayerManager* GetLayerManager() { return mLayerManager; }
+  CompositeLayerManager* GetLayerManager() { return mLayerManager; }
 
   void SetTransformation(float aScale, nsIntPoint aScrollOffset);
   void AsyncRender();

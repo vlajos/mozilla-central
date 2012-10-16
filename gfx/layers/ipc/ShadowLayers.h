@@ -12,6 +12,7 @@
 #include "GLDefs.h"
 
 #include "ImageLayers.h"
+#include "Compositor.h"
 #include "mozilla/ipc/SharedMemory.h"
 #include "mozilla/WidgetUtils.h"
 
@@ -47,6 +48,8 @@ class Transaction;
 class SharedImage;
 class CanvasSurface;
 class BasicTiledLayerBuffer;
+class TextureClientShmem;
+class ContentClientRemote;
 
 enum BufferCapabilities {
   DEFAULT_BUFFER_CAPS = 0,
@@ -106,6 +109,7 @@ enum OpenMode {
 class ShadowLayerForwarder
 {
   friend class AutoOpenSurface;
+  friend class TextureClientShmem;
 
 public:
   typedef gfxASurface::gfxContentType gfxContentType;
@@ -186,8 +190,7 @@ public:
    * re-rendered, in the compositing process.  The former front buffer
    * is swapped for |aNewFrontBuffer| and becomes the new back buffer
    * for the "real" layer.
-   */
-  /**
+   *
    * |aBufferRect| is the screen rect covered as a whole by the
    * possibly-toroidally-rotated |aNewFrontBuffer|.  |aBufferRotation|
    * is buffer's rotation, if any.
@@ -212,11 +215,32 @@ public:
    * NB: this initial implementation only forwards RGBA data for
    * ImageLayers.  This is slow, and will be optimized.
    */
+  //TODO[nrc] remove this one when not used (image bridge)
   void PaintedImage(ShadowableLayer* aImage,
                     const SharedImage& aNewFrontImage);
-  void PaintedCanvas(ShadowableLayer* aCanvas,
-                     bool aNeedYFlip,
-                     const SurfaceDescriptor& aNewFrontSurface);
+
+  /**
+   * Communicate to the compositor that the texture identified by aLayer
+   * and aIdentifier has been updated to aImage.
+   */
+  void UpdateTexture(ShadowableLayer* aLayer,
+                     TextureIdentifier aIdentifier,
+                     const SharedImage& aImage);
+
+  /**
+   * Communicate to the compositor that aRegion in the texture identified by aLayer
+   * and aIdentifier has been updated to aThebesBuffer.
+   */
+  void UpdateTextureRegion(ShadowableLayer* aThebes,
+                           TextureIdentifier aIdentifier,
+                           const ThebesBuffer& aThebesBuffer,
+                           const nsIntRegion& aUpdatedRegion);
+
+  /**
+   * Communicate the picture rect of a YUV image in aLayer to the compositor
+   */
+  void UpdatePictureRect(ShadowableLayer* aLayer,
+                         const nsIntRect& aRect);
 
   /**
    * End the current transaction and forward it to ShadowLayerManager.
@@ -231,11 +255,6 @@ public:
   void SetShadowManager(PLayersChild* aShadowManager)
   {
     mShadowManager = aShadowManager;
-  }
-
-  void SetParentBackendType(LayersBackend aBackendType)
-  {
-    mParentBackend = aBackendType;
   }
 
   /**
@@ -421,24 +440,27 @@ public:
                                    const SurfaceDescriptor& aDescriptor,
                                    GLenum aWrapMode);
 
+  /**
+   * returns true if PlatformAllocBuffer will return a buffer that supports
+   * direct texturing
+   */
+  static bool SupportsDirectTexturing();
+
   static void PlatformSyncBeforeReplyUpdate();
 
   void SetCompositorID(uint32_t aID)
   {
-    NS_ASSERTION(mCompositorID==0, "The compositor ID must be set only once.");
-    mCompositorID = aID;
-  }
-  uint32_t GetCompositorID() const
-  {
-    return mCompositorID;
+    NS_ASSERTION(mCompositor, "No compositor");
+    mCompositor->SetCompositorID(aID);
   }
 
 protected:
   ShadowLayerManager()
-  : mCompositorID(0) {}
+  : mCompositor(nullptr)
+  {}
 
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
-  uint32_t mCompositorID;
+  RefPtr<Compositor> mCompositor;
 };
 
 
@@ -503,6 +525,9 @@ public:
    * We should be able to set allocator right before swap call
    * that is why allowed multiple call with the same Allocator
    */
+  // XXX this is only used by non-Compositor ShadowLayers, Compositor ShadowLayers
+  // should override it and pass aAllocator to their image host
+  // remove when we move to Compositor everywhere
   virtual void SetAllocator(ISurfaceDeAllocator* aAllocator)
   {
     NS_ASSERTION(!mAllocator || mAllocator == aAllocator, "Stomping allocator?");
@@ -591,6 +616,11 @@ public:
    * for the remote layer).
    */
   virtual void
+  SwapTexture(const TextureIdentifier& aTextureIdentifier,
+              const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
+              OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
+              OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {}
+  virtual void
   Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
        OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
        OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) = 0;
@@ -639,8 +669,8 @@ public:
    * out the old front surface (the new back surface for the remote
    * layer).
    */
-  virtual void Swap(const CanvasSurface& aNewFront, bool needYFlip,
-                    CanvasSurface* aNewBack) = 0;
+  virtual void Swap(const SharedImage& aNewFront, bool needYFlip,
+                    SharedImage* aNewBack) = 0;
 
   virtual ShadowLayer* AsShadowLayer() { return this; }
 
@@ -666,18 +696,14 @@ public:
 
   virtual ShadowLayer* AsShadowLayer() { return this; }
 
+  virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
+
   MOZ_LAYER_DECL_NAME("ShadowImageLayer", TYPE_SHADOW)
 
 protected:
   ShadowImageLayer(LayerManager* aManager, void* aImplData)
-    : ImageLayer(aManager, aImplData), 
-      mImageContainerID(0),
-      mImageVersion(0)
+    : ImageLayer(aManager, aImplData)
   {}
-
-  // ImageBridge protocol:
-  uint32_t mImageContainerID;
-  uint32_t mImageVersion;
 };
 
 
@@ -712,6 +738,7 @@ protected:
 bool IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface);
 
 ipc::SharedMemory::SharedMemoryType OptimalShmemType();
+
 
 
 } // namespace layers

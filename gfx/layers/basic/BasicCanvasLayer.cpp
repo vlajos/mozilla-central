@@ -475,7 +475,7 @@ public:
   }
 
   virtual void Initialize(const Data& aData);
-  void Swap(const CanvasSurface& aNewFront, bool needYFlip, CanvasSurface* aNewBack);
+  void Swap(const SharedImage& aNewFront, bool needYFlip, SharedImage* aNewBack);
 
   virtual void DestroyFrontBuffer()
   {
@@ -504,8 +504,8 @@ BasicShadowCanvasLayer::Initialize(const Data& aData)
 }
 
 void
-BasicShadowCanvasLayer::Swap(const CanvasSurface& aNewFront, bool needYFlip,
-                             CanvasSurface* aNewBack)
+BasicShadowCanvasLayer::Swap(const SharedImage& aNewFront, bool needYFlip,
+                             SharedImage* aNewBack)
 {
   AutoOpenSurface autoSurface(OPEN_READ_ONLY, aNewFront);
   // Destroy mFrontBuffer if size different

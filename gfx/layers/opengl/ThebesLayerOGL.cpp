@@ -6,15 +6,16 @@
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/PLayers.h"
 #include "TiledLayerBuffer.h"
+#include "TextureOGL.h"
 
 /* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
 #include "mozilla/Util.h"
 
-#include "mozilla/layers/ShadowLayers.h"
-
 #include "ThebesLayerBuffer.h"
 #include "ThebesLayerOGL.h"
+#include "ContentHost.h"
 #include "gfxUtils.h"
+#include "gfx2DGlue.h"
 #include "gfxTeeSurface.h"
 
 #include "base/message_loop.h"
@@ -434,15 +435,22 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   bool canReuseBuffer;
   nsIntRect destBufferRect;
 
+  nsRefPtr<TextureImage> texImage = mTextureHost
+                                    ? static_cast<TextureImageHost*>(mTextureHost.get())->GetTextureImage()
+                                    : nullptr;
+  nsRefPtr<TextureImage> texImageOnWhite = mTextureHostOnWhite 
+                                           ? static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->GetTextureImage()
+                                           : nullptr;
+
   while (true) {
     mode = mLayer->GetSurfaceMode();
     contentType = aContentType;
     neededRegion = mLayer->GetVisibleRegion();
     // If we're going to resample, we need a buffer that's in clamp mode.
     canReuseBuffer = neededRegion.GetBounds().Size() <= mBufferRect.Size() &&
-      mTexImage &&
+      texImage &&
       (!(aFlags & PAINT_WILL_RESAMPLE) ||
-       mTexImage->GetWrapMode() == LOCAL_GL_CLAMP_TO_EDGE);
+       texImage->GetWrapMode() == LOCAL_GL_CLAMP_TO_EDGE);
 
     if (canReuseBuffer) {
       if (mBufferRect.Contains(neededRegion.GetBounds())) {
@@ -484,19 +492,19 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       neededRegion = destBufferRect;
     }
 
-    if (mTexImage &&
-        (mTexImage->GetContentType() != contentType ||
-         (mode == Layer::SURFACE_COMPONENT_ALPHA) != (mTexImageOnWhite != nullptr))) {
+    if (texImage &&
+        (texImage->GetContentType() != contentType ||
+         (mode == Layer::SURFACE_COMPONENT_ALPHA) != (texImageOnWhite != nullptr))) {
       // We're effectively clearing the valid region, so we need to draw
       // the entire needed region now.
       result.mRegionToInvalidate = mLayer->GetValidRegion();
       validRegion.SetEmpty();
-      mTexImage = nullptr;
-      mTexImageOnWhite = nullptr;
+      texImage = nullptr;
+      texImageOnWhite = nullptr;
       mBufferRect.SetRect(0, 0, 0, 0);
       mBufferRotation.MoveTo(0, 0);
       // Restart decision process with the cleared buffer. We can only go
-      // around the loop one more iteration, since mTexImage is null now.
+      // around the loop one more iteration, since texImage is null now.
       continue;
     }
 
@@ -577,12 +585,12 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   NS_ASSERTION(!(aFlags & PAINT_WILL_RESAMPLE) || destBufferRect == neededRegion.GetBounds(),
                "If we're resampling, we need to validate the entire buffer");
 
-  if (!destBuffer && !mTexImage) {
+  if (!destBuffer && !texImage) {
     return result;
   }
 
   if (destBuffer) {
-    if (mTexImage && (mode != Layer::SURFACE_COMPONENT_ALPHA || mTexImageOnWhite)) {
+    if (texImage && (mode != Layer::SURFACE_COMPONENT_ALPHA || texImageOnWhite)) {
       // BlitTextureImage depends on the FBO texture target being
       // TEXTURE_2D.  This isn't the case on some older X1600-era Radeons.
       if (mOGLLayer->OGLManager()->FBOTextureTarget() == LOCAL_GL_TEXTURE_2D) {
@@ -637,12 +645,13 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
 
         destBuffer->Resize(destBufferRect.Size());
 
-        gl()->BlitTextureImage(mTexImage, srcRect,
+        gl()->BlitTextureImage(texImage, srcRect,
                                destBuffer, dstRect);
         destBuffer->MarkValid();
+
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
-          gl()->BlitTextureImage(mTexImageOnWhite, srcRect,
+          gl()->BlitTextureImage(texImageOnWhite, srcRect,
                                  destBufferOnWhite, dstRect);
           destBufferOnWhite->MarkValid();
         }
@@ -656,15 +665,26 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       }
     }
 
-    mTexImage = destBuffer.forget();
+    texImage = destBuffer.forget();
     if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
-      mTexImageOnWhite = destBufferOnWhite.forget();
+      texImageOnWhite = destBufferOnWhite.forget();
     }
     mBufferRect = destBufferRect;
     mBufferRotation = nsIntPoint(0,0);
   }
   NS_ASSERTION(canHaveRotation || mBufferRotation == nsIntPoint(0,0),
                "Rotation disabled, but we have nonzero rotation?");
+
+  if (mTextureHost) {
+    static_cast<TextureImageHost*>(mTextureHost.get())->SetTextureImage(texImage);
+  } else {
+    mTextureHost = new TextureImageHost(gl(), texImage);
+  }
+  if (mTextureHostOnWhite) {
+    static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
+  } else {
+    mTextureHostOnWhite = new TextureImageHost(gl(), texImage);
+  }
 
   nsIntRegion invalidate;
   invalidate.Sub(mLayer->GetValidRegion(), destBufferRect);
@@ -687,8 +707,8 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   // if it wants more to be repainted than we request.
   if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
     nsIntRegion drawRegionCopy = result.mRegionToDraw;
-    gfxASurface *onBlack = mTexImage->BeginUpdate(drawRegionCopy);
-    gfxASurface *onWhite = mTexImageOnWhite->BeginUpdate(result.mRegionToDraw);
+    gfxASurface *onBlack = texImage->BeginUpdate(drawRegionCopy);
+    gfxASurface *onWhite = texImageOnWhite->BeginUpdate(result.mRegionToDraw);
     NS_ASSERTION(result.mRegionToDraw == drawRegionCopy,
                  "BeginUpdate should always modify the draw region in the same way!");
     FillSurface(onBlack, result.mRegionToDraw, nsIntPoint(0,0), gfxRGBA(0.0, 0.0, 0.0, 1.0));
@@ -709,8 +729,8 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
     surf->SetAllowUseAsSource(false);
     result.mContext = new gfxContext(surf);
   } else {
-    result.mContext = new gfxContext(mTexImage->BeginUpdate(result.mRegionToDraw));
-    if (mTexImage->GetContentType() == gfxASurface::CONTENT_COLOR_ALPHA) {
+    result.mContext = new gfxContext(texImage->BeginUpdate(result.mRegionToDraw));
+    if (texImage->GetContentType() == gfxASurface::CONTENT_COLOR_ALPHA) {
       gfxUtils::ClipToRegion(result.mContext, result.mRegionToDraw);
       result.mContext->SetOperator(gfxContext::OPERATOR_CLEAR);
       result.mContext->Paint();
@@ -771,9 +791,9 @@ ThebesLayerOGL::CreateSurface()
 
   if (gl()->TextureImageSupportsGetBackingSurface()) {
     // use the ThebesLayerBuffer fast-path
-    mBuffer = new SurfaceBufferOGL(this);
+    mBuffer = new SurfaceBufferOGL(this, mOGLManager->GetCompositor());
   } else {
-    mBuffer = new BasicBufferOGL(this);
+    mBuffer = new BasicBufferOGL(this, mOGLManager->GetCompositor());
   }
   return true;
 }

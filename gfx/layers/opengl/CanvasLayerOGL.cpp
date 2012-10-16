@@ -10,6 +10,7 @@
 #include "gfxSharedImageSurface.h"
 
 #include "CanvasLayerOGL.h"
+#include "ImageHost.h"
 
 #include "gfxImageSurface.h"
 #include "gfxContext.h"

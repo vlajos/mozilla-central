@@ -15,6 +15,7 @@ namespace layers {
 
 class LayerManager;
 class CompositorParent;
+struct TextureHostIdentifier;
 
 class CompositorChild : public PCompositorChild
 {

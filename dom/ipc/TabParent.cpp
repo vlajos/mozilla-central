@@ -1015,8 +1015,7 @@ TabParent::HandleDelayedDialogs()
 
 PRenderFrameParent*
 TabParent::AllocPRenderFrame(ScrollingBehavior* aScrolling,
-                             LayersBackend* aBackend,
-                             int32_t* aMaxTextureSize,
+                             TextureHostIdentifier* aTextureHostIdentifier,
                              uint64_t* aLayersId)
 {
   MOZ_ASSERT(ManagedPRenderFrameParent().IsEmpty());
@@ -1030,7 +1029,7 @@ TabParent::AllocPRenderFrame(ScrollingBehavior* aScrolling,
   *aScrolling = UseAsyncPanZoom() ? ASYNC_PAN_ZOOM : DEFAULT_SCROLLING;
   return new RenderFrameParent(frameLoader,
                                *aScrolling,
-                               aBackend, aMaxTextureSize, aLayersId);
+                               aTextureHostIdentifier, aLayersId);
 }
 
 bool

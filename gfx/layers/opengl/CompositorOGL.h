@@ -16,6 +16,9 @@ namespace mozilla {
 
 namespace layers {
 
+//TODO[nrc] remove this when we remove the friend decl
+class LayerManagerOGL;
+
 class CompositorOGL : public Compositor
 {
   typedef mozilla::gl::GLContext GLContext;
@@ -129,7 +132,11 @@ private:
    */
   bool mFrameInProgress;
 
-  void BeginFrame(const gfx::Rect *aClipRect);
+  /* Start a new frame. If aClipRectIn is null and aClipRectOut is non-null,
+   * sets *aClipRectOut to the screen dimensions.
+   */
+  virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
+                          gfx::Rect *aClipRectOut = nullptr) MOZ_OVERRIDE;
 
   /**
    * Updates all layer programs with a new projection matrix.
@@ -142,17 +149,29 @@ private:
    */
   void AddPrograms(gl::ShaderProgramType aType);
 
+  ShaderProgramOGL* GetBasicLayerProgram(bool aOpaque, bool aIsRGB,
+                                         MaskType aMask = MaskNone)
+  {
+    gl::ShaderProgramType format = gl::BGRALayerProgramType;
+    if (aIsRGB) {
+      if (aOpaque) {
+        format = gl::RGBXLayerProgramType;
+      } else {
+        format = gl::RGBALayerProgramType;
+      }
+    } else {
+      if (aOpaque) {
+        format = gl::BGRXLayerProgramType;
+      }
+    }
+    return GetProgram(format, aMask);
+  }
+
   ShaderProgramOGL* GetProgram(gl::ShaderProgramType aType,
                                MaskType aMask = MaskNone) {
     NS_ASSERTION(ProgramProfileOGL::ProgramExists(aType, aMask),
                  "Invalid program type.");
     return mPrograms[aType].mVariations[aMask];
-  }
-
-  gl::ShaderProgramType GetFBOLayerProgramType() {
-    if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
-      return gl::RGBARectLayerProgramType;
-    return gl::RGBALayerProgramType;
   }
 
   /* Create a FBO backed by a texture.
@@ -238,9 +257,14 @@ private:
    * Setup the viewport and projection matrix for rendering
    * to a window of the given dimensions.
    */
-  void SetupPipeline(int aWidth, int aHeight);
+  virtual void SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
 
   void CleanupResources();
+
+  /**
+   * Copies the content of our backbuffer to the set transaction target.
+   */
+  void CopyToTarget(gfxContext *aTarget);
 
   bool mDestroyed;
 
@@ -264,6 +288,9 @@ private:
   } mFPS;
 
   static bool sDrawFPS;
+
+  //TODO[nrc] remove this when we are using only the compositor API in LayerManagerOGL
+  friend class LayerManagerOGL;
 };
 
 }

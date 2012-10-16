@@ -8,17 +8,20 @@
 
 #include "mozilla/layers/PLayersParent.h"
 #include "BasicBuffers.h"
+#include "BasicLayersImpl.h"
+#include "ContentClient.h"
 
 namespace mozilla {
 namespace layers {
 
 class BasicThebesLayer : public ThebesLayer, public BasicImplData {
 public:
-  typedef BasicThebesLayerBuffer Buffer;
+  typedef ThebesLayerBuffer::PaintState PaintState;
+  typedef ThebesLayerBuffer::ContentType ContentType;
 
   BasicThebesLayer(BasicLayerManager* aLayerManager) :
     ThebesLayer(aLayerManager, static_cast<BasicImplData*>(this)),
-    mBuffer(this)
+    mContentClient(nullptr)
   {
     MOZ_COUNT_CTOR(BasicThebesLayer);
   }
@@ -48,11 +51,8 @@ public:
                            void* aCallbackData,
                            ReadbackProcessor* aReadback);
 
-  virtual void ClearCachedResources() { mBuffer.Clear(); mValidRegion.SetEmpty(); }
+  virtual void ClearCachedResources() { mContentClient->Clear(); mValidRegion.SetEmpty(); }
   
-  virtual already_AddRefed<gfxASurface>
-  CreateBuffer(Buffer::ContentType aType, const nsIntSize& aSize);
-
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {
     if (!BasicManager()->IsRetained()) {
@@ -69,15 +69,12 @@ public:
     ThebesLayer::ComputeEffectiveTransforms(aTransformToSurface);
   }
 
-  // Sync front/back buffers content
-  virtual void SyncFrontBufferToBackBuffer() {}
-
-protected:
   BasicLayerManager* BasicManager()
   {
     return static_cast<BasicLayerManager*>(mManager);
   }
 
+protected:
   virtual void
   PaintBuffer(gfxContext* aContext,
               const nsIntRegion& aRegionToDraw,

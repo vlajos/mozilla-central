@@ -17,6 +17,7 @@
 #include "mozilla/layers/AsyncPanZoomController.h"
 #include "mozilla/layers/CompositorParent.h"
 #include "mozilla/layers/ShadowLayersParent.h"
+#include "Compositor.h"
 #include "nsContentUtils.h"
 #include "nsFrameLoader.h"
 #include "nsIObserver.h"
@@ -540,8 +541,7 @@ private:
 
 RenderFrameParent::RenderFrameParent(nsFrameLoader* aFrameLoader,
                                      ScrollingBehavior aScrollingBehavior,
-                                     LayersBackend* aBackendType,
-                                     int* aMaxTextureSize,
+                                     TextureHostIdentifier* aTextureHostIdentifier,
                                      uint64_t* aId)
   : mLayersId(0)
   , mFrameLoader(aFrameLoader)
@@ -551,13 +551,10 @@ RenderFrameParent::RenderFrameParent(nsFrameLoader* aFrameLoader,
   mContentViews[FrameMetrics::ROOT_SCROLL_ID] =
     new nsContentView(aFrameLoader, FrameMetrics::ROOT_SCROLL_ID);
 
-  *aBackendType = mozilla::layers::LAYERS_NONE;
-  *aMaxTextureSize = 0;
   *aId = 0;
 
   nsRefPtr<LayerManager> lm = GetFrom(mFrameLoader);
-  *aBackendType = lm->GetBackendType();
-  *aMaxTextureSize = lm->GetMaxTextureSize();
+  *aTextureHostIdentifier = lm->GetTextureHostIdentifier();
 
   if (CompositorParent::CompositorLoop()) {
     // Our remote frame will push layers updates to the compositor,

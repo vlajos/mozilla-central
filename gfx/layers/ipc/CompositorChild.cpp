@@ -8,6 +8,7 @@
 #include "CompositorParent.h"
 #include "LayerManagerOGL.h"
 #include "mozilla/layers/ShadowLayersChild.h"
+#include "Compositor.h"
 
 using mozilla::layers::ShadowLayersChild;
 
@@ -72,8 +73,7 @@ CompositorChild::Get()
 PLayersChild*
 CompositorChild::AllocPLayers(const LayersBackend& aBackendHint,
                               const uint64_t& aId,
-                              LayersBackend* aBackend,
-                              int* aMaxTextureSize)
+                              TextureHostIdentifier* aTextureHostIdentifier)
 {
   return new ShadowLayersChild();
 }

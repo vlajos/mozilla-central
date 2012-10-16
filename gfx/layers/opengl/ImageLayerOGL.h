@@ -60,6 +60,8 @@ private:
 
   nsRefPtr<GLContext> mContext;
   GLuint mTexture;
+
+  friend class GLTextureAsTextureHost;
 };
 
 /**
@@ -110,8 +112,9 @@ public:
   virtual Layer* GetLayer();
   virtual bool LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize);
 
-  virtual void RenderLayer(int aPreviousFrameBuffer,
-                           const nsIntPoint& aOffset);
+  virtual void RenderLayer(const nsIntPoint& aOffset,
+                           const nsIntRect& aClipRect,
+                           Surface* aPreviousSurface = nullptr);
   virtual void CleanupResources() {}
 
 

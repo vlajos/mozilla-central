@@ -1193,44 +1193,44 @@ BasicShadowLayerManager::ForwardTransaction()
 
         const OpThebesBufferSwap& obs = reply.get_OpThebesBufferSwap();
         BasicShadowableThebesLayer* thebes = GetBasicShadowable(obs)->AsThebes();
-        thebes->SetBackBufferAndAttrs(
-          obs.newBackBuffer(), obs.newValidRegion(),
-          obs.readOnlyFrontBuffer(), obs.frontUpdatedRegion());
+        thebes->SetBackBufferAndAttrs(obs.textureIdentifier(),
+                                      obs.newBackBuffer(),
+                                      obs.newValidRegion(),
+                                      obs.readOnlyFrontBuffer(),
+                                      obs.frontUpdatedRegion());
         break;
       }
       case EditReply::TOpBufferSwap: {
+        NS_WARNING("Shouldn't get used with Compositor");
         MOZ_LAYERS_LOG(("[LayersForwarder] BufferSwap"));
 
         const OpBufferSwap& obs = reply.get_OpBufferSwap();
-        const CanvasSurface& newBack = obs.newBackBuffer();
-        if (newBack.type() == CanvasSurface::TSurfaceDescriptor) {
+        const SharedImage& newBack = obs.newBackBuffer();
+        if (newBack.type() == SharedImage::TSurfaceDescriptor) {
           GetBasicShadowable(obs)->SetBackBuffer(newBack.get_SurfaceDescriptor());
-        } else if (newBack.type() == CanvasSurface::Tnull_t) {
+        } else if (newBack.type() == SharedImage::Tnull_t) {
           GetBasicShadowable(obs)->SetBackBuffer(SurfaceDescriptor());
         } else {
           NS_RUNTIMEABORT("Unknown back image type");
         }
         break;
       }
-
       case EditReply::TOpImageSwap: {
-        MOZ_LAYERS_LOG(("[LayersForwarder] YUVBufferSwap"));
+        NS_WARNING("Shouldn't get used with Compositor");
+        MOZ_LAYERS_LOG(("[LayersForwarder] BufferSwap (image bridge)"));
 
         const OpImageSwap& ois = reply.get_OpImageSwap();
         BasicShadowableLayer* layer = GetBasicShadowable(ois);
-        const SharedImage& newBack = ois.newBackImage();
+        layer->SetBackBuffer(ois.newBackImage());
 
-        if (newBack.type() == SharedImage::TSurfaceDescriptor) {
-          layer->SetBackBuffer(newBack.get_SurfaceDescriptor());
-        } else if (newBack.type() == SharedImage::TYUVImage) {
-          const YUVImage& yuv = newBack.get_YUVImage();
-          layer->SetBackBufferYUVImage(yuv.Ydata(), yuv.Udata(), yuv.Vdata());
-        } else {
-          layer->SetBackBuffer(SurfaceDescriptor());
-          layer->SetBackBufferYUVImage(SurfaceDescriptor(),
-                                       SurfaceDescriptor(),
-                                       SurfaceDescriptor());
-        }
+        break;
+      }
+      case EditReply::TOpTextureSwap: {
+        MOZ_LAYERS_LOG(("[LayersForwarder] TextureSwap"));
+
+        const OpTextureSwap& ots = reply.get_OpTextureSwap();
+        BasicShadowableLayer* layer = GetBasicShadowable(ots);
+        layer->SetBackBuffer(ots.textureIdentifier(), ots.image());
 
         break;
       }

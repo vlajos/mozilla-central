@@ -318,7 +318,8 @@ CompositorParent::SetEGLSurfaceSize(int width, int height)
   NS_ASSERTION(mRenderToEGLSurface, "Compositor created without RenderToEGLSurface ar provided");
   mEGLSurfaceSize.SizeTo(width, height);
   if (mLayerManager) {
-    static_cast<LayerManagerOGL*>(mLayerManager.get())->SetSurfaceSize(mEGLSurfaceSize.width, mEGLSurfaceSize.height);
+    //TODO[nrc]
+    //mLayerManager->GetCompositor()->SetSurfaceSize(mEGLSurfaceSize.width, mEGLSurfaceSize.height);
   }
 }
 
@@ -1245,14 +1246,12 @@ CrossProcessCompositorParent::ActorDestroy(ActorDestroyReason aWhy)
 PLayersParent*
 CrossProcessCompositorParent::AllocPLayers(const LayersBackend& aBackendType,
                                            const uint64_t& aId,
-                                           LayersBackend* aBackend,
-                                           int32_t* aMaxTextureSize)
+                                           TextureHostIdentifier* aTextureHostIdentifier)
 {
   MOZ_ASSERT(aId != 0);
 
   nsRefPtr<LayerManager> lm = sCurrentCompositor->GetLayerManager();
-  *aBackend = lm->GetBackendType();
-  *aMaxTextureSize = lm->GetMaxTextureSize();
+  *aTextureHostIdentifier = lm->GetTextureHostIdentifier();
   return new ShadowLayersParent(lm->AsShadowManager(), this, aId);
 }
  

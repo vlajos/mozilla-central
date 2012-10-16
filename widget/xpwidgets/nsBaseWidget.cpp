@@ -834,13 +834,12 @@ void nsBaseWidget::CreateCompositor()
   AsyncChannel *parentChannel = mCompositorParent->GetIPCChannel();
   AsyncChannel::Side childSide = mozilla::ipc::AsyncChannel::Child;
   mCompositorChild->Open(parentChannel, childMessageLoop, childSide);
-  int32_t maxTextureSize;
+  TextureHostIdentifier textureHostIdentifier;
   PLayersChild* shadowManager;
   mozilla::layers::LayersBackend backendHint =
     mUseAcceleratedRendering ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
-  mozilla::layers::LayersBackend parentBackend;
   shadowManager = mCompositorChild->SendPLayersConstructor(
-    backendHint, 0, &parentBackend, &maxTextureSize);
+    backendHint, 0, &textureHostIdentifier);
 
   if (shadowManager) {
     ShadowLayerForwarder* lf = lm->AsShadowForwarder();
@@ -850,8 +849,7 @@ void nsBaseWidget::CreateCompositor()
       return;
     }
     lf->SetShadowManager(shadowManager);
-    lf->SetParentBackendType(parentBackend);
-    lf->SetMaxTextureSize(maxTextureSize);
+    lf->IdentifyTextureHost(textureHostIdentifier);
 
     mLayerManager = lm;
   } else {
@@ -897,7 +895,7 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
          * deal with it though!
          */
 
-        if (layerManager->Initialize(mForceLayersAcceleration)) {
+        if (layerManager->Initialize(nullptr, mForceLayersAcceleration)) {
           mLayerManager = layerManager;
         }
       }

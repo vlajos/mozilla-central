@@ -22,6 +22,7 @@
 #include "mozilla/layers/CompositorChild.h"
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layout/RenderFrameChild.h"
+#include "Compositor.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/unused.h"
 #include "mozIApplication.h"
@@ -1639,8 +1640,7 @@ TabChild::RecvDestroy()
 
 PRenderFrameChild*
 TabChild::AllocPRenderFrame(ScrollingBehavior* aScrolling,
-                            LayersBackend* aBackend,
-                            int32_t* aMaxTextureSize,
+                            TextureHostIdentifier* aTextureHostIdentifier,
                             uint64_t* aLayersId)
 {
     return new RenderFrameChild();
@@ -1698,12 +1698,11 @@ TabChild::InitRenderingState()
 {
     static_cast<PuppetWidget*>(mWidget.get())->InitIMEState();
 
-    LayersBackend be;
     uint64_t id;
-    int32_t maxTextureSize;
+    TextureHostIdentifier textureHostIdentifier;
     RenderFrameChild* remoteFrame =
         static_cast<RenderFrameChild*>(SendPRenderFrameConstructor(
-                                           &mScrolling, &be, &maxTextureSize, &id));
+                                         &mScrolling, &textureHostIdentifier, &id));
     if (!remoteFrame) {
       NS_WARNING("failed to construct RenderFrame");
       return false;
@@ -1714,9 +1713,9 @@ TabChild::InitRenderingState()
         // Pushing layers transactions directly to a separate
         // compositor context.
         shadowManager =
-            CompositorChild::Get()->SendPLayersConstructor(be, id,
-                                                           &be,
-                                                           &maxTextureSize);
+            CompositorChild::Get()->
+                SendPLayersConstructor(textureHostIdentifier.mParentBackend,
+                                       id, &textureHostIdentifier);
     } else {
         // Pushing transactions to the parent content.
         shadowManager = remoteFrame->SendPLayersConstructor();
@@ -1730,11 +1729,11 @@ TabChild::InitRenderingState()
     }
 
     ShadowLayerForwarder* lf =
-        mWidget->GetLayerManager(shadowManager, be)->AsShadowForwarder();
+        mWidget->GetLayerManager(shadowManager, textureHostIdentifier.mParentBackend)
+               ->AsShadowForwarder();
     NS_ABORT_IF_FALSE(lf && lf->HasShadowManager(),
                       "PuppetWidget should have shadow manager");
-    lf->SetParentBackendType(be);
-    lf->SetMaxTextureSize(maxTextureSize);
+    lf->IdentifyTextureHost(textureHostIdentifier);
 
     mRemoteFrame = remoteFrame;
 
