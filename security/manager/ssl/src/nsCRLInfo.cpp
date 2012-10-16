@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "prmem.h"
 #include "prerror.h"
 #include "prprf.h"
 
@@ -41,7 +40,7 @@ nsCRLInfo::nsCRLInfo(CERTSignedCrl *signedCrl)
   nsAutoString nameInDb;
   nsAutoString nextUpdateLocale;
   nsAutoString lastUpdateLocale;
-  nsCAutoString lastFetchURL;
+  nsAutoCString lastFetchURL;
   PRTime lastUpdate = 0;
   PRTime nextUpdate = 0;
   SECStatus sec_rv;

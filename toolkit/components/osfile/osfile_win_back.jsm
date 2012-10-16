@@ -72,71 +72,65 @@
 
        // Initialize types
 
+       /**
+        * A C integer holding INVALID_HANDLE_VALUE in case of error or
+        * a file descriptor in case of success.
+        */
        Types.HANDLE =
-         new Type("HANDLE",
-                  ctypes.voidptr_t);
+         Types.voidptr_t.withName("HANDLE");
+       Types.HANDLE.importFromC = function importFromC(maybe) {
+         if (Types.int.cast(maybe).value == INVALID_HANDLE) {
+           // Ensure that API clients can effectively compare against
+           // Const.INVALID_HANDLE_VALUE. Without this cast,
+           // == would always return |false|.
+           return INVALID_HANDLE;
+         }
+         return ctypes.CDataFinalizer(maybe, this.finalizeHANDLE);
+       };
+       Types.HANDLE.finalizeHANDLE = function placeholder() {
+         throw new Error("finalizeHANDLE should be implemented");
+       };
+       let INVALID_HANDLE = exports.OS.Constants.Win.INVALID_HANDLE_VALUE;
 
-       /**
-        * A C integer holding INVALID_HANDLE_VALUE in case of error or
-        * a file descriptor in case of success.
-        */
-       Types.maybe_HANDLE =
-         new Type("maybe_HANDLE",
-           Types.HANDLE.implementation,
-           function (maybe) {
-             if (ctypes.cast(maybe, ctypes.int).value == invalid_handle) {
-               // Ensure that API clients can effectively compare against
-               // Const.INVALID_HANDLE_VALUE. Without this cast,
-               // == would always return |false|.
-               return invalid_handle;
-             }
-             return ctypes.CDataFinalizer(maybe, _CloseHandle);
-           });
+       Types.file_HANDLE = Types.HANDLE.withName("file HANDLE");
+       exports.OS.Shared.defineLazyGetter(Types.file_HANDLE,
+         "finalizeHANDLE",
+         function() {
+           return _CloseHandle;
+         });
 
-       /**
-        * A C integer holding INVALID_HANDLE_VALUE in case of error or
-        * a file descriptor in case of success.
-        */
-       Types.maybe_find_HANDLE =
-         new Type("maybe_find_HANDLE",
-           Types.HANDLE.implementation,
-           function (maybe) {
-             if (ctypes.cast(maybe, ctypes.int).value == invalid_handle) {
-               // Ensure that API clients can effectively compare against
-               // Const.INVALID_HANDLE_VALUE. Without this cast,
-               // == would always return |false|.
-               return invalid_handle;
-             }
-             return ctypes.CDataFinalizer(maybe, _FindClose);
-           });
+       Types.find_HANDLE = Types.HANDLE.withName("find HANDLE");
+       exports.OS.Shared.defineLazyGetter(Types.find_HANDLE,
+         "finalizeHANDLE",
+         function() {
+           return _FindClose;
+         });
 
-       let invalid_handle = exports.OS.Constants.Win.INVALID_HANDLE_VALUE;
-
-       Types.DWORD = Types.int32_t;
+       Types.DWORD = Types.int32_t.withName("DWORD");
 
        /**
         * A C integer holding -1 in case of error or a positive integer
         * in case of success.
         */
        Types.negative_or_DWORD =
-         new Type("negative_or_DWORD",
-                  ctypes.int32_t);
+         Types.DWORD.withName("negative_or_DWORD");
 
        /**
         * A C integer holding 0 in case of error or a positive integer
         * in case of success.
         */
        Types.zero_or_DWORD =
-         new Type("zero_or_DWORD",
-                  ctypes.int32_t);
+         Types.DWORD.withName("zero_or_DWORD");
 
        /**
         * A C integer holding 0 in case of error, any other value in
         * case of success.
         */
        Types.zero_or_nothing =
-         new Type("zero_or_nothing",
-                  Types.bool.implementation);
+         Types.int.withName("zero_or_nothing");
+
+       Types.SECURITY_ATTRIBUTES =
+         Types.void_t.withName("SECURITY_ATTRIBUTES");
 
        Types.FILETIME =
          new Type("FILETIME",
@@ -188,22 +182,30 @@
 
        // Special case: these functions are used by the
        // finalizer
-       let _CloseHandle =
+       let _CloseHandle = WinFile._CloseHandle =
          libc.declare("CloseHandle", ctypes.winapi_abi,
                         /*return */ctypes.bool,
                         /*handle*/ ctypes.voidptr_t);
 
        WinFile.CloseHandle = function(fd) {
-         return fd.dispose(); // Returns the value of |CloseHandle|.
+         if (fd == INVALID_HANDLE) {
+           return true;
+         } else {
+           return fd.dispose(); // Returns the value of |CloseHandle|.
+         }
        };
 
        let _FindClose =
-         libc.declare("CloseHandle", ctypes.winapi_abi,
+         libc.declare("FindClose", ctypes.winapi_abi,
                         /*return */ctypes.bool,
                         /*handle*/ ctypes.voidptr_t);
 
        WinFile.FindClose = function(handle) {
-         return handle.dispose(); // Returns the value of |CloseHandle|.
+         if (handle == INVALID_HANDLE) {
+           return true;
+         } else {
+           return handle.dispose(); // Returns the value of |FindClose|.
+         }
        };
 
        // Declare libc functions as functions of |OS.Win.File|
@@ -211,17 +213,23 @@
        WinFile.CopyFile =
          declareFFI("CopyFileW", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
-                    /*sourcePath*/ Types.jschar.in_ptr,
-                    /*destPath*/   Types.jschar.in_ptr,
+                    /*sourcePath*/ Types.path,
+                    /*destPath*/   Types.path,
                     /*bailIfExist*/Types.bool);
+
+       WinFile.CreateDirectory =
+         declareFFI("CreateDirectoryW", ctypes.winapi_abi,
+                    /*return*/ Types.zero_or_nothing,
+                    /*name*/   Types.jschar.in_ptr,
+                    /*security*/Types.SECURITY_ATTRIBUTES.in_ptr);
 
        WinFile.CreateFile =
          declareFFI("CreateFileW", ctypes.winapi_abi,
-                    /*return*/  Types.maybe_HANDLE,
-                    /*name*/    Types.jschar.in_ptr,
+                    /*return*/  Types.file_HANDLE,
+                    /*name*/    Types.path,
                     /*access*/  Types.DWORD,
                     /*share*/   Types.DWORD,
-                    /*security*/Types.void_t.in_ptr,// FIXME: Implement?
+                    /*security*/Types.SECURITY_ATTRIBUTES.in_ptr,
                     /*creation*/Types.DWORD,
                     /*flags*/   Types.DWORD,
                     /*template*/Types.HANDLE);
@@ -229,7 +237,7 @@
        WinFile.DeleteFile =
          declareFFI("DeleteFileW", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
-                    /*path*/   Types.jschar.in_ptr);
+                    /*path*/   Types.path);
 
        WinFile.FileTimeToSystemTime =
          declareFFI("FileTimeToSystemTime", ctypes.winapi_abi,
@@ -239,14 +247,14 @@
 
        WinFile.FindFirstFile =
          declareFFI("FindFirstFileW", ctypes.winapi_abi,
-                    /*return*/ Types.maybe_find_HANDLE,
-                    /*pattern*/Types.jschar.in_ptr,
+                    /*return*/ Types.find_HANDLE,
+                    /*pattern*/Types.path,
                     /*data*/   Types.FindData.out_ptr);
 
        WinFile.FindNextFile =
          declareFFI("FindNextFileW", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
-                    /*prev*/   Types.HANDLE,
+                    /*prev*/   Types.find_HANDLE,
                     /*data*/   Types.FindData.out_ptr);
 
        WinFile.FormatMessage =
@@ -256,7 +264,7 @@
                     /*source*/ Types.void_t.in_ptr,
                     /*msgid*/  Types.DWORD,
                     /*langid*/ Types.DWORD,
-                    /*buf*/    Types.jschar.out_ptr,
+                    /*buf*/    Types.out_wstring,
                     /*size*/   Types.DWORD,
                     /*Arguments*/Types.void_t.in_ptr
                    );
@@ -265,7 +273,7 @@
          declareFFI("GetCurrentDirectoryW", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_DWORD,
                     /*length*/ Types.DWORD,
-                    /*buf*/    Types.jschar.out_ptr
+                    /*buf*/    Types.out_path
                    );
 
        WinFile.GetFileInformationByHandle =
@@ -277,8 +285,8 @@
        WinFile.MoveFileEx =
          declareFFI("MoveFileExW", ctypes.winapi_abi,
                     /*return*/   Types.zero_or_nothing,
-                    /*sourcePath*/ Types.jschar.in_ptr,
-                    /*destPath*/ Types.jschar.in_ptr,
+                    /*sourcePath*/ Types.path,
+                    /*destPath*/ Types.path,
                     /*flags*/    Types.DWORD
                    );
 
@@ -286,7 +294,7 @@
          declareFFI("ReadFile", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
                     /*file*/   Types.HANDLE,
-                    /*buffer*/ Types.char.out_ptr,
+                    /*buffer*/ Types.voidptr_t,
                     /*nbytes*/ Types.DWORD,
                     /*nbytes_read*/Types.DWORD.out_ptr,
                     /*overlapped*/Types.void_t.inout_ptr // FIXME: Implement?
@@ -295,12 +303,12 @@
        WinFile.RemoveDirectory =
          declareFFI("RemoveDirectoryW", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
-                    /*path*/   Types.jschar.in_ptr);
+                    /*path*/   Types.path);
 
        WinFile.SetCurrentDirectory =
          declareFFI("SetCurrentDirectoryW", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
-                    /*path*/   Types.jschar.in_ptr
+                    /*path*/   Types.path
                    );
 
        WinFile.SetEndOfFile =
@@ -320,11 +328,16 @@
          declareFFI("WriteFile", ctypes.winapi_abi,
                     /*return*/ Types.zero_or_nothing,
                     /*file*/   Types.HANDLE,
-                    /*buffer*/ Types.char.in_ptr,
+                    /*buffer*/ Types.voidptr_t,
                     /*nbytes*/ Types.DWORD,
                     /*nbytes_wr*/Types.DWORD.out_ptr,
                     /*overlapped*/Types.void_t.inout_ptr // FIXME: Implement?
          );
+
+        WinFile.FlushFileBuffers =
+          declareFFI("FlushFileBuffers", ctypes.winapi_abi,
+                     /*return*/ Types.zero_or_nothing,
+                     /*file*/   Types.HANDLE);
      };
      exports.OS.Win.File._init = init;
    })(this);

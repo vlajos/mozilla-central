@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "prmem.h"
 #include "prerror.h"
 #include "prprf.h"
 
@@ -664,7 +663,7 @@ ProcessRawBytes(nsINSSComponent *nssComponent, SECItem *data,
   // string.  We place a new line after 24 bytes
   // to break up extermaly long sequence of bytes.
 
-  PRUint32 i;
+  uint32_t i;
   char buffer[5];
   for (i=0; i<data->len; i++) {
     PR_snprintf(buffer, 5, "%02x ", data->data[i]);
@@ -901,7 +900,7 @@ ProcessRDN(CERTRDN* rdn, nsAString &finalString, nsINSSComponent *nssComponent)
 
     // We know we can fit buffer of this length. CERT_RFC1485_EscapeAndQuote
     // will fail if we provide smaller buffer then the result can fit to.
-    PRIntn escapedValueCapacity = decodeItem->len * 3 + 3;
+    int escapedValueCapacity = decodeItem->len * 3 + 3;
     nsAutoArrayPtr<char> escapedValue;
     escapedValue = new char[escapedValueCapacity];
     if (!escapedValue) {
@@ -1058,7 +1057,7 @@ ProcessGeneralName(PRArenaPool *arena,
 	if (SEC_ASN1DecodeItem(arena, &decoded, 
 			       SEC_ASN1_GET(SEC_UTF8StringTemplate), 
 			       &current->name.OthName.name) == SECSuccess) {
-	  AppendUTF8toUTF16(nsCAutoString((char*)decoded.data, decoded.len),
+	  AppendUTF8toUTF16(nsAutoCString((char*)decoded.data, decoded.len),
 			    value);
 	} else {
 	  ProcessRawBytes(nssComponent, &current->name.OthName.name, value);
@@ -1924,7 +1923,7 @@ ProcessExtensions(CERTCertExtension **extensions,
   nsString text;
   nssComponent->GetPIPNSSBundleString("CertDumpExtensions", text);
   extensionSequence->SetDisplayName(text);
-  PRInt32 i;
+  int32_t i;
   nsresult rv;
   nsCOMPtr<nsIASN1PrintableItem> newExtension;
   nsCOMPtr<nsIMutableArray> asn1Objects;
@@ -2200,7 +2199,7 @@ nsNSSCertificate::CreateASN1Struct()
   return NS_OK;
 }
 
-PRUint32 
+uint32_t 
 getCertType(CERTCertificate *cert)
 {
   nsNSSCertTrust trust(cert->trust);

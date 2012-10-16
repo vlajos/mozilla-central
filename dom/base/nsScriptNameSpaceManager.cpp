@@ -221,7 +221,9 @@ nsScriptNameSpaceManager::FillHashWithDOMInterfaces()
   const char *if_name = nullptr;
   const nsIID *iid;
 
-  for ( ; domInterfaces->IsDone() == NS_ENUMERATOR_FALSE; domInterfaces->Next()) {
+  for ( ;
+       domInterfaces->IsDone() == static_cast<nsresult>(NS_ENUMERATOR_FALSE);
+       domInterfaces->Next()) {
     rv = domInterfaces->CurrentItem(getter_AddRefs(entry));
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -261,7 +263,7 @@ nsScriptNameSpaceManager::RegisterExternalInterfaces(bool aAsProto)
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsXPIDLCString IID_string;
-  nsCAutoString category_entry;
+  nsAutoCString category_entry;
   const char* if_name;
   nsCOMPtr<nsISupports> entry;
   nsCOMPtr<nsIInterfaceInfo> if_info;
@@ -434,7 +436,7 @@ struct NameSetClosure {
 
 static PLDHashOperator
 NameSetInitCallback(PLDHashTable *table, PLDHashEntryHdr *hdr,
-                    PRUint32 number, void *arg)
+                    uint32_t number, void *arg)
 {
   GlobalNameMapEntry *entry = static_cast<GlobalNameMapEntry *>(hdr);
 
@@ -510,7 +512,7 @@ nsScriptNameSpaceManager::LookupNavigatorName(const nsAString& aName,
 
 nsresult
 nsScriptNameSpaceManager::RegisterClassName(const char *aClassName,
-                                            PRInt32 aDOMClassInfoID,
+                                            int32_t aDOMClassInfoID,
                                             bool aPrivileged,
                                             bool aDisabled,
                                             const PRUnichar **aResult)
@@ -602,7 +604,7 @@ nsScriptNameSpaceManager::RegisterDOMCIData(const char *aName,
                                             nsDOMClassInfoExternalConstructorFnc aConstructorFptr,
                                             const nsIID *aProtoChainInterface,
                                             const nsIID **aInterfaces,
-                                            PRUint32 aScriptableFlags,
+                                            uint32_t aScriptableFlags,
                                             bool aHasClassInterface,
                                             const nsCID *aConstructorCID)
 {
@@ -677,7 +679,7 @@ nsScriptNameSpaceManager::AddCategoryEntryToHash(nsICategoryManager* aCategoryMa
     return NS_OK;
   }
 
-  nsCAutoString categoryEntry;
+  nsAutoCString categoryEntry;
   nsresult rv = strWrapper->GetData(categoryEntry);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -779,7 +781,8 @@ nsScriptNameSpaceManager::Observe(nsISupports* aSubject, const char* aTopic,
 
 void
 nsScriptNameSpaceManager::RegisterDefineDOMInterface(const nsAFlatString& aName,
-    mozilla::dom::binding::DefineInterface aDefineDOMInterface)
+    mozilla::dom::DefineInterface aDefineDOMInterface,
+    mozilla::dom::PrefEnabled aPrefEnabled)
 {
   nsGlobalNameStruct *s = AddToHash(&mGlobalNames, &aName);
   if (s) {
@@ -787,5 +790,6 @@ nsScriptNameSpaceManager::RegisterDefineDOMInterface(const nsAFlatString& aName,
       s->mType = nsGlobalNameStruct::eTypeNewDOMBinding;
     }
     s->mDefineDOMInterface = aDefineDOMInterface;
+    s->mPrefEnabled = aPrefEnabled;
   }
 }

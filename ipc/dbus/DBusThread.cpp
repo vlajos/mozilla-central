@@ -1,5 +1,5 @@
 /* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
-/* vim: set ts=2 et sw=2 tw=40: */
+/* vim: set ts=2 et sw=2 tw=80: */
 /*
  * Copyright 2009, The Android Open Source Project
  *
@@ -75,23 +75,8 @@ enum {
   DBUS_EVENT_LOOP_EXIT = 1,
   DBUS_EVENT_LOOP_ADD = 2,
   DBUS_EVENT_LOOP_REMOVE = 3,
+  DBUS_EVENT_LOOP_WAKEUP = 4,
 } DBusEventTypes;
-
-// Signals that the DBus thread should listen for. Needs to include
-// all signals any DBus observer object may need.
-
-static const char* DBUS_SIGNALS[] =
-{
-  "type='signal',interface='org.freedesktop.DBus'",
-  "type='signal',interface='org.bluez.Adapter'",
-  "type='signal',interface='org.bluez.Manager'",
-  "type='signal',interface='org.bluez.Device'",
-  "type='signal',interface='org.bluez.Input'",
-  "type='signal',interface='org.bluez.Network'",
-  "type='signal',interface='org.bluez.NetworkServer'",
-  "type='signal',interface='org.bluez.HealthDevice'",
-  "type='signal',interface='org.bluez.AudioSink'"
-};
 
 static unsigned int UnixEventsToDBusFlags(short events)
 {
@@ -151,7 +136,6 @@ struct DBusThread : public RawDBusConnection
 protected:
   bool SetUpEventLoop();
   bool TearDownData();
-  bool TearDownEventLoop();
 };
 
 static nsAutoPtr<DBusThread> sDBusThread;
@@ -175,8 +159,7 @@ AddWatch(DBusWatch *aWatch, void *aData)
       return false;
     }
 
-    // TODO change this to dbus_watch_get_unix_fd once we move to ics
-    int fd = dbus_watch_get_fd(aWatch);
+    int fd = dbus_watch_get_unix_fd(aWatch);
     if (write(dbt->mControlFdW.get(), &fd, sizeof(int)) < 0) {
       LOG("Cannot write DBus add watch descriptor data to socket!\n");
       return false;
@@ -207,8 +190,7 @@ RemoveWatch(DBusWatch *aWatch, void *aData)
     return;
   }
 
-  // TODO change this to dbus_watch_get_unix_fd once we move to ics
-  int fd = dbus_watch_get_fd(aWatch);
+  int fd = dbus_watch_get_unix_fd(aWatch);
   if (write(dbt->mControlFdW.get(), &fd, sizeof(int)) < 0) {
     LOG("Cannot write DBus remove watch descriptor data to socket!\n");
     return;
@@ -260,7 +242,8 @@ HandleWatchAdd(DBusThread* aDbt)
   aDbt->mWatchData.AppendElement(watch);
 }
 
-static void HandleWatchRemove(DBusThread* aDbt)
+static void
+HandleWatchRemove(DBusThread* aDbt)
 {
   int removeFD;
   unsigned int flags;
@@ -293,6 +276,16 @@ static void HandleWatchRemove(DBusThread* aDbt)
   aDbt->mWatchData.RemoveElementAt(index);
 }
 
+static
+void DBusWakeup(void* aData)
+{
+  DBusThread *dbt = (DBusThread *)aData;
+  char control = DBUS_EVENT_LOOP_WAKEUP;
+  if (write(dbt->mControlFdW.get(), &control, sizeof(char)) < 0) {
+    NS_WARNING("Cannot write wakeup bit to DBus controller!");
+  }
+}
+
 // DBus Thread Implementation
 
 DBusThread::DBusThread()
@@ -323,26 +316,15 @@ DBusThread::SetUpEventLoop()
     return false;
   }
 
-  // Set which messages will be processed by this dbus connection.
-  // Since we are maintaining a single thread for all the DBus bluez
-  // signals we want, register all of them in this thread at startup.
-  // The event handler will sort the destinations out as needed.
-  for (uint32_t i = 0; i < ArrayLength(DBUS_SIGNALS); ++i) {
-    dbus_bus_add_match(mConnection,
-                       DBUS_SIGNALS[i],
-                       &err);
-    if (dbus_error_is_set(&err)) {
-      LOG_AND_FREE_DBUS_ERROR(&err);
-      return false;
-    }
-  }
   return true;
 }
 
 bool
 DBusThread::TearDownData()
 {
+#ifdef DEBUG
   LOG("Removing DBus Sockets\n");
+#endif
   if (mControlFdW.get()) {
     mControlFdW.dispose();
   }
@@ -357,33 +339,15 @@ DBusThread::TearDownData()
   return true;
 }
 
-bool
-DBusThread::TearDownEventLoop()
-{
-  MOZ_ASSERT(mConnection);
-
-  DBusError err;
-  dbus_error_init(&err);
-
-  for (uint32_t i = 0; i < ArrayLength(DBUS_SIGNALS); ++i) {
-    dbus_bus_remove_match(mConnection,
-                          DBUS_SIGNALS[i],
-                          &err);
-    if (dbus_error_is_set(&err)) {
-      LOG_AND_FREE_DBUS_ERROR(&err);
-    }
-  }
-
-  return true;
-}
-
 void
 DBusThread::EventLoop()
 {
   dbus_connection_set_watch_functions(mConnection, AddWatch,
                                       RemoveWatch, ToggleWatch, this, NULL);
-
+  dbus_connection_set_wakeup_main_function(mConnection, DBusWakeup, this, NULL);
+#ifdef DEBUG
   LOG("DBus Event Loop Starting\n");
+#endif
   while (1) {
     poll(mPollData.Elements(), mPollData.Length(), -1);
 
@@ -397,18 +361,22 @@ DBusThread::EventLoop()
         while (recv(mControlFdR.get(), &data, sizeof(char), MSG_DONTWAIT)
                != -1) {
           switch (data) {
-            case DBUS_EVENT_LOOP_EXIT:
-              LOG("DBus Event Loop Exiting\n");
-              dbus_connection_set_watch_functions(mConnection,
-                                                  NULL, NULL, NULL, NULL, NULL);
-              TearDownEventLoop();
-              return;
-            case DBUS_EVENT_LOOP_ADD:
-              HandleWatchAdd(this);
-              break;
-            case DBUS_EVENT_LOOP_REMOVE:
-              HandleWatchRemove(this);
-              break;
+          case DBUS_EVENT_LOOP_EXIT:
+#ifdef DEBUG
+            LOG("DBus Event Loop Exiting\n");
+#endif
+            dbus_connection_set_watch_functions(mConnection,
+                                                NULL, NULL, NULL, NULL, NULL);
+            return;
+          case DBUS_EVENT_LOOP_ADD:
+            HandleWatchAdd(this);
+            break;
+          case DBUS_EVENT_LOOP_REMOVE:
+            HandleWatchRemove(this);
+            break;
+          case DBUS_EVENT_LOOP_WAKEUP:
+            // noop
+            break;
           }
         }
       } else {
@@ -465,7 +433,9 @@ DBusThread::StartEventLoop()
     NS_WARNING("Cannot create DBus Thread!");
     return false;    
   }
+#ifdef DEBUG
   LOG("DBus Thread Starting\n");
+#endif
   return true;
 }
 
@@ -481,13 +451,17 @@ DBusThread::StopEventLoop()
     NS_ERROR("Cannot write exit flag to Dbus Thread!");
     return false;
   }
+#ifdef DEBUG
   LOG("DBus Thread Joining\n");
+#endif
   nsCOMPtr<nsIThread> tmpThread;
   mThread.swap(tmpThread);
   if(NS_FAILED(tmpThread->Shutdown())) {
     NS_WARNING("DBus thread shutdown failed!");
   }
+#ifdef DEBUG
   LOG("DBus Thread Joined\n");
+#endif
   TearDownData();
   return true;
 }

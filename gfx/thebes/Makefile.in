@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH		= ../..
+DEPTH		= @DEPTH@
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
@@ -47,11 +47,16 @@ EXPORTS	= \
 	gfxTypes.h \
 	gfxUtils.h \
 	gfxUserFontSet.h \
-	nsCoreAnimationSupport.h \
-	nsIOSurface.h \
 	nsSurfaceTexture.h \
 	gfxSharedImageSurface.h \
 	gfxReusableSurfaceWrapper.h \
+	gfxSVGGlyphs.h \
+	$(NULL)
+
+# gfxSVGGlyphs needs nsDOMParser.h
+LOCAL_INCLUDES += \
+	-I$(topsrcdir)/content/base/public \
+	-I$(topsrcdir)/content/xml/document/src \
 	$(NULL)
 
 ifeq ($(MOZ_WIDGET_TOOLKIT),android)
@@ -176,6 +181,7 @@ CPPSRCS	= \
 	gfxSharedImageSurface.cpp \
 	gfxReusableSurfaceWrapper.cpp \
 	nsSurfaceTexture.cpp \
+	gfxSVGGlyphs.cpp \
 	$(NULL)
 
 ifeq ($(MOZ_WIDGET_TOOLKIT),$(findstring $(MOZ_WIDGET_TOOLKIT),android gtk2 gonk qt))
@@ -331,7 +337,6 @@ CPPSRCS +=      gfxQuartzNativeDrawing.cpp
 
 CMMSRCS = \
 	gfxMacPlatformFontList.mm \
-	nsCoreAnimationSupport.mm \
 	$(NULL)
 
 endif

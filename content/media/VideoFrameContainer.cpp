@@ -10,10 +10,25 @@
 #include "nsIFrame.h"
 #include "nsDisplayList.h"
 #include "nsSVGEffects.h"
+#include "ImageContainer.h"
 
 using namespace mozilla::layers;
 
 namespace mozilla {
+
+VideoFrameContainer::VideoFrameContainer(nsHTMLMediaElement* aElement,
+                                         already_AddRefed<ImageContainer> aContainer)
+  : mElement(aElement),
+    mImageContainer(aContainer), mMutex("nsVideoFrameContainer"),
+    mIntrinsicSizeChanged(false), mImageSizeChanged(false),
+    mNeedInvalidation(true)
+{
+  NS_ASSERTION(aElement, "aElement must not be null");
+  NS_ASSERTION(mImageContainer, "aContainer must not be null");
+}
+
+VideoFrameContainer::~VideoFrameContainer()
+{}
 
 void VideoFrameContainer::SetCurrentFrame(const gfxIntSize& aIntrinsicSize,
                                           Image* aImage,
@@ -31,6 +46,17 @@ void VideoFrameContainer::SetCurrentFrame(const gfxIntSize& aIntrinsicSize,
   if (!lastPaintTime.IsNull() && !mPaintTarget.IsNull()) {
     mPaintDelay = lastPaintTime - mPaintTarget;
   }
+
+  // When using the OMX decoder, destruction of the current image can indirectly
+  //  block on main thread I/O. If we let this happen while holding onto
+  //  |mImageContainer|'s lock, then when the main thread then tries to
+  //  composite it can then block on |mImageContainer|'s lock, causing a
+  //  deadlock. We use this hack to defer the destruction of the current image
+  //  until it is safe.
+  nsRefPtr<Image> kungFuDeathGrip;
+  kungFuDeathGrip = mImageContainer->LockCurrentImage();
+  mImageContainer->UnlockCurrentImage();
+
   mImageContainer->SetCurrentImage(aImage);
   gfxIntSize newFrameSize = mImageContainer->GetCurrentSize();
   if (oldFrameSize != newFrameSize) {
@@ -39,6 +65,24 @@ void VideoFrameContainer::SetCurrentFrame(const gfxIntSize& aIntrinsicSize,
 
   mPaintTarget = aTargetTime;
 }
+
+void VideoFrameContainer::ClearCurrentFrame()
+{
+  MutexAutoLock lock(mMutex);
+
+  // See comment in SetCurrentFrame for the reasoning behind
+  // using a kungFuDeathGrip here.
+  nsRefPtr<Image> kungFuDeathGrip;
+  kungFuDeathGrip = mImageContainer->LockCurrentImage();
+  mImageContainer->UnlockCurrentImage();
+
+  mImageContainer->SetCurrentImage(nullptr);
+}
+
+ImageContainer* VideoFrameContainer::GetImageContainer() {
+  return mImageContainer;
+}
+
 
 double VideoFrameContainer::GetFrameDelay()
 {
@@ -49,6 +93,14 @@ double VideoFrameContainer::GetFrameDelay()
 void VideoFrameContainer::Invalidate()
 {
   NS_ASSERTION(NS_IsMainThread(), "Must call on main thread");
+
+  if (!mNeedInvalidation) {
+    return;
+  }
+  if (mImageContainer && mImageContainer->IsAsync()) {
+    mNeedInvalidation = false;
+  }
+
   if (!mElement) {
     // Element has been destroyed
     return;
@@ -79,11 +131,10 @@ void VideoFrameContainer::Invalidate()
   }
 
   if (frame) {
-    nsRect contentRect = frame->GetContentRect() - frame->GetPosition();
     if (invalidateFrame) {
-      frame->Invalidate(contentRect);
+      frame->InvalidateFrame();
     } else {
-      frame->InvalidateLayer(contentRect, nsDisplayItem::TYPE_VIDEO);
+      frame->InvalidateLayer(nsDisplayItem::TYPE_VIDEO);
     }
   }
 

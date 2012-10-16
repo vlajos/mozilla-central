@@ -166,6 +166,9 @@ public:
                    ShadowableLayer* aAfter=NULL);
   void RemoveChild(ShadowableLayer* aContainer,
                    ShadowableLayer* aChild);
+  void RepositionChild(ShadowableLayer* aContainer,
+                       ShadowableLayer* aChild,
+                       ShadowableLayer* aAfter=NULL);
 
   /**
    * Set aMaskLayer as the mask on aLayer.
@@ -221,11 +224,6 @@ public:
    * caller of EndTransaction().
    */
   bool EndTransaction(InfallibleTArray<EditReply>* aReplies);
-
-  /**
-   * Composite ShadowLayerManager's layer tree into aTarget.
-   */
-  bool ShadowDrawToTarget(gfxContext* aTarget);
 
   /**
    * Set an actor through which layer updates will be pushed.
@@ -313,8 +311,10 @@ public:
    */
   void SetIsFirstPaint() { mIsFirstPaint = true; }
 
-  virtual PRInt32 GetMaxTextureSize() const { return mMaxTextureSize; }
-  void SetMaxTextureSize(PRInt32 aMaxTextureSize) { mMaxTextureSize = aMaxTextureSize; }
+  virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
+  void SetMaxTextureSize(int32_t aMaxTextureSize) { mMaxTextureSize = aMaxTextureSize; }
+
+  static void PlatformSyncBeforeUpdate();
 
 protected:
   ShadowLayerForwarder();
@@ -376,10 +376,8 @@ private:
 
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
 
-  static void PlatformSyncBeforeUpdate();
-
   Transaction* mTxn;
-  PRInt32 mMaxTextureSize;
+  int32_t mMaxTextureSize;
   LayersBackend mParentBackend;
 
   bool mIsFirstPaint;
@@ -411,6 +409,8 @@ public:
   /** CONSTRUCTION PHASE ONLY */
   virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer() { return nullptr; }
 
+  virtual void NotifyShadowTreeTransaction() {}
+
   /**
    * Try to open |aDescriptor| for direct texturing.  If the
    * underlying surface supports direct texturing, a non-null
@@ -423,12 +423,12 @@ public:
 
   static void PlatformSyncBeforeReplyUpdate();
 
-  void SetCompositorID(PRUint32 aID)
+  void SetCompositorID(uint32_t aID)
   {
     NS_ASSERTION(mCompositorID==0, "The compositor ID must be set only once.");
     mCompositorID = aID;
   }
-  PRUint32 GetCompositorID() const
+  uint32_t GetCompositorID() const
   {
     return mCompositorID;
   }
@@ -438,7 +438,7 @@ protected:
   : mCompositorID(0) {}
 
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
-  PRUint32 mCompositorID;
+  uint32_t mCompositorID;
 };
 
 
@@ -523,6 +523,11 @@ public:
     mShadowVisibleRegion = aRegion;
   }
 
+  void SetShadowOpacity(float aOpacity)
+  {
+    mShadowOpacity = aOpacity;
+  }
+
   void SetShadowClipRect(const nsIntRect* aRect)
   {
     mUseShadowClipRect = aRect != nullptr;
@@ -537,6 +542,7 @@ public:
   }
 
   // These getters can be used anytime.
+  float GetShadowOpacity() { return mShadowOpacity; }
   const nsIntRect* GetShadowClipRect() { return mUseShadowClipRect ? &mShadowClipRect : nullptr; }
   const nsIntRegion& GetShadowVisibleRegion() { return mShadowVisibleRegion; }
   const gfx3DMatrix& GetShadowTransform() { return mShadowTransform; }
@@ -546,6 +552,7 @@ public:
 protected:
   ShadowLayer()
     : mAllocator(nullptr)
+    , mShadowOpacity(1.0f)
     , mUseShadowClipRect(false)
   {}
 
@@ -553,6 +560,7 @@ protected:
   nsIntRegion mShadowVisibleRegion;
   gfx3DMatrix mShadowTransform;
   nsIntRect mShadowClipRect;
+  float mShadowOpacity;
   bool mUseShadowClipRect;
 };
 
@@ -668,8 +676,8 @@ protected:
   {}
 
   // ImageBridge protocol:
-  PRUint32 mImageContainerID;
-  PRUint32 mImageVersion;
+  uint32_t mImageContainerID;
+  uint32_t mImageVersion;
 };
 
 

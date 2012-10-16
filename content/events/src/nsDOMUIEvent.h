@@ -29,8 +29,6 @@ public:
   NS_IMETHOD_(void) Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType);
   NS_IMETHOD_(bool) Deserialize(const IPC::Message* aMsg, void** aIter);
 
-  NS_FORWARD_NSIDOMNSEVENT(nsDOMEvent::)
-
   virtual nsresult InitFromCtor(const nsAString& aType,
                                 JSContext* aCx, jsval* aVal);
 
@@ -41,7 +39,7 @@ public:
         (aEvent->eventStructType != NS_MOUSE_EVENT &&
          aEvent->eventStructType != NS_POPUP_EVENT &&
          aEvent->eventStructType != NS_MOUSE_SCROLL_EVENT &&
-         aEvent->eventStructType != NS_MOZTOUCH_EVENT &&
+         aEvent->eventStructType != NS_WHEEL_EVENT &&
          aEvent->eventStructType != NS_DRAG_EVENT &&
          aEvent->eventStructType != NS_SIMPLE_GESTURE_EVENT)) {
       return nsIntPoint(0, 0);
@@ -66,7 +64,7 @@ public:
         (aEvent->eventStructType != NS_MOUSE_EVENT &&
          aEvent->eventStructType != NS_POPUP_EVENT &&
          aEvent->eventStructType != NS_MOUSE_SCROLL_EVENT &&
-         aEvent->eventStructType != NS_MOZTOUCH_EVENT &&
+         aEvent->eventStructType != NS_WHEEL_EVENT &&
          aEvent->eventStructType != NS_DRAG_EVENT &&
          aEvent->eventStructType != NS_SIMPLE_GESTURE_EVENT) ||
         !aPresContext ||
@@ -97,7 +95,7 @@ protected:
   nsIntPoint GetPagePoint();
 
   // Allow specializations.
-  virtual nsresult Which(PRUint32* aWhich)
+  virtual nsresult Which(uint32_t* aWhich)
   {
     NS_ENSURE_ARG_POINTER(aWhich);
     // Usually we never reach here, as this is reimplemented for mouse and keyboard events.
@@ -106,7 +104,7 @@ protected:
   }
 
   nsCOMPtr<nsIDOMWindow> mView;
-  PRInt32 mDetail;
+  int32_t mDetail;
   nsIntPoint mClientPoint;
   // Screenpoint is mEvent->refPoint.
   nsIntPoint mLayerPoint;

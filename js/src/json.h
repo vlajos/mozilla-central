@@ -7,6 +7,7 @@
 
 #include "jsprvtd.h"
 #include "jspubtd.h"
+#include "jsapi.h"
 
 #include "js/Vector.h"
 
@@ -14,11 +15,11 @@
 #define JSON_PARSER_BUFSIZE 1024
 
 extern JSObject *
-js_InitJSONClass(JSContext *cx, JSObject *obj);
+js_InitJSONClass(JSContext *cx, js::HandleObject obj);
 
 extern JSBool
 js_Stringify(JSContext *cx, js::MutableHandleValue vp,
-	     JSObject *replacer, js::Value space, 
+             JSObject *replacer, js::Value space,
              js::StringBuffer &sb);
 
 // Avoid build errors on certain platforms that define these names as constants
@@ -37,7 +38,7 @@ enum DecodingMode { STRICT, LEGACY };
 namespace js {
 
 extern JS_FRIEND_API(JSBool)
-ParseJSONWithReviver(JSContext *cx, const jschar *chars, size_t length, HandleValue filter,
+ParseJSONWithReviver(JSContext *cx, JS::StableCharPtr chars, size_t length, HandleValue filter,
                      MutableHandleValue vp, DecodingMode decodingMode = STRICT);
 
 } /* namespace js */

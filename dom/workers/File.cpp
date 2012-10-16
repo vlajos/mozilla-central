@@ -8,10 +8,9 @@
 
 #include "nsIDOMFile.h"
 #include "nsDOMBlobBuilder.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 
 #include "jsapi.h"
-#include "jsatom.h"
 #include "jsfriendapi.h"
 #include "nsCOMPtr.h"
 #include "nsJSUtils.h"
@@ -122,15 +121,13 @@ private:
       return false;
     }
 
-    PRUint64 size;
+    uint64_t size;
     if (NS_FAILED(blob->GetSize(&size))) {
       ThrowDOMExceptionForNSResult(aCx, NS_ERROR_DOM_FILE_NOT_READABLE_ERR);
       return false;
     }
 
-    if (!JS_NewNumberValue(aCx, double(size), aVp.address())) {
-      return false;
-    }
+    aVp.set(JS_NumberValue(double(size)));
 
     return true;
   }
@@ -184,10 +181,10 @@ private:
       return false;
     }
 
-    PRUint8 optionalArgc = aArgc;
+    uint8_t optionalArgc = aArgc;
     nsCOMPtr<nsIDOMBlob> rtnBlob;
-    if (NS_FAILED(blob->Slice(static_cast<PRUint64>(start),
-                              static_cast<PRUint64>(end),
+    if (NS_FAILED(blob->Slice(static_cast<uint64_t>(start),
+                              static_cast<uint64_t>(end),
                               contentType, optionalArgc,
                               getter_AddRefs(rtnBlob)))) {
       ThrowDOMExceptionForNSResult(aCx, NS_ERROR_DOM_FILE_NOT_READABLE_ERR);
@@ -212,9 +209,9 @@ JSClass Blob::sClass = {
 };
 
 JSPropertySpec Blob::sProperties[] = {
-  { "size", 0, PROPERTY_FLAGS, GetSize, js_GetterOnlyPropertyStub },
-  { "type", 0, PROPERTY_FLAGS, GetType, js_GetterOnlyPropertyStub },
-  { 0, 0, 0, NULL, NULL }
+  { "size", 0, PROPERTY_FLAGS, JSOP_WRAPPER(GetSize), JSOP_WRAPPER(js_GetterOnlyPropertyStub) },
+  { "type", 0, PROPERTY_FLAGS, JSOP_WRAPPER(GetType), JSOP_WRAPPER(js_GetterOnlyPropertyStub) },
+  { 0, 0, 0, JSOP_NULLWRAPPER, JSOP_NULLWRAPPER }
 };
 
 JSFunctionSpec Blob::sFunctions[] = {
@@ -362,10 +359,11 @@ JSClass File::sClass = {
 };
 
 JSPropertySpec File::sProperties[] = {
-  { "name", 0, PROPERTY_FLAGS, GetName, js_GetterOnlyPropertyStub },
-  { "mozFullPath", 0, PROPERTY_FLAGS, GetMozFullPath,
-    js_GetterOnlyPropertyStub },
-  { 0, 0, 0, NULL, NULL }
+  { "name", 0, PROPERTY_FLAGS, JSOP_WRAPPER(GetName),
+    JSOP_WRAPPER(js_GetterOnlyPropertyStub) },
+  { "mozFullPath", 0, PROPERTY_FLAGS, JSOP_WRAPPER(GetMozFullPath),
+    JSOP_WRAPPER(js_GetterOnlyPropertyStub) },
+  { 0, 0, 0, JSOP_NULLWRAPPER, JSOP_NULLWRAPPER }
 };
 
 nsIDOMBlob*

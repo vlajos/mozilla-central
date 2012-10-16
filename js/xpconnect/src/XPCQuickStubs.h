@@ -11,8 +11,6 @@
 #include "xpcprivate.h"
 #include "qsObjectHelper.h"
 
-#include "jsatom.h"
-
 /* XPCQuickStubs.h - Support functions used only by quick stubs. */
 
 class XPCCallContext;
@@ -46,8 +44,8 @@ struct xpc_qsHashEntry {
 
 JSBool
 xpc_qsDefineQuickStubs(JSContext *cx, JSObject *proto, unsigned extraFlags,
-                       PRUint32 ifacec, const nsIID **interfaces,
-                       PRUint32 tableSize, const xpc_qsHashEntry *table,
+                       uint32_t ifacec, const nsIID **interfaces,
+                       uint32_t tableSize, const xpc_qsHashEntry *table,
                        const xpc_qsPropertySpec *propspecs,
                        const xpc_qsFunctionSpec *funcspecs,
                        const char *stringTable);
@@ -120,15 +118,17 @@ xpc_qsGetterOnlyPropertyStub(JSContext *cx, JSHandleObject obj, JSHandleId id, J
 /* Functions for converting values between COM and JS. */
 
 inline JSBool
-xpc_qsInt64ToJsval(JSContext *cx, PRInt64 i, jsval *rv)
+xpc_qsInt64ToJsval(JSContext *cx, int64_t i, jsval *rv)
 {
-    return JS_NewNumberValue(cx, static_cast<double>(i), rv);
+    *rv = JS_NumberValue(static_cast<double>(i));
+    return true;
 }
 
 inline JSBool
-xpc_qsUint64ToJsval(JSContext *cx, PRUint64 u, jsval *rv)
+xpc_qsUint64ToJsval(JSContext *cx, uint64_t u, jsval *rv)
 {
-    return JS_NewNumberValue(cx, static_cast<double>(u), rv);
+    *rv = JS_NumberValue(static_cast<double>(u));
+    return true;
 }
 
 
@@ -231,7 +231,7 @@ protected:
             if (behavior != eStringify || !pval) {
                 // Here behavior == eStringify implies !pval, so both eNull and
                 // eStringify should end up with void strings.
-                (new(mBuf) implementation_type(traits::sEmptyBuffer, PRUint32(0)))->
+                (new(mBuf) implementation_type(traits::sEmptyBuffer, uint32_t(0)))->
                     SetIsVoid(behavior != eEmpty);
                 mValid = true;
                 return nullptr;
@@ -399,7 +399,7 @@ xpc_qsUnwrapThis(JSContext *cx,
 MOZ_ALWAYS_INLINE nsISupports*
 castNativeFromWrapper(JSContext *cx,
                       JSObject *obj,
-                      PRUint32 interfaceBit,
+                      uint32_t interfaceBit,
                       nsISupports **pRef,
                       jsval *pVal,
                       XPCLazyCallContext *lccx,
@@ -507,7 +507,7 @@ xpc_qsUnwrapArg(JSContext *cx, jsval v, Interface **ppArg,
 inline nsISupports*
 castNativeArgFromWrapper(JSContext *cx,
                          jsval v,
-                         PRUint32 bit,
+                         uint32_t bit,
                          nsISupports **pArgRef,
                          jsval *vp,
                          nsresult *rv)
@@ -573,7 +573,7 @@ xpc_qsSameResult(const nsString &result1, const nsString &result2)
 }
 
 inline bool
-xpc_qsSameResult(PRInt32 result1, PRInt32 result2)
+xpc_qsSameResult(int32_t result1, int32_t result2)
 {
     return result1 == result2;
 }
@@ -614,7 +614,7 @@ PropertyOpForwarder(JSContext *cx, unsigned argc, jsval *vp)
     JS::CallArgs args = CallArgsFromVp(argc, vp);
 
     JSObject *callee = &args.callee();
-    JS::RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
+    js::RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
     if (!obj)
         return false;
 
@@ -626,7 +626,7 @@ PropertyOpForwarder(JSContext *cx, unsigned argc, jsval *vp)
     v = js::GetFunctionNativeReserved(callee, 1);
 
     jsval argval = (argc > 0) ? args[0] : JSVAL_VOID;
-    JS::RootedId id(cx);
+    js::RootedId id(cx);
     if (!JS_ValueToId(cx, v, id.address()))
         return false;
     args.rval().set(argval);

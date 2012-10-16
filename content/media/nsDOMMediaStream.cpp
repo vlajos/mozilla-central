@@ -43,11 +43,21 @@ nsDOMMediaStream::GetCurrentTime(double *aCurrentTime)
 }
 
 already_AddRefed<nsDOMMediaStream>
-nsDOMMediaStream::CreateInputStream()
+nsDOMMediaStream::CreateInputStream(uint32_t aHintContents)
+{
+  nsRefPtr<nsDOMMediaStream> stream = new nsDOMMediaStream();
+  stream->SetHintContents(aHintContents);
+  MediaStreamGraph* gm = MediaStreamGraph::GetInstance();
+  stream->mStream = gm->CreateInputStream(stream);
+  return stream.forget();
+}
+
+already_AddRefed<nsDOMMediaStream>
+nsDOMMediaStream::CreateTrackUnionStream()
 {
   nsRefPtr<nsDOMMediaStream> stream = new nsDOMMediaStream();
   MediaStreamGraph* gm = MediaStreamGraph::GetInstance();
-  stream->mStream = gm->CreateInputStream(stream);
+  stream->mStream = gm->CreateTrackUnionStream(stream);
   return stream.forget();
 }
 

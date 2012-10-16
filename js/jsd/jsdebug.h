@@ -371,6 +371,12 @@ JSD_GetJSFunction(JSDContext* jsdc, JSDScript *script);
 * The context flag JSD_DEBUG_WHEN_SET decides the logic.
 */
 #define JSD_SCRIPT_DEBUG_BIT   0x02
+/*
+ * Determines whether to invoke the onScriptDestroy callback for this
+ * script. The default is for this to be true if the onScriptCreated
+ * callback was invoked for this script.
+ */
+#define JSD_SCRIPT_CALL_DESTROY_HOOK_BIT 0x04
 
 extern JSD_PUBLIC_API(uint32_t)
 JSD_GetScriptFlags(JSDContext *jsdc, JSDScript* jsdscript);
@@ -1080,6 +1086,8 @@ JSD_GetErrorReporter(JSDContext*        jsdc,
 /***************************************************************************/
 /* Generic locks that callers can use for their own purposes */
 
+struct JSDStaticLock;
+
 /*
 * Is Locking and GetThread supported in this build?
 */
@@ -1089,7 +1097,7 @@ JSD_IsLockingAndThreadIdSupported();
 /*
 * Create a reentrant/nestable lock
 */
-extern JSD_PUBLIC_API(void*)
+extern JSD_PUBLIC_API(JSDStaticLock*)
 JSD_CreateLock();
 
 /*
@@ -1097,27 +1105,27 @@ JSD_CreateLock();
 * counter if this thread already owns the lock.
 */
 extern JSD_PUBLIC_API(void)
-JSD_Lock(void* lock);
+JSD_Lock(JSDStaticLock* lock);
 
 /*
 * Release lock for this thread (or decrement the counter if JSD_Lock
 * was previous called more than once).
 */
 extern JSD_PUBLIC_API(void)
-JSD_Unlock(void* lock);
+JSD_Unlock(JSDStaticLock* lock);
 
 /*
 * For debugging only if not (JS_THREADSAFE AND DEBUG) then returns JS_TRUE
 *    So JSD_IsLocked(lock) may not equal !JSD_IsUnlocked(lock)
 */
 extern JSD_PUBLIC_API(JSBool)
-JSD_IsLocked(void* lock);
+JSD_IsLocked(JSDStaticLock* lock);
 
 /*
 * See above...
 */
 extern JSD_PUBLIC_API(JSBool)
-JSD_IsUnlocked(void* lock);
+JSD_IsUnlocked(JSDStaticLock* lock);
 
 /*
 * return an ID uniquely identifying this thread.

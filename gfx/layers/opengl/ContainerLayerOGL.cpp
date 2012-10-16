@@ -13,79 +13,117 @@ template<class Container>
 static void
 ContainerInsertAfter(Container* aContainer, Layer* aChild, Layer* aAfter)
 {
+  NS_ASSERTION(aChild->Manager() == aContainer->Manager(),
+               "Child has wrong manager");
+  NS_ASSERTION(!aChild->GetParent(),
+               "aChild already in the tree");
+  NS_ASSERTION(!aChild->GetNextSibling() && !aChild->GetPrevSibling(),
+               "aChild already has siblings?");
+  NS_ASSERTION(!aAfter ||
+               (aAfter->Manager() == aContainer->Manager() &&
+                aAfter->GetParent() == aContainer),
+               "aAfter is not our child");
+
   aChild->SetParent(aContainer);
+  if (aAfter == aContainer->mLastChild) {
+    aContainer->mLastChild = aChild;
+  }
   if (!aAfter) {
-    Layer *oldFirstChild = aContainer->GetFirstChild();
-    aContainer->mFirstChild = aChild;
-    aChild->SetNextSibling(oldFirstChild);
-    aChild->SetPrevSibling(nullptr);
-    if (oldFirstChild) {
-      oldFirstChild->SetPrevSibling(aChild);
-    } else {
-      aContainer->mLastChild = aChild;
+    aChild->SetNextSibling(aContainer->mFirstChild);
+    if (aContainer->mFirstChild) {
+      aContainer->mFirstChild->SetPrevSibling(aChild);
     }
+    aContainer->mFirstChild = aChild;
     NS_ADDREF(aChild);
     aContainer->DidInsertChild(aChild);
     return;
   }
-  for (Layer *child = aContainer->GetFirstChild(); 
-       child; child = child->GetNextSibling()) {
-    if (aAfter == child) {
-      Layer *oldNextSibling = child->GetNextSibling();
-      child->SetNextSibling(aChild);
-      aChild->SetNextSibling(oldNextSibling);
-      if (oldNextSibling) {
-        oldNextSibling->SetPrevSibling(aChild);
-      } else {
-        aContainer->mLastChild = aChild;
-      }
-      aChild->SetPrevSibling(child);
-      NS_ADDREF(aChild);
-      aContainer->DidInsertChild(aChild);
-      return;
-    }
+
+  Layer* next = aAfter->GetNextSibling();
+  aChild->SetNextSibling(next);
+  aChild->SetPrevSibling(aAfter);
+  if (next) {
+    next->SetPrevSibling(aChild);
   }
-  NS_WARNING("Failed to find aAfter layer!");
+  aAfter->SetNextSibling(aChild);
+  NS_ADDREF(aChild);
+  aContainer->DidInsertChild(aChild);
 }
 
 template<class Container>
 static void
 ContainerRemoveChild(Container* aContainer, Layer* aChild)
 {
-  if (aContainer->GetFirstChild() == aChild) {
-    aContainer->mFirstChild = aContainer->GetFirstChild()->GetNextSibling();
-    if (aContainer->mFirstChild) {
-      aContainer->mFirstChild->SetPrevSibling(nullptr);
-    } else {
-      aContainer->mLastChild = nullptr;
-    }
-    aChild->SetNextSibling(nullptr);
-    aChild->SetPrevSibling(nullptr);
-    aChild->SetParent(nullptr);
-    aContainer->DidRemoveChild(aChild);
-    NS_RELEASE(aChild);
+  NS_ASSERTION(aChild->Manager() == aContainer->Manager(),
+               "Child has wrong manager");
+  NS_ASSERTION(aChild->GetParent() == aContainer,
+               "aChild not our child");
+
+  Layer* prev = aChild->GetPrevSibling();
+  Layer* next = aChild->GetNextSibling();
+  if (prev) {
+    prev->SetNextSibling(next);
+  } else {
+    aContainer->mFirstChild = next;
+  }
+  if (next) {
+    next->SetPrevSibling(prev);
+  } else {
+    aContainer->mLastChild = prev;
+  }
+
+  aChild->SetNextSibling(nullptr);
+  aChild->SetPrevSibling(nullptr);
+  aChild->SetParent(nullptr);
+
+  aContainer->DidRemoveChild(aChild);
+  NS_RELEASE(aChild);
+}
+
+template<class Container>
+static void
+ContainerRepositionChild(Container* aContainer, Layer* aChild, Layer* aAfter)
+{
+  NS_ASSERTION(aChild->Manager() == aContainer->Manager(),
+               "Child has wrong manager");
+  NS_ASSERTION(aChild->GetParent() == aContainer,
+               "aChild not our child");
+  NS_ASSERTION(!aAfter ||
+               (aAfter->Manager() == aContainer->Manager() &&
+                aAfter->GetParent() == aContainer),
+               "aAfter is not our child");
+
+  Layer* prev = aChild->GetPrevSibling();
+  Layer* next = aChild->GetNextSibling();
+  if (prev == aAfter) {
+    // aChild is already in the correct position, nothing to do.
     return;
   }
-  Layer *lastChild = nullptr;
-  for (Layer *child = aContainer->GetFirstChild(); child; 
-       child = child->GetNextSibling()) {
-    if (child == aChild) {
-      // We're sure this is not our first child. So lastChild != NULL.
-      lastChild->SetNextSibling(child->GetNextSibling());
-      if (child->GetNextSibling()) {
-        child->GetNextSibling()->SetPrevSibling(lastChild);
-      } else {
-        aContainer->mLastChild = lastChild;
-      }
-      child->SetNextSibling(nullptr);
-      child->SetPrevSibling(nullptr);
-      child->SetParent(nullptr);
-      aContainer->DidRemoveChild(aChild);
-      NS_RELEASE(aChild);
-      return;
-    }
-    lastChild = child;
+  if (prev) {
+    prev->SetNextSibling(next);
   }
+  if (next) {
+    next->SetPrevSibling(prev);
+  }
+  if (!aAfter) {
+    aChild->SetPrevSibling(nullptr);
+    aChild->SetNextSibling(aContainer->mFirstChild);
+    if (aContainer->mFirstChild) {
+      aContainer->mFirstChild->SetPrevSibling(aChild);
+    }
+    aContainer->mFirstChild = aChild;
+    return;
+  }
+
+  Layer* afterNext = aAfter->GetNextSibling();
+  if (afterNext) {
+    afterNext->SetPrevSibling(aChild);
+  } else {
+    aContainer->mLastChild = aChild;
+  }
+  aAfter->SetNextSibling(aChild);
+  aChild->SetPrevSibling(aAfter);
+  aChild->SetNextSibling(afterNext);
 }
 
 template<class Container>
@@ -179,12 +217,14 @@ ContainerRender(Container* aContainer,
     }
 
     aContainer->gl()->PushViewportRect();
-    framebufferRect -= childOffset; 
-    aManager->CreateFBOWithTexture(framebufferRect,
-                                   mode,
-                                   aPreviousFrameBuffer,
-                                   &frameBuffer,
-                                   &containerSurface);
+    framebufferRect -= childOffset;
+    if (!aManager->CompositingDisabled()) {
+      aManager->CreateFBOWithTexture(framebufferRect,
+                                     mode,
+                                     aPreviousFrameBuffer,
+                                     &frameBuffer,
+                                     &containerSurface);
+    }
     childOffset.x = visibleRect.x;
     childOffset.y = visibleRect.y;
   } else {
@@ -199,7 +239,7 @@ ContainerRender(Container* aContainer,
   /**
    * Render this container's contents.
    */
-  for (PRUint32 i = 0; i < children.Length(); i++) {
+  for (uint32_t i = 0; i < children.Length(); i++) {
     LayerOGL* layerToRender = static_cast<LayerOGL*>(children.ElementAt(i)->ImplData());
 
     if (layerToRender->GetLayer()->GetEffectiveVisibleRegion().IsEmpty()) {
@@ -239,45 +279,47 @@ ContainerRender(Container* aContainer,
     aManager->SetupPipeline(viewport.width, viewport.height,
                             LayerManagerOGL::ApplyWorldTransform);
     aContainer->gl()->PopScissorRect();
-
     aContainer->gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aPreviousFrameBuffer);
-    aContainer->gl()->fDeleteFramebuffers(1, &frameBuffer);
 
-    aContainer->gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
+    if (!aManager->CompositingDisabled()) {
+      aContainer->gl()->fDeleteFramebuffers(1, &frameBuffer);
 
-    aContainer->gl()->fBindTexture(aManager->FBOTextureTarget(), containerSurface);
+      aContainer->gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
 
-    MaskType maskType = MaskNone;
-    if (aContainer->GetMaskLayer()) {
-      if (!aContainer->GetTransform().CanDraw2D()) {
-        maskType = Mask3d;
-      } else {
-        maskType = Mask2d;
+      aContainer->gl()->fBindTexture(aManager->FBOTextureTarget(), containerSurface);
+
+      MaskType maskType = MaskNone;
+      if (aContainer->GetMaskLayer()) {
+        if (!aContainer->GetTransform().CanDraw2D()) {
+          maskType = Mask3d;
+        } else {
+          maskType = Mask2d;
+        }
       }
+      ShaderProgramOGL *rgb =
+        aManager->GetFBOLayerProgram(maskType);
+
+      rgb->Activate();
+      rgb->SetLayerQuadRect(visibleRect);
+      rgb->SetLayerTransform(transform);
+      rgb->SetLayerOpacity(opacity);
+      rgb->SetRenderOffset(aOffset);
+      rgb->SetTextureUnit(0);
+      rgb->LoadMask(aContainer->GetMaskLayer());
+
+      if (rgb->GetTexCoordMultiplierUniformLocation() != -1) {
+        // 2DRect case, get the multiplier right for a sampler2DRect
+        rgb->SetTexCoordMultiplier(visibleRect.width, visibleRect.height);
+      }
+
+      // Drawing is always flipped, but when copying between surfaces we want to avoid
+      // this. Pass true for the flip parameter to introduce a second flip
+      // that cancels the other one out.
+      aManager->BindAndDrawQuad(rgb, true);
+
+      // Clean up resources.  This also unbinds the texture.
+      aContainer->gl()->fDeleteTextures(1, &containerSurface);
     }
-    ShaderProgramOGL *rgb =
-      aManager->GetFBOLayerProgram(maskType);
-
-    rgb->Activate();
-    rgb->SetLayerQuadRect(visibleRect);
-    rgb->SetLayerTransform(transform);
-    rgb->SetLayerOpacity(opacity);
-    rgb->SetRenderOffset(aOffset);
-    rgb->SetTextureUnit(0);
-    rgb->LoadMask(aContainer->GetMaskLayer());
-
-    if (rgb->GetTexCoordMultiplierUniformLocation() != -1) {
-      // 2DRect case, get the multiplier right for a sampler2DRect
-      rgb->SetTexCoordMultiplier(visibleRect.width, visibleRect.height);
-    }
-
-    // Drawing is always flipped, but when copying between surfaces we want to avoid
-    // this. Pass true for the flip parameter to introduce a second flip
-    // that cancels the other one out.
-    aManager->BindAndDrawQuad(rgb, true);
-
-    // Clean up resources.  This also unbinds the texture.
-    aContainer->gl()->fDeleteTextures(1, &containerSurface);
   } else {
     aContainer->gl()->PopScissorRect();
   }
@@ -305,6 +347,12 @@ void
 ContainerLayerOGL::RemoveChild(Layer *aChild)
 {
   ContainerRemoveChild(this, aChild);
+}
+
+void
+ContainerLayerOGL::RepositionChild(Layer* aChild, Layer* aAfter)
+{
+  ContainerRepositionChild(this, aChild, aAfter);
 }
 
 void
@@ -368,6 +416,12 @@ void
 ShadowContainerLayerOGL::RemoveChild(Layer *aChild)
 {
   ContainerRemoveChild(this, aChild);
+}
+
+void
+ShadowContainerLayerOGL::RepositionChild(Layer* aChild, Layer* aAfter)
+{
+  ContainerRepositionChild(this, aChild, aAfter);
 }
 
 void

@@ -15,12 +15,10 @@
 #include "frontend/FoldConstants.h"
 #include "frontend/ParseNode.h"
 #include "frontend/Parser.h"
-#include "frontend/TreeContext.h"
 #include "vm/NumericConversions.h"
 
 #include "jsatominlines.h"
 
-#include "frontend/TreeContext-inl.h"
 #include "vm/String-inl.h"
 
 using namespace js;
@@ -62,8 +60,6 @@ ContainsVarOrConst(ParseNode *pn)
         return ContainsVarOrConst(pn->pn_kid);
       case PN_NAME:
         return ContainsVarOrConst(pn->maybeExpr());
-      case PN_NAMESET:
-        return ContainsVarOrConst(pn->pn_tree);
       default:;
     }
     return NULL;
@@ -94,7 +90,7 @@ FoldType(JSContext *cx, ParseNode *pn, ParseNodeKind kind)
                 JSString *str = js_NumberToString(cx, pn->pn_dval);
                 if (!str)
                     return false;
-                pn->pn_atom = js_AtomizeString(cx, str);
+                pn->pn_atom = AtomizeString(cx, str);
                 if (!pn->pn_atom)
                     return false;
                 pn->setKind(PNK_STRING);
@@ -205,9 +201,9 @@ FoldXMLConstants(JSContext *cx, ParseNode *pn, Parser *parser)
     RootedString str(cx);
     if ((pn->pn_xflags & PNX_CANTFOLD) == 0) {
         if (kind == PNK_XMLETAGO)
-            accum = cx->runtime->atomState.etagoAtom;
+            accum = cx->names().etago;
         else if (kind == PNK_XMLSTAGO || kind == PNK_XMLPTAGC)
-            accum = cx->runtime->atomState.stagoAtom;
+            accum = cx->names().stago;
     }
 
     /*
@@ -249,7 +245,7 @@ FoldXMLConstants(JSContext *cx, ParseNode *pn, Parser *parser)
             break;
 
           case PNK_XMLPI: {
-            XMLProcessingInstruction &pi = pn2->asXMLProcessingInstruction();
+            XMLProcessingInstruction &pi = pn2->as<XMLProcessingInstruction>();
             str = js_MakeXMLPIString(cx, pi.target(), pi.data());
             if (!str)
                 return false;
@@ -277,7 +273,7 @@ FoldXMLConstants(JSContext *cx, ParseNode *pn, Parser *parser)
                 pn1->setKind(PNK_XMLTEXT);
                 pn1->setOp(JSOP_STRING);
                 pn1->setArity(PN_NULLARY);
-                pn1->pn_atom = js_AtomizeString(cx, accum);
+                pn1->pn_atom = AtomizeString(cx, accum);
                 if (!pn1->pn_atom)
                     return false;
                 JS_ASSERT(pnp != &pn1->pn_next);
@@ -311,9 +307,9 @@ FoldXMLConstants(JSContext *cx, ParseNode *pn, Parser *parser)
         str = NULL;
         if ((pn->pn_xflags & PNX_CANTFOLD) == 0) {
             if (kind == PNK_XMLPTAGC)
-                str = cx->runtime->atomState.ptagcAtom;
+                str = cx->names().ptagc;
             else if (kind == PNK_XMLSTAGO || kind == PNK_XMLETAGO)
-                str = cx->runtime->atomState.tagcAtom;
+                str = cx->names().tagc;
         }
         if (str) {
             accum = js_ConcatStrings(cx, accum, str);
@@ -329,7 +325,7 @@ FoldXMLConstants(JSContext *cx, ParseNode *pn, Parser *parser)
         pn1->setKind(PNK_XMLTEXT);
         pn1->setOp(JSOP_STRING);
         pn1->setArity(PN_NULLARY);
-        pn1->pn_atom = js_AtomizeString(cx, accum);
+        pn1->pn_atom = AtomizeString(cx, accum);
         if (!pn1->pn_atom)
             return false;
         JS_ASSERT(pnp != &pn1->pn_next);
@@ -422,7 +418,7 @@ frontend::FoldConstants(JSContext *cx, ParseNode *pn, Parser *parser, bool inGen
 
         /* Don't fold a parenthesized call expression. See bug 537673. */
         pn1 = pn2 = pn->pn_head;
-        if ((pn->isKind(PNK_LP) || pn->isKind(PNK_NEW)) && pn2->isInParens())
+        if ((pn->isKind(PNK_CALL) || pn->isKind(PNK_NEW)) && pn2->isInParens())
             pn2 = pn2->pn_next;
 
         /* Save the list head in pn1 for later use. */
@@ -505,12 +501,6 @@ frontend::FoldConstants(JSContext *cx, ParseNode *pn, Parser *parser, bool inGen
             if (pn1 && !FoldConstants(cx, pn1, parser, inGenexpLambda))
                 return false;
         }
-        break;
-
-      case PN_NAMESET:
-        pn1 = pn->pn_tree;
-        if (!FoldConstants(cx, pn1, parser, inGenexpLambda))
-            return false;
         break;
 
       case PN_NULLARY:
@@ -682,13 +672,13 @@ frontend::FoldConstants(JSContext *cx, ParseNode *pn, Parser *parser, bool inGen
             }
 
             /* Allocate a new buffer and string descriptor for the result. */
-            jschar *chars = (jschar *) cx->malloc_((length + 1) * sizeof(jschar));
+            jschar *chars = cx->pod_malloc<jschar>(length + 1);
             if (!chars)
                 return false;
             chars[length] = 0;
             JSString *str = js_NewString(cx, chars, length);
             if (!str) {
-                cx->free_(chars);
+                js_free(chars);
                 return false;
             }
 
@@ -702,7 +692,7 @@ frontend::FoldConstants(JSContext *cx, ParseNode *pn, Parser *parser, bool inGen
             JS_ASSERT(*chars == 0);
 
             /* Atomize the result string and mutate pn to refer to it. */
-            pn->pn_atom = js_AtomizeString(cx, str);
+            pn->pn_atom = AtomizeString(cx, str);
             if (!pn->pn_atom)
                 return false;
             pn->setKind(PNK_STRING);
@@ -723,7 +713,7 @@ frontend::FoldConstants(JSContext *cx, ParseNode *pn, Parser *parser, bool inGen
             RootedString str(cx, js_ConcatStrings(cx, left, right));
             if (!str)
                 return false;
-            pn->pn_atom = js_AtomizeString(cx, str);
+            pn->pn_atom = AtomizeString(cx, str);
             if (!pn->pn_atom)
                 return false;
             pn->setKind(PNK_STRING);

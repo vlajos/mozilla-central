@@ -27,14 +27,12 @@ ScopeObject::enclosingScope() const
     return getReservedSlot(SCOPE_CHAIN_SLOT).toObject();
 }
 
-inline bool
-ScopeObject::setEnclosingScope(JSContext *cx, HandleObject obj)
+inline void
+ScopeObject::setEnclosingScope(HandleObject obj)
 {
-    RootedObject self(cx, this);
-    if (!obj->setDelegate(cx))
-        return false;
-    self->setFixedSlot(SCOPE_CHAIN_SLOT, ObjectValue(*obj));
-    return true;
+    JS_ASSERT_IF(obj->isCall() || obj->isDeclEnv() || obj->isBlock(),
+                 obj->isDelegate());
+    setFixedSlot(SCOPE_CHAIN_SLOT, ObjectValue(*obj));
 }
 
 inline const Value &
@@ -74,33 +72,21 @@ CallObject::callee() const
 }
 
 inline const Value &
-CallObject::formal(unsigned i, MaybeCheckAliasing checkAliasing) const
+CallObject::aliasedVar(AliasedFormalIter fi)
 {
-    JS_ASSERT_IF(checkAliasing, callee().script()->formalLivesInCallObject(i));
-    return getSlot(RESERVED_SLOTS + i);
+    return getSlot(fi.scopeSlot());
 }
 
 inline void
-CallObject::setFormal(unsigned i, const Value &v, MaybeCheckAliasing checkAliasing)
+CallObject::setAliasedVar(AliasedFormalIter fi, const Value &v)
 {
-    JS_ASSERT_IF(checkAliasing, callee().script()->formalLivesInCallObject(i));
-    setSlot(RESERVED_SLOTS + i, v);
+    setSlot(fi.scopeSlot(), v);
 }
 
-inline const Value &
-CallObject::var(unsigned i, MaybeCheckAliasing checkAliasing) const
+/*static*/ inline size_t
+CallObject::offsetOfCallee()
 {
-    JSFunction &fun = callee();
-    JS_ASSERT_IF(checkAliasing, fun.script()->varIsAliased(i));
-    return getSlot(RESERVED_SLOTS + fun.nargs + i);
-}
-
-inline void
-CallObject::setVar(unsigned i, const Value &v, MaybeCheckAliasing checkAliasing)
-{
-    JSFunction &fun = callee();
-    JS_ASSERT_IF(checkAliasing, fun.script()->varIsAliased(i));
-    setSlot(RESERVED_SLOTS + fun.nargs + i, v);
+    return getFixedSlotOffset(CALLEE_SLOT);
 }
 
 inline uint32_t
@@ -143,14 +129,12 @@ BlockObject::localIndexToSlot(const Bindings &bindings, unsigned i)
 inline const Value &
 BlockObject::slotValue(unsigned i)
 {
-    JS_ASSERT(i < slotCount());
     return getSlotRef(RESERVED_SLOTS + i);
 }
 
 inline void
 BlockObject::setSlotValue(unsigned i, const Value &v)
 {
-    JS_ASSERT(i < slotCount());
     setSlot(RESERVED_SLOTS + i, v);
 }
 

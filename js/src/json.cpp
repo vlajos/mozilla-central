@@ -59,23 +59,20 @@ js_json_parse(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
 
     /* Step 1. */
-    JSLinearString *linear;
-    if (argc >= 1) {
-        JSString *str = ToString(cx, args[0]);
-        if (!str)
-            return false;
-        linear = str->ensureLinear(cx);
-        if (!linear)
-            return false;
-    } else {
-        linear = cx->runtime->atomState.typeAtoms[JSTYPE_VOID];
-    }
-    JS::Anchor<JSString *> anchor(linear);
+    JSString *str = (argc >= 1) ? ToString(cx, args[0]) : cx->names().undefined;
+    if (!str)
+        return false;
+
+    JSStableString *stable = str->ensureStable(cx);
+    if (!stable)
+        return false;
+
+    JS::Anchor<JSString *> anchor(stable);
 
     RootedValue reviver(cx, (argc >= 2) ? args[1] : UndefinedValue());
 
     /* Steps 2-5. */
-    return ParseJSONWithReviver(cx, linear->chars(), linear->length(), reviver, args.rval());
+    return ParseJSONWithReviver(cx, stable->chars(), stable->length(), reviver, args.rval());
 }
 
 /* ES5 15.12.3. */
@@ -261,9 +258,9 @@ class KeyStringifier<uint32_t> {
 };
 
 template<>
-class KeyStringifier<jsid> {
+class KeyStringifier<HandleId> {
   public:
-    static JSString *toString(JSContext *cx, jsid id) {
+    static JSString *toString(JSContext *cx, HandleId id) {
         return IdToString(cx, id);
     }
 };
@@ -274,14 +271,14 @@ class KeyStringifier<jsid> {
  */
 template<typename KeyType>
 static bool
-PreprocessValue(JSContext *cx, JSObject *holder, KeyType key, MutableHandleValue vp, StringifyContext *scx)
+PreprocessValue(JSContext *cx, HandleObject holder, KeyType key, MutableHandleValue vp, StringifyContext *scx)
 {
-    JSString *keyStr = NULL;
+    RootedString keyStr(cx);
 
     /* Step 2. */
     if (vp.get().isObject()) {
         RootedValue toJSON(cx);
-        RootedId id(cx, NameToId(cx->runtime->atomState.toJSONAtom));
+        RootedId id(cx, NameToId(cx->names().toJSON));
         Rooted<JSObject*> obj(cx, &vp.get().toObject());
         if (!GetMethod(cx, obj, id, 0, &toJSON))
             return false;
@@ -295,8 +292,8 @@ PreprocessValue(JSContext *cx, JSObject *holder, KeyType key, MutableHandleValue
             if (!cx->stack.pushInvokeArgs(cx, 1, &args))
                 return false;
 
-            args.calleev() = toJSON;
-            args.thisv() = vp;
+            args.setCallee(toJSON);
+            args.setThis(vp);
             args[0] = StringValue(keyStr);
 
             if (!Invoke(cx, args))
@@ -317,8 +314,8 @@ PreprocessValue(JSContext *cx, JSObject *holder, KeyType key, MutableHandleValue
         if (!cx->stack.pushInvokeArgs(cx, 2, &args))
             return false;
 
-        args.calleev() = ObjectValue(*scx->replacer);
-        args.thisv() = ObjectValue(*holder);
+        args.setCallee(ObjectValue(*scx->replacer));
+        args.setThis(ObjectValue(*holder));
         args[0] = StringValue(keyStr);
         args[1] = vp;
 
@@ -415,9 +412,9 @@ JO(JSContext *cx, HandleObject obj, StringifyContext *scx)
          */
         id = propertyList[i];
         RootedValue outputValue(cx);
-        if (!obj->getGeneric(cx, id, &outputValue))
+        if (!JSObject::getGeneric(cx, obj, obj, id, &outputValue))
             return false;
-        if (!PreprocessValue(cx, obj, id.get(), &outputValue, scx))
+        if (!PreprocessValue(cx, obj, HandleId(id), &outputValue, scx))
             return false;
         if (IsFilteredValue(outputValue))
             continue;
@@ -473,7 +470,7 @@ JA(JSContext *cx, HandleObject obj, StringifyContext *scx)
 
     /* Step 6. */
     uint32_t length;
-    if (!js_GetLengthProperty(cx, obj, &length))
+    if (!GetLengthProperty(cx, obj, &length))
         return JS_FALSE;
 
     /* Steps 7-10. */
@@ -491,7 +488,7 @@ JA(JSContext *cx, HandleObject obj, StringifyContext *scx)
              * and the replacer and maybe unboxing, and interpreting some
              * values as |null| in separate steps.
              */
-            if (!obj->getElement(cx, i, &outputValue))
+            if (!JSObject::getElement(cx, obj, obj, i, &outputValue))
                 return JS_FALSE;
             if (!PreprocessValue(cx, obj, i, &outputValue, scx))
                 return JS_FALSE;
@@ -627,9 +624,9 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
 
             /* Step 4b(ii). */
             uint32_t len;
-            JS_ALWAYS_TRUE(js_GetLengthProperty(cx, replacer, &len));
+            JS_ALWAYS_TRUE(GetLengthProperty(cx, replacer, &len));
             if (replacer->isDenseArray())
-                len = JS_MIN(len, replacer->getDenseArrayCapacity());
+                len = Min(len, replacer->getDenseArrayCapacity());
 
             HashSet<jsid> idSet(cx);
             if (!idSet.init(len))
@@ -642,7 +639,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
             RootedValue v(cx);
             for (; i < len; i++) {
                 /* Step 4b(iv)(2). */
-                if (!replacer->getElement(cx, i, &v))
+                if (!JSObject::getElement(cx, replacer, replacer, i, &v))
                     return false;
 
                 jsid id;
@@ -702,7 +699,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
         /* Step 6. */
         double d;
         JS_ALWAYS_TRUE(ToInteger(cx, space, &d));
-        d = JS_MIN(10, d);
+        d = Min(10.0, d);
         if (d >= 1 && !gap.appendN(' ', uint32_t(d)))
             return false;
     } else if (space.isString()) {
@@ -711,7 +708,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
         if (!str)
             return false;
         JS::Anchor<JSString *> anchor(str);
-        size_t len = JS_MIN(10, space.toString()->length());
+        size_t len = Min(size_t(10), space.toString()->length());
         if (!gap.append(str->chars(), len))
             return false;
     } else {
@@ -725,7 +722,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
         return false;
 
     /* Step 10. */
-    RootedId emptyId(cx, NameToId(cx->runtime->atomState.emptyAtom));
+    RootedId emptyId(cx, NameToId(cx->names().empty));
     if (!DefineNativeProperty(cx, wrapper, emptyId, vp, JS_PropertyStub, JS_StrictPropertyStub,
                               JSPROP_ENUMERATE, 0, 0))
     {
@@ -737,7 +734,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
     if (!scx.init())
         return false;
 
-    if (!PreprocessValue(cx, wrapper, emptyId.get(), vp, &scx))
+    if (!PreprocessValue(cx, wrapper, HandleId(emptyId), vp, &scx))
         return false;
     if (IsFilteredValue(vp))
         return true;
@@ -747,13 +744,13 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
 
 /* ES5 15.12.2 Walk. */
 static bool
-Walk(JSContext *cx, HandleObject holder, HandleId name, const Value &reviver, MutableHandleValue vp)
+Walk(JSContext *cx, HandleObject holder, HandleId name, HandleValue reviver, MutableHandleValue vp)
 {
     JS_CHECK_RECURSION(cx, return false);
 
     /* Step 1. */
     RootedValue val(cx);
-    if (!holder->getGeneric(cx, name, &val))
+    if (!JSObject::getGeneric(cx, holder, holder, name, &val))
         return false;
 
     /* Step 2. */
@@ -814,7 +811,7 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, const Value &reviver, Mu
 
                 if (newElement.isUndefined()) {
                     /* Step 2b(ii)(2). */
-                    if (!obj->deleteByValue(cx, IdToValue(id), &newElement, false))
+                    if (!JSObject::deleteByValue(cx, obj, IdToValue(id), &newElement, false))
                         return false;
                 } else {
                     /* Step 2b(ii)(3). */
@@ -830,7 +827,7 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, const Value &reviver, Mu
     }
 
     /* Step 3. */
-    JSString *key = IdToString(cx, name);
+    RootedString key(cx, IdToString(cx, name));
     if (!key)
         return false;
 
@@ -838,8 +835,8 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, const Value &reviver, Mu
     if (!cx->stack.pushInvokeArgs(cx, 2, &args))
         return false;
 
-    args.calleev() = reviver;
-    args.thisv() = ObjectValue(*holder);
+    args.setCallee(reviver);
+    args.setThis(ObjectValue(*holder));
     args[0] = StringValue(key);
     args[1] = val;
 
@@ -850,23 +847,23 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, const Value &reviver, Mu
 }
 
 static bool
-Revive(JSContext *cx, const Value &reviver, MutableHandleValue vp)
+Revive(JSContext *cx, HandleValue reviver, MutableHandleValue vp)
 {
     RootedObject obj(cx, NewBuiltinClassInstance(cx, &ObjectClass));
     if (!obj)
         return false;
 
-    if (!obj->defineProperty(cx, cx->runtime->atomState.emptyAtom, vp))
+    if (!JSObject::defineProperty(cx, obj, cx->names().empty, vp))
         return false;
 
-    Rooted<jsid> id(cx, NameToId(cx->runtime->atomState.emptyAtom));
+    Rooted<jsid> id(cx, NameToId(cx->names().empty));
     return Walk(cx, obj, id, reviver, vp);
 }
 
 namespace js {
 
 JSBool
-ParseJSONWithReviver(JSContext *cx, const jschar *chars, size_t length, HandleValue reviver,
+ParseJSONWithReviver(JSContext *cx, StableCharPtr chars, size_t length, HandleValue reviver,
                      MutableHandleValue vp, DecodingMode decodingMode /* = STRICT */)
 {
     /* 15.12.2 steps 2-3. */
@@ -887,7 +884,7 @@ ParseJSONWithReviver(JSContext *cx, const jschar *chars, size_t length, HandleVa
 static JSBool
 json_toSource(JSContext *cx, unsigned argc, Value *vp)
 {
-    vp->setString(CLASS_NAME(cx, JSON));
+    vp->setString(cx->names().JSON);
     return JS_TRUE;
 }
 #endif
@@ -902,9 +899,9 @@ static JSFunctionSpec json_static_methods[] = {
 };
 
 JSObject *
-js_InitJSONClass(JSContext *cx, JSObject *obj_)
+js_InitJSONClass(JSContext *cx, HandleObject obj)
 {
-    Rooted<GlobalObject*> global(cx, &obj_->asGlobal());
+    Rooted<GlobalObject*> global(cx, &obj->asGlobal());
 
     /*
      * JSON requires that Boolean.prototype.valueOf be created and stashed in a
@@ -915,7 +912,7 @@ js_InitJSONClass(JSContext *cx, JSObject *obj_)
         return NULL;
 
     RootedObject JSON(cx, NewObjectWithClassProto(cx, &JSONClass, NULL, global));
-    if (!JSON || !JSON->setSingletonType(cx))
+    if (!JSON || !JSObject::setSingletonType(cx, JSON))
         return NULL;
 
     if (!JS_DefineProperty(cx, global, js_JSON_str, OBJECT_TO_JSVAL(JSON),

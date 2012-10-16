@@ -53,7 +53,7 @@ public:
   virtual nsSize ComputeSize(nsRenderingContext *aRenderingContext,
                              nsSize aCBSize, nscoord aAvailableWidth,
                              nsSize aMargin, nsSize aBorder, nsSize aPadding,
-                             PRUint32 aFlags) MOZ_OVERRIDE;
+                             uint32_t aFlags) MOZ_OVERRIDE;
   virtual nscoord GetBaseline() const;
   virtual void DestroyFrom(nsIFrame* aDestructRoot);
 
@@ -67,7 +67,7 @@ public:
                               const nsDisplayListSet& aLists);
 
   void PaintBorderBackground(nsRenderingContext& aRenderingContext,
-    nsPoint aPt, const nsRect& aDirtyRect, PRUint32 aBGFlags);
+    nsPoint aPt, const nsRect& aDirtyRect, uint32_t aBGFlags);
 
   NS_IMETHOD AppendFrames(ChildListID    aListID,
                           nsFrameList&   aFrameList);
@@ -91,7 +91,7 @@ public:
 
 protected:
 
-  virtual PRIntn GetSkipSides() const;
+  virtual int GetSkipSides() const;
   void ReparentFrameList(const nsFrameList& aFrameList);
 
   // mLegendFrame is a nsLegendFrame or a nsHTMLScrollFrame with the
@@ -243,9 +243,9 @@ nsFieldSetFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
 
 void
 nsFieldSetFrame::PaintBorderBackground(nsRenderingContext& aRenderingContext,
-    nsPoint aPt, const nsRect& aDirtyRect, PRUint32 aBGFlags)
+    nsPoint aPt, const nsRect& aDirtyRect, uint32_t aBGFlags)
 {
-  PRIntn skipSides = GetSkipSides();
+  int skipSides = GetSkipSides();
   const nsStyleBorder* borderStyle = GetStyleBorder();
        
   nscoord topBorder = borderStyle->GetComputedBorderWidth(NS_SIDE_TOP);
@@ -369,7 +369,7 @@ nsFieldSetFrame::GetPrefWidth(nsRenderingContext* aRenderingContext)
 nsFieldSetFrame::ComputeSize(nsRenderingContext *aRenderingContext,
                              nsSize aCBSize, nscoord aAvailableWidth,
                              nsSize aMargin, nsSize aBorder, nsSize aPadding,
-                             PRUint32 aFlags)
+                             uint32_t aFlags)
 {
   nsSize result =
     nsContainerFrame::ComputeSize(aRenderingContext, aCBSize, aAvailableWidth,
@@ -530,7 +530,7 @@ nsFieldSetFrame::Reflow(nsPresContext*           aPresContext,
   if (mLegendFrame) {
     // if the content rect is larger then the  legend we can align the legend
     if (contentRect.width > mLegendRect.width) {
-      PRInt32 align = static_cast<nsLegendFrame*>
+      int32_t align = static_cast<nsLegendFrame*>
         (mLegendFrame->GetContentInsertionFrame())->GetAlign();
 
       switch(align) {
@@ -584,13 +584,13 @@ nsFieldSetFrame::Reflow(nsPresContext*           aPresContext,
     ConsiderChildOverflow(aDesiredSize.mOverflowAreas, mContentFrame);
   FinishReflowWithAbsoluteFrames(aPresContext, aDesiredSize, aReflowState, aStatus);
 
-  Invalidate(aDesiredSize.VisualOverflow());
+  InvalidateFrame();
 
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowState, aDesiredSize);
   return NS_OK;
 }
 
-PRIntn
+int
 nsFieldSetFrame::GetSkipSides() const
 {
   return 0;

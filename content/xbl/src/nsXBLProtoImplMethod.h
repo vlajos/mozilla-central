@@ -49,8 +49,8 @@ struct nsXBLUncompiledMethod {
     delete mParameters;
   }
 
-  PRInt32 GetParameterCount() {
-    PRInt32 result = 0;
+  int32_t GetParameterCount() {
+    int32_t result = 0;
     for (nsXBLParameter* curr = mParameters; curr; curr=curr->mNext)
       result++;
     return result;
@@ -71,7 +71,7 @@ struct nsXBLUncompiledMethod {
     mLastParameter = param;
   }
 
-  void SetLineNumber(PRUint32 aLineNumber) {
+  void SetLineNumber(uint32_t aLineNumber) {
     mBodyText.SetLineNumber(aLineNumber);
   }
 };
@@ -85,7 +85,7 @@ public:
   void AppendBodyText(const nsAString& aBody);
   void AddParameter(const nsAString& aName);
 
-  void SetLineNumber(PRUint32 aLineNumber);
+  void SetLineNumber(uint32_t aLineNumber);
   
   virtual nsresult InstallMember(nsIScriptContext* aContext,
                                  nsIContent* aBoundElement, 
@@ -107,11 +107,11 @@ public:
   }
   void SetUncompiledMethod(nsXBLUncompiledMethod* aUncompiledMethod)
   {
-    mUncompiledMethod = PRUptrdiff(aUncompiledMethod) | BIT_UNCOMPILED;
+    mUncompiledMethod = uintptr_t(aUncompiledMethod) | BIT_UNCOMPILED;
   }
   nsXBLUncompiledMethod* GetUncompiledMethod() const
   {
-    PRUptrdiff unmasked = mUncompiledMethod & ~BIT_UNCOMPILED;
+    uintptr_t unmasked = mUncompiledMethod & ~BIT_UNCOMPILED;
     return reinterpret_cast<nsXBLUncompiledMethod*>(unmasked);
   }
 
@@ -119,7 +119,7 @@ protected:
   enum { BIT_UNCOMPILED = 1 << 0 };
 
   union {
-    PRUptrdiff mUncompiledMethod; // An object that represents the method before being compiled.
+    uintptr_t mUncompiledMethod; // An object that represents the method before being compiled.
     JSObject* mJSMethodObject;    // The JS object for the method (after compilation)
   };
 

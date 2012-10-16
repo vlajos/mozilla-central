@@ -41,12 +41,12 @@ struct ShaderConstantRect
     : mX(aX), mY(aY), mWidth(aWidth), mHeight(aHeight)
   { }
 
-  ShaderConstantRect(PRInt32 aX, PRInt32 aY, PRInt32 aWidth, PRInt32 aHeight)
+  ShaderConstantRect(int32_t aX, int32_t aY, int32_t aWidth, int32_t aHeight)
     : mX((float)aX), mY((float)aY)
     , mWidth((float)aWidth), mHeight((float)aHeight)
   { }
 
-  ShaderConstantRect(PRInt32 aX, PRInt32 aY, float aWidth, float aHeight)
+  ShaderConstantRect(int32_t aX, int32_t aY, float aWidth, float aHeight)
     : mX((float)aX), mY((float)aY), mWidth(aWidth), mHeight(aHeight)
   { }
 
@@ -98,7 +98,7 @@ public:
 
   void EndConstruction();
 
-  virtual bool EndEmptyTransaction();
+  virtual bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT);
 
   struct CallbackInfo {
     DrawThebesLayerCallback Callback;
@@ -117,11 +117,11 @@ public:
   {
     if (!mDeviceManager)
       return false;
-    PRInt32 maxSize = mDeviceManager->GetMaxTextureSize();
+    int32_t maxSize = mDeviceManager->GetMaxTextureSize();
     return aSize <= gfxIntSize(maxSize, maxSize);
   }
 
-  virtual PRInt32 GetMaxTextureSize() const
+  virtual int32_t GetMaxTextureSize() const
   {
     return mDeviceManager->GetMaxTextureSize();
   }
@@ -176,6 +176,9 @@ public:
 
   void ReportFailure(const nsACString &aMsg, HRESULT aCode);
 
+  bool CompositingDisabled() { return mCompositingDisabled; }
+  void SetCompositingDisabled(bool aCompositingDisabled) { mCompositingDisabled = aCompositingDisabled; }
+
 private:
   /* Default device manager instance */
   static DeviceManagerD3D9 *mDefaultDeviceManager;
@@ -206,7 +209,13 @@ private:
    * Device reset count at last paint. Whenever this changes, we need to
    * do a full layer tree update.
    */
-  PRUint32 mDeviceResetCount;
+  uint32_t mDeviceResetCount;
+
+  /*
+   * True if we should only be drawing layer contents, not
+   * compositing them to the target.
+   */
+  bool mCompositingDisabled;
 
   /*
    * Render the current layer tree to the active target.

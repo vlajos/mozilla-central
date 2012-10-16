@@ -28,47 +28,45 @@ class nsHTMLStyleSheet MOZ_FINAL : public nsIStyleSheet,
                                    public nsIStyleRuleProcessor
 {
 public:
-  nsHTMLStyleSheet(void);
-  nsresult Init();
+  nsHTMLStyleSheet(nsIURI* aURL, nsIDocument* aDocument);
 
   NS_DECL_ISUPPORTS
 
   // nsIStyleSheet api
   virtual nsIURI* GetSheetURI() const;
-  virtual nsIURI* GetBaseURI() const;
-  virtual void GetTitle(nsString& aTitle) const;
-  virtual void GetType(nsString& aType) const;
-  virtual bool HasRules() const;
-  virtual bool IsApplicable() const;
-  virtual void SetEnabled(bool aEnabled);
-  virtual bool IsComplete() const;
-  virtual void SetComplete();
-  virtual nsIStyleSheet* GetParentSheet() const;  // will be null
-  virtual nsIDocument* GetOwningDocument() const;
-  virtual void SetOwningDocument(nsIDocument* aDocumemt);
+  virtual nsIURI* GetBaseURI() const MOZ_OVERRIDE;
+  virtual void GetTitle(nsString& aTitle) const MOZ_OVERRIDE;
+  virtual void GetType(nsString& aType) const MOZ_OVERRIDE;
+  virtual bool HasRules() const MOZ_OVERRIDE;
+  virtual bool IsApplicable() const MOZ_OVERRIDE;
+  virtual void SetEnabled(bool aEnabled) MOZ_OVERRIDE;
+  virtual bool IsComplete() const MOZ_OVERRIDE;
+  virtual void SetComplete() MOZ_OVERRIDE;
+  virtual nsIStyleSheet* GetParentSheet() const MOZ_OVERRIDE;  // will be null
+  virtual nsIDocument* GetOwningDocument() const MOZ_OVERRIDE;
+  virtual void SetOwningDocument(nsIDocument* aDocumemt) MOZ_OVERRIDE;
 #ifdef DEBUG
-  virtual void List(FILE* out = stdout, PRInt32 aIndent = 0) const;
+  virtual void List(FILE* out = stdout, int32_t aIndent = 0) const MOZ_OVERRIDE;
 #endif
 
   // nsIStyleRuleProcessor API
-  virtual void RulesMatching(ElementRuleProcessorData* aData);
-  virtual void RulesMatching(PseudoElementRuleProcessorData* aData);
-  virtual void RulesMatching(AnonBoxRuleProcessorData* aData);
+  virtual void RulesMatching(ElementRuleProcessorData* aData) MOZ_OVERRIDE;
+  virtual void RulesMatching(PseudoElementRuleProcessorData* aData) MOZ_OVERRIDE;
+  virtual void RulesMatching(AnonBoxRuleProcessorData* aData) MOZ_OVERRIDE;
 #ifdef MOZ_XUL
-  virtual void RulesMatching(XULTreeRuleProcessorData* aData);
+  virtual void RulesMatching(XULTreeRuleProcessorData* aData) MOZ_OVERRIDE;
 #endif
-  virtual nsRestyleHint HasStateDependentStyle(StateRuleProcessorData* aData);
-  virtual bool HasDocumentStateDependentStyle(StateRuleProcessorData* aData);
+  virtual nsRestyleHint HasStateDependentStyle(StateRuleProcessorData* aData) MOZ_OVERRIDE;
+  virtual bool HasDocumentStateDependentStyle(StateRuleProcessorData* aData) MOZ_OVERRIDE;
   virtual nsRestyleHint
-    HasAttributeDependentStyle(AttributeRuleProcessorData* aData);
-  virtual bool MediumFeaturesChanged(nsPresContext* aPresContext);
+    HasAttributeDependentStyle(AttributeRuleProcessorData* aData) MOZ_OVERRIDE;
+  virtual bool MediumFeaturesChanged(nsPresContext* aPresContext) MOZ_OVERRIDE;
   virtual NS_MUST_OVERRIDE size_t
     SizeOfExcludingThis(nsMallocSizeOfFun aMallocSizeOf) const MOZ_OVERRIDE;
   virtual NS_MUST_OVERRIDE size_t
     SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const MOZ_OVERRIDE;
   size_t DOMSizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const;
 
-  nsresult Init(nsIURI* aURL, nsIDocument* aDocument);
   void Reset(nsIURI* aURL);
   nsresult SetLinkColor(nscolor aColor);
   nsresult SetActiveLinkColor(nscolor aColor);
@@ -96,7 +94,7 @@ private:
     // nsIStyleRule interface
     virtual void MapRuleInfoInto(nsRuleData* aRuleData);
   #ifdef DEBUG
-    virtual void List(FILE* out = stdout, PRInt32 aIndent = 0) const;
+    virtual void List(FILE* out = stdout, int32_t aIndent = 0) const MOZ_OVERRIDE;
   #endif
 
     nscolor             mColor;
@@ -117,7 +115,7 @@ private:
     // nsIStyleRule interface
     virtual void MapRuleInfoInto(nsRuleData* aRuleData) = 0;
   #ifdef DEBUG
-    virtual void List(FILE* out = stdout, PRInt32 aIndent = 0) const;
+    virtual void List(FILE* out = stdout, int32_t aIndent = 0) const MOZ_OVERRIDE;
   #endif
   };
 
@@ -149,13 +147,5 @@ private:
 
   PLDHashTable            mMappedAttrTable;
 };
-
-// XXX convenience method. Calls Initialize() automatically.
-nsresult
-NS_NewHTMLStyleSheet(nsHTMLStyleSheet** aInstancePtrResult, nsIURI* aURL, 
-                     nsIDocument* aDocument);
-
-nsresult
-NS_NewHTMLStyleSheet(nsHTMLStyleSheet** aInstancePtrResult);
 
 #endif /* !defined(nsHTMLStyleSheet_h_) */

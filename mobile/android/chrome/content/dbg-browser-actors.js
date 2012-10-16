@@ -14,7 +14,7 @@
  * function in the loaded actors in order to initialize properly.
  */
 function createRootActor(aConnection) {
-  return new FennecRootActor(aConnection);
+  return new DeviceRootActor(aConnection);
 }
 
 /**
@@ -26,24 +26,24 @@ function createRootActor(aConnection) {
  * @param aConnection DebuggerServerConnection
  *        The conection to the client.
  */
-function FennecRootActor(aConnection) {
+function DeviceRootActor(aConnection) {
   BrowserRootActor.call(this, aConnection);
 }
 
-FennecRootActor.prototype = new BrowserRootActor();
+DeviceRootActor.prototype = new BrowserRootActor();
 
 /**
  * Handles the listTabs request.  Builds a list of actors
  * for the tabs running in the process.  The actors will survive
  * until at least the next listTabs request.
  */
-FennecRootActor.prototype.onListTabs = function FRA_onListTabs() {
+DeviceRootActor.prototype.onListTabs = function DRA_onListTabs() {
   // Get actors for all the currently-running tabs (reusing
   // existing actors where applicable), and store them in
   // an ActorPool.
 
   let actorPool = new ActorPool(this.conn);
-  let actorList = [];
+  let tabActorList = [];
 
   let win = windowMediator.getMostRecentWindow("navigator:browser");
   this.browser = win.BrowserApp.selectedBrowser;
@@ -59,7 +59,7 @@ FennecRootActor.prototype.onListTabs = function FRA_onListTabs() {
     let browser = tab.browser;
 
     if (browser == this.browser) {
-      selected = actorList.length;
+      selected = tabActorList.length;
     }
 
     let actor = this._tabActors.get(browser);
@@ -70,8 +70,10 @@ FennecRootActor.prototype.onListTabs = function FRA_onListTabs() {
     }
 
     actorPool.addActor(actor);
-    actorList.push(actor);
+    tabActorList.push(actor);
   }
+
+  this._createExtraActors(DebuggerServer.globalActorFactories, actorPool);
 
   // Now drop the old actorID -> actor map.  Actors that still
   // mattered were added to the new map, others will go
@@ -83,16 +85,19 @@ FennecRootActor.prototype.onListTabs = function FRA_onListTabs() {
   this._tabActorPool = actorPool;
   this.conn.addActorPool(this._tabActorPool);
 
-  return { "from": "root",
-           "selected": selected,
-           "tabs": [actor.grip()
-                    for each (actor in actorList)] };
+  let response = {
+    "from": "root",
+    "selected": selected,
+    "tabs": [actor.grip() for (actor of tabActorList)]
+  };
+  this._appendExtraActors(response);
+  return response;
 };
 
 /**
  * Return the tab container for the specified window.
  */
-FennecRootActor.prototype.getTabContainer = function FRA_getTabContainer(aWindow) {
+DeviceRootActor.prototype.getTabContainer = function DRA_getTabContainer(aWindow) {
   return aWindow.document.getElementById("browsers");
 };
 
@@ -100,12 +105,12 @@ FennecRootActor.prototype.getTabContainer = function FRA_getTabContainer(aWindow
  * When a tab is closed, exit its tab actor.  The actor
  * will be dropped at the next listTabs request.
  */
-FennecRootActor.prototype.onTabClosed = function FRA_onTabClosed(aEvent) {
+DeviceRootActor.prototype.onTabClosed = function DRA_onTabClosed(aEvent) {
   this.exitTabActor(aEvent.target.browser);
 };
 
 // nsIWindowMediatorListener
-FennecRootActor.prototype.onCloseWindow = function FRA_onCloseWindow(aWindow) {
+DeviceRootActor.prototype.onCloseWindow = function DRA_onCloseWindow(aWindow) {
   if (aWindow.BrowserApp) {
     this.unwatchWindow(aWindow);
   }
@@ -114,6 +119,6 @@ FennecRootActor.prototype.onCloseWindow = function FRA_onCloseWindow(aWindow) {
 /**
  * The request types this actor can handle.
  */
-FennecRootActor.prototype.requestTypes = {
-  "listTabs": FennecRootActor.prototype.onListTabs
+DeviceRootActor.prototype.requestTypes = {
+  "listTabs": DeviceRootActor.prototype.onListTabs
 };

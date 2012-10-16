@@ -5,40 +5,40 @@
 
 package org.mozilla.gecko;
 
-import android.widget.AdapterView;
-import android.os.AsyncTask;
-import android.content.Context;
-import android.widget.ListView;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.view.View;
-import android.app.Activity;
-import android.database.Cursor;
-import android.util.Log;
-import android.widget.SimpleCursorAdapter;
-import android.view.LayoutInflater;
-import android.view.ViewGroup;
-import android.util.Pair;
-import android.widget.TabHost.TabContentFactory;
-import android.view.MenuInflater;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
-
-import java.util.LinkedList;
-
 import org.mozilla.gecko.AwesomeBar.ContextMenuSubject;
 import org.mozilla.gecko.db.BrowserContract.Bookmarks;
 import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.db.BrowserDB.URLColumns;
 
+import android.app.Activity;
+import android.content.Context;
+import android.database.Cursor;
+import android.os.AsyncTask;
+import android.util.Log;
+import android.util.Pair;
+import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
+import android.view.LayoutInflater;
+import android.view.MenuInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.SimpleCursorAdapter;
+import android.widget.TabHost.TabContentFactory;
+import android.widget.TextView;
+
+import java.util.LinkedList;
+
 public class BookmarksTab extends AwesomeBarTab {
     public static final String LOGTAG = "BOOKMARKS_TAB";
     public static final String TAG = "bookmarks";
-    private boolean mInReadingList = false;
     private int mFolderId;
     private String mFolderTitle;
     private BookmarksListAdapter mCursorAdapter = null;
     private BookmarksQueryTask mQueryTask = null;
+    private boolean mShowReadingList = false;
 
     public int getTitleStringId() {
         return R.string.awesomebar_bookmarks_title;
@@ -78,10 +78,19 @@ public class BookmarksTab extends AwesomeBarTab {
             list.setAdapter(null);
             list.setAdapter(getCursorAdapter());
 
-            BookmarksQueryTask task = getQueryTask();
-            task.execute();
+            if (mShowReadingList) {
+                String title = getResources().getString(R.string.bookmarks_folder_reading_list);
+                getCursorAdapter().moveToChildFolder(Bookmarks.FIXED_READING_LIST_ID, title);
+            } else {
+                BookmarksQueryTask task = getQueryTask();
+                task.execute();
+            }
         }
         return (ListView)mView;
+    }
+
+    public void setShowReadingList(boolean showReadingList) {
+        mShowReadingList = showReadingList;
     }
 
     public void destroy() {
@@ -192,8 +201,9 @@ public class BookmarksTab extends AwesomeBarTab {
         }
 
         String url = cursor.getString(cursor.getColumnIndexOrThrow(URLColumns.URL));
-        if (isInReadingList()) {
-            url = getReaderForUrl(url);
+        long parentId = cursor.getLong(cursor.getColumnIndexOrThrow(Bookmarks.PARENT));
+        if (parentId == Bookmarks.FIXED_READING_LIST_ID) {
+            url = ReaderModeUtils.getAboutReaderForUrl(url, true);
         }
         listener.onUrlOpen(url);
     }
@@ -224,8 +234,6 @@ public class BookmarksTab extends AwesomeBarTab {
                 mQueryTask.cancel(false);
 
             Pair<Integer, String> folderPair = mParentStack.getFirst();
-            mInReadingList = (folderPair.first == Bookmarks.FIXED_READING_LIST_ID);
-
             mQueryTask = new BookmarksQueryTask(folderPair.first, folderPair.second);
             mQueryTask.execute();
         }
@@ -245,6 +253,11 @@ public class BookmarksTab extends AwesomeBarTab {
             Pair<Integer, String> folderPair = new Pair<Integer, String>(folderId, folderTitle);
             mParentStack.addFirst(folderPair);
             refreshCurrentFolder();
+        }
+
+        public boolean isInReadingList() {
+            Pair<Integer, String> folderPair = mParentStack.getFirst();
+            return (folderPair.first == Bookmarks.FIXED_READING_LIST_ID);
         }
 
         public int getItemViewType(int position) {
@@ -385,7 +398,10 @@ public class BookmarksTab extends AwesomeBarTab {
      * AwesomeScreen UI.
      */
     public boolean isInReadingList() {
-        return mInReadingList;
+        if (mCursorAdapter == null)
+            return false;
+
+        return mCursorAdapter.isInReadingList();
     }
 
     public ContextMenuSubject getSubject(ContextMenu menu, View view, ContextMenuInfo menuInfo) {
@@ -430,6 +446,7 @@ public class BookmarksTab extends AwesomeBarTab {
         inflater.inflate(R.menu.awesomebar_contextmenu, menu);
         
         menu.findItem(R.id.remove_history).setVisible(false);
+        menu.findItem(R.id.open_in_reader).setVisible(false);
         menu.setHeaderTitle(subject.title);
 
         return subject;

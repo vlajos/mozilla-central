@@ -98,10 +98,10 @@ bool enterScript(JSContext *, JSScript *, JSFunction *, StackFrame *);
 bool exitScript(JSContext *, JSScript *, JSFunction *, StackFrame *);
 
 /* Executing a script */
-bool startExecution(JSContext *cx, JSScript *script);
+bool startExecution(JSScript *script);
 
 /* Script has completed execution */
-bool stopExecution(JSContext *cx, JSScript *script);
+bool stopExecution(JSScript *script);
 
 /* Heap has been resized */
 bool resizeHeap(JSCompartment *compartment, size_t oldSize, size_t newSize);
@@ -198,87 +198,19 @@ enum JITReportGranularity {
 };
 
 /*
- * Observer class for JIT code allocation/deallocation. Currently, this only
- * handles the method JIT, and does not get notifications when JIT code is
- * changed (patched) with no new allocation.
- */
-class JITWatcher {
-public:
-    struct NativeRegion {
-        mjit::JSActiveFrame *frame;
-        JSScript *script;
-        size_t inlinedOffset;
-        jsbytecode *pc;
-        jsbytecode *endpc;
-        uintptr_t mainOffset;
-        uintptr_t stubOffset;
-        bool enter;
-    };
-
-    typedef Vector<NativeRegion, 0, RuntimeAllocPolicy> RegionVector;
-
-    virtual JITReportGranularity granularityRequested() = 0;
-
-#ifdef JS_METHODJIT
-    static bool CollectNativeRegions(RegionVector &regions,
-                                     JSRuntime *rt,
-                                     mjit::JITChunk *jit,
-                                     mjit::JSActiveFrame *outerFrame,
-                                     mjit::JSActiveFrame **inlineFrames);
-
-    virtual void registerMJITCode(JSContext *cx, js::mjit::JITChunk *chunk,
-                                  mjit::JSActiveFrame *outerFrame,
-                                  mjit::JSActiveFrame **inlineFrames,
-                                  void *mainCodeAddress, size_t mainCodeSize,
-                                  void *stubCodeAddress, size_t stubCodeSize) = 0;
-
-    virtual void discardMJITCode(FreeOp *fop, mjit::JITScript *jscr, mjit::JITChunk *chunk,
-                                 void* address) = 0;
-
-    virtual void registerICCode(JSContext *cx,
-                                js::mjit::JITChunk *chunk, JSScript *script, jsbytecode* pc,
-                                void *start, size_t size) = 0;
-#endif
-
-    virtual void discardExecutableRegion(void *start, size_t size) = 0;
-};
-
-/*
- * Register a JITWatcher subclass to be informed of JIT code
- * allocation/deallocation.
- */
-bool
-addJITWatcher(JITWatcher *watcher);
-
-/*
- * Remove (and destroy) a registered JITWatcher. rt may be NULL. Returns false
- * if the watcher is not found.
- */
-bool
-removeJITWatcher(JSRuntime *rt, JITWatcher *watcher);
-
-/*
- * Remove (and destroy) all registered JITWatchers. rt may be NULL.
- */
-void
-removeAllJITWatchers(JSRuntime *rt);
-
-/*
  * Finest granularity of JIT information desired by all watchers.
  */
 JITReportGranularity
-JITGranularityRequested();
+JITGranularityRequested(JSContext *cx);
 
 #ifdef JS_METHODJIT
 /*
  * New method JIT code has been created
  */
-void
+bool
 registerMJITCode(JSContext *cx, js::mjit::JITChunk *chunk,
                  mjit::JSActiveFrame *outerFrame,
-                 mjit::JSActiveFrame **inlineFrames,
-                 void *mainCodeAddress, size_t mainCodeSize,
-                 void *stubCodeAddress, size_t stubCodeSize);
+                 mjit::JSActiveFrame **inlineFrames);
 
 /*
  * Method JIT code is about to be discarded
@@ -289,7 +221,7 @@ discardMJITCode(FreeOp *fop, mjit::JITScript *jscr, mjit::JITChunk *chunk, void*
 /*
  * IC code has been allocated within the given JITChunk
  */
-void
+bool
 registerICCode(JSContext *cx,
                mjit::JITChunk *chunk, JSScript *script, jsbytecode* pc,
                void *start, size_t size);
@@ -319,7 +251,7 @@ void DTraceExitJSFun(JSContext *cx, JSFunction *fun, JSScript *script);
 bool ETWCreateRuntime(JSRuntime *rt);
 bool ETWDestroyRuntime(JSRuntime *rt);
 bool ETWShutdown();
-bool ETWCallTrackingActive(JSContext *cx);
+bool ETWCallTrackingActive();
 bool ETWEnterJSFun(JSContext *cx, JSFunction *fun, JSScript *script, int counter);
 bool ETWExitJSFun(JSContext *cx, JSFunction *fun, JSScript *script, int counter);
 bool ETWCreateObject(JSContext *cx, JSObject *obj);
@@ -342,7 +274,7 @@ bool ETWGCEndSweepPhase();
 bool ETWCustomMark(JSString *string);
 bool ETWCustomMark(const char *string);
 bool ETWCustomMark(int marker);
-bool ETWStartExecution(JSContext *cx, JSScript *script);
+bool ETWStartExecution(JSScript *script);
 bool ETWStopExecution(JSContext *cx, JSScript *script);
 bool ETWResizeHeap(JSCompartment *compartment, size_t oldSize, size_t newSize);
 #endif
@@ -366,7 +298,7 @@ Probes::callTrackingActive(JSContext *cx)
         return true;
 #endif
 #ifdef MOZ_ETW
-    if (ProfilingActive && ETWCallTrackingActive(cx))
+    if (ProfilingActive && ETWCallTrackingActive())
         return true;
 #endif
     return false;
@@ -376,7 +308,7 @@ inline bool
 Probes::wantNativeAddressInfo(JSContext *cx)
 {
     return (cx->reportGranularity >= JITREPORT_GRANULARITY_FUNCTION &&
-            JITGranularityRequested() >= JITREPORT_GRANULARITY_FUNCTION);
+            JITGranularityRequested(cx) >= JITREPORT_GRANULARITY_FUNCTION);
 }
 
 inline bool
@@ -425,8 +357,16 @@ Probes::exitScript(JSContext *cx, JSScript *script, JSFunction *maybeFun,
 #endif
 
     JSRuntime *rt = cx->runtime;
-    if (fp->hasPushedSPSFrame())
+    /*
+     * Coming from IonMonkey, the fp might not be known (fp == NULL), but
+     * IonMonkey will only call exitScript() when absolutely necessary, so it is
+     * guaranteed that fp->hasPushedSPSFrame() would have been true
+     */
+    if ((fp == NULL && rt->spsProfiler.enabled()) ||
+        (fp != NULL && fp->hasPushedSPSFrame()))
+    {
         rt->spsProfiler.exit(cx, script, maybeFun);
+    }
     return ok;
 }
 
@@ -741,7 +681,7 @@ Probes::CustomMark(int marker)
 }
 
 inline bool
-Probes::startExecution(JSContext *cx, JSScript *script)
+Probes::startExecution(JSScript *script)
 {
     bool ok = true;
 
@@ -751,7 +691,7 @@ Probes::startExecution(JSContext *cx, JSScript *script)
                                  script->lineno);
 #endif
 #ifdef MOZ_ETW
-    if (ProfilingActive && !ETWStartExecution(cx, script))
+    if (ProfilingActive && !ETWStartExecution(script))
         ok = false;
 #endif
 
@@ -759,7 +699,7 @@ Probes::startExecution(JSContext *cx, JSScript *script)
 }
 
 inline bool
-Probes::stopExecution(JSContext *cx, JSScript *script)
+Probes::stopExecution(JSScript *script)
 {
     bool ok = true;
 
@@ -769,7 +709,7 @@ Probes::stopExecution(JSContext *cx, JSScript *script)
                                 script->lineno);
 #endif
 #ifdef MOZ_ETW
-    if (ProfilingActive && !ETWStopExecution(cx, script))
+    if (ProfilingActive && !ETWStopExecution(script))
         ok = false;
 #endif
 

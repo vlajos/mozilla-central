@@ -120,13 +120,13 @@ class Builtin(object):
 builtinNames = [
     Builtin('boolean', 'bool'),
     Builtin('void', 'void'),
-    Builtin('octet', 'PRUint8'),
-    Builtin('short', 'PRInt16', True, True),
-    Builtin('long', 'PRInt32', True, True),
-    Builtin('long long', 'PRInt64', True, False),
-    Builtin('unsigned short', 'PRUint16', False, True),
-    Builtin('unsigned long', 'PRUint32', False, True),
-    Builtin('unsigned long long', 'PRUint64', False, False),
+    Builtin('octet', 'uint8_t'),
+    Builtin('short', 'int16_t', True, True),
+    Builtin('long', 'int32_t', True, True),
+    Builtin('long long', 'int64_t', True, False),
+    Builtin('unsigned short', 'uint16_t', False, True),
+    Builtin('unsigned long', 'uint32_t', False, True),
+    Builtin('unsigned long long', 'uint64_t', False, False),
     Builtin('float', 'float', True, False),
     Builtin('double', 'double', True, False),
     Builtin('char', 'char', True, False),
@@ -706,7 +706,6 @@ class ConstMember(object):
 class Attribute(object):
     kind = 'attribute'
     noscript = False
-    notxpcom = False
     readonly = False
     implicit_jscontext = False
     nostdcall = False
@@ -715,6 +714,7 @@ class Attribute(object):
     undefined = None
     deprecated = False
     nullable = False
+    infallible = False
     defvalue = None
 
     def __init__(self, type, name, attlist, readonly, nullable, defvalue, location, doccomments):
@@ -762,14 +762,14 @@ class Attribute(object):
 
                 if name == 'noscript':
                     self.noscript = True
-                elif name == 'notxpcom':
-                    self.notxpcom = True
                 elif name == 'implicit_jscontext':
                     self.implicit_jscontext = True
                 elif name == 'deprecated':
                     self.deprecated = True
                 elif name == 'nostdcall':
                     self.nostdcall = True
+                elif name == 'infallible':
+                    self.infallible = True
                 else:
                     raise IDLError("Unexpected attribute '%s'" % name, aloc)
 
@@ -788,15 +788,24 @@ class Attribute(object):
             getBuiltinOrNativeTypeName(self.realtype) != '[domstring]'):
             raise IDLError("Nullable types (T?) is supported only for DOMString",
                            self.location)
+        if self.infallible and not self.realtype.kind == 'builtin':
+            raise IDLError('[infallible] only works on builtin types '
+                           '(numbers, bool, and raw char types)',
+                           self.location)
+        if self.infallible and not iface.attributes.builtinclass:
+            raise IDLError('[infallible] attributes are only allowed on '
+                           '[builtinclass] interfaces',
+                           self.location)
+
 
     def toIDL(self):
         attribs = attlistToIDL(self.attlist)
         readonly = self.readonly and 'readonly ' or ''
         return "%s%sattribute %s %s;" % (attribs, readonly, self.type, self.name)
-        
+
     def isScriptable(self):
         if not self.iface.attributes.scriptable: return False
-        return not (self.noscript or self.notxpcom)
+        return not self.noscript
 
     def __str__(self):
         return "\t%sattribute %s %s\n" % (self.readonly and 'readonly ' or '',

@@ -7,7 +7,6 @@
 
 #include "nsIDOMHTMLMeterElement.h"
 #include "nsIContent.h"
-#include "prtypes.h"
 #include "nsPresContext.h"
 #include "nsGkAtoms.h"
 #include "nsINameSpaceManager.h"
@@ -21,6 +20,7 @@
 #include "nsFontMetrics.h"
 #include "nsContentList.h"
 #include "mozilla/dom/Element.h"
+#include "nsContentList.h"
 
 
 nsIFrame*
@@ -84,7 +84,7 @@ nsMeterFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
 
 void
 nsMeterFrame::AppendAnonymousContentTo(nsBaseContentList& aElements,
-                                       PRUint32 aFilter)
+                                       uint32_t aFilter)
 {
   aElements.MaybeAppendElement(mBarDiv);
 }
@@ -121,9 +121,6 @@ NS_IMETHODIMP nsMeterFrame::Reflow(nsPresContext*           aPresContext,
                        aReflowState.mComputedBorderPadding.LeftRight();
   aDesiredSize.height = aReflowState.ComputedHeight() +
                         aReflowState.mComputedBorderPadding.TopBottom();
-  aDesiredSize.height = NS_CSS_MINMAX(aDesiredSize.height,
-                                      aReflowState.mComputedMinHeight,
-                                      aReflowState.mComputedMaxHeight);
 
   aDesiredSize.SetOverflowAreasToDesiredBounds();
   ConsiderChildOverflow(aDesiredSize.mOverflowAreas, barFrame);
@@ -196,9 +193,9 @@ nsMeterFrame::ReflowBarFrame(nsIFrame*                aBarFrame,
 }
 
 NS_IMETHODIMP
-nsMeterFrame::AttributeChanged(PRInt32  aNameSpaceID,
+nsMeterFrame::AttributeChanged(int32_t  aNameSpaceID,
                                nsIAtom* aAttribute,
-                               PRInt32  aModType)
+                               int32_t  aModType)
 {
   NS_ASSERTION(mBarDiv, "Meter bar div must exist!");
 
@@ -211,7 +208,7 @@ nsMeterFrame::AttributeChanged(PRInt32  aNameSpaceID,
     PresContext()->PresShell()->FrameNeedsReflow(barFrame,
                                                  nsIPresShell::eResize,
                                                  NS_FRAME_IS_DIRTY);
-    Invalidate(GetVisualOverflowRectRelativeToSelf());
+    InvalidateFrame();
   }
 
   return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute,

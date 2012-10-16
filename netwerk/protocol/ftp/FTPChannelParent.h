@@ -22,7 +22,6 @@ namespace net {
 class FTPChannelParent : public PFTPChannelParent
                        , public nsIParentChannel
                        , public nsIInterfaceRequestor
-                       , public nsILoadContext
 {
 public:
   NS_DECL_ISUPPORTS
@@ -30,23 +29,17 @@ public:
   NS_DECL_NSISTREAMLISTENER
   NS_DECL_NSIPARENTCHANNEL
   NS_DECL_NSIINTERFACEREQUESTOR
-  NS_DECL_NSILOADCONTEXT
 
   FTPChannelParent();
   virtual ~FTPChannelParent();
 
 protected:
-  virtual bool RecvAsyncOpen(const IPC::URI& uri,
-                             const PRUint64& startPos,
+  virtual bool RecvAsyncOpen(const URIParams& uri,
+                             const uint64_t& startPos,
                              const nsCString& entityID,
-                             const IPC::InputStream& uploadStream,
-                             const bool& haveLoadContext,
-                             const bool& isContent,
-                             const bool& usingPrivateBrowsing,
-                             const bool& isInBrowserElement,
-                             const PRUint32& appId,
-                             const nsCString& extendedOrigin) MOZ_OVERRIDE;
-  virtual bool RecvConnectChannel(const PRUint32& channelId) MOZ_OVERRIDE;
+                             const OptionalInputStreamParams& uploadStream,
+                             const IPC::SerializedLoadContext& loadContext) MOZ_OVERRIDE;
+  virtual bool RecvConnectChannel(const uint32_t& channelId) MOZ_OVERRIDE;
   virtual bool RecvCancel(const nsresult& status) MOZ_OVERRIDE;
   virtual bool RecvSuspend() MOZ_OVERRIDE;
   virtual bool RecvResume() MOZ_OVERRIDE;
@@ -57,14 +50,7 @@ protected:
 
   bool mIPCClosed;
 
-  // fields for impersonating nsILoadContext
-  bool mHaveLoadContext       : 1;
-  bool mIsContent             : 1;
-  bool mUsePrivateBrowsing    : 1;
-  bool mIsInBrowserElement    : 1;
-
-  PRUint32 mAppId;
-  nsCString mExtendedOrigin;
+  nsCOMPtr<nsILoadContext> mLoadContext;
 };
 
 } // namespace net

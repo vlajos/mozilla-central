@@ -1551,11 +1551,21 @@ void	(*_malloc_message)(const char *p1, const char *p2, const char *p3,
 #endif
 
 #include <mozilla/Assertions.h>
+#include <mozilla/Attributes.h>
+
+/* RELEASE_ASSERT calls jemalloc_crash() instead of calling MOZ_CRASH()
+ * directly because we want crashing to add a frame to the stack.  This makes
+ * it easier to find the failing assertion in crash stacks. */
+MOZ_NEVER_INLINE static void
+jemalloc_crash()
+{
+	MOZ_CRASH();
+}
 
 #if defined(MOZ_JEMALLOC_HARD_ASSERTS)
 #  define RELEASE_ASSERT(assertion) do {	\
 	if (!(assertion)) {			\
-		MOZ_CRASH();			\
+		jemalloc_crash();		\
 	}					\
 } while (0)
 #else
@@ -6218,6 +6228,7 @@ malloc_shutdown()
 /*
  * Mangle standard interfaces, in order to avoid linking problems.
  */
+#ifndef MOZ_MEMORY_GONK
 #if defined(MOZ_MEMORY_DARWIN) || defined(MOZ_MEMORY_WINDOWS) || \
     defined(MOZ_MEMORY_ANDROID)
 
@@ -6240,6 +6251,7 @@ malloc_shutdown()
 #define realloc(a, b)           wrap(realloc)(a, b)
 #define free(a)                 wrap(free)(a)
 #define malloc_usable_size(a)   wrap(malloc_usable_size)(a)
+#endif
 #endif
 
 /*

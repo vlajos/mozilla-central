@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "base/basictypes.h"
-#include "IPC/IPCMessageUtils.h"
+#include "ipc/IPCMessageUtils.h"
 
 #include "nsDOMScrollAreaEvent.h"
 #include "nsGUIEvent.h"
@@ -70,7 +70,7 @@ nsDOMScrollAreaEvent::InitScrollAreaEvent(const nsAString &aEventType,
                                           bool aCanBubble,
                                           bool aCancelable,
                                           nsIDOMWindow *aView,
-                                          PRInt32 aDetail,
+                                          int32_t aDetail,
                                           float aX, float aY,
                                           float aWidth, float aHeight)
 {

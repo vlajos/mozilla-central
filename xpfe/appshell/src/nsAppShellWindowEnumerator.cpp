@@ -84,7 +84,7 @@ void GetWindowType(nsIXULWindow* aWindow, nsString &outType)
 // nsWindowInfo
 //
 
-nsWindowInfo::nsWindowInfo(nsIXULWindow* inWindow, PRInt32 inTimeStamp) :
+nsWindowInfo::nsWindowInfo(nsIXULWindow* inWindow, int32_t inTimeStamp) :
   mWindow(inWindow),mTimeStamp(inTimeStamp),mZLevel(nsIXULWindow::normalZ)
 {
   ReferenceSelf(true, true);
@@ -222,11 +222,12 @@ NS_IMETHODIMP nsASDOMWindowEnumerator::GetNext(nsISupports **retval)
     return NS_ERROR_INVALID_ARG;
 
   *retval = nullptr;
-  if (mCurrentPosition) {
+  while (mCurrentPosition) {
     nsCOMPtr<nsIDOMWindow> domWindow;
     GetDOMWindow(mCurrentPosition->mWindow, domWindow);
-    CallQueryInterface(domWindow, retval);
     mCurrentPosition = FindNext();
+    if (domWindow)
+      return CallQueryInterface(domWindow, retval);
   }
   return NS_OK;
 }

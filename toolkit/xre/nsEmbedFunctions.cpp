@@ -125,7 +125,7 @@ XRE_LockProfileDirectory(nsIFile* aDirectory,
   return rv;
 }
 
-static PRInt32 sInitCounter;
+static int32_t sInitCounter;
 
 nsresult
 XRE_InitEmbedding2(nsIFile *aLibXULDirectory,
@@ -228,8 +228,8 @@ GeckoProcessType sChildProcessType = GeckoProcessType_Default;
 // IPDL wants access to this crashreporter interface, and
 // crashreporter is built in such a way to make that awkward
 bool
-XRE_TakeMinidumpForChild(PRUint32 aChildPid, nsIFile** aDump,
-                         PRUint32* aSequence)
+XRE_TakeMinidumpForChild(uint32_t aChildPid, nsIFile** aDump,
+                         uint32_t* aSequence)
 {
   return CrashReporter::TakeMinidumpForChild(aChildPid, aDump, aSequence);
 }
@@ -291,7 +291,7 @@ XRE_InitChildProcess(int aArgc,
   // regardless of architecture so we don't have any cross-arch issues here.
 #ifdef XP_MACOSX
   if (aArgc < 1)
-    return 1;
+    return NS_ERROR_FAILURE;
   const char* const mach_port_name = aArgv[--aArgc];
 
   const int kTimeoutMs = 1000;
@@ -299,39 +299,39 @@ XRE_InitChildProcess(int aArgc,
   MachSendMessage child_message(0);
   if (!child_message.AddDescriptor(mach_task_self())) {
     NS_WARNING("child AddDescriptor(mach_task_self()) failed.");
-    return 1;
+    return NS_ERROR_FAILURE;
   }
 
   ReceivePort child_recv_port;
   mach_port_t raw_child_recv_port = child_recv_port.GetPort();
   if (!child_message.AddDescriptor(raw_child_recv_port)) {
     NS_WARNING("Adding descriptor to message failed");
-    return 1;
+    return NS_ERROR_FAILURE;
   }
 
   MachPortSender child_sender(mach_port_name);
   kern_return_t err = child_sender.SendMessage(child_message, kTimeoutMs);
   if (err != KERN_SUCCESS) {
     NS_WARNING("child SendMessage() failed");
-    return 1;
+    return NS_ERROR_FAILURE;
   }
 
   MachReceiveMessage parent_message;
   err = child_recv_port.WaitForMessage(&parent_message, kTimeoutMs);
   if (err != KERN_SUCCESS) {
     NS_WARNING("child WaitForMessage() failed");
-    return 1;
+    return NS_ERROR_FAILURE;
   }
 
   if (parent_message.GetTranslatedPort(0) == MACH_PORT_NULL) {
     NS_WARNING("child GetTranslatedPort(0) failed");
-    return 1;
+    return NS_ERROR_FAILURE;
   }
   err = task_set_bootstrap_port(mach_task_self(),
                                 parent_message.GetTranslatedPort(0));
   if (err != KERN_SUCCESS) {
     NS_WARNING("child task_set_bootstrap_port() failed");
-    return 1;
+    return NS_ERROR_FAILURE;
   }
 #endif
 
@@ -339,7 +339,7 @@ XRE_InitChildProcess(int aArgc,
 
 #if defined(MOZ_CRASHREPORTER)
   if (aArgc < 1)
-    return 1;
+    return NS_ERROR_FAILURE;
   const char* const crashReporterArg = aArgv[--aArgc];
   
 #  if defined(XP_WIN) || defined(XP_MACOSX)
@@ -423,7 +423,7 @@ XRE_InitChildProcess(int aArgc,
 
   NS_LogInit();
 
-  int rv = XRE_InitCommandLine(aArgc, aArgv);
+  nsresult rv = XRE_InitCommandLine(aArgc, aArgv);
   if (NS_FAILED(rv)) {
     NS_LogTerm();
     return NS_ERROR_FAILURE;
@@ -547,7 +547,7 @@ XRE_InitParentProcess(int aArgc,
 
   gArgc = aArgc;
   gArgv = aArgv;
-  int rv = XRE_InitCommandLine(gArgc, gArgv);
+  nsresult rv = XRE_InitCommandLine(gArgc, gArgv);
   if (NS_FAILED(rv))
       return NS_ERROR_FAILURE;
 

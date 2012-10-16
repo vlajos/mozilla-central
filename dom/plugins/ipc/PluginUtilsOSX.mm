@@ -14,6 +14,11 @@
 
 #include "nsDebug.h"
 
+@interface CALayer (ContentsScale)
+- (double)contentsScale;
+- (void)setContentsScale:(double)scale;
+@end
+
 using namespace mozilla::plugins::PluginUtilsOSX;
 
 @interface CGBridgeLayer : CALayer {
@@ -305,12 +310,14 @@ void nsDoubleBufferCARenderer::SetCALayer(void *aCALayer) {
 }
 
 bool nsDoubleBufferCARenderer::InitFrontSurface(size_t aWidth, size_t aHeight,
+                                                double aContentsScaleFactor,
                                                 AllowOfflineRendererEnum aAllowOfflineRenderer) {
   if (!mCALayer) {
     return false;
   }
 
-  mFrontSurface = nsIOSurface::CreateIOSurface(aWidth, aHeight);
+  mContentsScaleFactor = aContentsScaleFactor;
+  mFrontSurface = MacIOSurface::CreateIOSurface(aWidth, aHeight, mContentsScaleFactor);
   if (!mFrontSurface) {
     mCARenderer = nullptr;
     return false;
@@ -328,6 +335,7 @@ bool nsDoubleBufferCARenderer::InitFrontSurface(size_t aWidth, size_t aHeight,
     nsresult result = mCARenderer->SetupRenderer(mCALayer,
                         mFrontSurface->GetWidth(),
                         mFrontSurface->GetHeight(),
+                        mContentsScaleFactor,
                         aAllowOfflineRenderer);
 
     if (result != NS_OK) {
@@ -347,11 +355,12 @@ void nsDoubleBufferCARenderer::Render() {
     return;
   }
 
-  mCARenderer->Render(GetFrontSurfaceWidth(), GetFrontSurfaceHeight(), nullptr);
+  mCARenderer->Render(GetFrontSurfaceWidth(), GetFrontSurfaceHeight(),
+                      mContentsScaleFactor, nullptr);
 }
 
 void nsDoubleBufferCARenderer::SwapSurfaces() {
-  nsRefPtr<nsIOSurface> prevFrontSurface = mFrontSurface;
+  RefPtr<MacIOSurface> prevFrontSurface = mFrontSurface;
   mFrontSurface = mBackSurface;
   mBackSurface = prevFrontSurface;
 

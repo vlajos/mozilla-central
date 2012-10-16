@@ -9,10 +9,11 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "SocialService", "resource://gre/modules/SocialService.jsm");
 
-const EXPORTED_SYMBOLS = ["MozSocialAPI"];
+const EXPORTED_SYMBOLS = ["MozSocialAPI", "openChatWindow"];
 
 var MozSocialAPI = {
   _enabled: false,
+  _everEnabled: false,
   set enabled(val) {
     let enable = !!val;
     if (enable == this._enabled) {
@@ -22,6 +23,12 @@ var MozSocialAPI = {
 
     if (enable) {
       Services.obs.addObserver(injectController, "document-element-inserted", false);
+
+      if (!this._everEnabled) {
+        this._everEnabled = true;
+        Services.telemetry.getHistogramById("SOCIAL_ENABLED_ON_SESSION").add(true);
+      }
+
     } else {
       Services.obs.removeObserver(injectController, "document-element-inserted", false);
     }
@@ -35,6 +42,11 @@ function injectController(doc, topic, data) {
     let window = doc.defaultView;
     if (!window)
       return;
+
+    // Do not attempt to load the API into about: error pages
+    if (doc.documentURIObject.scheme == "about") {
+      return;
+    }
 
     var containingBrowser = window.QueryInterface(Ci.nsIInterfaceRequestor)
                                   .getInterface(Ci.nsIWebNavigation)
@@ -68,47 +80,88 @@ function attachToWindow(provider, targetWindow) {
     throw new Error("MozSocialAPI: cannot attach " + origin + " to " + targetDocURI.spec);
   }
 
-  var port = provider._getWorkerPort(targetWindow);
+  var port = provider.getWorkerPort(targetWindow);
 
   let mozSocialObj = {
     // Use a method for backwards compat with existing providers, but we
     // should deprecate this in favor of a simple .port getter.
-    getWorker: function() {
-      return {
-        port: port,
-        __exposedProps__: {
-          port: "r"
-        }
-      };
+    getWorker: {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: function() {
+        return {
+          port: port,
+          __exposedProps__: {
+            port: "r"
+          }
+        };
+      }
     },
-    hasBeenIdleFor: function () {
-      return false;
+    hasBeenIdleFor: {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: function() {
+        return false;
+      }
     },
-    openServiceWindow: function(toURL, name, options) {
-      return openServiceWindow(provider, targetWindow, toURL, name, options);
+    openChatWindow: {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: function(toURL, callback) {
+        let url = targetWindow.document.documentURIObject.resolve(toURL);
+        openChatWindow(getChromeWindow(targetWindow), provider, url, callback);
+      }
     },
-    getAttention: function() {
-      let mainWindow = targetWindow.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
-                         .getInterface(Components.interfaces.nsIWebNavigation)
-                         .QueryInterface(Components.interfaces.nsIDocShellTreeItem)
-                         .rootTreeItem
-                         .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
-                         .getInterface(Components.interfaces.nsIDOMWindow);
-      mainWindow.getAttention();
+    openPanel: {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: function(toURL, offset, callback) {
+        let chromeWindow = getChromeWindow(targetWindow);
+        if (!chromeWindow.SocialFlyout)
+          return;
+        let url = targetWindow.document.documentURIObject.resolve(toURL);
+        let fullURL = ensureProviderOrigin(provider, url);
+        if (!fullURL)
+          return;
+        chromeWindow.SocialFlyout.open(fullURL, offset, callback);
+      }
+    },
+    closePanel: {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: function(toURL, offset, callback) {
+        let chromeWindow = getChromeWindow(targetWindow);
+        if (!chromeWindow.SocialFlyout || !chromeWindow.SocialFlyout.panel)
+          return;
+        chromeWindow.SocialFlyout.panel.hidePopup();
+      }
+    },
+    getAttention: {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: function() {
+        getChromeWindow(targetWindow).getAttention();
+      }
+    },
+    isVisible: {
+      enumerable: true,
+      configurable: true,
+      get: function() {
+        return targetWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+                           .getInterface(Ci.nsIWebNavigation)
+                           .QueryInterface(Ci.nsIDocShell).isActive;
+      }
     }
   };
 
   let contentObj = Cu.createObjectIn(targetWindow);
-  let propList = {};
-  for (let prop in mozSocialObj) {
-    propList[prop] = {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: mozSocialObj[prop]
-    };
-  }
-  Object.defineProperties(contentObj, propList);
+  Object.defineProperties(contentObj, mozSocialObj);
   Cu.makeObjectPropsNormal(contentObj);
 
   targetWindow.navigator.wrappedJSObject.__defineGetter__("mozSocial", function() {
@@ -126,64 +179,70 @@ function attachToWindow(provider, targetWindow) {
     // set a timer which will fire after the unload events have all fired.
     schedule(function () { port.close(); });
   });
+  targetWindow.addEventListener("DOMWindowClose", function _mozSocialDOMWindowClose(evt) {
+    let elt = targetWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+                .getInterface(Ci.nsIWebNavigation)
+                .QueryInterface(Ci.nsIDocShell)
+                .chromeEventHandler;
+    while (elt) {
+      if (elt.nodeName == "panel") {
+        elt.hidePopup();
+        break;
+      } else if (elt.nodeName == "chatbox") {
+        elt.close();
+        break;
+      }
+      elt = elt.parentNode;
+    }
+    // preventDefault stops the default window.close() function being called,
+    // which doesn't actually close anything but causes things to get into
+    // a bad state (an internal 'closed' flag is set and debug builds start
+    // asserting as the window is used.).
+    // None of the windows we inject this API into are suitable for this
+    // default close behaviour, so even if we took no action above, we avoid
+    // the default close from doing anything.
+    evt.preventDefault();
+  }, true);
 }
 
 function schedule(callback) {
   Services.tm.mainThread.dispatch(callback, Ci.nsIThread.DISPATCH_NORMAL);
 }
 
-function openServiceWindow(provider, contentWindow, url, name, options) {
+function getChromeWindow(contentWin) {
+  return contentWin.QueryInterface(Ci.nsIInterfaceRequestor)
+                   .getInterface(Ci.nsIWebNavigation)
+                   .QueryInterface(Ci.nsIDocShellTreeItem)
+                   .rootTreeItem
+                   .QueryInterface(Ci.nsIInterfaceRequestor)
+                   .getInterface(Ci.nsIDOMWindow);
+}
+
+function ensureProviderOrigin(provider, url) {
   // resolve partial URLs and check prePath matches
   let uri;
   let fullURL;
   try {
-    fullURL = contentWindow.document.documentURIObject.resolve(url);
+    fullURL = Services.io.newURI(provider.origin, null, null).resolve(url);
     uri = Services.io.newURI(fullURL, null, null);
   } catch (ex) {
-    Cu.reportError("openServiceWindow: failed to resolve window URL: " + url + "; " + ex);
+    Cu.reportError("mozSocial: failed to resolve window URL: " + url + "; " + ex);
     return null;
   }
 
   if (provider.origin != uri.prePath) {
-    Cu.reportError("openServiceWindow: unable to load new location, " +
+    Cu.reportError("mozSocial: unable to load new location, " +
                    provider.origin + " != " + uri.prePath);
     return null;
   }
+  return fullURL;
+}
 
-  function getChromeWindow(contentWin) {
-    return contentWin.QueryInterface(Ci.nsIInterfaceRequestor)
-                     .getInterface(Ci.nsIWebNavigation)
-                     .QueryInterface(Ci.nsIDocShellTreeItem)
-                     .rootTreeItem
-                     .QueryInterface(Ci.nsIInterfaceRequestor)
-                     .getInterface(Ci.nsIDOMWindow);
-
-  }
-  let chromeWindow = Services.ww.getWindowByName("social-service-window-" + name,
-                                                 getChromeWindow(contentWindow));
-  let tabbrowser = chromeWindow && chromeWindow.gBrowser;
-  if (tabbrowser &&
-      tabbrowser.selectedBrowser.getAttribute("origin") == provider.origin) {
-    return tabbrowser.contentWindow;
-  }
-
-  let serviceWindow = contentWindow.openDialog(fullURL, name,
-                                               "chrome=no,dialog=no" + options);
-
-  // Get the newly opened window's containing XUL window
-  chromeWindow = getChromeWindow(serviceWindow);
-
-  // set the window's name and origin attribute on its browser, so that it can
-  // be found via getWindowByName
-  chromeWindow.name = "social-service-window-" + name;
-  chromeWindow.gBrowser.selectedBrowser.setAttribute("origin", provider.origin);
-
-  // we dont want the default title the browser produces, we'll fixup whenever
-  // it changes.
-  serviceWindow.addEventListener("DOMTitleChanged", function() {
-    let sep = xulWindow.document.documentElement.getAttribute("titlemenuseparator");
-    xulWindow.document.title = provider.name + sep + serviceWindow.document.title;
-  });
-
-  return serviceWindow;
+function openChatWindow(chromeWindow, provider, url, callback, mode) {
+  if (!chromeWindow.SocialChatBar)
+    return;
+  let fullURL = ensureProviderOrigin(provider, url);
+  if (!fullURL)
+    return;
+  chromeWindow.SocialChatBar.openChat(provider, fullURL, callback, mode);
 }

@@ -7,8 +7,6 @@
 #ifndef jsscopeinlines_h___
 #define jsscopeinlines_h___
 
-#include <new>
-
 #include "jsarray.h"
 #include "jsbool.h"
 #include "jscntxt.h"
@@ -30,6 +28,22 @@
 #include "vm/ScopeObject-inl.h"
 
 namespace js {
+
+static inline void
+GetterSetterWriteBarrierPost(JSCompartment *comp, JSObject **objp)
+{
+#ifdef JSGC_GENERATIONAL
+    comp->gcStoreBuffer.putRelocatableCell(reinterpret_cast<gc::Cell **>(objp));
+#endif
+}
+
+static inline void
+GetterSetterWriteBarrierPostRemove(JSCompartment *comp, JSObject **objp)
+{
+#ifdef JSGC_GENERATIONAL
+    comp->gcStoreBuffer.removeRelocatableCell(reinterpret_cast<gc::Cell **>(objp));
+#endif
+}
 
 inline
 BaseShape::BaseShape(Class *clasp, JSObject *parent, uint32_t objectFlags)
@@ -54,11 +68,11 @@ BaseShape::BaseShape(Class *clasp, JSObject *parent, uint32_t objectFlags,
     this->rawSetter = rawSetter;
     if ((attrs & JSPROP_GETTER) && rawGetter) {
         this->flags |= HAS_GETTER_OBJECT;
-        JSObject::writeBarrierPost(this->getterObj, &this->getterObj);
+        GetterSetterWriteBarrierPost(compartment(), &this->getterObj);
     }
     if ((attrs & JSPROP_SETTER) && rawSetter) {
         this->flags |= HAS_SETTER_OBJECT;
-        JSObject::writeBarrierPost(this->setterObj, &this->setterObj);
+        GetterSetterWriteBarrierPost(compartment(), &this->setterObj);
     }
 }
 
@@ -72,10 +86,10 @@ BaseShape::BaseShape(const StackBaseShape &base)
     this->rawGetter = base.rawGetter;
     this->rawSetter = base.rawSetter;
     if ((base.flags & HAS_GETTER_OBJECT) && base.rawGetter) {
-        JSObject::writeBarrierPost(this->getterObj, &this->getterObj);
+        GetterSetterWriteBarrierPost(compartment(), &this->getterObj);
     }
     if ((base.flags & HAS_SETTER_OBJECT) && base.rawSetter) {
-        JSObject::writeBarrierPost(this->setterObj, &this->setterObj);
+        GetterSetterWriteBarrierPost(compartment(), &this->setterObj);
     }
 }
 
@@ -88,15 +102,17 @@ BaseShape::operator=(const BaseShape &other)
     slotSpan_ = other.slotSpan_;
     if (flags & HAS_GETTER_OBJECT) {
         getterObj = other.getterObj;
-        JSObject::writeBarrierPost(getterObj, &getterObj);
+        GetterSetterWriteBarrierPost(compartment(), &getterObj);
     } else {
         rawGetter = other.rawGetter;
+        GetterSetterWriteBarrierPostRemove(compartment(), &getterObj);
     }
     if (flags & HAS_SETTER_OBJECT) {
         setterObj = other.setterObj;
-        JSObject::writeBarrierPost(setterObj, &setterObj);
+        GetterSetterWriteBarrierPost(compartment(), &setterObj);
     } else {
         rawSetter = other.rawSetter;
+        GetterSetterWriteBarrierPostRemove(compartment(), &setterObj);
     }
     return *this;
 }
@@ -250,6 +266,7 @@ Shape::matchesParamsAfterId(BaseShape *base, uint32_t aslot,
 inline bool
 Shape::getUserId(JSContext *cx, jsid *idp) const
 {
+    AssertCanGC();
     const Shape *self = this;
 #ifdef DEBUG
     {

@@ -99,7 +99,7 @@ nsXBLProtoImplProperty::AppendSetterText(const nsAString& aText)
 }
 
 void
-nsXBLProtoImplProperty::SetGetterLineNumber(PRUint32 aLineNumber)
+nsXBLProtoImplProperty::SetGetterLineNumber(uint32_t aLineNumber)
 {
   NS_PRECONDITION(!mIsCompiled,
                   "Must not be compiled when accessing getter text");
@@ -113,7 +113,7 @@ nsXBLProtoImplProperty::SetGetterLineNumber(PRUint32 aLineNumber)
 }
 
 void
-nsXBLProtoImplProperty::SetSetterLineNumber(PRUint32 aLineNumber)
+nsXBLProtoImplProperty::SetSetterLineNumber(uint32_t aLineNumber)
 {
   NS_PRECONDITION(!mIsCompiled,
                   "Must not be compiled when accessing setter text");
@@ -155,10 +155,7 @@ nsXBLProtoImplProperty::InstallMember(nsIScriptContext* aContext,
   if ((mJSGetterObject || mJSSetterObject) && aTargetClassObject) {
     JSObject * getter = nullptr;
     JSAutoRequest ar(cx);
-    JSAutoEnterCompartment ac;
-
-    if (!ac.enter(cx, globalObject))
-      return NS_ERROR_UNEXPECTED;
+    JSAutoCompartment ac(cx, globalObject);
 
     if (mJSGetterObject)
       if (!(getter = ::JS_CloneFunctionObject(cx, mJSGetterObject, globalObject)))
@@ -196,10 +193,10 @@ nsXBLProtoImplProperty::CompileMember(nsIScriptContext* aContext, const nsCStrin
   // We have a property.
   nsresult rv = NS_OK;
 
-  nsCAutoString functionUri;
+  nsAutoCString functionUri;
   if (mGetterText || mSetterText) {
     functionUri = aClassStr;
-    PRInt32 hash = functionUri.RFindChar('#');
+    int32_t hash = functionUri.RFindChar('#');
     if (hash != kNotFound) {
       functionUri.Truncate(hash);
     }
@@ -220,7 +217,8 @@ nsXBLProtoImplProperty::CompileMember(nsIScriptContext* aContext, const nsCStrin
                                      functionUri.get(),
                                      mGetterText->GetLineNumber(),
                                      JSVERSION_LATEST,
-                                     true,
+                                     /* aShared = */ true,
+                                     /* aIsXBL = */ true,
                                      &getterObject);
 
       // Make sure we free mGetterText here before setting mJSGetterObject, since
@@ -270,7 +268,8 @@ nsXBLProtoImplProperty::CompileMember(nsIScriptContext* aContext, const nsCStrin
                                      functionUri.get(),
                                      mSetterText->GetLineNumber(),
                                      JSVERSION_LATEST,
-                                     true,
+                                     /* aShared = */ true,
+                                     /* aIsXBL = */ true,
                                      &setterObject);
 
       // Make sure we free mSetterText here before setting mJSGetterObject, since

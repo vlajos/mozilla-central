@@ -34,7 +34,16 @@ ViewportFrame::Init(nsIContent*      aContent,
                     nsIFrame*        aParent,
                     nsIFrame*        aPrevInFlow)
 {
-  return Super::Init(aContent, aParent, aPrevInFlow);
+  nsresult rv = Super::Init(aContent, aParent, aPrevInFlow);
+
+  nsIFrame* parent = nsLayoutUtils::GetCrossDocParentFrame(this);
+  if (parent) {
+    nsFrameState state = parent->GetStateBits();
+
+    mState |= state & (NS_FRAME_IN_POPUP);
+  }
+
+  return rv;
 }
 
 void
@@ -226,7 +235,10 @@ ViewportFrame::Reflow(nsPresContext*           aPresContext,
   // Make a copy of the reflow state and change the computed width and height
   // to reflect the available space for the fixed items
   nsHTMLReflowState reflowState(aReflowState);
-  nsPoint offset = AdjustReflowStateForScrollbars(&reflowState);
+#ifdef DEBUG
+  nsPoint offset =
+#endif
+    AdjustReflowStateForScrollbars(&reflowState);
 
   if (IsAbsoluteContainer()) {
     NS_ASSERTION(GetAbsoluteContainingBlock()->GetChildList().IsEmpty() ||
@@ -254,8 +266,7 @@ ViewportFrame::Reflow(nsPresContext*           aPresContext,
 
   // If we were dirty then do a repaint
   if (GetStateBits() & NS_FRAME_IS_DIRTY) {
-    nsRect damageRect(0, 0, aDesiredSize.width, aDesiredSize.height);
-    Invalidate(damageRect);
+    InvalidateFrame();
   }
 
   // Clipping is handled by the document container (e.g., nsSubDocumentFrame),
@@ -281,40 +292,6 @@ nsIAtom*
 ViewportFrame::GetType() const
 {
   return nsGkAtoms::viewportFrame;
-}
-
-void
-ViewportFrame::InvalidateInternal(const nsRect& aDamageRect,
-                                  nscoord aX, nscoord aY, nsIFrame* aForChild,
-                                  PRUint32 aFlags)
-{
-  nsRect r = aDamageRect + nsPoint(aX, aY);
-  nsPresContext* presContext = PresContext();
-  presContext->NotifyInvalidation(r, aFlags);
-
-  if ((mState & NS_FRAME_HAS_CONTAINER_LAYER) &&
-      !(aFlags & INVALIDATE_NO_THEBES_LAYERS)) {
-    FrameLayerBuilder::InvalidateThebesLayerContents(this, r);
-    // Don't need to invalidate any more Thebes layers
-    aFlags |= INVALIDATE_NO_THEBES_LAYERS;
-    if (aFlags & INVALIDATE_ONLY_THEBES_LAYERS) {
-      return;
-    }
-  }
-
-  nsIFrame* parent = nsLayoutUtils::GetCrossDocParentFrame(this);
-  if (parent) {
-    if (!presContext->PresShell()->IsActive())
-      return;
-    nsPoint pt = -parent->GetOffsetToCrossDoc(this);
-    PRInt32 ourAPD = presContext->AppUnitsPerDevPixel();
-    PRInt32 parentAPD = parent->PresContext()->AppUnitsPerDevPixel();
-    r = r.ConvertAppUnitsRoundOut(ourAPD, parentAPD);
-    parent->InvalidateInternal(r, pt.x, pt.y, this,
-                               aFlags | INVALIDATE_CROSS_DOC);
-    return;
-  }
-  InvalidateRoot(r, aFlags);
 }
 
 #ifdef DEBUG

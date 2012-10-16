@@ -98,7 +98,7 @@ public:
    *
    * @return one of the nsINavHistoryService::DATABASE_STATUS_* constants.
    */
-  PRUint16 GetDatabaseStatus() const
+  uint16_t GetDatabaseStatus() const
   {
     return mDatabaseStatus;
   }
@@ -294,9 +294,8 @@ private:
   mutable AsyncStatementCache mMainThreadAsyncStatements;
   mutable StatementCache mAsyncThreadStatements;
 
-  PRInt32 mDBPageSize;
-  enum JournalMode mCurrentJournalMode;
-  PRUint16 mDatabaseStatus;
+  int32_t mDBPageSize;
+  uint16_t mDatabaseStatus;
   bool mShuttingDown;
 };
 

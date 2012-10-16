@@ -16,7 +16,7 @@
 #include "nsIChannelEventSink.h"
 #include "nsIPropertyBag2.h"
 #include "nsIWritablePropertyBag2.h"
-#include "nsNetError.h"
+#include "nsError.h"
 #include "nsChannelProperties.h"
 #include "nsIAsyncVerifyRedirectCallback.h"
 #include "nsAsyncRedirectVerifyHelper.h"
@@ -51,21 +51,21 @@ NS_IMPL_ISUPPORTS2(CSPService, nsIContentPolicy, nsIChannelEventSink)
 
 /* nsIContentPolicy implementation */
 NS_IMETHODIMP
-CSPService::ShouldLoad(PRUint32 aContentType,
+CSPService::ShouldLoad(uint32_t aContentType,
                        nsIURI *aContentLocation,
                        nsIURI *aRequestOrigin,
                        nsISupports *aRequestContext,
                        const nsACString &aMimeTypeGuess,
                        nsISupports *aExtra,
                        nsIPrincipal *aRequestPrincipal,
-                       PRInt16 *aDecision)
+                       int16_t *aDecision)
 {
     if (!aContentLocation)
         return NS_ERROR_FAILURE;
 
 #ifdef PR_LOGGING
     {
-        nsCAutoString location;
+        nsAutoCString location;
         aContentLocation->GetSpec(location);
         PR_LOG(gCspPRLog, PR_LOG_DEBUG,
             ("CSPService::ShouldLoad called for %s", location.get()));
@@ -108,7 +108,7 @@ CSPService::ShouldLoad(PRUint32 aContentType,
     }
 #ifdef PR_LOGGING
     else {
-        nsCAutoString uriSpec;
+        nsAutoCString uriSpec;
         aContentLocation->GetSpec(uriSpec);
         PR_LOG(gCspPRLog, PR_LOG_DEBUG,
             ("COULD NOT get nsINode for location: %s", uriSpec.get()));
@@ -119,14 +119,14 @@ CSPService::ShouldLoad(PRUint32 aContentType,
 }
 
 NS_IMETHODIMP
-CSPService::ShouldProcess(PRUint32         aContentType,
+CSPService::ShouldProcess(uint32_t         aContentType,
                           nsIURI           *aContentLocation,
                           nsIURI           *aRequestOrigin,
                           nsISupports      *aRequestContext,
                           const nsACString &aMimeTypeGuess,
                           nsISupports      *aExtra,
                           nsIPrincipal     *aRequestPrincipal,
-                          PRInt16          *aDecision)
+                          int16_t          *aDecision)
 {
     if (!aContentLocation)
         return NS_ERROR_FAILURE;
@@ -167,7 +167,7 @@ CSPService::ShouldProcess(PRUint32         aContentType,
     }
 #ifdef PR_LOGGING
     else {
-        nsCAutoString uriSpec;
+        nsAutoCString uriSpec;
         aContentLocation->GetSpec(uriSpec);
         PR_LOG(gCspPRLog, PR_LOG_DEBUG,
             ("COULD NOT get nsINode for location: %s", uriSpec.get()));
@@ -180,7 +180,7 @@ CSPService::ShouldProcess(PRUint32         aContentType,
 NS_IMETHODIMP
 CSPService::AsyncOnChannelRedirect(nsIChannel *oldChannel,
                                    nsIChannel *newChannel,
-                                   PRUint32 flags,
+                                   uint32_t flags,
                                    nsIAsyncVerifyRedirectCallback *callback)
 {
   nsAsyncRedirectAutoCallback autoCallback(callback);
@@ -202,7 +202,7 @@ CSPService::AsyncOnChannelRedirect(nsIChannel *oldChannel,
 
   nsCOMPtr<nsIContentSecurityPolicy> csp;
   channelPolicy->GetContentSecurityPolicy(getter_AddRefs(csp));
-  PRUint32 loadType;
+  uint32_t loadType;
   channelPolicy->GetLoadType(&loadType);
 
   // if no CSP in the channelPolicy, nothing for us to add to the channel
@@ -223,8 +223,8 @@ CSPService::AsyncOnChannelRedirect(nsIChannel *oldChannel,
   newChannel->GetURI(getter_AddRefs(newUri));
   nsCOMPtr<nsIURI> originalUri;
   oldChannel->GetOriginalURI(getter_AddRefs(originalUri));
-  PRInt16 aDecision = nsIContentPolicy::ACCEPT;
-  csp->ShouldLoad(loadType,        // load type per nsIContentPolicy (PRUint32)
+  int16_t aDecision = nsIContentPolicy::ACCEPT;
+  csp->ShouldLoad(loadType,        // load type per nsIContentPolicy (uint32_t)
                   newUri,          // nsIURI
                   nullptr,          // nsIURI
                   nullptr,          // nsISupports
@@ -234,7 +234,7 @@ CSPService::AsyncOnChannelRedirect(nsIChannel *oldChannel,
 
 #ifdef PR_LOGGING
   if (newUri) {
-    nsCAutoString newUriSpec("None");
+    nsAutoCString newUriSpec("None");
     newUri->GetSpec(newUriSpec);
     PR_LOG(gCspPRLog, PR_LOG_DEBUG,
            ("CSPService::AsyncOnChannelRedirect called for %s",
@@ -268,7 +268,7 @@ CSPService::AsyncOnChannelRedirect(nsIChannel *oldChannel,
 
   // The redirecting channel isn't a writable property bag, we won't be able
   // to enforce the load policy if it redirects again, so we stop it now.
-  nsCAutoString newUriSpec;
+  nsAutoCString newUriSpec;
   rv = newUri->GetSpec(newUriSpec);
   const PRUnichar *formatParams[] = { NS_ConvertUTF8toUTF16(newUriSpec).get() };
   if (NS_SUCCEEDED(rv)) {

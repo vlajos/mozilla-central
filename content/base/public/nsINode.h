@@ -6,20 +6,17 @@
 #ifndef nsINode_h___
 #define nsINode_h___
 
-#include "nsIDOMEventTarget.h"
-#include "nsEvent.h"
-#include "nsPropertyTable.h"
-#include "nsTObserverArray.h"
-#include "nsINodeInfo.h"
-#include "nsCOMPtr.h"
-#include "nsWrapperCache.h"
-#include "nsIProgrammingLanguage.h" // for ::JAVASCRIPT
-#include "nsDOMError.h"
-#include "nsDOMString.h"
-#include "jspubtd.h"
-#include "nsWindowMemoryReporter.h"
-#include "nsIVariant.h"
-#include "nsGkAtoms.h"
+#include "nsCOMPtr.h"               // for member, local
+#include "nsGkAtoms.h"              // for nsGkAtoms::baseURIProperty
+#include "nsIDOMEventTarget.h"      // for base class
+#include "nsIDOMNodeSelector.h"     // base class
+#include "nsINodeInfo.h"            // member (in nsCOMPtr)
+#include "nsIVariant.h"             // for use in GetUserData()
+#include "nsNodeInfoManager.h"      // for use in NodePrincipal()
+#include "nsPropertyTable.h"        // for typedefs
+#include "nsTObserverArray.h"       // for member
+#include "nsWindowMemoryReporter.h" // for NS_DECL_SIZEOF_EXCLUDING_THIS
+#include "nsWrapperCache.h"         // for base class
 
 // Including 'windows.h' will #define GetClassInfo to something else.
 #ifdef XP_WIN
@@ -28,26 +25,23 @@
 #endif
 #endif
 
+class nsAttrAndChildArray;
+class nsChildContentList;
 class nsIContent;
 class nsIDocument;
-class nsIDOMEvent;
-class nsIDOMNode;
 class nsIDOMElement;
+class nsIDOMNode;
 class nsIDOMNodeList;
+class nsIDOMUserDataHandler;
+class nsIEditor;
+class nsIFrame;
+class nsIMutationObserver;
 class nsINodeList;
 class nsIPresShell;
-class nsEventChainVisitor;
-class nsEventChainPreVisitor;
-class nsEventChainPostVisitor;
-class nsEventListenerManager;
 class nsIPrincipal;
-class nsIMutationObserver;
-class nsChildContentList;
-class nsNodeWeakReference;
+class nsIURI;
 class nsNodeSupportsWeakRefTearoff;
-class nsIEditor;
-class nsIDOMUserDataHandler;
-class nsAttrAndChildArray;
+class nsNodeWeakReference;
 class nsXPCClassInfo;
 
 namespace mozilla {
@@ -56,19 +50,27 @@ class Element;
 } // namespace dom
 } // namespace mozilla
 
+namespace JS {
+class Value;
+}
+
+inline void SetDOMStringToNull(nsAString& aString);
+
+#define NODE_FLAG_BIT(n_) (1U << (n_))
+
 enum {
   // This bit will be set if the node has a listener manager.
-  NODE_HAS_LISTENERMANAGER =     0x00000001U,
+  NODE_HAS_LISTENERMANAGER =              NODE_FLAG_BIT(0),
 
   // Whether this node has had any properties set on it
-  NODE_HAS_PROPERTIES =          0x00000002U,
+  NODE_HAS_PROPERTIES =                   NODE_FLAG_BIT(1),
 
   // Whether this node is the root of an anonymous subtree.  Note that this
   // need not be a native anonymous subtree.  Any anonymous subtree, including
   // XBL-generated ones, will do.  This flag is set-once: once a node has it,
   // it must not be removed.
   // NOTE: Should only be used on nsIContent nodes
-  NODE_IS_ANONYMOUS =            0x00000004U,
+  NODE_IS_ANONYMOUS =                     NODE_FLAG_BIT(2),
 
   // Whether the node has some ancestor, possibly itself, that is native
   // anonymous.  This includes ancestors crossing XBL scopes, in cases when an
@@ -76,39 +78,39 @@ enum {
   // ancestor.  This flag is set-once: once a node has it, it must not be
   // removed.
   // NOTE: Should only be used on nsIContent nodes
-  NODE_IS_IN_ANONYMOUS_SUBTREE = 0x00000008U,
+  NODE_IS_IN_ANONYMOUS_SUBTREE =          NODE_FLAG_BIT(3),
 
   // Whether this node is the root of a native anonymous (from the perspective
   // of its parent) subtree.  This flag is set-once: once a node has it, it
   // must not be removed.
   // NOTE: Should only be used on nsIContent nodes
-  NODE_IS_NATIVE_ANONYMOUS_ROOT = 0x00000010U,
+  NODE_IS_NATIVE_ANONYMOUS_ROOT =         NODE_FLAG_BIT(4),
 
   // Forces the XBL code to treat this node as if it were
   // in the document and therefore should get bindings attached.
-  NODE_FORCE_XBL_BINDINGS =      0x00000020U,
+  NODE_FORCE_XBL_BINDINGS =               NODE_FLAG_BIT(5),
 
   // Whether a binding manager may have a pointer to this
-  NODE_MAY_BE_IN_BINDING_MNGR =  0x00000040U,
+  NODE_MAY_BE_IN_BINDING_MNGR =           NODE_FLAG_BIT(6),
 
-  NODE_IS_EDITABLE =             0x00000080U,
+  NODE_IS_EDITABLE =                      NODE_FLAG_BIT(7),
 
   // For all Element nodes, NODE_MAY_HAVE_CLASS is guaranteed to be set if the
   // node in fact has a class, but may be set even if it doesn't.
-  NODE_MAY_HAVE_CLASS =          0x00000100U,
+  NODE_MAY_HAVE_CLASS =                   NODE_FLAG_BIT(8),
 
-  NODE_IS_INSERTION_PARENT =     0x00000200U,
+  NODE_IS_INSERTION_PARENT =              NODE_FLAG_BIT(9),
 
   // Node has an :empty or :-moz-only-whitespace selector
-  NODE_HAS_EMPTY_SELECTOR =      0x00000400U,
+  NODE_HAS_EMPTY_SELECTOR =               NODE_FLAG_BIT(10),
 
   // A child of the node has a selector such that any insertion,
   // removal, or appending of children requires restyling the parent.
-  NODE_HAS_SLOW_SELECTOR =       0x00000800U,
+  NODE_HAS_SLOW_SELECTOR =                NODE_FLAG_BIT(11),
 
   // A child of the node has a :first-child, :-moz-first-node,
   // :only-child, :last-child or :-moz-last-node selector.
-  NODE_HAS_EDGE_CHILD_SELECTOR = 0x00001000U,
+  NODE_HAS_EDGE_CHILD_SELECTOR =          NODE_FLAG_BIT(12),
 
   // A child of the node has a selector such that any insertion or
   // removal of children requires restyling later siblings of that
@@ -117,51 +119,49 @@ enum {
   // other content tree changes (e.g., the child changes to or from
   // matching :empty due to a grandchild insertion or removal), the
   // child's later siblings must also be restyled.
-  NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS
-                               = 0x00002000U,
+  NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS = NODE_FLAG_BIT(13),
 
-  NODE_ALL_SELECTOR_FLAGS =      NODE_HAS_EMPTY_SELECTOR |
-                                 NODE_HAS_SLOW_SELECTOR |
-                                 NODE_HAS_EDGE_CHILD_SELECTOR |
-                                 NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS,
+  NODE_ALL_SELECTOR_FLAGS =               NODE_HAS_EMPTY_SELECTOR |
+                                          NODE_HAS_SLOW_SELECTOR |
+                                          NODE_HAS_EDGE_CHILD_SELECTOR |
+                                          NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS,
 
-  NODE_ATTACH_BINDING_ON_POSTCREATE
-                               = 0x00004000U,
+  NODE_ATTACH_BINDING_ON_POSTCREATE =     NODE_FLAG_BIT(14),
 
   // This node needs to go through frame construction to get a frame (or
   // undisplayed entry).
-  NODE_NEEDS_FRAME =             0x00008000U,
+  NODE_NEEDS_FRAME =                      NODE_FLAG_BIT(15),
 
   // At least one descendant in the flattened tree has NODE_NEEDS_FRAME set.
   // This should be set on every node on the flattened tree path between the
   // node(s) with NODE_NEEDS_FRAME and the root content.
-  NODE_DESCENDANTS_NEED_FRAMES = 0x00010000U,
+  NODE_DESCENDANTS_NEED_FRAMES =          NODE_FLAG_BIT(16),
 
   // Set if the node has the accesskey attribute set.
-  NODE_HAS_ACCESSKEY           = 0x00020000U,
+  NODE_HAS_ACCESSKEY =                    NODE_FLAG_BIT(17),
 
   // Set if the node is handling a click.
-  NODE_HANDLING_CLICK          = 0x00040000U,
+  NODE_HANDLING_CLICK =                   NODE_FLAG_BIT(18),
 
   // Set if the node has had :hover selectors matched against it
-  NODE_HAS_RELEVANT_HOVER_RULES = 0x00080000U,
+  NODE_HAS_RELEVANT_HOVER_RULES =         NODE_FLAG_BIT(19),
+
+  // Set if the node has right-to-left directionality
+  NODE_HAS_DIRECTION_RTL =                NODE_FLAG_BIT(20),
+
+  // Set if the node has left-to-right directionality
+  NODE_HAS_DIRECTION_LTR =                NODE_FLAG_BIT(21),
+
+  NODE_ALL_DIRECTION_FLAGS =              NODE_HAS_DIRECTION_LTR |
+                                          NODE_HAS_DIRECTION_RTL,
+
+  NODE_CHROME_ONLY_ACCESS =               NODE_FLAG_BIT(22),
+
+  NODE_IS_ROOT_OF_CHROME_ONLY_ACCESS =    NODE_FLAG_BIT(23),
 
   // Remaining bits are node type specific.
-  NODE_TYPE_SPECIFIC_BITS_OFFSET =        20
+  NODE_TYPE_SPECIFIC_BITS_OFFSET =        24
 };
-
-// Useful inline function for getting a node given an nsIContent and an
-// nsIDocument.  Returns the first argument cast to nsINode if it is non-null,
-// otherwise returns the second (which may be null).  We use type variables
-// instead of nsIContent* and nsIDocument* because the actual types must be
-// known for the cast to work.
-template<class C, class D>
-inline nsINode* NODE_FROM(C& aContent, D& aDocument)
-{
-  if (aContent)
-    return static_cast<nsINode*>(aContent);
-  return static_cast<nsINode*>(aDocument);
-}
 
 /**
  * Class used to detect unexpected mutations. To use the class create an
@@ -203,9 +203,9 @@ public:
    * Returns true if any unexpected mutations have occurred. You can pass in
    * an 8-bit ignore count to ignore a number of expected mutations.
    */
-  bool Mutated(PRUint8 aIgnoreCount)
+  bool Mutated(uint8_t aIgnoreCount)
   {
-    return sMutationCount < static_cast<PRUint32>(eMaxMutations - aIgnoreCount);
+    return sMutationCount < static_cast<uint32_t>(eMaxMutations - aIgnoreCount);
   }
 
   // This function should be called whenever a mutation that we want to keep
@@ -222,7 +222,7 @@ private:
   // mDelta is the amount sMutationCount was adjusted when the guard was
   // initialized. It is needed so that we can undo that adjustment once
   // the guard dies.
-  PRUint32 mDelta;
+  uint32_t mDelta;
 
   // The value 300 is not important, as long as it is bigger then anything
   // ever passed to Mutated().
@@ -232,7 +232,7 @@ private:
   // sMutationCount is a global mutation counter which is decreased by one at
   // every mutation. It is capped at 0 to avoid wrapping.
   // Its value is always between 0 and 300, inclusive.
-  static PRUint32 sMutationCount;
+  static uint32_t sMutationCount;
 };
 
 // Categories of node properties
@@ -243,8 +243,8 @@ private:
 
 // IID for the nsINode interface
 #define NS_INODE_IID \
-{ 0xf73e3890, 0xe4ab, 0x453e, \
-  { 0x8c, 0x78, 0x2d, 0x1f, 0xa4, 0x0b, 0x48, 0x00 } }
+{ 0x9aede57e, 0xe39e, 0x42e8, \
+  { 0x8d, 0x33, 0x7a, 0xc3, 0xd0, 0xbb, 0x5b, 0xf9 } }
 
 /**
  * An internal interface that abstracts some DOMNode-related parts that both
@@ -359,7 +359,7 @@ public:
    * @param aFlags what types you want to test for (see above)
    * @return whether the content matches ALL flags passed in
    */
-  virtual bool IsNodeOfType(PRUint32 aFlags) const = 0;
+  virtual bool IsNodeOfType(uint32_t aFlags) const = 0;
 
   /**
    * Return whether the node is an Element node
@@ -392,14 +392,14 @@ public:
    * Get the number of children
    * @return the number of children
    */
-  virtual PRUint32 GetChildCount() const = 0;
+  virtual uint32_t GetChildCount() const = 0;
 
   /**
    * Get a child by index
    * @param aIndex the index of the child to get
    * @return the child, or null if index out of bounds
    */
-  virtual nsIContent* GetChildAt(PRUint32 aIndex) const = 0;
+  virtual nsIContent* GetChildAt(uint32_t aIndex) const = 0;
 
   /**
    * Get a raw pointer to the child array.  This should only be used if you
@@ -410,7 +410,7 @@ public:
    * garbage pointer.  In all cases the out param will be set to the number of
    * children.
    */
-  virtual nsIContent * const * GetChildArray(PRUint32* aChildCount) const = 0;
+  virtual nsIContent * const * GetChildArray(uint32_t* aChildCount) const = 0;
 
   /**
    * Get the index of a child within this content
@@ -420,7 +420,7 @@ public:
    * If the return value is not -1, then calling GetChildAt() with that value
    * will return aPossibleChild.
    */
-  virtual PRInt32 IndexOf(nsINode* aPossibleChild) const = 0;
+  virtual int32_t IndexOf(const nsINode* aPossibleChild) const = 0;
 
   /**
    * Return the "owner document" of this node.  Note that this is not the same
@@ -464,7 +464,7 @@ public:
    * The values returned by this function are the ones defined for
    * nsIDOMNode.nodeType
    */
-  PRUint16 NodeType() const
+  uint16_t NodeType() const
   {
     return mNodeInfo->NodeType();
   }
@@ -525,7 +525,7 @@ public:
    *
    * @throws NS_ERROR_OUT_OF_MEMORY in some cases (from BindToTree).
    */
-  virtual nsresult InsertChildAt(nsIContent* aKid, PRUint32 aIndex,
+  virtual nsresult InsertChildAt(nsIContent* aKid, uint32_t aIndex,
                                  bool aNotify) = 0;
 
   /**
@@ -562,7 +562,7 @@ public:
    *
    * Note: If there is no child at aIndex, this method will simply do nothing.
    */
-  virtual void RemoveChildAt(PRUint32 aIndex, bool aNotify) = 0;
+  virtual void RemoveChildAt(uint32_t aIndex, bool aNotify) = 0;
 
   /**
    * Get a property associated with this node.
@@ -593,7 +593,7 @@ public:
    *                       (though a null return value does not imply the
    *                       property was not set, i.e. it can be set to null).
    */
-  virtual void* GetProperty(PRUint16 aCategory,
+  virtual void* GetProperty(uint16_t aCategory,
                             nsIAtom *aPropertyName,
                             nsresult *aStatus = nullptr) const;
 
@@ -641,7 +641,7 @@ public:
    *                                       was already set
    * @throws NS_ERROR_OUT_OF_MEMORY if that occurs
    */
-  virtual nsresult SetProperty(PRUint16 aCategory,
+  virtual nsresult SetProperty(uint16_t aCategory,
                                nsIAtom *aPropertyName,
                                void *aValue,
                                NSPropertyDtorFunc aDtor = nullptr,
@@ -666,7 +666,7 @@ public:
    * @param aCategory      category of property to destroy.
    * @param aPropertyName  name of property to destroy.
    */
-  virtual void DeleteProperty(PRUint16 aCategory, nsIAtom *aPropertyName);
+  virtual void DeleteProperty(uint16_t aCategory, nsIAtom *aPropertyName);
 
   /**
    * Unset a property associated with this node. The value will not be
@@ -701,7 +701,7 @@ public:
    *                       (though a null return value does not imply the
    *                       property was not set, i.e. it can be set to null).
    */
-  virtual void* UnsetProperty(PRUint16 aCategory,
+  virtual void* UnsetProperty(uint16_t aCategory,
                               nsIAtom *aPropertyName,
                               nsresult *aStatus = nullptr);
   
@@ -794,13 +794,11 @@ public:
    */
   void AddMutationObserver(nsIMutationObserver* aMutationObserver)
   {
-    nsSlots* s = GetSlots();
-    if (s) {
-      NS_ASSERTION(s->mMutationObservers.IndexOf(aMutationObserver) ==
-                   nsTArray<int>::NoIndex,
-                   "Observer already in the list");
-      s->mMutationObservers.AppendElement(aMutationObserver);
-    }
+    nsSlots* s = Slots();
+    NS_ASSERTION(s->mMutationObservers.IndexOf(aMutationObserver) ==
+                 nsTArray<int>::NoIndex,
+                 "Observer already in the list");
+    s->mMutationObservers.AppendElement(aMutationObserver);
   }
 
   /**
@@ -809,10 +807,8 @@ public:
    */
   void AddMutationObserverUnlessExists(nsIMutationObserver* aMutationObserver)
   {
-    nsSlots* s = GetSlots();
-    if (s) {
-      s->mMutationObservers.AppendElementUnlessExists(aMutationObserver);
-    }
+    nsSlots* s = Slots();
+    s->mMutationObservers.AppendElementUnlessExists(aMutationObserver);
   }
 
   /**
@@ -898,34 +894,35 @@ public:
 #ifdef DEBUG
   nsSlots* DebugGetSlots()
   {
-    return GetSlots();
+    return Slots();
   }
 #endif
 
-  bool HasFlag(PtrBits aFlag) const
+  bool HasFlag(uintptr_t aFlag) const
   {
     return !!(GetFlags() & aFlag);
   }
 
-  PRUint32 GetFlags() const
+  uint32_t GetFlags() const
   {
     return mFlags;
   }
 
-  void SetFlags(PRUint32 aFlagsToSet)
+  void SetFlags(uint32_t aFlagsToSet)
   {
     NS_ASSERTION(!(aFlagsToSet & (NODE_IS_ANONYMOUS |
                                   NODE_IS_NATIVE_ANONYMOUS_ROOT |
                                   NODE_IS_IN_ANONYMOUS_SUBTREE |
                                   NODE_ATTACH_BINDING_ON_POSTCREATE |
                                   NODE_DESCENDANTS_NEED_FRAMES |
-                                  NODE_NEEDS_FRAME)) ||
+                                  NODE_NEEDS_FRAME |
+                                  NODE_CHROME_ONLY_ACCESS)) ||
                  IsNodeOfType(eCONTENT),
                  "Flag only permitted on nsIContent nodes");
     mFlags |= aFlagsToSet;
   }
 
-  void UnsetFlags(PRUint32 aFlagsToUnset)
+  void UnsetFlags(uint32_t aFlagsToUnset)
   {
     NS_ASSERTION(!(aFlagsToUnset &
                    (NODE_IS_ANONYMOUS |
@@ -970,6 +967,13 @@ public:
 #endif
   }
 
+  // True for native anonymous content and for XBL content if the binging
+  // has chromeOnlyContent="true".
+  bool ChromeOnlyAccess() const
+  {
+    return HasFlag(NODE_IS_IN_ANONYMOUS_SUBTREE | NODE_CHROME_ONLY_ACCESS);
+  }
+
   /**
    * Returns true if |this| node is the common ancestor of the start/end
    * nodes of a Range in a Selection or a descendant of such a common ancestor.
@@ -1003,7 +1007,7 @@ public:
   nsIContent* GetFirstChild() const { return mFirstChild; }
   nsIContent* GetLastChild() const
   {
-    PRUint32 count;
+    uint32_t count;
     nsIContent* const* children = GetChildArray(&count);
 
     return count > 0 ? children[count - 1] : nullptr;
@@ -1056,6 +1060,14 @@ public:
   {
     return NS_OK;
   }
+
+  /**
+   * Helper methods for implementing querySelector/querySelectorAll
+   */
+  nsIContent* QuerySelector(const nsAString& aSelector,
+                            nsresult *aResult);
+  nsresult QuerySelectorAll(const nsAString& aSelector,
+                            nsIDOMNodeList **aReturn);
 
   /**
    * Associate an object aData to aKey on this node. If aData is null any
@@ -1111,15 +1123,15 @@ public:
    *
    * @see nsIDOMNode
    */
-  PRUint16 CompareDocPosition(nsINode* aOtherNode);
-  nsresult CompareDocPosition(nsINode* aOtherNode, PRUint16* aReturn)
+  uint16_t CompareDocPosition(nsINode* aOtherNode);
+  nsresult CompareDocPosition(nsINode* aOtherNode, uint16_t* aReturn)
   {
     NS_ENSURE_ARG(aOtherNode);
     *aReturn = CompareDocPosition(aOtherNode);
     return NS_OK;
   }
   nsresult CompareDocumentPosition(nsIDOMNode* aOther,
-                                   PRUint16* aReturn);
+                                   uint16_t* aReturn);
 
   nsresult LookupPrefix(const nsAString& aNamespaceURI, nsAString& aPrefix);
   nsresult IsDefaultNamespace(const nsAString& aNamespaceURI, bool* aResult)
@@ -1291,6 +1303,10 @@ private:
     NodeMayHaveDOMMutationObserver,
     // Set if node is Content
     NodeIsContent,
+    // Set if the node has animations or transitions
+    ElementHasAnimations,
+    // Set if node has a dir attribute with a valid value (ltr or rtl)
+    NodeHasValidDirAttribute,
     // Guard value
     BooleanFlagCount
   };
@@ -1356,13 +1372,17 @@ public:
   bool HasPointerLock() const { return GetBoolFlag(ElementHasPointerLock); }
   void SetPointerLock() { SetBoolFlag(ElementHasPointerLock); }
   void ClearPointerLock() { ClearBoolFlag(ElementHasPointerLock); }
+  bool MayHaveAnimations() { return GetBoolFlag(ElementHasAnimations); }
+  void SetMayHaveAnimations() { SetBoolFlag(ElementHasAnimations); }
+  void SetHasValidDir() { SetBoolFlag(NodeHasValidDirAttribute); }
+  void ClearHasValidDir() { ClearBoolFlag(NodeHasValidDirAttribute); }
+  bool HasValidDir() const { return GetBoolFlag(NodeHasValidDirAttribute); }
 protected:
   void SetParentIsContent(bool aValue) { SetBoolFlag(ParentIsContent, aValue); }
   void SetInDocument() { SetBoolFlag(IsInDocument); }
   void SetNodeIsContent() { SetBoolFlag(NodeIsContent); }
   void ClearInDocument() { ClearBoolFlag(IsInDocument); }
   void SetIsElement() { SetBoolFlag(NodeIsElement); }
-  void ClearIsElement() { ClearBoolFlag(NodeIsElement); }
   void SetHasID() { SetBoolFlag(ElementHasID); }
   void ClearHasID() { ClearBoolFlag(ElementHasID); }
   void SetMayHaveStyle() { SetBoolFlag(ElementMayHaveStyle); }
@@ -1403,11 +1423,12 @@ public:
    * Returns the length of this node, as specified at
    * <http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#concept-node-length>
    */
-  PRUint32 Length() const;
+  uint32_t Length() const;
 
 protected:
 
   // Override this function to create a custom slots class.
+  // Must not return null.
   virtual nsINode::nsSlots* CreateSlots();
 
   bool HasSlots() const
@@ -1420,10 +1441,11 @@ protected:
     return mSlots;
   }
 
-  nsSlots* GetSlots()
+  nsSlots* Slots()
   {
     if (!HasSlots()) {
       mSlots = CreateSlots();
+      MOZ_ASSERT(mSlots);
     }
     return GetExistingSlots();
   }
@@ -1489,7 +1511,7 @@ protected:
    * @param aChildArray The child array to work with.
    * @param aMutationEvent whether to fire a mutation event for this removal.
    */
-  void doRemoveChildAt(PRUint32 aIndex, bool aNotify, nsIContent* aKid,
+  void doRemoveChildAt(uint32_t aIndex, bool aNotify, nsIContent* aKid,
                        nsAttrAndChildArray& aChildArray);
 
   /**
@@ -1502,7 +1524,7 @@ protected:
    * @param aNotify Whether to notify.
    * @param aChildArray The child array to work with
    */
-  nsresult doInsertChildAt(nsIContent* aKid, PRUint32 aIndex,
+  nsresult doInsertChildAt(nsIContent* aKid, uint32_t aIndex,
                            bool aNotify, nsAttrAndChildArray& aChildArray);
 
 public:
@@ -1533,11 +1555,11 @@ protected:
 
   nsINode* mParent;
 
-  PRUint32 mFlags;
+  uint32_t mFlags;
 
 private:
   // Boolean flags.
-  PRUint32 mBoolFlags;
+  uint32_t mBoolFlags;
 
 protected:
   nsIContent* mNextSibling;
@@ -1556,6 +1578,41 @@ protected:
   nsSlots* mSlots;
 };
 
+// Useful inline function for getting a node given an nsIContent and an
+// nsIDocument.  Returns the first argument cast to nsINode if it is non-null,
+// otherwise returns the second (which may be null).  We use type variables
+// instead of nsIContent* and nsIDocument* because the actual types must be
+// known for the cast to work.
+template<class C, class D>
+inline nsINode* NODE_FROM(C& aContent, D& aDocument)
+{
+  if (aContent)
+    return static_cast<nsINode*>(aContent);
+  return static_cast<nsINode*>(aDocument);
+}
+
+/**
+ * A tearoff class for FragmentOrElement to implement NodeSelector
+ */
+class nsNodeSelectorTearoff MOZ_FINAL : public nsIDOMNodeSelector
+{
+public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+
+  NS_DECL_NSIDOMNODESELECTOR
+
+  NS_DECL_CYCLE_COLLECTION_CLASS(nsNodeSelectorTearoff)
+
+  nsNodeSelectorTearoff(nsINode *aNode) : mNode(aNode)
+  {
+  }
+
+private:
+  ~nsNodeSelectorTearoff() {}
+
+private:
+  nsCOMPtr<nsINode> mNode;
+};
 
 extern const nsIID kThisPtrOffsetsSID;
 
@@ -1654,6 +1711,21 @@ extern const nsIID kThisPtrOffsetsSID;
     NS_INTERFACE_TABLE_ENTRY(_class, _i6)                                     \
     NS_INTERFACE_TABLE_ENTRY(_class, _i7)                                     \
     NS_INTERFACE_TABLE_ENTRY(_class, _i8)                                     \
+  NS_OFFSET_AND_INTERFACE_TABLE_END                                           \
+  NS_OFFSET_AND_INTERFACE_TABLE_TO_MAP_SEGUE
+
+#define NS_NODE_INTERFACE_TABLE9(_class, _i1, _i2, _i3, _i4, _i5, _i6, _i7,   \
+                                 _i8, _i9)                                    \
+  NS_NODE_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                            \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i1)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i2)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i3)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i4)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i5)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i6)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i7)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i8)                                     \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i9)                                     \
   NS_OFFSET_AND_INTERFACE_TABLE_END                                           \
   NS_OFFSET_AND_INTERFACE_TABLE_TO_MAP_SEGUE
 

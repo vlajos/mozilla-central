@@ -197,10 +197,7 @@ nsEditingSession::DisableJSAndPlugins(nsIDOMWindow *aWindow)
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Disable plugins in this document:
-  rv = docShell->GetAllowPlugins(&tmp);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  mPluginsEnabled = tmp;
+  mPluginsEnabled = docShell->PluginsAllowedInCurrentDoc();
 
   rv = docShell->SetAllowPlugins(false);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -278,7 +275,7 @@ IsSupportedTextType(const char* aMIMEType)
 {
   NS_ENSURE_TRUE(aMIMEType, false);
 
-  PRInt32 i = 0;
+  int32_t i = 0;
   while (gSupportedTextTypes[i])
   {
     if (strcmp(gSupportedTextTypes[i], aMIMEType) == 0)
@@ -310,7 +307,7 @@ nsEditingSession::SetupEditorOnWindow(nsIDOMWindow *aWindow)
   // Note: the doc gets this from the network channel during StartPageLoad,
   //    so we don't have to get it from there ourselves
   nsCOMPtr<nsIDOMDocument> doc;
-  nsCAutoString mimeCType;
+  nsAutoCString mimeCType;
 
   //then lets check the mime type
   if (NS_SUCCEEDED(aWindow->GetDocument(getter_AddRefs(doc))) && doc)
@@ -622,14 +619,14 @@ nsEditingSession::GetEditorForWindow(nsIDOMWindow *aWindow,
 NS_IMETHODIMP
 nsEditingSession::OnStateChange(nsIWebProgress *aWebProgress,
                                 nsIRequest *aRequest,
-                                PRUint32 aStateFlags, nsresult aStatus)
+                                uint32_t aStateFlags, nsresult aStatus)
 {
 
 #ifdef NOISY_DOC_LOADING
   nsCOMPtr<nsIChannel> channel(do_QueryInterface(aRequest));
   if (channel)
   {
-    nsCAutoString contentType;
+    nsAutoCString contentType;
     channel->GetContentType(contentType);
     if (!contentType.IsEmpty())
       printf(" ++++++ MIMETYPE = %s\n", contentType.get());
@@ -789,10 +786,10 @@ nsEditingSession::OnStateChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 nsEditingSession::OnProgressChange(nsIWebProgress *aWebProgress,
                                    nsIRequest *aRequest,
-                                   PRInt32 aCurSelfProgress,
-                                   PRInt32 aMaxSelfProgress,
-                                   PRInt32 aCurTotalProgress,
-                                   PRInt32 aMaxTotalProgress)
+                                   int32_t aCurSelfProgress,
+                                   int32_t aMaxSelfProgress,
+                                   int32_t aCurTotalProgress,
+                                   int32_t aMaxTotalProgress)
 {
     NS_NOTREACHED("notification excluded in AddProgressListener(...)");
     return NS_OK;
@@ -806,7 +803,7 @@ nsEditingSession::OnProgressChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 nsEditingSession::OnLocationChange(nsIWebProgress *aWebProgress, 
                                    nsIRequest *aRequest, nsIURI *aURI,
-                                   PRUint32 aFlags)
+                                   uint32_t aFlags)
 {
   nsCOMPtr<nsIDOMWindow> domWindow;
   nsresult rv = aWebProgress->GetDOMWindow(getter_AddRefs(domWindow));
@@ -856,7 +853,7 @@ nsEditingSession::OnStatusChange(nsIWebProgress *aWebProgress,
 ----------------------------------------------------------------------------*/
 NS_IMETHODIMP
 nsEditingSession::OnSecurityChange(nsIWebProgress *aWebProgress,
-                                   nsIRequest *aRequest, PRUint32 state)
+                                   nsIRequest *aRequest, uint32_t state)
 {
     NS_NOTREACHED("notification excluded in AddProgressListener(...)");
     return NS_OK;
@@ -887,7 +884,7 @@ nsEditingSession::IsProgressForTargetDocument(nsIWebProgress *aWebProgress)
   was loaded successfully
 ----------------------------------------------------------------------------*/
 NS_IMETHODIMP
-nsEditingSession::GetEditorStatus(PRUint32 *aStatus)
+nsEditingSession::GetEditorStatus(uint32_t *aStatus)
 {
   NS_ENSURE_ARG_POINTER(aStatus);
   *aStatus = mEditorStatus;
@@ -1080,7 +1077,7 @@ nsEditingSession::EndPageLoad(nsIWebProgress *aWebProgress,
     printf("uri %s\n", spec.get());
   }
  
-  nsCAutoString contentType;
+  nsAutoCString contentType;
   aChannel->GetContentType(contentType);
   if (!contentType.IsEmpty())
     printf("   flags = %d, status = %d, MIMETYPE = %s\n", 
@@ -1187,7 +1184,7 @@ nsEditingSession::SetupEditorCommandController(
                                   const char *aControllerClassName,
                                   nsIDOMWindow *aWindow,
                                   nsISupports *aContext,
-                                  PRUint32 *aControllerId)
+                                  uint32_t *aControllerId)
 {
   NS_ENSURE_ARG_POINTER(aControllerClassName);
   NS_ENSURE_ARG_POINTER(aWindow);
@@ -1262,7 +1259,7 @@ nsEditingSession::SetEditorOnControllers(nsIDOMWindow *aWindow,
 nsresult
 nsEditingSession::SetContextOnControllerById(nsIControllers* aControllers,
                                              nsISupports* aContext,
-                                             PRUint32 aID)
+                                             uint32_t aID)
 {
   NS_ENSURE_ARG_POINTER(aControllers);
 

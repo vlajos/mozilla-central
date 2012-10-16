@@ -51,8 +51,7 @@ nsStructuredCloneContainer::InitFromVariant(nsIVariant *aData, JSContext *aCx)
 
   // Make sure that we serialize in the right context.
   JSAutoRequest ar(aCx);
-  JSAutoEnterCompartment ac;
-  NS_ENSURE_STATE(ac.enter(aCx, JS_GetGlobalObject(aCx)));
+  JSAutoCompartment ac(aCx, JS_GetGlobalObject(aCx));
   JS_WrapValue(aCx, &jsData);
 
   nsCxPusher cxPusher;
@@ -60,7 +59,7 @@ nsStructuredCloneContainer::InitFromVariant(nsIVariant *aData, JSContext *aCx)
 
   uint64_t* jsBytes = nullptr;
   bool success = JS_WriteStructuredClone(aCx, jsData, &jsBytes, &mSize,
-                                           nullptr, nullptr);
+                                           nullptr, nullptr, JSVAL_VOID);
   NS_ENSURE_STATE(success);
   NS_ENSURE_STATE(jsBytes);
 
@@ -70,9 +69,7 @@ nsStructuredCloneContainer::InitFromVariant(nsIVariant *aData, JSContext *aCx)
     mSize = 0;
     mVersion = 0;
 
-    // FIXME This should really be js::Foreground::Free, but that's not public.
-    JS_free(aCx, jsBytes);
-
+    JS_ClearStructuredClone(jsBytes, mSize);
     return NS_ERROR_FAILURE;
   }
   else {
@@ -81,21 +78,20 @@ nsStructuredCloneContainer::InitFromVariant(nsIVariant *aData, JSContext *aCx)
 
   memcpy(mData, jsBytes, mSize);
 
-  // FIXME Similarly, this should be js::Foreground::free.
-  JS_free(aCx, jsBytes);
+  JS_ClearStructuredClone(jsBytes, mSize);
   return NS_OK;
 }
 
 nsresult
 nsStructuredCloneContainer::InitFromBase64(const nsAString &aData,
-                                           PRUint32 aFormatVersion,
+                                           uint32_t aFormatVersion,
                                            JSContext *aCx)
 {
   NS_ENSURE_STATE(!mData);
 
   NS_ConvertUTF16toUTF8 data(aData);
 
-  nsCAutoString binaryData;
+  nsAutoCString binaryData;
   nsresult rv = Base64Decode(data, binaryData);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -120,9 +116,14 @@ nsStructuredCloneContainer::DeserializeToVariant(JSContext *aCx,
 
   // Deserialize to a jsval.
   jsval jsStateObj;
+  JSBool hasTransferable;
   bool success = JS_ReadStructuredClone(aCx, mData, mSize, mVersion,
-                                          &jsStateObj, nullptr, nullptr);
-  NS_ENSURE_STATE(success);
+                                          &jsStateObj, nullptr, nullptr) &&
+                 JS_StructuredCloneHasTransferables(mData, mSize,
+                                                    &hasTransferable);
+  // We want to be sure that mData doesn't contain transferable objects
+  MOZ_ASSERT(!hasTransferable);
+  NS_ENSURE_STATE(success && !hasTransferable);
 
   // Now wrap the jsval as an nsIVariant.
   nsCOMPtr<nsIVariant> varStateObj;
@@ -141,8 +142,8 @@ nsStructuredCloneContainer::GetDataAsBase64(nsAString &aOut)
   NS_ENSURE_STATE(mData);
   aOut.Truncate();
 
-  nsCAutoString binaryData(reinterpret_cast<char*>(mData), mSize);
-  nsCAutoString base64Data;
+  nsAutoCString binaryData(reinterpret_cast<char*>(mData), mSize);
+  nsAutoCString base64Data;
   nsresult rv = Base64Encode(binaryData, base64Data);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -151,12 +152,12 @@ nsStructuredCloneContainer::GetDataAsBase64(nsAString &aOut)
 }
 
 nsresult
-nsStructuredCloneContainer::GetSerializedNBytes(PRUint64 *aSize)
+nsStructuredCloneContainer::GetSerializedNBytes(uint64_t *aSize)
 {
   NS_ENSURE_STATE(mData);
   NS_ENSURE_ARG_POINTER(aSize);
 
-  // mSize is a size_t, while aSize is a PRUint64.  We rely on an implicit cast
+  // mSize is a size_t, while aSize is a uint64_t.  We rely on an implicit cast
   // here so that we'll get a compile error if a size_t-to-uint64 cast is
   // narrowing.
   *aSize = mSize;
@@ -165,7 +166,7 @@ nsStructuredCloneContainer::GetSerializedNBytes(PRUint64 *aSize)
 }
 
 nsresult
-nsStructuredCloneContainer::GetFormatVersion(PRUint32 *aFormatVersion)
+nsStructuredCloneContainer::GetFormatVersion(uint32_t *aFormatVersion)
 {
   NS_ENSURE_STATE(mData);
   NS_ENSURE_ARG_POINTER(aFormatVersion);

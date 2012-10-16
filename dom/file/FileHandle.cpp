@@ -54,15 +54,11 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(FileHandle)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(FileHandle,
                                                   nsDOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mFileStorage)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(abort)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(error)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(FileHandle,
                                                 nsDOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mFileStorage)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(abort)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(error)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(FileHandle)
@@ -91,7 +87,7 @@ FileHandle::GetType(nsAString& aType)
 
 NS_IMETHODIMP
 FileHandle::Open(const nsAString& aMode,
-                 PRUint8 aOptionalArgCount,
+                 uint8_t aOptionalArgCount,
                  nsIDOMLockedFile** _retval)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
@@ -155,7 +151,7 @@ FileHandle::GetFile(nsIDOMDOMRequest** _retval)
   return NS_OK;
 }
 
-NS_IMETHODIMP_(PRInt64)
+NS_IMETHODIMP_(int64_t)
 FileHandle::GetFileId()
 {
   return -1;

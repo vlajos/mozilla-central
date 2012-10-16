@@ -30,10 +30,6 @@
 
 #include "nsDOMStorageDBWrapper.h"
 
-#define IS_PERMISSION_ALLOWED(perm) \
-      ((perm) != nsIPermissionManager::UNKNOWN_ACTION && \
-      (perm) != nsIPermissionManager::DENY_ACTION)
-
 class nsDOMStorage;
 class nsIDOMStorage;
 class nsDOMStorageItem;
@@ -113,19 +109,19 @@ public:
   DOMStorageBase();
   DOMStorageBase(DOMStorageBase&);
 
-  virtual void InitAsSessionStorage(nsIURI* aDomainURI, bool aPrivate);
-  virtual void InitAsLocalStorage(nsIURI* aDomainURI, bool aCanUseChromePersist, bool aPrivate);
+  virtual void InitAsSessionStorage(nsIPrincipal* aPrincipal, bool aPrivate);
+  virtual void InitAsLocalStorage(nsIPrincipal* aPrincipal, bool aPrivate);
 
   virtual nsTArray<nsString>* GetKeys(bool aCallerSecure) = 0;
-  virtual nsresult GetLength(bool aCallerSecure, PRUint32* aLength) = 0;
-  virtual nsresult GetKey(bool aCallerSecure, PRUint32 aIndex, nsAString& aKey) = 0;
+  virtual nsresult GetLength(bool aCallerSecure, uint32_t* aLength) = 0;
+  virtual nsresult GetKey(bool aCallerSecure, uint32_t aIndex, nsAString& aKey) = 0;
   virtual nsIDOMStorageItem* GetValue(bool aCallerSecure, const nsAString& aKey,
                                       nsresult* rv) = 0;
   virtual nsresult SetValue(bool aCallerSecure, const nsAString& aKey,
                             const nsAString& aData, nsAString& aOldValue) = 0;
   virtual nsresult RemoveValue(bool aCallerSecure, const nsAString& aKey,
                                nsAString& aOldValue) = 0;
-  virtual nsresult Clear(bool aCallerSecure, PRInt32* aOldCount) = 0;
+  virtual nsresult Clear(bool aCallerSecure, int32_t* aOldCount) = 0;
 
   // Call nsDOMStorage::CanUseStorage with |this|
   bool CanUseStorage();
@@ -170,11 +166,10 @@ public:
   // an origin (localStorage).
   nsCString& GetScopeDBKey() {return mScopeDBKey;}
 
-  // e.g. "moc.rab.%" - reversed eTLD+1 subpart of the domain or
-  // reversed offline application allowed domain.
-  nsCString& GetQuotaDomainDBKey(bool aOfflineAllowed)
+  // e.g. "moc.rab.%" - reversed eTLD+1 subpart of the domain.
+  nsCString& GetQuotaDBKey()
   {
-    return aOfflineAllowed ? mQuotaDomainDBKey : mQuotaETLDplus1DomainDBKey;
+    return mQuotaDBKey;
   }
 
   virtual bool CacheStoragePermissions() = 0;
@@ -195,16 +190,11 @@ protected:
   // make sure this stays up to date.
   bool mSessionOnly;
 
-  // domain this store is associated with
-  nsCString mDomain;
-
   // keys are used for database queries.
   // see comments of the getters bellow.
   nsCString mScopeDBKey;
-  nsCString mQuotaETLDplus1DomainDBKey;
-  nsCString mQuotaDomainDBKey;
+  nsCString mQuotaDBKey;
 
-  bool mCanUseChromePersist;
   bool mInPrivateBrowsing;
 };
 
@@ -220,34 +210,27 @@ public:
   DOMStorageImpl(nsDOMStorage*, DOMStorageImpl&);
   ~DOMStorageImpl();
 
-  virtual void InitAsSessionStorage(nsIURI* aDomainURI, bool aPrivate);
-  virtual void InitAsLocalStorage(nsIURI* aDomainURI, bool aCanUseChromePersist, bool aPrivate);
-
   bool SessionOnly() {
     return mSessionOnly;
   }
 
   virtual nsTArray<nsString>* GetKeys(bool aCallerSecure);
-  virtual nsresult GetLength(bool aCallerSecure, PRUint32* aLength);
-  virtual nsresult GetKey(bool aCallerSecure, PRUint32 aIndex, nsAString& aKey);
+  virtual nsresult GetLength(bool aCallerSecure, uint32_t* aLength);
+  virtual nsresult GetKey(bool aCallerSecure, uint32_t aIndex, nsAString& aKey);
   virtual nsIDOMStorageItem* GetValue(bool aCallerSecure, const nsAString& aKey,
                                       nsresult* rv);
   virtual nsresult SetValue(bool aCallerSecure, const nsAString& aKey,
                             const nsAString& aData, nsAString& aOldValue);
   virtual nsresult RemoveValue(bool aCallerSecure, const nsAString& aKey,
                                nsAString& aOldValue);
-  virtual nsresult Clear(bool aCallerSecure, PRInt32* aOldCount);
+  virtual nsresult Clear(bool aCallerSecure, int32_t* aOldCount);
 
   // cache the keys from the database for faster lookup
   nsresult CacheKeysFromDB();
 
-  PRUint64 CachedVersion() { return mItemsCachedVersion; }
-  void SetCachedVersion(PRUint64 version) { mItemsCachedVersion = version; }
+  uint64_t CachedVersion() { return mItemsCachedVersion; }
+  void SetCachedVersion(uint64_t version) { mItemsCachedVersion = version; }
   
-  // Some privileged internal pages can use a persistent storage even in
-  // session-only or private-browsing modes.
-  bool CanUseChromePersist();
-
   // retrieve the value and secure state corresponding to a key out of storage
   // that has been cached in mItems hash table.
   nsresult
@@ -291,19 +274,18 @@ private:
 
   // Cross-process storage implementations never have InitAs(Session|Local|Global)Storage
   // called, so the appropriate initialization needs to happen from the child.
-  void InitFromChild(bool aUseDB, bool aCanUseChromePersist, bool aSessionOnly,
-                     bool aPrivate, const nsACString& aDomain,
+  void InitFromChild(bool aUseDB, bool aSessionOnly,
+                     bool aPrivate,
                      const nsACString& aScopeDBKey,
-                     const nsACString& aQuotaDomainDBKey,
-                     const nsACString& aQuotaETLDplus1DomainDBKey,
-                     PRUint32 aStorageType);
+                     const nsACString& aQuotaDBKey,
+                     uint32_t aStorageType);
   void SetSessionOnly(bool aSessionOnly);
 
   static nsresult InitDB();
 
   // 0 initially or a positive data version number assigned by gStorageDB
   // after keys have been cached from the database
-  PRUint64 mItemsCachedVersion;
+  uint64_t mItemsCachedVersion;
 
   // the key->value item pairs
   nsTHashtable<nsSessionStorageEntry> mItems;
@@ -351,12 +333,6 @@ public:
   static bool
   CanUseStorage(DOMStorageBase* aStorage = nullptr);
 
-  // Check whether this URI can use chrome persist storage.  This kind of
-  // storage can bypass cookies limits, private browsing and uses the offline
-  // apps quota.
-  static bool
-  URICanUseChromePersist(nsIURI* aURI);
-  
   // Check whether storage may be used.  Updates mSessionOnly based on
   // the result of CanUseStorage.
   bool
@@ -500,44 +476,7 @@ protected:
   nsRefPtr<DOMStorageBase> mStorage;
 };
 
-class nsDOMStorageEvent : public nsDOMEvent,
-                          public nsIDOMStorageEvent
-{
-public:
-  nsDOMStorageEvent()
-    : nsDOMEvent(nullptr, nullptr)
-  {
-  }
-
-  virtual ~nsDOMStorageEvent()
-  {
-  }
-
-  nsresult Init();
-
-  NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsDOMStorageEvent, nsDOMEvent)
-
-  NS_DECL_NSIDOMSTORAGEEVENT
-  NS_FORWARD_NSIDOMEVENT(nsDOMEvent::)
-
-  virtual nsresult InitFromCtor(const nsAString& aType,
-                                JSContext* aCx, jsval* aVal);
-protected:
-  nsString mKey;
-  nsString mOldValue;
-  nsString mNewValue;
-  nsString mUrl;
-  nsCOMPtr<nsIDOMStorage> mStorageArea;
-};
-
 nsresult
 NS_NewDOMStorage2(nsISupports* aOuter, REFNSIID aIID, void** aResult);
-
-PRUint32
-GetOfflinePermission(const nsACString &aDomain);
-
-bool
-IsOfflineAllowed(const nsACString &aDomain);
 
 #endif /* nsDOMStorage_h___ */

@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH     = ../..
+DEPTH     = @DEPTH@
 topsrcdir = @top_srcdir@
 srcdir    = @srcdir@
 VPATH     = @srcdir@
@@ -41,11 +41,8 @@ ifeq ($(OS_ARCH),OS2)
 CPPSRCS += dlldeps-xul.cpp
 endif
 
-ifneq (,$(MOZ_ENABLE_GTK2))
-DEFINES += -DMOZ_ENABLE_GTK2
-endif
-
 SHARED_LIBRARY_LIBS += \
+  $(DEPTH)/toolkit/components/osfile/$(LIB_PREFIX)osfile_s.$(LIB_SUFFIX) \
   $(DEPTH)/toolkit/xre/$(LIB_PREFIX)xulapp_s.$(LIB_SUFFIX) \
   $(NULL)
 
@@ -114,7 +111,15 @@ STATIC_LIBS += mozril_s
 endif #}
 
 ifdef MOZ_B2G_BT #{
-STATIC_LIBS += mozdbus_s
+STATIC_LIBS += mozdbus_s mozipcunixsocket_s
+endif #}
+
+ifeq (gonk,$(MOZ_WIDGET_TOOLKIT))
+STATIC_LIBS += moznetd_s
+endif
+
+ifdef MOZ_B2G_CAMERA #{
+OS_LIBS += -lstagefright -lstagefright_omx
 endif #}
 
 ifdef MOZ_IPDL_TESTS
@@ -146,6 +151,7 @@ COMPONENT_LIBS += \
   htmlpars \
   identity \
   imglib2 \
+  mediasniffer \
   gkgfx \
   gklayout \
   docshell \
@@ -372,11 +378,41 @@ ifndef MOZ_TREE_PIXMAN
 EXTRA_DSO_LDOPTS += $(MOZ_PIXMAN_LIBS)
 endif
 
-EXTRA_DSO_LDOPTS += $(call EXPAND_LIBNAME_PATH,gkmedias,$(DIST)/lib) 
+EXTRA_DSO_LDOPTS += $(call EXPAND_LIBNAME_PATH,gkmedias,$(DIST)/lib)
+
+ifdef MOZ_WEBRTC
+ifdef MOZ_PEERCONNECTION
+COMPONENT_LIBS += peerconnection
+endif
+ifdef MOZ_WEBRTC_SIGNALING
+EXTRA_DSO_LDOPTS += \
+  $(DEPTH)/media/mtransport/build/$(LIB_PREFIX)mtransport.$(LIB_SUFFIX) \
+  $(DEPTH)/media/webrtc/signaling/signaling_ecc/$(LIB_PREFIX)ecc.$(LIB_SUFFIX) \
+  $(DEPTH)/media/webrtc/signaling/signaling_sipcc/$(LIB_PREFIX)sipcc.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+ifdef MOZ_WEBRTC_IN_LIBXUL
+include $(topsrcdir)/media/webrtc/shared_libs.mk
+EXTRA_DSO_LDOPTS += $(WEBRTC_LIBS)
+ifeq (WINNT,$(OS_TARGET))
+EXTRA_DSO_LDOPTS += \
+  -LIBPATH:"$(MOZ_DIRECTX_SDK_PATH)/lib/$(MOZ_DIRECTX_SDK_CPU_SUFFIX)" \
+  $(NULL)
+OS_LIBS += $(call EXPAND_LIBNAME,secur32 crypt32 iphlpapi strmiids dmoguids wmcodecdspuuid amstrmid msdmo wininet)
+endif
+endif
+endif
+
 
 ifdef MOZ_SYDNEYAUDIO
 ifeq ($(OS_ARCH),Linux)
 EXTRA_DSO_LDOPTS += $(MOZ_ALSA_LIBS)
+endif
+endif
+
+ifdef MOZ_PULSEAUDIO
+ifdef MOZ_CUBEB
+EXTRA_DSO_LDOPTS += $(MOZ_PULSEAUDIO_LIBS)
 endif
 endif
 
@@ -401,6 +437,9 @@ OS_LIBS += \
   -lbinder \
   -lsensorservice \
   -ldbus \
+  -lstagefright \
+  -lstagefright_omx \
+  -lbinder \
   $(NULL)
 endif
 
@@ -416,7 +455,6 @@ CPPSRCS += \
 
 GARBAGE += \
   $(INTL_UNICHARUTIL_UTIL_LCPPSRCS) \
-  $(wildcard *.$(OBJ_SUFFIX)) \
   $(RDF_UTIL_SRC_LCPPSRCS) \
   $(NULL)
 
@@ -529,6 +567,12 @@ EXTRA_DSO_LDOPTS += -lelf
 else
 EXTRA_DSO_LDOPTS += -lelf -ldemangle
 endif
+endif
+
+ifneq (,$(filter DragonFly FreeBSD NetBSD OpenBSD,$(OS_ARCH)))
+OS_LIBS += $(call EXPAND_LIBNAME,kvm)
+# keep `environ' unresolved, see bug 14426 for binutils
+EXTRA_DSO_LDOPTS += -Wl,--warn-unresolved-symbols
 endif
 
 ifeq ($(OS_ARCH),WINNT)

@@ -39,7 +39,14 @@
 
 #define JSFUN_EXPR_CLOSURE  0x1000  /* expression closure: function(x) x*x */
 #define JSFUN_EXTENDED      0x2000  /* structure is FunctionExtended */
+/*
+ * NB: JSFUN_INTERPRETED is hardcode duplicated in SET_JITINFO() in
+ * jsfriendapi.h. If it changes, it must also be updated there.
+ */
 #define JSFUN_INTERPRETED   0x4000  /* use u.i if kind >= this value else u.native */
+
+#define JSFUN_HAS_GUESSED_ATOM  0x8000  /* function had no explicit name, but a
+                                           name was guessed for it anyway */
 
 namespace js { class FunctionExtended; }
 
@@ -49,7 +56,13 @@ struct JSFunction : public JSObject
                                      reflected as f.length/f.arity */
     uint16_t        flags;        /* flags, see JSFUN_* below and in jsapi.h */
     union U {
-        js::Native  native;       /* native method pointer or null */
+        class Native {
+            friend struct JSFunction;
+            js::Native          native;       /* native method pointer or null */
+            const JSJitInfo     *jitinfo;     /* Information about this function to be
+                                                 used by the JIT;
+                                                 use the accessor! */
+        } n;
         struct Scripted {
             JSScript    *script_; /* interpreted bytecode descriptor or null;
                                      use the accessor! */
@@ -58,17 +71,28 @@ struct JSFunction : public JSObject
         } i;
         void            *nativeOrScript;
     } u;
-    js::HeapPtrAtom  atom;        /* name for diagnostics and decompiling */
+  private:
+    js::HeapPtrAtom  atom_;       /* name for diagnostics and decompiling */
+  public:
 
     bool hasDefaults()       const { return flags & JSFUN_HAS_DEFAULTS; }
     bool hasRest()           const { return flags & JSFUN_HAS_REST; }
+    bool hasGuessedAtom()    const { return flags & JSFUN_HAS_GUESSED_ATOM; }
     bool isInterpreted()     const { return flags & JSFUN_INTERPRETED; }
     bool isNative()          const { return !isInterpreted(); }
+    bool isSelfHostedBuiltin() const { return flags & JSFUN_SELF_HOSTED; }
+    bool isBuiltin()         const { return isNative() || isSelfHostedBuiltin(); }
+    bool isSelfHostedConstructor() const { return flags & JSFUN_SELF_HOSTED_CTOR; }
     bool isNativeConstructor() const { return flags & JSFUN_CONSTRUCTOR; }
     bool isHeavyweight()     const { return JSFUN_HEAVYWEIGHT_TEST(flags); }
     bool isFunctionPrototype() const { return flags & JSFUN_PROTOTYPE; }
-    bool isInterpretedConstructor() const { return isInterpreted() && !isFunctionPrototype(); }
-    bool isNamedLambda()     const { return (flags & JSFUN_LAMBDA) && atom; }
+    bool isInterpretedConstructor() const {
+        return isInterpreted() && !isFunctionPrototype() &&
+               (!isSelfHostedBuiltin() || isSelfHostedConstructor());
+    }
+    bool isNamedLambda()     const {
+        return (flags & JSFUN_LAMBDA) && atom_ && !hasGuessedAtom();
+    }
 
     /* Returns the strictness of this function, which must be interpreted. */
     inline bool inStrictMode() const;
@@ -88,6 +112,12 @@ struct JSFunction : public JSObject
         this->flags |= JSFUN_HAS_DEFAULTS;
     }
 
+    JSAtom *atom() const { return hasGuessedAtom() ? NULL : atom_.get(); }
+    inline void initAtom(JSAtom *atom);
+    JSAtom *displayAtom() const { return atom_; }
+
+    inline void setGuessedAtom(JSAtom *atom);
+
     /* uint16_t representation bounds number of call object dynamic slots. */
     enum { MAX_ARGS_AND_VARS = 2 * ((1U << 16) - 1) };
 
@@ -100,10 +130,11 @@ struct JSFunction : public JSObject
     inline void initEnvironment(JSObject *obj);
 
     static inline size_t offsetOfEnvironment() { return offsetof(JSFunction, u.i.env_); }
+    static inline size_t offsetOfAtom() { return offsetof(JSFunction, atom_); }
 
-    JSScript *script() const {
+    JS::HandleScript script() const {
         JS_ASSERT(isInterpreted());
-        return *(js::HeapPtrScript *)&u.i.script_;
+        return JS::HandleScript::fromMarkedLocation(&u.i.script_);
     }
 
     js::HeapPtrScript &mutableScript() {
@@ -114,22 +145,26 @@ struct JSFunction : public JSObject
     inline void setScript(JSScript *script_);
     inline void initScript(JSScript *script_);
 
-    JSScript *maybeScript() const {
-        return isInterpreted() ? script() : NULL;
+    JS::HandleScript maybeScript() const {
+        return isInterpreted() ? script() : JS::NullPtr();
     }
 
     JSNative native() const {
         JS_ASSERT(isNative());
-        return u.native;
+        return u.n.native;
     }
 
     JSNative maybeNative() const {
         return isInterpreted() ? NULL : native();
     }
 
+    inline void initNative(js::Native native, const JSJitInfo *jitinfo);
+    inline const JSJitInfo *jitInfo() const;
+    inline void setJitInfo(const JSJitInfo *data);
+
     static unsigned offsetOfNativeOrScript() {
-        JS_STATIC_ASSERT(offsetof(U, native) == offsetof(U, i.script_));
-        JS_STATIC_ASSERT(offsetof(U, native) == offsetof(U, nativeOrScript));
+        JS_STATIC_ASSERT(offsetof(U, n.native) == offsetof(U, i.script_));
+        JS_STATIC_ASSERT(offsetof(U, n.native) == offsetof(U, nativeOrScript));
         return offsetof(JSFunction, u.nativeOrScript);
     }
 
@@ -170,9 +205,14 @@ struct JSFunction : public JSObject
     inline const js::Value &getExtendedSlot(size_t which) const;
 
     /* Constructs a new type for the function if necessary. */
-    bool setTypeForScriptedFunction(JSContext *cx, bool singleton = false);
+    static bool setTypeForScriptedFunction(JSContext *cx, js::HandleFunction fun,
+                                           bool singleton = false);
 
   private:
+    static void staticAsserts() {
+        MOZ_STATIC_ASSERT(sizeof(JSFunction) == sizeof(js::shadow::Function),
+                          "shadow interface must match actual interface");
+    }
     /*
      * These member functions are inherited from JSObject, but should never be applied to
      * a value statically known to be a JSFunction.
@@ -196,11 +236,11 @@ JSObject::toFunction() const
 }
 
 extern JSString *
-fun_toStringHelper(JSContext *cx, JSObject *obj, unsigned indent);
+fun_toStringHelper(JSContext *cx, js::HandleObject obj, unsigned indent);
 
 extern JSFunction *
-js_NewFunction(JSContext *cx, JSObject *funobj, JSNative native, unsigned nargs,
-               unsigned flags, js::HandleObject parent, JSAtom *atom,
+js_NewFunction(JSContext *cx, js::HandleObject funobj, JSNative native, unsigned nargs,
+               unsigned flags, js::HandleObject parent, js::HandleAtom atom,
                js::gc::AllocKind kind = JSFunction::FinalizeKind);
 
 extern JSFunction * JS_FASTCALL
@@ -210,7 +250,7 @@ js_CloneFunctionObject(JSContext *cx, js::HandleFunction fun,
 
 extern JSFunction *
 js_DefineFunction(JSContext *cx, js::HandleObject obj, js::HandleId id, JSNative native,
-                  unsigned nargs, unsigned flags,
+                  unsigned nargs, unsigned flags, const char *selfHostedName = NULL,
                   js::gc::AllocKind kind = JSFunction::FinalizeKind);
 
 namespace js {
@@ -251,7 +291,7 @@ JSString *FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, boo
 template<XDRMode mode>
 bool
 XDRInterpretedFunction(XDRState<mode> *xdr, HandleObject enclosingScope,
-                       HandleScript enclosingScript, JSObject **objp);
+                       HandleScript enclosingScript, MutableHandleObject objp);
 
 extern JSObject *
 CloneInterpretedFunction(JSContext *cx, HandleObject enclosingScope, HandleFunction fun);

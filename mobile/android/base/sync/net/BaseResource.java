@@ -130,13 +130,21 @@ public class BaseResource implements Resource {
   }
 
   /**
+   * Return a Header object representing an Authentication header for HTTP Basic.
+   */
+  public static Header getBasicAuthHeader(final String credentials) {
+    Credentials creds = new UsernamePasswordCredentials(credentials);
+
+    // This must be UTF-8 to generate the same Basic Auth headers as desktop for non-ASCII passwords.
+    return BasicScheme.authenticate(creds, "UTF-8", false);
+  }
+
+  /**
    * Apply the provided credentials string to the provided request.
    * @param credentials a string, "user:pass".
    */
   private static void applyCredentials(String credentials, HttpUriRequest request, HttpContext context) {
-    Credentials creds = new UsernamePasswordCredentials(credentials);
-    Header header = BasicScheme.authenticate(creds, "US-ASCII", false);
-    request.addHeader(header);
+    request.addHeader(getBasicAuthHeader(credentials));
     Logger.trace(LOG_TAG, "Adding Basic Auth header.");
   }
 
@@ -259,7 +267,10 @@ public class BaseResource implements Resource {
       // Bug 740731: Don't let an exception fall through. Wrapping isn't
       // optimal, but often the exception is treated as an Exception anyway.
       if (!retryOnFailedRequest) {
-        delegate.handleHttpIOException(new IOException(e));
+        // Bug 769671: IOException(Throwable cause) was added only in API level 9.
+        final IOException ex = new IOException();
+        ex.initCause(e);
+        delegate.handleHttpIOException(ex);
       } else {
         retryRequest();
       }

@@ -5,15 +5,20 @@
 
 package org.mozilla.gecko;
 
+import org.mozilla.gecko.db.BrowserDB;
+import org.mozilla.gecko.db.BrowserContract.Combined;
+import org.mozilla.gecko.util.GeckoAsyncTask;
+
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -29,16 +34,14 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TabWidget;
 import android.widget.Toast;
-
-import org.mozilla.gecko.db.BrowserDB;
 
 import java.net.URLEncoder;
 import java.util.Arrays;
@@ -57,6 +60,7 @@ public class AwesomeBar extends GeckoActivity {
     static final String TARGET_KEY = "target";
     static final String SEARCH_KEY = "search";
     static final String USER_ENTERED_KEY = "user_entered";
+    static final String READING_LIST_KEY = "reading_list";
     static enum Target { NEW_TAB, CURRENT_TAB };
 
     private String mTarget;
@@ -200,9 +204,16 @@ public class AwesomeBar extends GeckoActivity {
 
         mText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             public void onFocusChange(View v, boolean hasFocus) {
-                if (!hasFocus) {
-                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (v == null || hasFocus) {
+                    return;
+                }
+
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                try {
                     imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                } catch (NullPointerException e) {
+                    Log.e(LOGTAG, "InputMethodManagerService, why are you throwing"
+                                  + " a NullPointerException? See bug 782096", e);
                 }
             }
         });
@@ -232,6 +243,13 @@ public class AwesomeBar extends GeckoActivity {
                 }
             }
         });
+
+        boolean showReadingList = intent.getBooleanExtra(READING_LIST_KEY, false);
+        if (showReadingList) {
+            BookmarksTab bookmarksTab = mAwesomeTabs.getBookmarksTab();
+            bookmarksTab.setShowReadingList(true);
+            mAwesomeTabs.setCurrentTabByTag(bookmarksTab.getTag());
+        }
     }
 
     @Override
@@ -309,12 +327,15 @@ public class AwesomeBar extends GeckoActivity {
         mGoButton.setVisibility(View.VISIBLE);
 
         int imageResource = R.drawable.ic_awesomebar_go;
+        String contentDescription = getString(R.string.go);
         int imeAction = EditorInfo.IME_ACTION_GO;
         if (isSearchUrl(text)) {
             imageResource = R.drawable.ic_awesomebar_search;
+            contentDescription = getString(R.string.search);
             imeAction = EditorInfo.IME_ACTION_SEARCH;
         }
         mGoButton.setImageResource(imageResource);
+        mGoButton.setContentDescription(contentDescription);
 
         int actionBits = mText.getImeOptions() & EditorInfo.IME_MASK_ACTION;
         if (actionBits != imeAction) {
@@ -456,13 +477,19 @@ public class AwesomeBar extends GeckoActivity {
         public byte[] favicon;
         public String title;
         public String keyword;
+        public int display;
 
         public ContextMenuSubject(int id, String url, byte[] favicon, String title, String keyword) {
+            this(id, url, favicon, title, keyword, Combined.DISPLAY_NORMAL);
+        }
+
+        public ContextMenuSubject(int id, String url, byte[] favicon, String title, String keyword, int display) {
             this.id = id;
             this.url = url;
             this.favicon = favicon;
             this.title = title;
             this.keyword = keyword;
+            this.display = display;
         }
     };
 
@@ -492,8 +519,17 @@ public class AwesomeBar extends GeckoActivity {
                     break;
                 }
 
-                GeckoApp.mAppContext.loadUrl(url, AwesomeBar.Target.NEW_TAB);
+                Tabs.getInstance().loadUrl(url, Tabs.LOADURL_NEW_TAB);
                 Toast.makeText(this, R.string.new_tab_opened, Toast.LENGTH_SHORT).show();
+                break;
+            }
+            case R.id.open_in_reader: {
+                if (url == null) {
+                    Log.e(LOGTAG, "Can't open in reader mode because URL is null");
+                    break;
+                }
+
+                openUrlAndFinish(ReaderModeUtils.getAboutReaderForUrl(url, true));
                 break;
             }
             case R.id.edit_bookmark: {
@@ -511,7 +547,7 @@ public class AwesomeBar extends GeckoActivity {
 
                 editPrompt.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
-                        (new GeckoAsyncTask<Void, Void, Void>() {
+                        (new GeckoAsyncTask<Void, Void, Void>(GeckoApp.mAppContext, GeckoAppShell.getHandler()) {
                             @Override
                             public Void doInBackground(Void... params) {
                                 String newUrl = locationText.getText().toString().trim();
@@ -587,7 +623,7 @@ public class AwesomeBar extends GeckoActivity {
                 break;
             }
             case R.id.remove_history: {
-                (new GeckoAsyncTask<Void, Void, Void>() {
+                (new GeckoAsyncTask<Void, Void, Void>(GeckoApp.mAppContext, GeckoAppShell.getHandler()) {
                     @Override
                     public Void doInBackground(Void... params) {
                         BrowserDB.removeHistoryEntry(mResolver, id);
@@ -630,6 +666,12 @@ public class AwesomeBar extends GeckoActivity {
             }
         }
         return true;
+    }
+
+    public static String getReaderForUrl(String url) {
+        // FIXME: still need to define the final way to open items from
+        // reading list. For now, we're using an about:reader page.
+        return "about:reader?url=" + Uri.encode(url) + "&readingList=1";
     }
 
     private static boolean hasCompositionString(Editable content) {

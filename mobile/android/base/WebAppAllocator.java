@@ -7,8 +7,18 @@ package org.mozilla.gecko;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.util.Base64;
+import android.util.Log;
+
+import java.io.FileOutputStream;
+
+import org.mozilla.gecko.gfx.BitmapUtils;
+import org.mozilla.gecko.util.GeckoBackgroundThread;
 
 public class WebAppAllocator {
+    private final String LOGTAG = "GeckoWebAppAllocator";
     // The number of WebApp# and WEBAPP# activites/apps/intents
     private final static int MAX_WEB_APPS = 100;
 
@@ -22,13 +32,18 @@ public class WebAppAllocator {
         if (sInstance == null) {
             if (!(cx instanceof GeckoApp))
                 throw new RuntimeException("Context needs to be a GeckoApp");
-                
+
             sContext = (GeckoApp) cx;
             sInstance = new WebAppAllocator(cx);
         }
 
-        if (cx != sContext)
-            throw new RuntimeException("Tried to get WebAppAllocator instance for different context than it was created for");
+        // The marketplaceApp will run in this same process, but has a different context
+        // Rather than just failing, we want to create a new Allocator instead
+        if (cx != sContext) {
+            sInstance = null;
+            sContext = (GeckoApp) cx;
+            sInstance = new WebAppAllocator(cx);
+        }
 
         return sInstance;
     }
@@ -39,11 +54,21 @@ public class WebAppAllocator {
         mPrefs = context.getSharedPreferences("webapps", Context.MODE_PRIVATE | Context.MODE_MULTI_PROCESS);
     }
 
-    static String appKey(int index) {
+    public static String appKey(int index) {
         return "app" + index;
     }
 
-    public synchronized int findAndAllocateIndex(String app) {
+    static public String iconKey(int index) {
+        return "icon" + index;
+    }
+
+    public synchronized int findAndAllocateIndex(String app, String name, String aIconData) {
+        byte[] raw = Base64.decode(aIconData.substring(22), Base64.DEFAULT);
+        Bitmap bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.length);
+        return findAndAllocateIndex(app, name, bitmap);
+    }
+
+    public synchronized int findAndAllocateIndex(final String app, final String name, final Bitmap aIcon) {
         int index = getIndexForApp(app);
         if (index != -1)
             return index;
@@ -51,9 +76,22 @@ public class WebAppAllocator {
         for (int i = 0; i < MAX_WEB_APPS; ++i) {
             if (!mPrefs.contains(appKey(i))) {
                 // found unused index i
-                mPrefs.edit()
-                    .putString(appKey(i), app)
-                    .apply();
+                final int foundIndex = i;
+                GeckoBackgroundThread.getHandler().post(new Runnable() {
+                    public void run() {
+                        int color = 0;
+                        try {
+                            color = BitmapUtils.getDominantColor(aIcon);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
+                        mPrefs.edit()
+                            .putString(appKey(foundIndex), app)
+                            .putInt(iconKey(foundIndex), color)
+                            .commit();
+                    }
+                });
                 return i;
             }
         }
@@ -73,7 +111,7 @@ public class WebAppAllocator {
     }
 
     public synchronized String getAppForIndex(int index) {
-            return mPrefs.getString(appKey(index), null);
+        return mPrefs.getString(appKey(index), null);
     }
 
     public synchronized int releaseIndexForApp(String app) {
@@ -85,9 +123,14 @@ public class WebAppAllocator {
         return index;
     }
 
-    public synchronized void releaseIndex(int index) {
-        mPrefs.edit()
-            .remove(appKey(index))
-            .apply();
+    public synchronized void releaseIndex(final int index) {
+        GeckoBackgroundThread.getHandler().post(new Runnable() {
+            public void run() {
+                mPrefs.edit()
+                    .remove(appKey(index))
+                    .remove(iconKey(index))
+                    .commit();
+            }
+        });
     }
 }

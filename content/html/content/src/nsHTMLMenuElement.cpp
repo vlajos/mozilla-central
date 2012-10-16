@@ -4,13 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsHTMLMenuElement.h"
-
+#include "nsAttrValueInlines.h"
 #include "nsIDOMHTMLMenuItemElement.h"
 #include "nsXULContextMenuBuilder.h"
 #include "nsGUIEvent.h"
 #include "nsEventDispatcher.h"
 #include "nsHTMLMenuItemElement.h"
 #include "nsContentUtils.h"
+#include "nsError.h"
 
 enum MenuType
 {
@@ -129,7 +130,7 @@ nsHTMLMenuElement::Build(nsIMenuBuilder* aBuilder)
 
 
 bool
-nsHTMLMenuElement::ParseAttribute(PRInt32 aNamespaceID,
+nsHTMLMenuElement::ParseAttribute(int32_t aNamespaceID,
                                   nsIAtom* aAttribute,
                                   const nsAString& aValue,
                                   nsAttrValue& aResult)
@@ -157,7 +158,7 @@ nsHTMLMenuElement::BuildSubmenu(const nsAString& aLabel,
 {
   aBuilder->OpenContainer(aLabel);
 
-  PRInt8 separator = ST_TRUE_INIT;
+  int8_t separator = ST_TRUE_INIT;
   TraverseContent(aContent, aBuilder, separator);
 
   if (separator == ST_TRUE) {
@@ -193,7 +194,7 @@ nsHTMLMenuElement::CanLoadIcon(nsIContent* aContent, const nsAString& aIcon)
 void
 nsHTMLMenuElement::TraverseContent(nsIContent* aContent,
                                    nsIMenuBuilder* aBuilder,
-                                   PRInt8& aSeparator)
+                                   int8_t& aSeparator)
 {
   nsCOMPtr<nsIContent> child;
   for (child = aContent->GetFirstChild(); child;
@@ -245,7 +246,7 @@ nsHTMLMenuElement::TraverseContent(nsIContent* aContent,
 }
 
 inline void
-nsHTMLMenuElement::AddSeparator(nsIMenuBuilder* aBuilder, PRInt8& aSeparator)
+nsHTMLMenuElement::AddSeparator(nsIMenuBuilder* aBuilder, int8_t& aSeparator)
 {
   if (aSeparator) {
     return;

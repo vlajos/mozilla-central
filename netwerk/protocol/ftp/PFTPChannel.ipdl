@@ -6,11 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PNecko;
+include InputStreamParams;
+include URIParams;
 
-include "mozilla/net/NeckoMessageUtils.h";
+include protocol PBlob; //FIXME: bug #792908
 
-using IPC::URI;
-using IPC::InputStream;
+include "SerializedLoadContext.h";
+
+using IPC::SerializedLoadContext;
 using PRTime;
 
 namespace mozilla {
@@ -23,25 +26,21 @@ async protocol PFTPChannel
 parent:
   __delete__();
 
-  AsyncOpen(URI uri,
-            PRUint64 startPos,
+  AsyncOpen(URIParams uri,
+            uint64_t startPos,
             nsCString entityID,
-            InputStream uploadStream,
-            bool haveLoadContext,
-            bool isContent,
-            bool usePrivateBrowsing,
-            bool isInBrowserElement,
-            PRUint32 appID,
-            nsCString extendedOrigin);
-  ConnectChannel(PRUint32 channelId);
+            OptionalInputStreamParams uploadStream,
+            SerializedLoadContext loadContext);
+
+  ConnectChannel(uint32_t channelId);
   Cancel(nsresult status);
   Suspend();
   Resume();
 
 child:
-  OnStartRequest(PRInt32 aContentLength, nsCString aContentType,
-                 PRTime aLastModified, nsCString aEntityID, URI aURI);
-  OnDataAvailable(nsCString data, PRUint32 offset, PRUint32 count);
+  OnStartRequest(int32_t aContentLength, nsCString aContentType,
+                 PRTime aLastModified, nsCString aEntityID, URIParams aURI);
+  OnDataAvailable(nsCString data, uint64_t offset, uint32_t count);
   OnStopRequest(nsresult statusCode);
   FailedAsyncOpen(nsresult statusCode);
   DeleteSelf();

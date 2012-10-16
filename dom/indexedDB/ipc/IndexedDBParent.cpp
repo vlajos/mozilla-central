@@ -6,12 +6,15 @@
 
 #include "IndexedDBParent.h"
 
+#include "nsIDOMFile.h"
 #include "nsIDOMEvent.h"
 #include "nsIIDBVersionChangeEvent.h"
 #include "nsIJSContextStack.h"
 #include "nsIXPConnect.h"
 
 #include "mozilla/Assertions.h"
+#include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/ipc/Blob.h"
 #include "nsContentUtils.h"
 
 #include "AsyncConnectionHelper.h"
@@ -25,6 +28,8 @@
 #include "IDBTransaction.h"
 
 USING_INDEXEDDB_NAMESPACE
+
+using namespace mozilla::dom;
 
 /*******************************************************************************
  * AutoSetCurrentTransaction
@@ -47,6 +52,7 @@ AutoSetCurrentTransaction::~AutoSetCurrentTransaction()
  ******************************************************************************/
 
 IndexedDBParent::IndexedDBParent()
+  : mDisconnected(false)
 {
   MOZ_COUNT_CTOR(IndexedDBParent);
 }
@@ -54,6 +60,19 @@ IndexedDBParent::IndexedDBParent()
 IndexedDBParent::~IndexedDBParent()
 {
   MOZ_COUNT_DTOR(IndexedDBParent);
+}
+
+void
+IndexedDBParent::Disconnect()
+{
+  mDisconnected = true;
+
+  const InfallibleTArray<PIndexedDBDatabaseParent*>& dbs =
+    ManagedPIndexedDBDatabaseParent();
+
+  for (uint32_t i = 0; i < dbs.Length(); ++i) {
+    static_cast<IndexedDBDatabaseParent*>(dbs[i])->Disconnect();
+  }
 }
 
 void
@@ -179,6 +198,11 @@ IndexedDBDatabaseParent::HandleEvent(nsIDOMEvent* aEvent)
 {
   MOZ_ASSERT(aEvent);
 
+  if (Manager() &&
+      static_cast<IndexedDBParent*>(Manager())->IsDisconnected()) {
+    return NS_OK;
+  }
+
   nsString type;
   nsresult rv = aEvent->GetType(type);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -207,6 +231,14 @@ IndexedDBDatabaseParent::HandleEvent(nsIDOMEvent* aEvent)
 
   MOZ_NOT_REACHED("Unexpected message!");
   return NS_ERROR_UNEXPECTED;
+}
+
+void
+IndexedDBDatabaseParent::Disconnect()
+{
+  if (mDatabase) {
+    mDatabase->DisconnectFromActor();
+  }
 }
 
 nsresult
@@ -240,7 +272,7 @@ IndexedDBDatabaseParent::HandleRequestEvent(nsIDOMEvent* aEvent,
     nsCOMPtr<nsIIDBVersionChangeEvent> changeEvent = do_QueryInterface(aEvent);
     NS_ENSURE_TRUE(changeEvent, NS_ERROR_FAILURE);
 
-    PRUint64 oldVersion;
+    uint64_t oldVersion;
     rv = changeEvent->GetOldVersion(&oldVersion);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -334,7 +366,7 @@ IndexedDBDatabaseParent::HandleRequestEvent(nsIDOMEvent* aEvent,
     nsCOMPtr<nsIIDBVersionChangeEvent> changeEvent = do_QueryInterface(aEvent);
     NS_ENSURE_TRUE(changeEvent, NS_ERROR_FAILURE);
 
-    PRUint64 oldVersion;
+    uint64_t oldVersion;
     rv = changeEvent->GetOldVersion(&oldVersion);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -384,7 +416,7 @@ IndexedDBDatabaseParent::HandleDatabaseEvent(nsIDOMEvent* aEvent,
     nsCOMPtr<nsIIDBVersionChangeEvent> changeEvent = do_QueryInterface(aEvent);
     NS_ENSURE_TRUE(changeEvent, NS_ERROR_FAILURE);
 
-    PRUint64 oldVersion;
+    uint64_t oldVersion;
     rv = changeEvent->GetOldVersion(&oldVersion);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1183,6 +1215,27 @@ IndexedDBObjectStoreRequestParent::~IndexedDBObjectStoreRequestParent()
   MOZ_COUNT_DTOR(IndexedDBObjectStoreRequestParent);
 }
 
+void
+IndexedDBObjectStoreRequestParent::ConvertBlobActors(
+                                  const InfallibleTArray<PBlobParent*>& aActors,
+                                  nsTArray<nsCOMPtr<nsIDOMBlob> >& aBlobs)
+{
+  MOZ_ASSERT(aBlobs.IsEmpty());
+
+  if (!aActors.IsEmpty()) {
+    // Walk the chain to get to ContentParent.
+    MOZ_ASSERT(mObjectStore->Transaction()->Database()->GetContentParent());
+
+    uint32_t length = aActors.Length();
+    aBlobs.SetCapacity(length);
+
+    for (uint32_t index = 0; index < length; index++) {
+      BlobParent* actor = static_cast<BlobParent*>(aActors[index]);
+      aBlobs.AppendElement(actor->GetBlob());
+    }
+  }
+}
+
 bool
 IndexedDBObjectStoreRequestParent::Get(const GetParams& aParams)
 {
@@ -1254,6 +1307,9 @@ IndexedDBObjectStoreRequestParent::Add(const AddParams& aParams)
 
   ipc::AddPutParams params = aParams.commonParams();
 
+  nsTArray<nsCOMPtr<nsIDOMBlob> > blobs;
+  ConvertBlobActors(params.blobsParent(), blobs);
+
   nsRefPtr<IDBRequest> request;
 
   {
@@ -1261,7 +1317,7 @@ IndexedDBObjectStoreRequestParent::Add(const AddParams& aParams)
 
     nsresult rv =
       mObjectStore->AddOrPutInternal(params.cloneInfo(), params.key(),
-                                     params.indexUpdateInfos(), false,
+                                     params.indexUpdateInfos(), blobs, false,
                                      getter_AddRefs(request));
     NS_ENSURE_SUCCESS(rv, false);
   }
@@ -1278,6 +1334,9 @@ IndexedDBObjectStoreRequestParent::Put(const PutParams& aParams)
 
   ipc::AddPutParams params = aParams.commonParams();
 
+  nsTArray<nsCOMPtr<nsIDOMBlob> > blobs;
+  ConvertBlobActors(params.blobsParent(), blobs);
+
   nsRefPtr<IDBRequest> request;
 
   {
@@ -1285,7 +1344,7 @@ IndexedDBObjectStoreRequestParent::Put(const PutParams& aParams)
 
     nsresult rv =
       mObjectStore->AddOrPutInternal(params.cloneInfo(), params.key(),
-                                     params.indexUpdateInfos(), true,
+                                     params.indexUpdateInfos(), blobs, true,
                                      getter_AddRefs(request));
     NS_ENSURE_SUCCESS(rv, false);
   }
@@ -1747,6 +1806,11 @@ IndexedDBDeleteDatabaseRequestParent::~IndexedDBDeleteDatabaseRequestParent()
 nsresult
 IndexedDBDeleteDatabaseRequestParent::HandleEvent(nsIDOMEvent* aEvent)
 {
+  if (Manager() &&
+      static_cast<IndexedDBParent*>(Manager())->IsDisconnected()) {
+    return NS_OK;
+  }
+
   MOZ_ASSERT(aEvent);
 
   nsString type;
@@ -1757,7 +1821,7 @@ IndexedDBDeleteDatabaseRequestParent::HandleEvent(nsIDOMEvent* aEvent)
     nsCOMPtr<nsIIDBVersionChangeEvent> event = do_QueryInterface(aEvent);
     MOZ_ASSERT(event);
 
-    PRUint64 currentVersion;
+    uint64_t currentVersion;
     rv = event->GetOldVersion(&currentVersion);
     NS_ENSURE_SUCCESS(rv, rv);
 

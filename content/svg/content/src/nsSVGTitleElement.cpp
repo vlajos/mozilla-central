@@ -5,6 +5,7 @@
 
 #include "nsSVGStylableElement.h"
 #include "nsIDOMSVGTitleElement.h"
+#include "nsStubMutationObserver.h"
 
 typedef nsSVGStylableElement nsSVGTitleElementBase;
 
@@ -99,7 +100,7 @@ void
 nsSVGTitleElement::ContentAppended(nsIDocument *aDocument,
                                    nsIContent *aContainer,
                                    nsIContent *aFirstNewContent,
-                                   PRInt32 aNewIndexInContainer)
+                                   int32_t aNewIndexInContainer)
 {
   SendTitleChangeEvent(false);
 }
@@ -108,7 +109,7 @@ void
 nsSVGTitleElement::ContentInserted(nsIDocument *aDocument,
                                    nsIContent *aContainer,
                                    nsIContent *aChild,
-                                   PRInt32 aIndexInContainer)
+                                   int32_t aIndexInContainer)
 {
   SendTitleChangeEvent(false);
 }
@@ -117,7 +118,7 @@ void
 nsSVGTitleElement::ContentRemoved(nsIDocument *aDocument,
                                   nsIContent *aContainer,
                                   nsIContent *aChild,
-                                  PRInt32 aIndexInContainer,
+                                  int32_t aIndexInContainer,
                                   nsIContent *aPreviousSibling)
 {
   SendTitleChangeEvent(false);

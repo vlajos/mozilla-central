@@ -18,6 +18,7 @@
   }
   importScripts("resource://gre/modules/osfile/osfile_unix_back.jsm");
   importScripts("resource://gre/modules/osfile/ospath_unix_back.jsm");
+  importScripts("resource://gre/modules/osfile/osfile_shared_front.jsm");
   (function(exports) {
      "use strict";
 
@@ -40,136 +41,132 @@
       * @constructor
       */
      let File = function File(fd) {
-       this._fd = fd;
+       exports.OS.Shared.AbstractFile.call(this, fd);
+       this._closeResult = null;
      };
-     File.prototype = {
-       /**
-        * If the file is open, this returns the file descriptor.
-        * Otherwise, throw a |File.Error|.
-        */
-       get fd() {
-         return this._fd;
-       },
+     File.prototype = Object.create(exports.OS.Shared.AbstractFile.prototype);
 
-       // Placeholder getter, used to replace |get fd| once
-       // the file is closed.
-       _nofd: function nofd(operation) {
-         operation = operation || "unknown operation";
-         throw new File.Error(operation, Const.EBADF);
-       },
-
-       /**
-        * Close the file.
-        *
-        * This method has no effect if the file is already closed. However,
-        * if the first call to |close| has thrown an error, further calls
-        * will throw the same error.
-        *
-        * @throws File.Error If closing the file revealed an error that could
-        * not be reported earlier.
-        */
-       close: function close() {
-         if (this._fd) {
-           let fd = this._fd;
-           this._fd = null;
-           delete this.fd;
-           Object.defineProperty(this, "fd", {get: File.prototype._nofd});
-           // Call |close(fd)|, detach finalizer
-           if (UnixFile.close(fd) == -1) {
-             this._closeResult = new File.Error("close", ctypes.errno);
-           }
+     /**
+      * Close the file.
+      *
+      * This method has no effect if the file is already closed. However,
+      * if the first call to |close| has thrown an error, further calls
+      * will throw the same error.
+      *
+      * @throws File.Error If closing the file revealed an error that could
+      * not be reported earlier.
+      */
+     File.prototype.close = function close() {
+       if (this._fd) {
+         let fd = this._fd;
+         this._fd = null;
+        // Call |close(fd)|, detach finalizer if any
+         // (|fd| may not be a CDataFinalizer if it has been
+         // instantiated from a controller thread).
+         let result = UnixFile._close(fd);
+         if (typeof fd == "object" && "forget" in fd) {
+           fd.forget();
          }
-         if (this._closeResult) {
-           throw this._closeResult;
+         if (result == -1) {
+           this._closeResult = new File.Error("close");
          }
-         return;
-       },
-       _closeResult: null,
-
-       /**
-        * Read some bytes from a file.
-        *
-        * @param {ArrayBuffer} buffer A buffer for holding the data
-        * once it is read.
-        * @param {number} nbytes The number of bytes to read. It must not
-        * exceed the size of |buffer| in bytes but it may exceed the number
-        * of bytes unread in the file.
-        * @param {*=} options Additional options for reading. Ignored in
-        * this implementation.
-        *
-        * @return {number} The number of bytes effectively read. If zero,
-        * the end of the file has been reached.
-        * @throws {OS.File.Error} In case of I/O error.
-        */
-       read: function read(buffer, nbytes, options) {
-         return throw_on_negative("read",
-           UnixFile.read(this.fd, buffer, nbytes)
-         );
-       },
-
-       /**
-        * Write some bytes to a file.
-        *
-        * @param {ArrayBuffer} buffer A buffer holding the data that must be
-        * written.
-        * @param {number} nbytes The number of bytes to write. It must not
-        * exceed the size of |buffer| in bytes.
-        * @param {*=} options Additional options for writing. Ignored in
-        * this implementation.
-        *
-        * @return {number} The number of bytes effectively written.
-        * @throws {OS.File.Error} In case of I/O error.
-        */
-       write: function write(buffer, nbytes, options) {
-         return throw_on_negative("write",
-           UnixFile.write(this.fd, buffer, nbytes)
-         );
-       },
-
-       /**
-        * Return the current position in the file.
-        */
-       getPosition: function getPosition(pos) {
-         return this.setPosition(0, File.POS_CURRENT);
-       },
-
-       /**
-        * Change the current position in the file.
-        *
-        * @param {number} pos The new position. Whether this position
-        * is considered from the current position, from the start of
-        * the file or from the end of the file is determined by
-        * argument |whence|.  Note that |pos| may exceed the length of
-        * the file.
-        * @param {number=} whence The reference position. If omitted or
-        * |OS.File.POS_START|, |pos| is taken from the start of the file.
-        * If |OS.File.POS_CURRENT|, |pos| is taken from the current position
-        * in the file. If |OS.File.POS_END|, |pos| is taken from the end of
-        * the file.
-        *
-        * @return The new position in the file.
-        */
-       setPosition: function setPosition(pos, whence) {
-         // We are cheating to avoid one unnecessary conversion:
-         // In this implementation,
-         // OS.File.POS_START == OS.Constants.libc.SEEK_SET
-         // OS.File.POS_CURRENT == OS.Constants.libc.SEEK_CUR
-         // OS.File.POS_END == OS.Constants.libc.SEEK_END
-         whence = (whence == undefined)?OS.Constants.libc.SEEK_SET:whence;
-         return throw_on_negative("setPosition",
-           UnixFile.lseek(this.fd, pos, whence)
-         );
-       },
-
-       /**
-        * Fetch the information on the file.
-        *
-        * @return File.Info The information on |this| file.
-        */
-       stat: function stat() {
-         throw_on_negative("stat", UnixFile.fstat(this.fd, gStatDataPtr));
-         return new File.Info(gStatData);
        }
+       if (this._closeResult) {
+         throw this._closeResult;
+       }
+       return;
+     };
+
+     /**
+      * Read some bytes from a file.
+      *
+      * @param {C pointer} buffer A buffer for holding the data
+      * once it is read.
+      * @param {number} nbytes The number of bytes to read. It must not
+      * exceed the size of |buffer| in bytes but it may exceed the number
+      * of bytes unread in the file.
+      * @param {*=} options Additional options for reading. Ignored in
+      * this implementation.
+      *
+      * @return {number} The number of bytes effectively read. If zero,
+      * the end of the file has been reached.
+      * @throws {OS.File.Error} In case of I/O error.
+      */
+     File.prototype._read = function _read(buffer, nbytes, options) {
+       return throw_on_negative("read",
+         UnixFile.read(this.fd, buffer, nbytes)
+       );
+     };
+
+     /**
+      * Write some bytes to a file.
+      *
+      * @param {C pointer} buffer A buffer holding the data that must be
+      * written.
+      * @param {number} nbytes The number of bytes to write. It must not
+      * exceed the size of |buffer| in bytes.
+      * @param {*=} options Additional options for writing. Ignored in
+      * this implementation.
+      *
+      * @return {number} The number of bytes effectively written.
+      * @throws {OS.File.Error} In case of I/O error.
+      */
+     File.prototype._write = function _write(buffer, nbytes, options) {
+       return throw_on_negative("write",
+         UnixFile.write(this.fd, buffer, nbytes)
+       );
+     };
+
+     /**
+      * Return the current position in the file.
+      */
+     File.prototype.getPosition = function getPosition(pos) {
+         return this.setPosition(0, File.POS_CURRENT);
+     };
+
+     /**
+      * Change the current position in the file.
+      *
+      * @param {number} pos The new position. Whether this position
+      * is considered from the current position, from the start of
+      * the file or from the end of the file is determined by
+      * argument |whence|.  Note that |pos| may exceed the length of
+      * the file.
+      * @param {number=} whence The reference position. If omitted
+      * or |OS.File.POS_START|, |pos| is relative to the start of the
+      * file.  If |OS.File.POS_CURRENT|, |pos| is relative to the
+      * current position in the file. If |OS.File.POS_END|, |pos| is
+      * relative to the end of the file.
+      *
+      * @return The new position in the file.
+      */
+     File.prototype.setPosition = function setPosition(pos, whence) {
+       if (whence === undefined) {
+         whence = Const.SEEK_SET;
+       }
+       return throw_on_negative("setPosition",
+         UnixFile.lseek(this.fd, pos, whence)
+       );
+     };
+
+     /**
+      * Fetch the information on the file.
+      *
+      * @return File.Info The information on |this| file.
+      */
+     File.prototype.stat = function stat() {
+       throw_on_negative("stat", UnixFile.fstat(this.fd, gStatDataPtr));
+         return new File.Info(gStatData);
+     };
+
+     /**
+      * Flushes the file's buffers and causes all buffered data
+      * to be written.
+      *
+      * @throws {OS.File.Error} In case of I/O error.
+      */
+     File.prototype.flush = function flush() {
+       throw_on_negative("flush", UnixFile.fsync(this.fd));
      };
 
 
@@ -229,7 +226,7 @@
        if (options.unixFlags) {
          flags = options.unixFlags;
        } else {
-         mode = OS.Shared._aux.normalizeOpenMode(mode);
+         mode = OS.Shared.AbstractFile.normalizeOpenMode(mode);
          // Handle read/write
          if (!mode.write) {
            flags = Const.O_RDONLY;
@@ -272,6 +269,49 @@
      };
 
      /**
+      * Remove an empty directory.
+      *
+      * @param {string} path The name of the directory to remove.
+      * @param {*=} options Additional options.
+      *   - {bool} ignoreAbsent If |true|, do not fail if the
+      *     directory does not exist yet.
+      */
+     File.removeEmptyDir = function removeEmptyDir(path, options) {
+       options = options || noOptions;
+       let result = UnixFile.rmdir(path);
+       if (result == -1) {
+         if (options.ignoreAbsent && ctypes.errno == Const.ENOENT) {
+           return;
+         }
+         throw new File.Error("removeEmptyDir");
+       }
+     };
+
+     /**
+      * Default mode for opening directories.
+      */
+     const DEFAULT_UNIX_MODE_DIR = Const.S_IRWXU;
+
+     /**
+      * Create a directory.
+      *
+      * @param {string} path The name of the directory.
+      * @param {*=} options Additional options. This
+      * implementation interprets the following fields:
+      *
+      * - {number} unixMode If specified, a file creation mode,
+      * as per libc function |mkdir|. If unspecified, dirs are
+      * created with a default mode of 0700 (dir is private to
+      * the user, the user can read, write and execute).
+      */
+     File.makeDir = function makeDir(path, options) {
+       options = options || noOptions;
+       let omode = options.unixMode || DEFAULT_UNIX_MODE_DIR;
+       throw_on_negative("makeDir",
+         UnixFile.mkdir(path, omode));
+     };
+
+     /**
       * Copy a file to a destination.
       *
       * @param {string} sourcePath The platform-specific path at which
@@ -308,6 +348,9 @@
       * @option {bool} noOverwrite - If set, this function will fail if
       * a file already exists at |destPath|. Otherwise, if this file exists,
       * it will be erased silently.
+      * @option {bool} noCopy - If set, this function will fail if the
+      * operation is more sophisticated than a simple renaming, i.e. if
+      * |sourcePath| and |destPath| are not situated on the same device.
       *
       * @throws {OS.File.Error} In case of any error.
       *
@@ -332,22 +375,6 @@
            flags |= Const.COPYFILE_EXCL;
          }
          throw_on_negative("copy",
-           UnixFile.copyfile(sourcePath, destPath, null, flags)
-         );
-       };
-
-       // This implementation uses |copyfile(3)|, from the BSD library.
-       // Adding moving of hierarchies and/or attributes is just a flag
-       // away.
-       File.move = function movefile(sourcePath, destPath, options) {
-         // This implementation uses |copyfile(3)|, from the BSD library.
-         // It can move directory hierarchies.
-         options = options || noOptions;
-         let flags = Const.COPYFILE_DATA | Const.COPYFILE_MOVE;
-         if (options.noOverwrite) {
-           flags |= Const.COPYFILE_EXCL;
-         }
-         throw_on_negative("move",
            UnixFile.copyfile(sourcePath, destPath, null, flags)
          );
        };
@@ -387,8 +414,8 @@
          if (!pump_buffer || pump_buffer.length < bufSize) {
            pump_buffer = new (ctypes.ArrayType(ctypes.char))(bufSize);
          }
-         let read = source.read.bind(source);
-         let write = dest.write.bind(dest);
+         let read = source._read.bind(source);
+         let write = dest._write.bind(dest);
          // Perform actual copy
          let total_read = 0;
          while (true) {
@@ -474,36 +501,37 @@
              pipe_write.dispose();
            }
          };
-     } else {
-       // Fallback implementation of pump for other Unix platforms.
-       pump = pump_userland;
-     }
-
-     // Implement |copy| using |pump|.
-     // This implementation would require some work before being able to
-     // copy directories
-     File.copy = function copy(sourcePath, destPath, options) {
-       options = options || noOptions;
-       let source, dest;
-       let result;
-       try {
-         source = File.open(sourcePath);
-         if (options.noOverwrite) {
-           dest = File.open(destPath, {create:true});
-         } else {
-           dest = File.open(destPath, {write:true});
-         }
-         result = pump(source, dest, options);
-       } catch (x) {
-         if (dest) {
-           dest.close();
-         }
-         if (source) {
-           source.close();
-         }
-         throw x;
+       } else {
+         // Fallback implementation of pump for other Unix platforms.
+         pump = pump_userland;
        }
-     };
+
+       // Implement |copy| using |pump|.
+       // This implementation would require some work before being able to
+       // copy directories
+       File.copy = function copy(sourcePath, destPath, options) {
+         options = options || noOptions;
+         let source, dest;
+         let result;
+         try {
+           source = File.open(sourcePath);
+           if (options.noOverwrite) {
+             dest = File.open(destPath, {create:true});
+           } else {
+             dest = File.open(destPath, {trunc:true});
+           }
+           result = pump(source, dest, options);
+         } catch (x) {
+           if (dest) {
+             dest.close();
+           }
+           if (source) {
+             source.close();
+           }
+           throw x;
+         }
+       };
+     } // End of definition of copy
 
      // Implement |move| using |rename| (wherever possible) or |copy|
      // (if files are on distinct devices).
@@ -534,18 +562,18 @@
          return;
 
        // If the error is not EXDEV ("not on the same device"),
-       // throw it.
-       if (ctypes.errno != Const.EXDEV) {
-         throw new File.Error();
+       // or if the error is EXDEV and we have passed an option
+       // that prevents us from crossing devices, throw the
+       // error.
+       if (ctypes.errno != Const.EXDEV || options.noCopy) {
+         throw new File.Error("move");
        }
 
-         // Otherwise, copy and remove.
-         File.copy(sourcePath, destPath, options);
-         // FIXME: Clean-up in case of copy error?
-         File.remove(sourcePath);
-       };
-
-     } // End of definition of copy/move
+       // Otherwise, copy and remove.
+       File.copy(sourcePath, destPath, options);
+       // FIXME: Clean-up in case of copy error?
+       File.remove(sourcePath);
+     };
 
      /**
       * Iterate on one directory.
@@ -560,53 +588,51 @@
       * @constructor
       */
      File.DirectoryIterator = function DirectoryIterator(path, options) {
+       exports.OS.Shared.AbstractFile.AbstractIterator.call(this);
        let dir = throw_on_null("DirectoryIterator", UnixFile.opendir(path));
        this._dir = dir;
        this._path = path;
      };
-     File.DirectoryIterator.prototype = {
-       __iterator__: function __iterator__() {
-         return this;
-       },
-       /**
-        * Return the next entry in the directory, if any such entry is
-        * available.
-        *
-        * Skip special directories "." and "..".
-        *
-        * @return {File.Entry} The next entry in the directory.
-        * @throws {StopIteration} Once all files in the directory have been
-        * encountered.
-        */
-       next: function next() {
-         if (!this._dir) {
-           throw StopIteration;
-         }
-         for (let entry = UnixFile.readdir(this._dir);
-              entry != null && !entry.isNull();
-              entry = UnixFile.readdir(this._dir)) {
-           let contents = entry.contents;
-           if (contents.d_type == OS.Constants.libc.DT_DIR) {
-             let name = contents.d_name.readString();
-             if (name == "." || name == "..") {
-               continue;
-             }
-           }
-           return new File.DirectoryIterator.Entry(contents, this._path);
-         }
-         this.close();
-         throw StopIteration;
-       },
+     File.DirectoryIterator.prototype = Object.create(exports.OS.Shared.AbstractFile.AbstractIterator.prototype);
 
-       /**
-        * Close the iterator and recover all resources.
-        * You should call this once you have finished iterating on a directory.
-        */
-       close: function close() {
-         if (!this._dir) return;
-         UnixFile.closedir(this._dir);
-         this._dir = null;
+     /**
+      * Return the next entry in the directory, if any such entry is
+      * available.
+      *
+      * Skip special directories "." and "..".
+      *
+      * @return {File.Entry} The next entry in the directory.
+      * @throws {StopIteration} Once all files in the directory have been
+      * encountered.
+      */
+     File.DirectoryIterator.prototype.next = function next() {
+       if (!this._dir) {
+         throw StopIteration;
        }
+       for (let entry = UnixFile.readdir(this._dir);
+            entry != null && !entry.isNull();
+            entry = UnixFile.readdir(this._dir)) {
+         let contents = entry.contents;
+         if (contents.d_type == OS.Constants.libc.DT_DIR) {
+           let name = contents.d_name.readString();
+           if (name == "." || name == "..") {
+             continue;
+           }
+         }
+         return new File.DirectoryIterator.Entry(contents, this._path);
+       }
+       this.close();
+       throw StopIteration;
+     };
+
+     /**
+      * Close the iterator and recover all resources.
+      * You should call this once you have finished iterating on a directory.
+      */
+     File.DirectoryIterator.prototype.close = function close() {
+       if (!this._dir) return;
+       UnixFile.closedir(this._dir);
+       this._dir = null;
      };
 
      /**
@@ -653,6 +679,26 @@
        }
      };
 
+     /**
+      * Return a version of an instance of
+      * File.DirectoryIterator.Entry that can be sent from a worker
+      * thread to the main thread. Note that deserialization is
+      * asymmetric and returns an object with a different
+      * implementation.
+      */
+     File.DirectoryIterator.Entry.toMsg = function toMsg(value) {
+       if (!value instanceof File.DirectoryIterator.Entry) {
+         throw new TypeError("parameter of " +
+           "File.DirectoryIterator.Entry.toMsg must be a " +
+           "File.DirectoryIterator.Entry");
+       }
+       let serialized = {};
+       for (let key in File.DirectoryIterator.Entry.prototype) {
+         serialized[key] = value[key];
+       }
+       return serialized;
+     };
+
      let gStatData = new OS.Shared.Type.stat.implementation();
      let gStatDataPtr = gStatData.address();
      let MODE_MASK = 4095 /*= 07777*/;
@@ -687,16 +733,7 @@
         * @type {number}
         */
        get size() {
-         delete this.size;
-         let size;
-         try {
-           size = OS.Shared.projectValue(this._st_size);
-         } catch(x) {
-           LOG("get size error", x);
-           size = NaN;
-         }
-         Object.defineProperty(this, "size", { value: size });
-         return size;
+         return exports.OS.Shared.Type.size_t.importFromC(this._st_size);
        },
        /**
         * The date of creation of this file
@@ -736,20 +773,36 @@
         * Return the Unix owner of this file.
         */
        get unixOwner() {
-         return this._st_uid;
+         return exports.OS.Shared.Type.uid_t.importFromC(this._st_uid);
        },
        /**
         * Return the Unix group of this file.
         */
        get unixGroup() {
-         return this._st_gid;
+         return exports.OS.Shared.Type.gid_t.importFromC(this._st_gid);
        },
        /**
         * Return the Unix mode of this file.
         */
        get unixMode() {
-         return this._st_mode & MODE_MASK;
+         return exports.OS.Shared.Type.mode_t.importFromC(this._st_mode & MODE_MASK);
        }
+     };
+
+     /**
+      * Return a version of an instance of File.Info that can be sent
+      * from a worker thread to the main thread. Note that deserialization
+      * is asymmetric and returns an object with a different implementation.
+      */
+     File.Info.toMsg = function toMsg(stat) {
+       if (!stat instanceof File.Info) {
+         throw new TypeError("parameter of File.Info.toMsg must be a File.Info");
+       }
+       let serialized = {};
+       for (let key in File.Info.prototype) {
+         serialized[key] = stat[key];
+       }
+       return serialized;
      };
 
      /**
@@ -773,6 +826,10 @@
        }
        return new File.Info(gStatData);
      };
+
+     File.read = exports.OS.Shared.AbstractFile.read;
+     File.exists = exports.OS.Shared.AbstractFile.exists;
+     File.writeAtomic = exports.OS.Shared.AbstractFile.writeAtomic;
 
      /**
       * Get/set the current directory.
@@ -827,13 +884,12 @@
        return result;
      }
 
-     File.POS_START = exports.OS.Constants.libc.SEEK_SET;
-     File.POS_CURRENT = exports.OS.Constants.libc.SEEK_CUR;
-     File.POS_END = exports.OS.Constants.libc.SEEK_END;
-
      File.Unix = exports.OS.Unix.File;
      File.Error = exports.OS.Shared.Unix.Error;
      exports.OS.File = File;
 
+     Object.defineProperty(File, "POS_START", { value: OS.Shared.POS_START });
+     Object.defineProperty(File, "POS_CURRENT", { value: OS.Shared.POS_CURRENT });
+     Object.defineProperty(File, "POS_END", { value: OS.Shared.POS_END });
    })(this);
 }

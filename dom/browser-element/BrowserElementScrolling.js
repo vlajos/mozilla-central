@@ -5,10 +5,11 @@
 const ContentPanning = {
   init: function cp_init() {
     ['mousedown', 'mouseup', 'mousemove'].forEach(function(type) {
-      addEventListener(type, ContentPanning, true);
+      addEventListener(type, ContentPanning, false);
     });
 
     addMessageListener("Viewport:Change", this._recvViewportChange.bind(this));
+    addMessageListener("Gesture:DoubleTap", this._recvDoubleTap.bind(this));
   },
 
   handleEvent: function cp_handleEvent(evt) {
@@ -42,6 +43,16 @@ const ContentPanning = {
 
     let oldTarget = this.target;
     [this.target, this.scrollCallback] = this.getPannable(evt.target);
+
+    // If we found a target, that means we have found a scrollable subframe. In
+    // this case, and if we are using async panning and zooming on the parent
+    // frame, inform the pan/zoom controller that it should not attempt to
+    // handle any touch events it gets until the next batch (meaning the next
+    // time we get a touch end).
+    if (this.target != null && ContentPanning._asyncPanZoomForViewportFrame) {
+      var os = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
+      os.notifyObservers(docShell, 'cancel-default-pan-zoom', null);
+    }
 
     // If there is a pan animation running (from a previous pan gesture) and
     // the user touch back the screen, stop this animation immediatly and
@@ -96,6 +107,8 @@ const ContentPanning = {
       this.panning = true;
       this._resetActive();
     }
+    evt.stopPropagation();
+    evt.preventDefault();
   },
 
 
@@ -129,7 +142,13 @@ const ContentPanning = {
                     rect.width < node.scrollWidth));
 
       let isScroll = (overflow.indexOf('scroll') != -1);
-      if (isScroll || isAuto)
+
+      let isScrollableTextarea = (node.tagName == 'TEXTAREA' &&
+          (node.scrollHeight > node.clientHeight ||
+           node.scrollWidth > node.clientWidth ||
+           ('scrollLeftMax' in node && node.scrollLeftMax > 0) ||
+           ('scrollTopMax' in node && node.scrollTopMax > 0)));
+      if (isScroll || isAuto || isScrollableTextarea)
         return [node, this._generateCallback(node)];
 
       node = node.parentNode;
@@ -141,7 +160,11 @@ const ContentPanning = {
       // root scrollable frame, so don't use our synchronous fallback.
       return [null, null];
 
-    return [nodeContent, this._generateCallback(nodeContent)];
+    if (nodeContent.scrollMaxX || nodeContent.scrollMaxY) {
+      return [nodeContent, this._generateCallback(nodeContent)];
+    }
+
+    return [null, null];
   },
 
   _generateCallback: function cp_generateCallback(content) {
@@ -180,32 +203,116 @@ const ContentPanning = {
   },
 
   _recvViewportChange: function(data) {
-    let viewport = data.json;
-    let displayPort = viewport.displayPort;
+    let metrics = data.json;
+    this._viewport = new Rect(metrics.x, metrics.y,
+                              metrics.viewport.width,
+                              metrics.viewport.height);
+    this._cssPageRect = new Rect(metrics.cssPageRect.x,
+                                 metrics.cssPageRect.y,
+                                 metrics.cssPageRect.width,
+                                 metrics.cssPageRect.height);
+  },
 
-    let screenWidth = viewport.screenSize.width;
-    let screenHeight = viewport.screenSize.height;
+  _recvDoubleTap: function(data) {
+    let data = data.json;
 
-    let x = viewport.x;
-    let y = viewport.y;
-
-    let cwu = content.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-    cwu.setCSSViewport(screenWidth, screenHeight);
-
-    // Set scroll position
-    cwu.setScrollPositionClampingScrollPortSize(
-      screenWidth / viewport.zoom, screenHeight / viewport.zoom);
-    content.scrollTo(x, y);
-    cwu.setResolution(displayPort.resolution, displayPort.resolution);
-
-    let element = null;
-    if (content.document && (element = content.document.documentElement)) {
-      cwu.setDisplayPortForElement(displayPort.left,
-                                   displayPort.top,
-                                   displayPort.width,
-                                   displayPort.height,
-                                   element);
+    // We haven't received a metrics update yet; don't do anything.
+    if (this._viewport == null) {
+      return;
     }
+
+    let win = content;
+
+    let element = ElementTouchHelper.anyElementFromPoint(win, data.x, data.y);
+    if (!element) {
+      this._zoomOut();
+      return;
+    }
+
+    while (element && !this._shouldZoomToElement(element))
+      element = element.parentNode;
+
+    if (!element) {
+      this._zoomOut();
+    } else {
+      const margin = 15;
+      let rect = ElementTouchHelper.getBoundingContentRect(element);
+
+      let cssPageRect = this._cssPageRect;
+      let viewport = this._viewport;
+      let bRect = new Rect(Math.max(cssPageRect.x, rect.x - margin),
+                           rect.y,
+                           rect.w + 2 * margin,
+                           rect.h);
+      // constrict the rect to the screen's right edge
+      bRect.width = Math.min(bRect.width, cssPageRect.right - bRect.x);
+
+      // if the rect is already taking up most of the visible area and is stretching the
+      // width of the page, then we want to zoom out instead.
+      if (this._isRectZoomedIn(bRect, viewport)) {
+        this._zoomOut();
+        return;
+      }
+
+      rect.x = Math.round(bRect.x);
+      rect.y = Math.round(bRect.y);
+      rect.w = Math.round(bRect.width);
+      rect.h = Math.round(Math.min(bRect.width * viewport.height / viewport.height, bRect.height));
+
+      // if the block we're zooming to is really tall, and the user double-tapped
+      // more than a screenful of height from the top of it, then adjust the y-coordinate
+      // so that we center the actual point the user double-tapped upon. this prevents
+      // flying to the top of a page when double-tapping to zoom in (bug 761721).
+      // the 1.2 multiplier is just a little fuzz to compensate for bRect including horizontal
+      // margins but not vertical ones.
+      let cssTapY = viewport.y + data.y;
+      if ((bRect.height > rect.h) && (cssTapY > rect.y + (rect.h * 1.2))) {
+        rect.y = cssTapY - (rect.h / 2);
+      }
+
+      var os = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
+      os.notifyObservers(docShell, 'browser-zoom-to-rect', JSON.stringify(rect));
+    }
+  },
+
+  _shouldZoomToElement: function(aElement) {
+    let win = aElement.ownerDocument.defaultView;
+    if (win.getComputedStyle(aElement, null).display == "inline")
+      return false;
+    if (aElement instanceof Ci.nsIDOMHTMLLIElement)
+      return false;
+    if (aElement instanceof Ci.nsIDOMHTMLQuoteElement)
+      return false;
+    return true;
+  },
+
+  _zoomOut: function() {
+    let rect = new Rect(0, 0, 0, 0);
+    var os = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
+    os.notifyObservers(docShell, 'browser-zoom-to-rect', JSON.stringify(rect));
+  },
+
+  _isRectZoomedIn: function(aRect, aViewport) {
+    // This function checks to see if the area of the rect visible in the
+    // viewport (i.e. the "overlapArea" variable below) is approximately
+    // the max area of the rect we can show. It also checks that the rect
+    // is actually on-screen by testing the left and right edges of the rect.
+    // In effect, this tells us whether or not zooming in to this rect
+    // will significantly change what the user is seeing.
+    const minDifference = -20;
+    const maxDifference = 20;
+
+    let vRect = new Rect(aViewport.x, aViewport.y, aViewport.width, aViewport.height);
+    let overlap = vRect.intersect(aRect);
+    let overlapArea = overlap.width * overlap.height;
+    let availHeight = Math.min(aRect.width * vRect.height / vRect.width, aRect.height);
+    let showing = overlapArea / (aRect.width * availHeight);
+    let dw = (aRect.width - vRect.width);
+    let dx = (aRect.x - vRect.x);
+
+    return (showing > 0.9 &&
+            dx > minDifference && dx < maxDifference &&
+            dw > minDifference && dw < maxDifference);
   }
 };
 
@@ -377,5 +484,54 @@ const KineticPanning = {
     }).bind(this);
 
     content.mozRequestAnimationFrame(callback);
+  }
+};
+
+const ElementTouchHelper = {
+  anyElementFromPoint: function(aWindow, aX, aY) {
+    let cwu = aWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+    let elem = cwu.elementFromPoint(aX, aY, true, true);
+
+    let HTMLIFrameElement = Ci.nsIDOMHTMLIFrameElement;
+    let HTMLFrameElement = Ci.nsIDOMHTMLFrameElement;
+    while (elem && (elem instanceof HTMLIFrameElement || elem instanceof HTMLFrameElement)) {
+      let rect = elem.getBoundingClientRect();
+      aX -= rect.left;
+      aY -= rect.top;
+      cwu = elem.contentDocument.defaultView.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+      elem = cwu.elementFromPoint(aX, aY, true, true);
+    }
+
+    return elem;
+  },
+
+  getBoundingContentRect: function(aElement) {
+    if (!aElement)
+      return {x: 0, y: 0, w: 0, h: 0};
+
+    let document = aElement.ownerDocument;
+    while (document.defaultView.frameElement)
+      document = document.defaultView.frameElement.ownerDocument;
+
+    let cwu = document.defaultView.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+    let scrollX = {}, scrollY = {};
+    cwu.getScrollXY(false, scrollX, scrollY);
+
+    let r = aElement.getBoundingClientRect();
+
+    // step out of iframes and frames, offsetting scroll values
+    for (let frame = aElement.ownerDocument.defaultView; frame.frameElement && frame != content; frame = frame.parent) {
+      // adjust client coordinates' origin to be top left of iframe viewport
+      let rect = frame.frameElement.getBoundingClientRect();
+      let left = frame.getComputedStyle(frame.frameElement, "").borderLeftWidth;
+      let top = frame.getComputedStyle(frame.frameElement, "").borderTopWidth;
+      scrollX.value += rect.left + parseInt(left);
+      scrollY.value += rect.top + parseInt(top);
+    }
+
+    return {x: r.left + scrollX.value,
+            y: r.top + scrollY.value,
+            w: r.width,
+            h: r.height };
   }
 };

@@ -39,7 +39,7 @@ nsIAtom*
 nsLanguageAtomService::LookupLanguage(const nsACString &aLanguage,
                                       nsresult *aError)
 {
-  nsCAutoString lowered(aLanguage);
+  nsAutoCString lowered(aLanguage);
   ToLowerCase(lowered);
 
   nsCOMPtr<nsIAtom> lang = do_GetAtom(lowered);
@@ -139,7 +139,7 @@ nsLanguageAtomService::GetLanguageGroup(nsIAtom *aLanguage,
     res = mLangGroups->GetStringFromName(langStr.get(),
                                          getter_Copies(langGroupStr));
     if (NS_FAILED(res)) {
-      PRInt32 hyphen = langStr.FindChar('-');
+      int32_t hyphen = langStr.FindChar('-');
       if (hyphen >= 0) {
         nsAutoString truncated(langStr);
         truncated.Truncate(hyphen);

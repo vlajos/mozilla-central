@@ -35,17 +35,17 @@ HTMLBRAccessible::NativeRole()
   return roles::WHITESPACE;
 }
 
-PRUint64
+uint64_t
 HTMLBRAccessible::NativeState()
 {
   return states::READONLY;
 }
 
-nsresult
-HTMLBRAccessible::GetNameInternal(nsAString& aName)
+ENameValueFlag
+HTMLBRAccessible::NativeName(nsString& aName)
 {
   aName = static_cast<PRUnichar>('\n');    // Newline char
-  return NS_OK;
+  return eNameOK;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,10 +54,11 @@ HTMLBRAccessible::GetNameInternal(nsAString& aName)
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLLabelAccessible, HyperTextAccessible)
 
-nsresult
-HTMLLabelAccessible::GetNameInternal(nsAString& aName)
+ENameValueFlag
+HTMLLabelAccessible::NativeName(nsString& aName)
 {
-  return nsTextEquivUtils::GetNameFromSubtree(this, aName);
+  nsTextEquivUtils::GetNameFromSubtree(this, aName);
+  return eNameOK;
 }
 
 role
@@ -73,7 +74,7 @@ HTMLLabelAccessible::NativeRole()
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLOutputAccessible, HyperTextAccessible)
 
 Relation
-HTMLOutputAccessible::RelationByType(PRUint32 aType)
+HTMLOutputAccessible::RelationByType(uint32_t aType)
 {
   Relation rel = AccessibleWrap::RelationByType(aType);
   if (aType == nsIAccessibleRelation::RELATION_CONTROLLED_BY)

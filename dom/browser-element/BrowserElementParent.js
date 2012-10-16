@@ -7,9 +7,16 @@
 let Cu = Components.utils;
 let Ci = Components.interfaces;
 let Cc = Components.classes;
+let Cr = Components.results;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+Cu.import("resource://gre/modules/BrowserElementPromptService.jsm");
+
+XPCOMUtils.defineLazyGetter(this, "DOMApplicationRegistry", function () {
+  Cu.import("resource://gre/modules/Webapps.jsm");
+  return DOMApplicationRegistry;
+});
 
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 const BROWSER_FRAMES_ENABLED_PREF = "dom.mozBrowserFramesEnabled";
@@ -17,6 +24,42 @@ const TOUCH_EVENTS_ENABLED_PREF = "dom.w3c_touch_events.enabled";
 
 function debug(msg) {
   //dump("BrowserElementParent - " + msg + "\n");
+}
+
+function getBoolPref(prefName, def) {
+  try {
+    return Services.prefs.getBoolPref(prefName);
+  }
+  catch(err) {
+    return def;
+  }
+}
+
+function exposeAll(obj) {
+  // Filter for Objects and Arrays.
+  if (typeof obj !== "object" || !obj)
+    return;
+
+  // Recursively expose our children.
+  Object.keys(obj).forEach(function(key) {
+    exposeAll(obj[key]);
+  });
+
+  // If we're not an Array, generate an __exposedProps__ object for ourselves.
+  if (obj instanceof Array)
+    return;
+  var exposed = {};
+  Object.keys(obj).forEach(function(key) {
+    exposed[key] = 'rw';
+  });
+  obj.__exposedProps__ = exposed;
+}
+
+function defineAndExpose(obj, name, value) {
+  obj[name] = value;
+  if (!('__exposedProps__' in obj))
+    obj.__exposedProps__ = {};
+  obj.__exposedProps__[name] = 'r';
 }
 
 /**
@@ -125,6 +168,7 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
   this._pendingDOMRequests = {};
   this._hasRemoteFrame = hasRemoteFrame;
 
+  this._frameLoader = frameLoader;
   this._frameElement = frameLoader.QueryInterface(Ci.nsIFrameLoader).ownerElement;
   if (!this._frameElement) {
     debug("No frame element?");
@@ -147,6 +191,8 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
   }
 
   addMessageListener("hello", this._recvHello);
+  addMessageListener("get-name", this._recvGetName);
+  addMessageListener("get-fullscreen-allowed", this._recvGetFullscreenAllowed);
   addMessageListener("contextmenu", this._fireCtxMenuEvent);
   addMessageListener("locationchange", this._fireEventFromMsg);
   addMessageListener("loadstart", this._fireEventFromMsg);
@@ -157,7 +203,7 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
   addMessageListener("securitychange", this._fireEventFromMsg);
   addMessageListener("error", this._fireEventFromMsg);
   addMessageListener("scroll", this._fireEventFromMsg);
-  addMessageListener("get-mozapp-manifest-url", this._sendMozAppManifestURL);
+  addMessageListener("firstpaint", this._fireEventFromMsg);
   addMessageListener("keyevent", this._fireKeyEvent);
   addMessageListener("showmodalprompt", this._handleShowModalPrompt);
   addMessageListener('got-screenshot', this._gotDOMRequestResult);
@@ -169,6 +215,7 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
 
   let os = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
   os.addObserver(this, 'ask-children-to-exit-fullscreen', /* ownsWeak = */ true);
+  os.addObserver(this, 'oop-frameloader-crashed', /* ownsWeak = */ true);
 
   function defineMethod(name, fn) {
     XPCNativeWrapper.unwrap(self._frameElement)[name] = function() {
@@ -189,7 +236,7 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
   // Define methods on the frame element.
   defineMethod('setVisible', this._setVisible);
   defineMethod('sendMouseEvent', this._sendMouseEvent);
-  if (Services.prefs.getBoolPref(TOUCH_EVENTS_ENABLED_PREF)) {
+  if (getBoolPref(TOUCH_EVENTS_ENABLED_PREF, false)) {
     defineMethod('sendTouchEvent', this._sendTouchEvent);
   }
   defineMethod('goBack', this._goBack);
@@ -206,6 +253,21 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
                                 this._ownerVisibilityChange.bind(this),
                                 /* useCapture = */ false,
                                 /* wantsUntrusted = */ false);
+
+  // Insert ourself into the prompt service.
+  BrowserElementPromptService.mapFrameToBrowserElementParent(this._frameElement, this);
+
+  // If this browser represents an app then let the Webapps module register for
+  // any messages that it needs.
+  let appManifestURL =
+    this._frameElement.QueryInterface(Ci.nsIMozBrowserFrame).appManifestURL;
+  if (appManifestURL) {
+    let appId =
+      DOMApplicationRegistry.getAppLocalIdByManifestURL(appManifestURL);
+    if (appId != Ci.nsIScriptSecurityManager.NO_APP_ID) {
+      DOMApplicationRegistry.registerBrowserElementParentForApp(this, appId);
+    }
+  }
 }
 
 BrowserElementParent.prototype = {
@@ -232,11 +294,55 @@ BrowserElementParent.prototype = {
                        .getInterface(Ci.nsIDOMWindowUtils);
   },
 
+  promptAuth: function(authDetail, callback) {
+    let evt;
+    let self = this;
+    let callbackCalled = false;
+    let cancelCallback = function() {
+      if (!callbackCalled) {
+        callbackCalled = true;
+        callback(false, null, null);
+      }
+    };
+
+    if (authDetail.isOnlyPassword) {
+      // We don't handle password-only prompts, so just cancel it.
+      cancelCallback();
+      return;
+    } else { /* username and password */
+      let detail = {
+        host:     authDetail.host,
+        realm:    authDetail.realm
+      };
+
+      evt = this._createEvent('usernameandpasswordrequired', detail,
+                              /* cancelable */ true);
+      defineAndExpose(evt.detail, 'authenticate', function(username, password) {
+        if (callbackCalled)
+          return;
+        callbackCalled = true;
+        callback(true, username, password);
+      });
+    }
+
+    defineAndExpose(evt.detail, 'cancel', function() {
+      cancelCallback();
+    });
+
+    this._frameElement.dispatchEvent(evt);
+
+    if (!evt.defaultPrevented) {
+      cancelCallback();
+    }
+  },
+
   _sendAsyncMsg: function(msg, data) {
-    this._frameElement.QueryInterface(Ci.nsIFrameLoaderOwner)
-                      .frameLoader
-                      .messageManager
-                      .sendAsyncMessage('browser-element-api:' + msg, data);
+    try {
+      this._mm.sendAsyncMessage('browser-element-api:' + msg, data);
+    } catch (e) {
+      return false;
+    }
+    return true;
   },
 
   _recvHello: function(data) {
@@ -251,6 +357,14 @@ BrowserElementParent.prototype = {
     }
   },
 
+  _recvGetName: function(data) {
+    return this._frameElement.getAttribute('name');
+  },
+  
+  _recvGetFullscreenAllowed: function(data) {
+    return this._frameElement.hasAttribute('mozallowfullscreen');
+  },
+
   _fireCtxMenuEvent: function(data) {
     let evtName = data.name.substring('browser-element-api:'.length);
     let detail = data.json;
@@ -260,9 +374,9 @@ BrowserElementParent.prototype = {
 
     if (detail.contextmenu) {
       var self = this;
-      XPCNativeWrapper.unwrap(evt.detail).contextMenuItemSelected = function(id) {
+      defineAndExpose(evt.detail, 'contextMenuItemSelected', function(id) {
         self._sendAsyncMsg('fire-ctx-callback', {menuitem: id});
-      };
+      });
     }
     // The embedder may have default actions on context menu events, so
     // we fire a context menu event even if the child didn't define a
@@ -323,9 +437,9 @@ BrowserElementParent.prototype = {
       self._sendAsyncMsg('unblock-modal-prompt', data);
     }
 
-    XPCNativeWrapper.unwrap(evt.detail).unblock = function() {
+    defineAndExpose(evt.detail, 'unblock', function() {
       sendUnblockMsg();
-    };
+    });
 
     this._frameElement.dispatchEvent(evt);
 
@@ -340,6 +454,7 @@ BrowserElementParent.prototype = {
     // This will have to change if we ever want to send a CustomEvent with null
     // detail.  For now, it's OK.
     if (detail !== undefined && detail !== null) {
+      exposeAll(detail);
       return new this._window.CustomEvent('mozbrowser' + evtName,
                                           { bubbles: true,
                                             cancelable: cancelable,
@@ -349,10 +464,6 @@ BrowserElementParent.prototype = {
     return new this._window.Event('mozbrowser' + evtName,
                                   { bubbles: true,
                                     cancelable: cancelable });
-  },
-
-  _sendMozAppManifestURL: function(data) {
-    return this._frameElement.getAttribute('mozapp');
   },
 
   /**
@@ -367,8 +478,11 @@ BrowserElementParent.prototype = {
   _sendDOMRequest: function(msgName) {
     let id = 'req_' + this._domRequestCounter++;
     let req = Services.DOMRequest.createRequest(this._window);
-    this._pendingDOMRequests[id] = req;
-    this._sendAsyncMsg(msgName, {id: id});
+    if (this._sendAsyncMsg(msgName, {id: id})) {
+      this._pendingDOMRequests[id] = req;
+    } else {
+      Services.DOMRequest.fireErrorAsync(req, "fail");
+    }
     return req;
   },
 
@@ -465,12 +579,30 @@ BrowserElementParent.prototype = {
     this._windowUtils.remoteFrameFullscreenReverted();
   },
 
+  _fireFatalError: function() {
+    let evt = this._createEvent('error', {type: 'fatal'},
+                                /* cancelable = */ false);
+    this._frameElement.dispatchEvent(evt);
+  },
+
   observe: function(subject, topic, data) {
-    if (topic == 'ask-children-to-exit-fullscreen' &&
-        this._isAlive() &&
-        this._frameElement.ownerDocument == subject &&
-        this._hasRemoteFrame)
-      this._sendAsyncMsg('exit-fullscreen');
+    switch(topic) {
+    case 'oop-frameloader-crashed':
+      if (this._isAlive() && subject == this._frameLoader) {
+        this._fireFatalError();
+      }
+      break;
+    case 'ask-children-to-exit-fullscreen':
+      if (this._isAlive() &&
+          this._frameElement.ownerDocument == subject &&
+          this._hasRemoteFrame) {
+        this._sendAsyncMsg('exit-fullscreen');
+      }
+      break;
+    default:
+      debug('Unknown topic: ' + topic);
+      break;
+    };
   },
 };
 

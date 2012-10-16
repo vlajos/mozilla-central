@@ -36,8 +36,8 @@ already_AddRefed<nsIURI>
 new_test_uri()
 {
   // Create a unique spec.
-  static PRInt32 specNumber = 0;
-  nsCAutoString spec = NS_LITERAL_CSTRING("http://mozilla.org/");
+  static int32_t specNumber = 0;
+  nsAutoCString spec = NS_LITERAL_CSTRING("http://mozilla.org/");
   spec.AppendInt(specNumber++);
 
   // Create the URI for the spec.

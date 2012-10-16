@@ -24,6 +24,7 @@
 struct gfxMatrix;
 struct JSContext;
 struct JSObject;
+class mozIApplication;
 class nsFrameLoader;
 class nsIDOMElement;
 class nsIURI;
@@ -40,6 +41,9 @@ class RenderFrameParent;
 
 namespace dom {
 
+class ClonedMessageData;
+struct StructuredCloneData;
+
 class ContentDialogParent : public PContentDialogParent {};
 
 class TabParent : public PBrowserParent 
@@ -47,8 +51,10 @@ class TabParent : public PBrowserParent
                 , public nsIAuthPromptProvider
                 , public nsISecureBrowserUI
 {
+    typedef mozilla::dom::ClonedMessageData ClonedMessageData;
+
 public:
-    TabParent();
+    TabParent(mozIApplication* aApp, bool aIsBrowserElement);
     virtual ~TabParent();
     nsIDOMElement* GetOwnerElement() { return mFrameElement; }
     void SetOwnerElement(nsIDOMElement* aElement);
@@ -57,10 +63,42 @@ public:
         mBrowserDOMWindow = aBrowserDOMWindow;
     }
  
+    mozIApplication* GetApp() { return mApp; }
+    bool IsBrowserElement() { return mIsBrowserElement; }
+
+    /**
+     * Return the TabParent that has decided it wants to capture an
+     * event series for fast-path dispatch to its subprocess, if one
+     * has.
+     *
+     * DOM event dispatch and widget are free to ignore capture
+     * requests from TabParents; the end result wrt remote content is
+     * (must be) always the same, albeit usually slower without
+     * subprocess capturing.  This allows frontends/widget backends to
+     * "opt in" to faster cross-process dispatch.
+     */
+    static TabParent* GetEventCapturer();
+    /**
+     * If this is the current event capturer, give this a chance to
+     * capture the event.  If it was captured, return true, false
+     * otherwise.  Un-captured events should follow normal DOM
+     * dispatch; captured events should result in no further
+     * processing from the caller of TryCapture().
+     *
+     * It's an error to call TryCapture() if this isn't the event
+     * capturer.
+     */
+    bool TryCapture(const nsGUIEvent& aEvent);
+
     void Destroy();
 
     virtual bool RecvMoveFocus(const bool& aForward);
     virtual bool RecvEvent(const RemoteDOMEvent& aEvent);
+    virtual bool RecvPRenderFrameConstructor(PRenderFrameParent* actor,
+                                             ScrollingBehavior* scrolling,
+                                             LayersBackend* backend,
+                                             int32_t* maxTextureSize,
+                                             uint64_t* layersId);
     virtual bool RecvBrowserFrameOpenWindow(PBrowserParent* aOpener,
                                             const nsString& aURL,
                                             const nsString& aName,
@@ -68,35 +106,41 @@ public:
                                             bool* aOutWindowOpened);
     virtual bool AnswerCreateWindow(PBrowserParent** retval);
     virtual bool RecvSyncMessage(const nsString& aMessage,
-                                 const nsString& aJSON,
+                                 const ClonedMessageData& aData,
                                  InfallibleTArray<nsString>* aJSONRetVal);
     virtual bool RecvAsyncMessage(const nsString& aMessage,
-                                  const nsString& aJSON);
+                                  const ClonedMessageData& aData);
     virtual bool RecvNotifyIMEFocus(const bool& aFocus,
                                     nsIMEUpdatePreference* aPreference,
-                                    PRUint32* aSeqno);
-    virtual bool RecvNotifyIMETextChange(const PRUint32& aStart,
-                                         const PRUint32& aEnd,
-                                         const PRUint32& aNewEnd);
-    virtual bool RecvNotifyIMESelection(const PRUint32& aSeqno,
-                                        const PRUint32& aAnchor,
-                                        const PRUint32& aFocus);
+                                    uint32_t* aSeqno);
+    virtual bool RecvNotifyIMETextChange(const uint32_t& aStart,
+                                         const uint32_t& aEnd,
+                                         const uint32_t& aNewEnd);
+    virtual bool RecvNotifyIMESelection(const uint32_t& aSeqno,
+                                        const uint32_t& aAnchor,
+                                        const uint32_t& aFocus);
     virtual bool RecvNotifyIMETextHint(const nsString& aText);
     virtual bool RecvEndIMEComposition(const bool& aCancel,
                                        nsString* aComposition);
-    virtual bool RecvGetInputContext(PRInt32* aIMEEnabled,
-                                     PRInt32* aIMEOpen);
-    virtual bool RecvSetInputContext(const PRInt32& aIMEEnabled,
-                                     const PRInt32& aIMEOpen,
+    virtual bool RecvGetInputContext(int32_t* aIMEEnabled,
+                                     int32_t* aIMEOpen);
+    virtual bool RecvSetInputContext(const int32_t& aIMEEnabled,
+                                     const int32_t& aIMEOpen,
                                      const nsString& aType,
+                                     const nsString& aInputmode,
                                      const nsString& aActionHint,
-                                     const PRInt32& aCause,
-                                     const PRInt32& aFocusChange);
-    virtual bool RecvSetCursor(const PRUint32& aValue);
+                                     const int32_t& aCause,
+                                     const int32_t& aFocusChange);
+    virtual bool RecvSetCursor(const uint32_t& aValue);
     virtual bool RecvSetBackgroundColor(const nscolor& aValue);
     virtual bool RecvGetDPI(float* aValue);
     virtual bool RecvGetWidgetNativeData(WindowsHandle* aValue);
-    virtual PContentDialogParent* AllocPContentDialog(const PRUint32& aType,
+    virtual bool RecvZoomToRect(const gfxRect& aRect);
+    virtual bool RecvUpdateZoomConstraints(const bool& aAllowZoom,
+                                           const float& aMinZoom,
+                                           const float& aMaxZoom);
+    virtual bool RecvContentReceivedTouch(const bool& aPreventDefault);
+    virtual PContentDialogParent* AllocPContentDialog(const uint32_t& aType,
                                                       const nsCString& aName,
                                                       const nsCString& aFeatures,
                                                       const InfallibleTArray<int>& aIntParams,
@@ -115,40 +159,38 @@ public:
     void Show(const nsIntSize& size);
     void UpdateDimensions(const nsRect& rect, const nsIntSize& size);
     void UpdateFrame(const layers::FrameMetrics& aFrameMetrics);
+    void HandleDoubleTap(const nsIntPoint& aPoint);
+    void HandleSingleTap(const nsIntPoint& aPoint);
     void Activate();
     void Deactivate();
 
-    /**
-     * Is this object active?  That is, was Activate() called more recently than
-     * Deactivate()?
-     */
-    bool Active();
-
     void SendMouseEvent(const nsAString& aType, float aX, float aY,
-                        PRInt32 aButton, PRInt32 aClickCount,
-                        PRInt32 aModifiers, bool aIgnoreRootScrollFrame);
-    void SendKeyEvent(const nsAString& aType, PRInt32 aKeyCode,
-                      PRInt32 aCharCode, PRInt32 aModifiers,
+                        int32_t aButton, int32_t aClickCount,
+                        int32_t aModifiers, bool aIgnoreRootScrollFrame);
+    void SendKeyEvent(const nsAString& aType, int32_t aKeyCode,
+                      int32_t aCharCode, int32_t aModifiers,
                       bool aPreventDefault);
     bool SendRealMouseEvent(nsMouseEvent& event);
-    bool SendMouseScrollEvent(nsMouseScrollEvent& event);
+    bool SendMouseWheelEvent(mozilla::widget::WheelEvent& event);
     bool SendRealKeyEvent(nsKeyEvent& event);
     bool SendRealTouchEvent(nsTouchEvent& event);
 
     virtual PDocumentRendererParent*
     AllocPDocumentRenderer(const nsRect& documentRect, const gfxMatrix& transform,
                            const nsString& bgcolor,
-                           const PRUint32& renderFlags, const bool& flushLayout,
+                           const uint32_t& renderFlags, const bool& flushLayout,
                            const nsIntSize& renderSize);
     virtual bool DeallocPDocumentRenderer(PDocumentRendererParent* actor);
 
-    virtual PContentPermissionRequestParent* AllocPContentPermissionRequest(const nsCString& aType, const IPC::URI& uri);
+    virtual PContentPermissionRequestParent*
+    AllocPContentPermissionRequest(const nsCString& aType, const IPC::Principal& aPrincipal);
     virtual bool DeallocPContentPermissionRequest(PContentPermissionRequestParent* actor);
 
     virtual POfflineCacheUpdateParent* AllocPOfflineCacheUpdate(
-            const URI& aManifestURI,
-            const URI& aDocumentURI,
-            const nsCString& aClientID,
+            const URIParams& aManifestURI,
+            const URIParams& aDocumentURI,
+            const bool& isInBrowserElement,
+            const uint32_t& appId,
             const bool& stickDocument);
     virtual bool DeallocPOfflineCacheUpdate(POfflineCacheUpdateParent* actor);
 
@@ -172,7 +214,7 @@ public:
 protected:
     bool ReceiveMessage(const nsString& aMessage,
                         bool aSync,
-                        const nsString& aJSON,
+                        const StructuredCloneData* aCloneData,
                         InfallibleTArray<nsString>* aJSONRetVal = nullptr);
 
     virtual bool Recv__delete__() MOZ_OVERRIDE;
@@ -194,7 +236,7 @@ protected:
 
     struct DelayedDialogData
     {
-      DelayedDialogData(PContentDialogParent* aDialog, PRUint32 aType,
+      DelayedDialogData(PContentDialogParent* aDialog, uint32_t aType,
                         const nsCString& aName,
                         const nsCString& aFeatures,
                         nsIDialogParamBlock* aParams)
@@ -202,7 +244,7 @@ protected:
         mParams(aParams) {}
 
       PContentDialogParent* mDialog;
-      PRUint32 mType;
+      uint32_t mType;
       nsCString mName;
       nsCString mFeatures;
       nsCOMPtr<nsIDialogParamBlock> mParams;
@@ -218,21 +260,26 @@ protected:
                                                   uint64_t* aLayersId) MOZ_OVERRIDE;
     virtual bool DeallocPRenderFrame(PRenderFrameParent* aFrame) MOZ_OVERRIDE;
 
+    nsCOMPtr<mozIApplication> mApp;
     // IME
     static TabParent *mIMETabParent;
     nsString mIMECacheText;
-    PRUint32 mIMESelectionAnchor;
-    PRUint32 mIMESelectionFocus;
+    uint32_t mIMESelectionAnchor;
+    uint32_t mIMESelectionFocus;
     bool mIMEComposing;
     bool mIMECompositionEnding;
     // Buffer to store composition text during ResetInputState
     // Compositions in almost all cases are small enough for nsAutoString
     nsAutoString mIMECompositionText;
-    PRUint32 mIMECompositionStart;
-    PRUint32 mIMESeqno;
+    uint32_t mIMECompositionStart;
+    uint32_t mIMESeqno;
 
+    // The number of event series we're currently capturing.
+    int32_t mEventCaptureDepth;
+
+    nsIntSize mDimensions;
     float mDPI;
-    bool mActive;
+    bool mIsBrowserElement;
     bool mShown;
 
 private:

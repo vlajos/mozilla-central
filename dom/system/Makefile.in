@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH       = ../..
+DEPTH       = @DEPTH@
 topsrcdir   = @top_srcdir@
 srcdir      = @srcdir@
 VPATH       = @srcdir@
@@ -13,6 +13,7 @@ MODULE          = dom
 XPIDL_MODULE    = dom_system
 LIBRARY_NAME    = domsystem_s
 LIBXUL_LIBRARY  = 1
+FAIL_ON_WARNINGS := 1
 
 ifneq (,$(filter qt gtk2,$(MOZ_WIDGET_TOOLKIT)))
 DIRS = unix
@@ -56,6 +57,13 @@ EXTRA_COMPONENTS = \
   NetworkGeolocationProvider.manifest \
   GPSDGeolocationProvider.js \
   GPSDGeolocationProvider.manifest \
+  $(NULL)
+endif
+
+ifeq (gonk,$(MOZ_WIDGET_TOOLKIT))
+EXTRA_COMPONENTS = \
+  NetworkGeolocationProvider.js \
+  NetworkGeolocationProvider.manifest \
   $(NULL)
 endif
 

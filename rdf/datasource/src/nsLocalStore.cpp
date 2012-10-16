@@ -346,7 +346,7 @@ LocalStoreImpl::CreateLocalStore(nsIFile* aFile)
         "  <!-- Empty -->\n" \
         "</RDF:RDF>\n";
 
-    PRUint32 count;
+    uint32_t count;
     rv = outStream->Write(defaultRDF, sizeof(defaultRDF)-1, &count);
     if (NS_FAILED(rv)) return rv;
 
@@ -394,7 +394,7 @@ LocalStoreImpl::LoadData()
     rv = NS_NewFileURI(getter_AddRefs(aURI), aFile);
     if (NS_FAILED(rv)) return rv;
 
-    nsCAutoString spec;
+    nsAutoCString spec;
     rv = aURI->GetSpec(spec);
     if (NS_FAILED(rv)) return rv;
 

@@ -28,7 +28,6 @@
 #include "jsfriendapi.h"
 #include "nsJSPrincipals.h"
 
-#include "mozilla/FunctionTimer.h"
 #include "mozilla/scache/StartupCache.h"
 #include "mozilla/scache/StartupCacheUtils.h"
 
@@ -93,7 +92,7 @@ mozJSSubScriptLoader::ReadScript(nsIURI *uri, JSContext *cx, JSObject *target_ob
         return ReportError(cx, LOAD_ERROR_NOSTREAM);
     }
 
-    PRInt32 len = -1;
+    int32_t len = -1;
 
     rv = chan->GetContentLength(&len);
     if (NS_FAILED(rv) || len == -1) {
@@ -109,22 +108,24 @@ mozJSSubScriptLoader::ReadScript(nsIURI *uri, JSContext *cx, JSObject *target_ob
      * exceptions, including the source/line number */
     er = JS_SetErrorReporter(cx, mozJSLoaderErrorReporter);
 
+    JS::CompileOptions options(cx);
+    options.setPrincipals(nsJSPrincipals::get(principal))
+           .setFileAndLine(uriStr, 1)
+           .setSourcePolicy(JS::CompileOptions::LAZY_SOURCE);
+    js::RootedObject target_obj_root(cx, target_obj);
     if (!charset.IsVoid()) {
         nsString script;
-        rv = nsScriptLoader::ConvertToUTF16(nullptr, reinterpret_cast<const PRUint8*>(buf.get()), len,
+        rv = nsScriptLoader::ConvertToUTF16(nullptr, reinterpret_cast<const uint8_t*>(buf.get()), len,
                                             charset, nullptr, script);
 
         if (NS_FAILED(rv)) {
             return ReportError(cx, LOAD_ERROR_BADCHARSET);
         }
 
-        *scriptp =
-            JS_CompileUCScriptForPrincipals(cx, target_obj, nsJSPrincipals::get(principal),
-                                            reinterpret_cast<const jschar*>(script.get()),
-                                            script.Length(), uriStr, 1);
+        *scriptp = JS::Compile(cx, target_obj_root, options,
+                               reinterpret_cast<const jschar*>(script.get()), script.Length());
     } else {
-        *scriptp = JS_CompileScriptForPrincipals(cx, target_obj, nsJSPrincipals::get(principal),
-                                                 buf.get(), len, uriStr, 1);
+        *scriptp = JS::Compile(cx, target_obj_root, options, buf.get(), len);
     }
 
     /* repent for our evil deeds */
@@ -152,11 +153,6 @@ mozJSSubScriptLoader::LoadSubScript(const nsAString& url,
      */
 
     nsresult rv = NS_OK;
-
-#ifdef NS_FUNCTION_TIMER
-    NS_TIME_FUNCTION_FMT("%s (line %d) (url: %s)", MOZ_FUNCTION_NAME,
-                         __LINE__, NS_LossyConvertUTF16toASCII(url).get());
-#endif
 
     /* set the system principal if it's not here already */
     if (!mSystemPrincipal) {
@@ -215,15 +211,13 @@ mozJSSubScriptLoader::LoadSubScript(const nsAString& url,
         NS_ENSURE_SUCCESS(rv, rv);
     }
 
-    JSAutoEnterCompartment ac;
-    if (!ac.enter(cx, targetObj))
-        return NS_ERROR_UNEXPECTED;
+    JSAutoCompartment ac(cx, targetObj);
 
     /* load up the url.  From here on, failures are reflected as ``custom''
      * js exceptions */
     nsCOMPtr<nsIURI> uri;
-    nsCAutoString uriStr;
-    nsCAutoString scheme;
+    nsAutoCString uriStr;
+    nsAutoCString scheme;
 
     JSScript* script = nullptr;
 
@@ -269,7 +263,7 @@ mozJSSubScriptLoader::LoadSubScript(const nsAString& url,
 
         // For file URIs prepend the filename with the filename of the
         // calling script, and " -> ". See bug 418356.
-        nsCAutoString tmp(JS_GetScriptFilename(cx, script));
+        nsAutoCString tmp(JS_GetScriptFilename(cx, script));
         tmp.AppendLiteral(" -> ");
         tmp.Append(uriStr);
 
@@ -278,7 +272,7 @@ mozJSSubScriptLoader::LoadSubScript(const nsAString& url,
 
     bool writeScript = false;
     JSVersion version = JS_GetVersion(cx);
-    nsCAutoString cachePath;
+    nsAutoCString cachePath;
     cachePath.AppendPrintf("jssubloader/%d", version);
     PathifyURI(uri, cachePath);
 
@@ -298,8 +292,8 @@ mozJSSubScriptLoader::LoadSubScript(const nsAString& url,
     bool ok = JS_ExecuteScriptVersion(cx, targetObj, script, retval, version);
 
     if (ok) {
-        JSAutoEnterCompartment rac;
-        if (!rac.enter(cx, result_obj) || !JS_WrapValue(cx, retval))
+        JSAutoCompartment rac(cx, result_obj);
+        if (!JS_WrapValue(cx, retval))
             return NS_ERROR_UNEXPECTED;
     }
 

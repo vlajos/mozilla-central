@@ -261,6 +261,10 @@ policies and contribution forms [3].
  * assert_regexp_match(actual, expected, description)
  *   asserts that /actual/ matches the regexp /expected/
  *
+ * assert_class_string(object, class_name, description)
+ *   asserts that the class string of /object/ as returned in
+ *   Object.prototype.toString is equal to /class_name/.
+ *
  * assert_own_property(object, property_name, description)
  *   assert that object has own property property_name
  *
@@ -289,6 +293,14 @@ policies and contribution forms [3].
  * assert_unreached(description)
  *   asserts if called. Used to ensure that some codepath is *not* taken e.g.
  *   an event does not fire.
+ *
+ * assert_any(assert_func, actual, expected_array, extra_arg_1, ... extra_arg_N)
+ *   asserts that one assert_func(actual, expected_array_N, extra_arg1, ..., extra_arg_N)
+ *   is true for some expected_array_N in expected_array. This only works for assert_func
+ *   with signature assert_func(actual, expected, args_1, ..., args_N). Note that tests
+ *   with multiple allowed pass conditions are bad practice unless the spec specifically
+ *   allows multiple behaviours. Test authors should not use this method simply to hide 
+ *   UA bugs.
  *
  * assert_exists(object, property_name, description)
  *   *** deprecated ***
@@ -442,6 +454,7 @@ policies and contribution forms [3].
         switch (typeof val)
         {
         case "string":
+            val = val.replace("\\", "\\\\");
             for (var i = 0; i < 32; i++)
             {
                 var replace = "\\";
@@ -584,6 +597,13 @@ policies and contribution forms [3].
           * Test if two primitives are equal or two objects
           * are the same object
           */
+        if (typeof actual != typeof expected)
+        {
+            assert(false, "assert_equals", description,
+                          "expected (" + typeof expected + ") ${expected} but got (" + typeof actual + ") ${actual}",
+                          {expected:expected, actual:actual});
+            return;
+        }
         assert(same_value(actual, expected), "assert_equals", description,
                                              "expected ${expected} but got ${actual}",
                                              {expected:expected, actual:actual});
@@ -613,7 +633,7 @@ policies and contribution forms [3].
     function assert_object_equals(actual, expected, description)
     {
          //This needs to be improved a great deal
-         function check_equal(expected, actual, stack)
+         function check_equal(actual, expected, stack)
          {
              stack.push(actual);
 
@@ -698,6 +718,12 @@ policies and contribution forms [3].
                {expected:expected, actual:actual});
     }
     expose(assert_regexp_match, "assert_regexp_match");
+
+    function assert_class_string(object, class_string, description) {
+        assert_equals({}.toString.call(object), "[object " + class_string + "]",
+                      description);
+    }
+    expose(assert_class_string, "assert_class_string");
 
 
     function _assert_own_property(name) {
@@ -889,6 +915,27 @@ policies and contribution forms [3].
     }
     expose(assert_unreached, "assert_unreached");
 
+    function assert_any(assert_func, actual, expected_array) 
+    {
+        var args = [].slice.call(arguments, 3)
+        var errors = []
+        var passed = false;
+        forEach(expected_array, 
+                function(expected)
+                {
+                    try {
+                        assert_func.apply(this, [actual, expected].concat(args))
+                        passed = true;
+                    } catch(e) {
+                        errors.push(e.message);
+                    }
+                });
+        if (!passed) {
+            throw new AssertionError(errors.join("\n\n"));
+        }
+    }
+    expose(assert_any, "assert_any");
+
     function Test(name, properties)
     {
         this.name = name;
@@ -977,6 +1024,23 @@ policies and contribution forms [3].
         {
             test_this.step.apply(test_this, [func, this_obj].concat(
                 Array.prototype.slice.call(arguments)));
+        };
+    };
+
+    Test.prototype.step_func_done = function(func, this_obj)
+    {
+        var test_this = this;
+
+        if (arguments.length === 1)
+        {
+            this_obj = test_this;
+        }
+
+        return function()
+        {
+            test_this.step.apply(test_this, [func, this_obj].concat(
+                Array.prototype.slice.call(arguments)));
+            test_this.done();
         };
     };
 
@@ -1237,6 +1301,16 @@ policies and contribution forms [3].
             return;
         }
         this.phase = this.phases.COMPLETE;
+        var this_obj = this;
+        this.tests.forEach(
+            function(x)
+            {
+                if(x.status === x.NOTRUN)
+                {
+                    this_obj.notify_result(x);
+                }
+            }
+        );
         this.notify_complete();
     };
 
@@ -1346,11 +1420,22 @@ policies and contribution forms [3].
 
     Output.prototype.resolve_log = function()
     {
-        if (!this.output_document) {
+        var output_document;
+        if (typeof this.output_document === "function")
+        {
+            output_document = this.output_document.apply(undefined);
+        } else
+        {
+            output_document = this.output_document;
+        }
+        if (!output_document)
+        {
             return;
         }
-        var node = this.output_document.getElementById("log");
-        if (node) {
+        var node = output_document.getElementById("log");
+        if (node)
+        {
+            this.output_document = output_document;
             this.output_node = node;
         }
     };
@@ -1479,7 +1564,7 @@ policies and contribution forms [3].
                                  if (!style_element && !input_element.checked) {
                                      style_element = output_document.createElementNS(xhtml_ns, "style");
                                      style_element.id = "hide-" + result_class;
-                                     style_element.innerHTML = "table#results > tbody > tr."+result_class+"{display:none}";
+                                     style_element.textContent = "table#results > tbody > tr."+result_class+"{display:none}";
                                      output_document.body.appendChild(style_element);
                                  } else if (style_element && input_element.checked) {
                                      style_element.parentNode.removeChild(style_element);
@@ -1520,7 +1605,7 @@ policies and contribution forms [3].
             return '';
         }
         
-        log.appendChild(document.createElement("section"));
+        log.appendChild(document.createElementNS(xhtml_ns, "section"));
         var assertions = has_assertions();
         var html = "<h2>Details</h2><table id='results' " + (assertions ? "class='assertions'" : "" ) + ">"
             + "<thead><tr><th>Result</th><th>Test Name</th>"
@@ -1539,7 +1624,15 @@ policies and contribution forms [3].
                 + escape_html(tests[i].message ? tests[i].message : " ")
                 + "</td></tr>";
         }
-        log.lastChild.innerHTML = html + "</tbody></table>";
+        html += "</tbody></table>";
+        try {
+            log.lastChild.innerHTML = html;
+        } catch (e) {
+            log.appendChild(document.createElementNS(xhtml_ns, "p"))
+               .textContent = "Setting innerHTML for the log threw an exception.";
+            log.appendChild(document.createElementNS(xhtml_ns, "pre"))
+               .textContent = html;
+        }
     };
 
     var output = new Output();

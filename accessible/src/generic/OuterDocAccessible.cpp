@@ -10,7 +10,7 @@
 #include "Role.h"
 #include "States.h"
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
 #include "Logging.h"
 #endif
 
@@ -47,10 +47,10 @@ OuterDocAccessible::NativeRole()
 }
 
 Accessible*
-OuterDocAccessible::ChildAtPoint(PRInt32 aX, PRInt32 aY,
+OuterDocAccessible::ChildAtPoint(int32_t aX, int32_t aY,
                                  EWhichChildAtPoint aWhichChild)
 {
-  PRInt32 docX = 0, docY = 0, docWidth = 0, docHeight = 0;
+  int32_t docX = 0, docY = 0, docWidth = 0, docHeight = 0;
   nsresult rv = GetBounds(&docX, &docY, &docWidth, &docHeight);
   NS_ENSURE_SUCCESS(rv, nullptr);
 
@@ -83,7 +83,7 @@ OuterDocAccessible::GetAttributesInternal(nsIPersistentProperties* aAttributes)
 ////////////////////////////////////////////////////////////////////////////////
 // nsIAccessible
 
-PRUint8
+uint8_t
 OuterDocAccessible::ActionCount()
 {
   // Internal frame, which is the doc's parent, should not have a click action.
@@ -91,7 +91,7 @@ OuterDocAccessible::ActionCount()
 }
 
 NS_IMETHODIMP
-OuterDocAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
+OuterDocAccessible::GetActionName(uint8_t aIndex, nsAString& aName)
 {
   aName.Truncate();
 
@@ -99,7 +99,7 @@ OuterDocAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
 }
 
 NS_IMETHODIMP
-OuterDocAccessible::GetActionDescription(PRUint8 aIndex,
+OuterDocAccessible::GetActionDescription(uint8_t aIndex,
                                          nsAString& aDescription)
 {
   aDescription.Truncate();
@@ -108,7 +108,7 @@ OuterDocAccessible::GetActionDescription(PRUint8 aIndex,
 }
 
 NS_IMETHODIMP
-OuterDocAccessible::DoAction(PRUint8 aIndex)
+OuterDocAccessible::DoAction(uint8_t aIndex)
 {
   return NS_ERROR_INVALID_ARG;
 }
@@ -123,17 +123,17 @@ OuterDocAccessible::Shutdown()
   // change however the presshell of underlying document isn't destroyed and
   // the document doesn't get pagehide events. Shutdown underlying document if
   // any to avoid hanging document accessible.
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocDestroy))
     logging::OuterDocDestroy(this);
 #endif
 
   Accessible* childAcc = mChildren.SafeElementAt(0, nullptr);
   if (childAcc) {
-#ifdef DEBUG
+#ifdef A11Y_LOG
     if (logging::IsEnabled(logging::eDocDestroy)) {
       logging::DocDestroy("outerdoc's child document shutdown",
-                          childAcc->GetDocumentNode());
+                          childAcc->AsDoc()->DocumentNode());
     }
 #endif
     childAcc->Shutdown();
@@ -174,10 +174,10 @@ OuterDocAccessible::AppendChild(Accessible* aAccessible)
   if (!AccessibleWrap::AppendChild(aAccessible))
     return false;
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocCreate)) {
     logging::DocCreate("append document to outerdoc",
-                       aAccessible->GetDocumentNode());
+                       aAccessible->AsDoc()->DocumentNode());
     logging::Address("outerdoc", this);
   }
 #endif
@@ -194,10 +194,10 @@ OuterDocAccessible::RemoveChild(Accessible* aAccessible)
     return false;
   }
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocDestroy)) {
-    logging::DocDestroy("remove document from outerdoc", child->GetDocumentNode(),
-                        child->AsDoc());
+    logging::DocDestroy("remove document from outerdoc",
+                        child->AsDoc()->DocumentNode(), child->AsDoc());
     logging::Address("outerdoc", this);
   }
 #endif

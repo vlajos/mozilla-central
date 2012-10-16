@@ -125,9 +125,18 @@ tier_platform_dirs += \
 		$(NULL)
 endif
 
+ifdef MOZ_PSM
+tier_platform_dirs += \
+  security/build \
+  $(NULL)
+endif
+
 ifdef MOZ_WEBRTC
 tier_platform_dirs += \
   media/webrtc \
+  media/mtransport/third_party \
+  media/mtransport/build \
+  media/mtransport/standalone \
   $(NULL)
 endif
 
@@ -145,12 +154,18 @@ endif
 
 ifdef MOZ_OMX_PLUGIN
 tier_platform_dirs += \
+		media/omx-plugin/lib/ics/libutils \
+		media/omx-plugin/lib/ics/libstagefright \
 		media/omx-plugin \
 		$(NULL)
 endif
 
 ifndef MOZ_NATIVE_PNG
 tier_platform_dirs += media/libpng
+endif
+
+ifdef ENABLE_TESTS
+tier_platform_dirs += testing/specialpowers
 endif
 
 tier_platform_dirs	+= \
@@ -169,6 +184,13 @@ tier_platform_dirs	+= \
 		embedding \
 		xpfe/appshell \
 		$(NULL)
+
+# This needs to be built after the gfx/ directory
+# to ensure all dependencies for skia (e.g. mozalloc, xpcom)
+# have been built
+ifeq (android,$(MOZ_WIDGET_TOOLKIT))
+tier_platform_dirs += other-licenses/skia-npapi
+endif
 
 ifdef MOZ_UNIVERSALCHARDET
 tier_platform_dirs += extensions/universalchardet
@@ -269,4 +291,10 @@ tier_platform_dirs += testing/xpcshell
 tier_platform_dirs += testing/tools/screenshot
 tier_platform_dirs += testing/peptest
 tier_platform_dirs += testing/mozbase
+ifdef MOZ_WEBRTC
+ifdef MOZ_WEBRTC_TESTS
+tier_platform_dirs += media/webrtc/signaling/test
+tier_platform_dirs += media/mtransport/test
+endif
+endif
 endif

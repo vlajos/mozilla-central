@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-#include "prmem.h"
 #include "prprf.h"
 
 #include "nsIServiceManager.h"
@@ -54,9 +53,11 @@ DoDrawImageSecurityCheck(nsHTMLCanvasElement *aCanvasElement,
     if (CORSUsed)
         return;
 
+    // Ignore document.domain in this check.
     bool subsumes;
     nsresult rv =
-        aCanvasElement->NodePrincipal()->Subsumes(aPrincipal, &subsumes);
+        aCanvasElement->NodePrincipal()->SubsumesIgnoringDomain(aPrincipal,
+                                                                &subsumes);
 
     if (NS_SUCCEEDED(rv) && subsumes) {
         // This canvas has access to that image anyway
@@ -98,7 +99,7 @@ JSValToMatrixElts(JSContext* cx, const jsval& val,
         return false;
     }
 
-    for (PRUint32 i = 0; i < N; ++i) {
+    for (uint32_t i = 0; i < N; ++i) {
         jsval elt;
         double d;
         if (!JS_GetElement(cx, obj, i, &elt)) {

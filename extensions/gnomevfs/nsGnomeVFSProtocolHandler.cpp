@@ -157,7 +157,7 @@ ProxiedAuthCallback(gconstpointer in,
     //     that we originally gave to it.  In spite of the likelihood of
     //     false hits, this check is probably still valuable.
     //
-    nsCAutoString spec;
+    nsAutoCString spec;
     uri->GetSpec(spec);
     int uriLen = strlen(authIn->uri);
     if (!StringHead(spec, uriLen).Equals(nsDependentCString(authIn->uri, uriLen)))
@@ -168,7 +168,7 @@ ProxiedAuthCallback(gconstpointer in,
   }
 #endif
 
-  nsCAutoString scheme, hostPort;
+  nsAutoCString scheme, hostPort;
   uri->GetScheme(scheme);
   uri->GetHostPort(hostPort);
 
@@ -319,7 +319,7 @@ class nsGnomeVFSInputStream MOZ_FINAL : public nsIInputStream
       : mSpec(uriSpec)
       , mChannel(nullptr)
       , mHandle(nullptr)
-      , mBytesRemaining(PR_UINT32_MAX)
+      , mBytesRemaining(UINT64_MAX)
       , mStatus(NS_OK)
       , mDirList(nullptr)
       , mDirListPtr(nullptr)
@@ -348,19 +348,19 @@ class nsGnomeVFSInputStream MOZ_FINAL : public nsIInputStream
 
   private:
     GnomeVFSResult DoOpen();
-    GnomeVFSResult DoRead(char *aBuf, PRUint32 aCount, PRUint32 *aCountRead);
+    GnomeVFSResult DoRead(char *aBuf, uint32_t aCount, uint32_t *aCountRead);
     nsresult       SetContentTypeOfChannel(const char *contentType);
 
   private:
     nsCString                mSpec;
     nsIChannel              *mChannel; // manually refcounted
     GnomeVFSHandle          *mHandle;
-    PRUint32                 mBytesRemaining;
+    uint64_t                 mBytesRemaining;
     nsresult                 mStatus;
     GList                   *mDirList;
     GList                   *mDirListPtr;
     nsCString                mDirBuf;
-    PRUint32                 mDirBufCursor;
+    uint32_t                 mDirBufCursor;
     bool                     mDirOpen;
 };
 
@@ -429,13 +429,14 @@ nsGnomeVFSInputStream::DoOpen()
       if (info.mime_type && (strcmp(info.mime_type, APPLICATION_OCTET_STREAM) != 0))
         SetContentTypeOfChannel(info.mime_type);
 
-      // XXX truncates size from 64-bit to 32-bit
-      mBytesRemaining = (PRUint32) info.size;
+      mBytesRemaining = info.size;
 
       // Update the content length attribute on the channel.  We do this
       // synchronously without proxying.  This hack is not as bad as it looks!
-      if (mBytesRemaining != PR_UINT32_MAX)
-        mChannel->SetContentLength(mBytesRemaining);
+      if (mBytesRemaining != UINT64_MAX) {
+        // XXX 64-bit
+        mChannel->SetContentLength(NS_MAX((int32_t)mBytesRemaining, INT32_MAX));
+      }
     }
     else
     {
@@ -468,7 +469,7 @@ nsGnomeVFSInputStream::DoOpen()
 }
 
 GnomeVFSResult
-nsGnomeVFSInputStream::DoRead(char *aBuf, PRUint32 aCount, PRUint32 *aCountRead)
+nsGnomeVFSInputStream::DoRead(char *aBuf, uint32_t aCount, uint32_t *aCountRead)
 {
   GnomeVFSResult rv;
 
@@ -478,7 +479,8 @@ nsGnomeVFSInputStream::DoRead(char *aBuf, PRUint32 aCount, PRUint32 *aCountRead)
     rv = gnome_vfs_read(mHandle, aBuf, aCount, &bytesRead);
     if (rv == GNOME_VFS_OK)
     {
-      *aCountRead = (PRUint32) bytesRead;
+      // aCount is 32-bit, so aCountRead is under 32-bit value.
+      *aCountRead = (uint32_t) bytesRead;
       mBytesRemaining -= *aCountRead;
     }
   }
@@ -489,10 +491,10 @@ nsGnomeVFSInputStream::DoRead(char *aBuf, PRUint32 aCount, PRUint32 *aCountRead)
     while (aCount && rv != GNOME_VFS_ERROR_EOF)
     {
       // Copy data out of our buffer
-      PRUint32 bufLen = mDirBuf.Length() - mDirBufCursor;
+      uint32_t bufLen = mDirBuf.Length() - mDirBufCursor;
       if (bufLen)
       {
-        PRUint32 n = NS_MIN(bufLen, aCount);
+        uint32_t n = NS_MIN(bufLen, aCount);
         memcpy(aBuf, mDirBuf.get() + mDirBufCursor, n);
         *aCountRead += n;
         aBuf += n;
@@ -532,7 +534,7 @@ nsGnomeVFSInputStream::DoRead(char *aBuf, PRUint32 aCount, PRUint32 *aCountRead)
 
         // The "content-length" field
         // XXX truncates size from 64-bit to 32-bit
-        mDirBuf.AppendInt(PRInt32(info->size));
+        mDirBuf.AppendInt(int32_t(info->size));
         mDirBuf.Append(' ');
 
         // The "last-modified" field
@@ -668,7 +670,7 @@ nsGnomeVFSInputStream::Close()
 }
 
 NS_IMETHODIMP
-nsGnomeVFSInputStream::Available(PRUint32 *aResult)
+nsGnomeVFSInputStream::Available(uint64_t *aResult)
 {
   if (NS_FAILED(mStatus))
     return mStatus;
@@ -679,8 +681,8 @@ nsGnomeVFSInputStream::Available(PRUint32 *aResult)
 
 NS_IMETHODIMP
 nsGnomeVFSInputStream::Read(char *aBuf,
-                            PRUint32 aCount,
-                            PRUint32 *aCountRead)
+                            uint32_t aCount,
+                            uint32_t *aCountRead)
 {
   *aCountRead = 0;
 
@@ -714,8 +716,8 @@ nsGnomeVFSInputStream::Read(char *aBuf,
 NS_IMETHODIMP
 nsGnomeVFSInputStream::ReadSegments(nsWriteSegmentFun aWriter,
                                     void *aClosure,
-                                    PRUint32 aCount,
-                                    PRUint32 *aResult)
+                                    uint32_t aCount,
+                                    uint32_t *aResult)
 {
   // There is no way to implement this using GnomeVFS, but fortunately
   // that doesn't matter.  Because we are a blocking input stream, Necko
@@ -802,7 +804,7 @@ nsGnomeVFSProtocolHandler::IsSupportedProtocol(const nsCString &aSpec)
   if (!colon)
     return false;
 
-  PRUint32 length = colon - specString + 1;
+  uint32_t length = colon - specString + 1;
 
   // <scheme> + ':'
   nsCString scheme(specString, length);
@@ -825,14 +827,14 @@ nsGnomeVFSProtocolHandler::GetScheme(nsACString &aScheme)
 }
 
 NS_IMETHODIMP
-nsGnomeVFSProtocolHandler::GetDefaultPort(PRInt32 *aDefaultPort)
+nsGnomeVFSProtocolHandler::GetDefaultPort(int32_t *aDefaultPort)
 {
   *aDefaultPort = -1;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsGnomeVFSProtocolHandler::GetProtocolFlags(PRUint32 *aProtocolFlags)
+nsGnomeVFSProtocolHandler::GetProtocolFlags(uint32_t *aProtocolFlags)
 {
   // Is URI_STD true of all GnomeVFS URI types?
   *aProtocolFlags = URI_STD | URI_DANGEROUS_TO_LOAD;
@@ -899,7 +901,7 @@ nsGnomeVFSProtocolHandler::NewChannel(nsIURI *aURI, nsIChannel **aResult)
   NS_ENSURE_ARG_POINTER(aURI);
   nsresult rv;
 
-  nsCAutoString spec;
+  nsAutoCString spec;
   rv = aURI->GetSpec(spec);
   if (NS_FAILED(rv))
     return rv;
@@ -922,7 +924,7 @@ nsGnomeVFSProtocolHandler::NewChannel(nsIURI *aURI, nsIChannel **aResult)
 }
 
 NS_IMETHODIMP
-nsGnomeVFSProtocolHandler::AllowPort(PRInt32 aPort,
+nsGnomeVFSProtocolHandler::AllowPort(int32_t aPort,
                                      const char *aScheme,
                                      bool *aResult)
 {

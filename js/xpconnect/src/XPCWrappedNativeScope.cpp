@@ -91,8 +91,8 @@ XPCWrappedNativeScope::GetNewOrUsed(XPCCallContext& ccx, JSObject* aGlobal, nsIS
         // We need to call SetGlobal in order to refresh our cached
         // mPrototypeJSObject and to clear mPrototypeNoHelper (so we get a new
         // new one if requested in the new scope) in the case where the global
-        // object is being reused (JS_ClearScope has been called).  NOTE: We are
-        // only called by nsXPConnect::InitClasses.
+        // object is being reused (JS_SetAllNonReservedSlotsToUndefined has
+        // been called).  NOTE: We are only called by nsXPConnect::InitClasses.
         scope->SetGlobal(ccx, aGlobal, aNative);
     }
     if (js::GetObjectClass(aGlobal)->flags & JSCLASS_XPCONNECT_GLOBAL)
@@ -153,16 +153,30 @@ XPCWrappedNativeScope::IsDyingScope(XPCWrappedNativeScope *scope)
     return false;
 }
 
-void
-XPCWrappedNativeScope::SetComponents(nsXPCComponents* aComponents)
+JSObject*
+XPCWrappedNativeScope::GetComponentsJSObject(XPCCallContext& ccx)
 {
-    mComponents = aComponents;
-}
+    if (!mComponents)
+        mComponents = new nsXPCComponents(this);
 
-nsXPCComponents*
-XPCWrappedNativeScope::GetComponents()
-{
-    return mComponents;
+    AutoMarkingNativeInterfacePtr iface(ccx);
+    iface = XPCNativeInterface::GetNewOrUsed(ccx, &NS_GET_IID(nsIXPCComponents));
+    if (!iface)
+        return nullptr;
+
+    nsCOMPtr<nsIXPCComponents> cholder(mComponents);
+    xpcObjectHelper helper(cholder);
+    nsCOMPtr<XPCWrappedNative> wrapper;
+    XPCWrappedNative::GetNewOrUsed(ccx, helper, this, iface, getter_AddRefs(wrapper));
+    if (!wrapper)
+        return nullptr;
+
+    // The call to wrap() here is necessary even though the object is same-
+    // compartment, because it applies our security wrapper.
+    JSObject *obj = wrapper->GetFlatJSObject();
+    if (!JS_WrapObject(ccx, &obj))
+        return nullptr;
+    return obj;
 }
 
 // Dummy JS class to let wrappers w/o an xpc prototype share
@@ -217,23 +231,20 @@ XPCWrappedNativeScope::SetGlobal(XPCCallContext& ccx, JSObject* aGlobal,
         native = aNative;
     } else {
         const JSClass *jsClass = js::GetObjectJSClass(aGlobal);
-        nsISupports *priv;
         if (!(~jsClass->flags & (JSCLASS_HAS_PRIVATE |
                                  JSCLASS_PRIVATE_IS_NSISUPPORTS))) {
             // Our global has an nsISupports native pointer.  Let's
             // see whether it's what we want.
-            priv = static_cast<nsISupports*>(xpc_GetJSPrivate(aGlobal));
-        } else if (dom::IsDOMClass(jsClass) &&
-                   dom::DOMJSClass::FromJSClass(jsClass)->mDOMObjectIsISupports) {
-            priv = dom::UnwrapDOMObject<nsISupports>(aGlobal);
-        } else {
-            priv = nullptr;
+            nsISupports *priv =
+                static_cast<nsISupports*>(xpc_GetJSPrivate(aGlobal));
+            nsCOMPtr<nsIXPConnectWrappedNative> wn = do_QueryInterface(priv);
+            if (wn)
+                native = static_cast<XPCWrappedNative*>(wn.get())->GetIdentityObject();
+            else
+                native = nullptr;
+        } else if (!mozilla::dom::UnwrapDOMObjectToISupports(aGlobal, native)) {
+            native = nullptr;
         }
-        nsCOMPtr<nsIXPConnectWrappedNative> wn = do_QueryInterface(priv);
-        if (wn)
-            native = static_cast<XPCWrappedNative*>(wn.get())->GetIdentityObject();
-        else
-            native = priv;
     }
 
     // Now init our script object principal, if the new global has one.
@@ -676,9 +687,7 @@ XPCWrappedNativeScope::FindInJSObjectScope(JSContext* cx, JSObject* obj,
 
     // Else we'll have to look up the parent chain to get the scope
 
-    JSAutoEnterCompartment ac;
-    ac.enterAndIgnoreErrors(cx, obj);
-
+    JSAutoCompartment ac(cx, obj);
     obj = JS_GetGlobalForObject(cx, obj);
 
     if (js::GetObjectClass(obj)->flags & JSCLASS_XPCONNECT_GLOBAL) {
@@ -794,7 +803,7 @@ XPCWrappedNativeScope::TraceDOMPrototypes(JSTracer *trc)
 
 // static
 void
-XPCWrappedNativeScope::DebugDumpAllScopes(PRInt16 depth)
+XPCWrappedNativeScope::DebugDumpAllScopes(int16_t depth)
 {
 #ifdef DEBUG
     depth-- ;
@@ -820,20 +829,20 @@ static JSDHashOperator
 WrappedNativeMapDumpEnumerator(JSDHashTable *table, JSDHashEntryHdr *hdr,
                                uint32_t number, void *arg)
 {
-    ((Native2WrappedNativeMap::Entry*)hdr)->value->DebugDump(*(PRInt16*)arg);
+    ((Native2WrappedNativeMap::Entry*)hdr)->value->DebugDump(*(int16_t*)arg);
     return JS_DHASH_NEXT;
 }
 static JSDHashOperator
 WrappedNativeProtoMapDumpEnumerator(JSDHashTable *table, JSDHashEntryHdr *hdr,
                                     uint32_t number, void *arg)
 {
-    ((ClassInfo2WrappedNativeProtoMap::Entry*)hdr)->value->DebugDump(*(PRInt16*)arg);
+    ((ClassInfo2WrappedNativeProtoMap::Entry*)hdr)->value->DebugDump(*(int16_t*)arg);
     return JS_DHASH_NEXT;
 }
 #endif
 
 void
-XPCWrappedNativeScope::DebugDump(PRInt16 depth)
+XPCWrappedNativeScope::DebugDump(int16_t depth)
 {
 #ifdef DEBUG
     depth-- ;

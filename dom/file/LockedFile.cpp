@@ -30,7 +30,7 @@
 #include "FileStreamWrappers.h"
 #include "MemoryStreams.h"
 #include "MetadataHelper.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 #include "nsContentUtils.h"
 
 #define STREAM_COPY_BLOCK_SIZE 32768
@@ -46,8 +46,8 @@ class ReadHelper : public FileHelper
 public:
   ReadHelper(LockedFile* aLockedFile,
              FileRequest* aFileRequest,
-             PRUint64 aLocation,
-             PRUint64 aSize)
+             uint64_t aLocation,
+             uint64_t aSize)
   : FileHelper(aLockedFile, aFileRequest),
     mLocation(aLocation), mSize(aSize)
   {
@@ -64,8 +64,8 @@ public:
   GetSuccessResult(JSContext* aCx, jsval* aVal);
 
 protected:
-  PRUint64 mLocation;
-  PRUint64 mSize;
+  uint64_t mLocation;
+  uint64_t mSize;
 
   nsRefPtr<MemoryOutputStream> mStream;
 };
@@ -75,8 +75,8 @@ class ReadTextHelper : public ReadHelper
 public:
   ReadTextHelper(LockedFile* aLockedFile,
                  FileRequest* aFileRequest,
-                 PRUint64 aLocation,
-                 PRUint64 aSize,
+                 uint64_t aLocation,
+                 uint64_t aSize,
                  const nsAString& aEncoding)
   : ReadHelper(aLockedFile, aFileRequest, aLocation, aSize),
     mEncoding(aEncoding)
@@ -94,9 +94,9 @@ class WriteHelper : public FileHelper
 public:
   WriteHelper(LockedFile* aLockedFile,
               FileRequest* aFileRequest,
-              PRUint64 aLocation,
+              uint64_t aLocation,
               nsIInputStream* aStream,
-              PRUint64 aLength)
+              uint64_t aLength)
   : FileHelper(aLockedFile, aFileRequest),
     mLocation(aLocation), mStream(aStream), mLength(aLength)
   {
@@ -107,9 +107,9 @@ public:
   DoAsyncRun(nsISupports* aStream);
 
 private:
-  PRUint64 mLocation;
+  uint64_t mLocation;
   nsCOMPtr<nsIInputStream> mStream;
-  PRUint64 mLength;
+  uint64_t mLength;
 };
 
 class TruncateHelper : public FileHelper
@@ -117,7 +117,7 @@ class TruncateHelper : public FileHelper
 public:
   TruncateHelper(LockedFile* aLockedFile,
                  FileRequest* aFileRequest,
-                 PRUint64 aOffset)
+                 uint64_t aOffset)
   : FileHelper(aLockedFile, aFileRequest),
     mOffset(aOffset)
   { }
@@ -129,7 +129,7 @@ private:
   class AsyncTruncator : public AsyncHelper
   {
   public:
-    AsyncTruncator(nsISupports* aStream, PRInt64 aOffset)
+    AsyncTruncator(nsISupports* aStream, int64_t aOffset)
     : AsyncHelper(aStream),
       mOffset(aOffset)
     { }
@@ -137,10 +137,10 @@ private:
     nsresult
     DoStreamWork(nsISupports* aStream);
 
-    PRUint64 mOffset;
+    uint64_t mOffset;
   };
 
-  PRUint64 mOffset;
+  uint64_t mOffset;
 };
 
 class FlushHelper : public FileHelper
@@ -172,8 +172,8 @@ class OpenStreamHelper : public FileHelper
 public:
   OpenStreamHelper(LockedFile* aLockedFile,
                    bool aWholeFile,
-                   PRUint64 aStart,
-                   PRUint64 aLength)
+                   uint64_t aStart,
+                   uint64_t aLength)
   : FileHelper(aLockedFile, nullptr),
     mWholeFile(aWholeFile), mStart(aStart), mLength(aLength)
   { }
@@ -189,8 +189,8 @@ public:
 
 private:
   bool mWholeFile;
-  PRUint64 mStart;
-  PRUint64 mLength;
+  uint64_t mStart;
+  uint64_t mLength;
 
   nsCOMPtr<nsIInputStream> mStream;
 };
@@ -210,7 +210,7 @@ CreateGenericEvent(const nsAString& aType, bool aBubbles, bool aCancelable)
 
 inline nsresult
 GetInputStreamForJSVal(const jsval& aValue, JSContext* aCx,
-                       nsIInputStream** aInputStream, PRUint64* aInputLength)
+                       nsIInputStream** aInputStream, uint64_t* aInputLength)
 {
   nsresult rv;
 
@@ -218,7 +218,7 @@ GetInputStreamForJSVal(const jsval& aValue, JSContext* aCx,
     JSObject* obj = JSVAL_TO_OBJECT(aValue);
     if (JS_IsArrayBufferObject(obj, aCx)) {
       char* data = reinterpret_cast<char*>(JS_GetArrayBufferData(obj, aCx));
-      PRUint32 length = JS_GetArrayBufferByteLength(obj, aCx);
+      uint32_t length = JS_GetArrayBufferByteLength(obj, aCx);
 
       rv = NS_NewByteInputStream(aInputStream, data, length,
                                  NS_ASSIGNMENT_COPY);
@@ -327,17 +327,11 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(LockedFile,
                                                   nsDOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mFileHandle,
                                                        nsIDOMEventTarget)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(complete)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(abort)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(error)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(LockedFile,
                                                 nsDOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mFileHandle)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(complete)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(abort)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(error)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(LockedFile)
@@ -513,13 +507,12 @@ LockedFile::GetLocation(JSContext* aCx,
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 
-  if (mLocation == LL_MAXUINT) {
+  if (mLocation == UINT64_MAX) {
     *aLocation = JSVAL_NULL;
   }
-  else if (!JS_NewNumberValue(aCx, double(mLocation), aLocation)) {
-    return NS_ERROR_FAILURE;
+  else {
+    *aLocation = JS_NumberValue(double(mLocation));
   }
-
   return NS_OK;
 }
 
@@ -531,12 +524,12 @@ LockedFile::SetLocation(JSContext* aCx,
 
   // Null means the end-of-file.
   if (JSVAL_IS_NULL(aLocation)) {
-    mLocation = LL_MAXUINT;
+    mLocation = UINT64_MAX;
     return NS_OK;
   }
 
   uint64_t location;
-  if (!xpc::ValueToUint64(aCx, aLocation, &location)) {
+  if (!JS::ToUint64(aCx, aLocation, &location)) {
     return NS_ERROR_TYPE_ERR;
   }
 
@@ -589,7 +582,7 @@ LockedFile::GetMetadata(const jsval& aParameters,
 }
 
 NS_IMETHODIMP
-LockedFile::ReadAsArrayBuffer(PRUint64 aSize,
+LockedFile::ReadAsArrayBuffer(uint64_t aSize,
                               JSContext* aCx,
                               nsIDOMFileRequest** _retval)
 {
@@ -599,7 +592,7 @@ LockedFile::ReadAsArrayBuffer(PRUint64 aSize,
     return NS_ERROR_DOM_FILEHANDLE_LOCKEDFILE_INACTIVE_ERR;
   }
 
-  if (mLocation == LL_MAXUINT) {
+  if (mLocation == UINT64_MAX) {
     return NS_ERROR_DOM_FILEHANDLE_NOT_ALLOWED_ERR;
   }
 
@@ -631,7 +624,7 @@ LockedFile::ReadAsArrayBuffer(PRUint64 aSize,
 }
 
 NS_IMETHODIMP
-LockedFile::ReadAsText(PRUint64 aSize,
+LockedFile::ReadAsText(uint64_t aSize,
                        const nsAString& aEncoding,
                        nsIDOMFileRequest** _retval)
 {
@@ -641,7 +634,7 @@ LockedFile::ReadAsText(PRUint64 aSize,
     return NS_ERROR_DOM_FILEHANDLE_LOCKEDFILE_INACTIVE_ERR;
   }
 
-  if (mLocation == LL_MAXUINT) {
+  if (mLocation == UINT64_MAX) {
     return NS_ERROR_DOM_FILEHANDLE_NOT_ALLOWED_ERR;
   }
 
@@ -693,8 +686,8 @@ LockedFile::Append(const jsval& aValue,
 }
 
 NS_IMETHODIMP
-LockedFile::Truncate(PRUint64 aSize,
-                     PRUint8 aOptionalArgCount,
+LockedFile::Truncate(uint64_t aSize,
+                     uint8_t aOptionalArgCount,
                      nsIDOMFileRequest** _retval)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
@@ -707,14 +700,14 @@ LockedFile::Truncate(PRUint64 aSize,
     return NS_ERROR_DOM_FILEHANDLE_READ_ONLY_ERR;
   }
 
-  PRUint64 location;
+  uint64_t location;
   if (aOptionalArgCount) {
     // Just in case someone calls us from C++
-    NS_ASSERTION(aSize != LL_MAXUINT, "Passed wrong size!");
+    NS_ASSERTION(aSize != UINT64_MAX, "Passed wrong size!");
     location = aSize;
   }
   else {
-    if (mLocation == LL_MAXUINT) {
+    if (mLocation == UINT64_MAX) {
       return NS_ERROR_DOM_FILEHANDLE_NOT_ALLOWED_ERR;
     }
     location = mLocation;
@@ -819,7 +812,7 @@ LockedFile::Run()
 }
 
 nsresult
-LockedFile::OpenInputStream(bool aWholeFile, PRUint64 aStart, PRUint64 aLength,
+LockedFile::OpenInputStream(bool aWholeFile, uint64_t aStart, uint64_t aLength,
                             nsIInputStream** aResult)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
@@ -862,7 +855,7 @@ LockedFile::WriteOrAppend(const jsval& aValue,
     return NS_ERROR_DOM_FILEHANDLE_READ_ONLY_ERR;
   }
 
-  if (!aAppend && mLocation == LL_MAXUINT) {
+  if (!aAppend && mLocation == UINT64_MAX) {
     return NS_ERROR_DOM_FILEHANDLE_NOT_ALLOWED_ERR;
   }
 
@@ -872,7 +865,7 @@ LockedFile::WriteOrAppend(const jsval& aValue,
   }
 
   nsCOMPtr<nsIInputStream> inputStream;
-  PRUint64 inputLength;
+  uint64_t inputLength;
   nsresult rv =
     GetInputStreamForJSVal(aValue, aCx, getter_AddRefs(inputStream),
                            &inputLength);
@@ -885,7 +878,7 @@ LockedFile::WriteOrAppend(const jsval& aValue,
   nsRefPtr<FileRequest> fileRequest = GenerateFileRequest();
   NS_ENSURE_TRUE(fileRequest, NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
 
-  PRUint64 location = aAppend ? LL_MAXUINT : mLocation;
+  uint64_t location = aAppend ? UINT64_MAX : mLocation;
 
   nsRefPtr<WriteHelper> helper =
     new WriteHelper(this, fileRequest, location, inputStream, inputLength);
@@ -894,7 +887,7 @@ LockedFile::WriteOrAppend(const jsval& aValue,
   NS_ENSURE_SUCCESS(rv, NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
 
   if (aAppend) {
-    mLocation = LL_MAXUINT;
+    mLocation = UINT64_MAX;
   }
   else {
     mLocation += inputLength;
@@ -967,7 +960,7 @@ FinishHelper::Run()
     mAborted = true;
   }
 
-  for (PRUint32 index = 0; index < mParallelStreams.Length(); index++) {
+  for (uint32_t index = 0; index < mParallelStreams.Length(); index++) {
     nsCOMPtr<nsIOutputStream> ostream =
       do_QueryInterface(mParallelStreams[index]);
 
@@ -1005,7 +998,7 @@ ReadHelper::DoAsyncRun(nsISupports* aStream)
 {
   NS_ASSERTION(aStream, "Passed a null stream!");
 
-  PRUint32 flags = FileStreamWrapper::NOTIFY_PROGRESS;
+  uint32_t flags = FileStreamWrapper::NOTIFY_PROGRESS;
 
   nsCOMPtr<nsIInputStream> istream =
     new FileInputStreamWrapper(aStream, this, mLocation, mSize, flags);
@@ -1055,7 +1048,7 @@ ReadTextHelper::GetSuccessResult(JSContext* aCx,
   }
   else {
     const nsCString& data = mStream->Data();
-    PRUint32 dataLen = data.Length();
+    uint32_t dataLen = data.Length();
     rv = nsContentUtils::GuessCharset(data.get(), dataLen, charsetGuess);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1082,7 +1075,7 @@ WriteHelper::DoAsyncRun(nsISupports* aStream)
 {
   NS_ASSERTION(aStream, "Passed a null stream!");
 
-  PRUint32 flags = FileStreamWrapper::NOTIFY_PROGRESS;
+  uint32_t flags = FileStreamWrapper::NOTIFY_PROGRESS;
 
   nsCOMPtr<nsIOutputStream> ostream =
     new FileOutputStreamWrapper(aStream, this, mLocation, mLength, flags);
@@ -1162,7 +1155,7 @@ OpenStreamHelper::DoAsyncRun(nsISupports* aStream)
 {
   NS_ASSERTION(aStream, "Passed a null stream!");
 
-  PRUint32 flags = FileStreamWrapper::NOTIFY_CLOSE |
+  uint32_t flags = FileStreamWrapper::NOTIFY_CLOSE |
                    FileStreamWrapper::NOTIFY_DESTROY;
 
   mStream = mWholeFile ?

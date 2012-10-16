@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "base/basictypes.h"
+
 #include "nsLayoutStatics.h"
 #include "nscore.h"
 
@@ -57,6 +59,7 @@
 #include "nsMathMLAtoms.h"
 #include "nsMathMLOperators.h"
 #include "Navigator.h"
+#include "nsDOMStorageBaseDB.h"
 
 #ifdef MOZ_XUL
 #include "nsXULPopupManager.h"
@@ -94,11 +97,17 @@
 #include "nsHyphenationManager.h"
 #include "nsEditorSpellCheck.h"
 #include "nsWindowMemoryReporter.h"
+#include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/ipc/ProcessPriorityManager.h"
+#include "nsPermissionManager.h"
+#include "nsCookieService.h"
+#include "nsApplicationCacheService.h"
 
 extern void NS_ShutdownChainItemPool();
 
 using namespace mozilla;
 using namespace mozilla::dom;
+using namespace mozilla::dom::ipc;
 
 nsrefcnt nsLayoutStatics::sLayoutStaticRefcnt = 0;
 
@@ -113,6 +122,8 @@ nsLayoutStatics::Initialize()
                 "nsLayoutStatics", 1);
 
   nsresult rv;
+
+  ContentParent::StartUp();
 
   // Register all of our atoms once
   nsCSSAnonBoxes::AddRefAtoms();
@@ -243,6 +254,14 @@ nsLayoutStatics::Initialize()
 
   nsSVGUtils::Init();
 
+  InitProcessPriorityManager();
+
+  nsPermissionManager::AppUninstallObserverInit();
+  nsCookieService::AppClearDataObserverInit();
+  nsApplicationCacheService::AppClearDataObserverInit();
+
+  nsDOMStorageBaseDB::Init();
+
   return NS_OK;
 }
 
@@ -340,4 +359,6 @@ nsLayoutStatics::Shutdown()
   nsHyphenationManager::Shutdown();
   nsEditorSpellCheck::ShutDown();
   nsDOMMutationObserver::Shutdown();
+
+  ContentParent::ShutDown();
 }

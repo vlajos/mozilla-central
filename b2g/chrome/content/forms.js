@@ -4,9 +4,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-dump("###################################### forms.js loaded\n");
-
 "use strict";
+
+dump("###################################### forms.js loaded\n");
 
 let Ci = Components.interfaces;
 let Cc = Components.classes;
@@ -37,9 +37,29 @@ let FormAssistant = {
   },
 
   isKeyboardOpened: false,
-  previousTarget : null,
+  focusedElement : null,
+  selectionStart: 0,
+  selectionEnd: 0,
+
+  setFocusedElement: function fa_setFocusedElement(element) {
+    if (element === this.focusedElement)
+      return;
+
+    if (this.focusedElement) {
+      this.focusedElement.removeEventListener('mousedown', this);
+      this.focusedElement.removeEventListener('mouseup', this);
+    }
+
+    if (element) {
+      element.addEventListener('mousedown', this);
+      element.addEventListener('mouseup', this);
+    }
+
+    this.focusedElement = element;
+  },
+
   handleEvent: function fa_handleEvent(evt) {
-    let previousTarget = this.previousTarget;
+    let focusedElement = this.focusedElement;
     let target = evt.target;
 
     switch (evt.type) {
@@ -57,26 +77,48 @@ let FormAssistant = {
           image: true
         };
     
-        if (evt.target instanceof HTMLSelectElement) { 
+        if (target instanceof HTMLSelectElement) { 
           content.setTimeout(function showIMEForSelect() {
-            sendAsyncMessage("Forms:Input", getJSON(evt.target));
+            sendAsyncMessage("Forms:Input", getJSON(target));
           });
-        } else if (evt.target instanceof HTMLOptionElement &&
-                   evt.target.parentNode instanceof HTMLSelectElement) {
+          this.setFocusedElement(target);
+        } else if (target instanceof HTMLOptionElement &&
+                   target.parentNode instanceof HTMLSelectElement) {
+          target = target.parentNode;
           content.setTimeout(function showIMEForSelect() {
-            sendAsyncMessage("Forms:Input", getJSON(evt.target.parentNode));
+            sendAsyncMessage("Forms:Input", getJSON(target));
           });
+          this.setFocusedElement(target);
         } else if ((target instanceof HTMLInputElement && !ignore[target.type]) ||
                     target instanceof HTMLTextAreaElement) {
-          this.isKeyboardOpened = this.tryShowIme(evt.target);
-          this.previousTarget = evt.target;
+          this.isKeyboardOpened = this.tryShowIme(target);
+          this.setFocusedElement(target);
         }
         break;
 
       case "blur":
-        if (this.previousTarget) {
+        if (this.focusedElement) {
           sendAsyncMessage("Forms:Input", { "type": "blur" });
-          this.previousTarget = null;
+          this.setFocusedElement(null);
+          this.isKeyboardOpened = false;
+        }
+        break;
+
+      case 'mousedown':
+        // We only listen for this event on the currently focused element.
+        // When the mouse goes down, note the cursor/selection position
+        this.selectionStart = this.focusedElement.selectionStart;
+        this.selectionEnd = this.focusedElement.selectionEnd;
+        break;
+
+      case 'mouseup':
+        // We only listen for this event on the currently focused element.
+        // When the mouse goes up, see if the cursor has moved (or the
+        // selection changed) since the mouse went down. If it has, we
+        // need to tell the keyboard about it
+        if (this.focusedElement.selectionStart !== this.selectionStart ||
+            this.focusedElement.selectionEnd !== this.selectionEnd) {
+          this.tryShowIme(this.focusedElement);
         }
         break;
 
@@ -84,9 +126,8 @@ let FormAssistant = {
         if (!this.isKeyboardOpened)
           return;
 
-        let focusedElement = this.previousTarget;
-        if (focusedElement) {
-          focusedElement.scrollIntoView(false);
+        if (this.focusedElement) {
+          this.focusedElement.scrollIntoView(false);
         }
         break;
 
@@ -104,25 +145,45 @@ let FormAssistant = {
   },
 
   receiveMessage: function fa_receiveMessage(msg) {
-    let target = this.previousTarget;
+    let target = this.focusedElement;
     if (!target) {
       return;
     }
 
     let json = msg.json;
     switch (msg.name) {
-      case "Forms:Input:Value":
+      case "Forms:Input:Value": {
         target.value = json.value;
+
+        let event = content.document.createEvent('HTMLEvents');
+        event.initEvent('input', true, false);
+        target.dispatchEvent(event);
         break;
+      }
 
       case "Forms:Select:Choice":
         let options = target.options;
+        let valueChanged = false;
         if ("index" in json) {
-          options.item(json.index).selected = true;
+          if (options.selectedIndex != json.index) {
+            options.selectedIndex = json.index;
+            valueChanged = true;
+          }
         } else if ("indexes" in json) {
           for (let i = 0; i < options.length; i++) {
-            options.item(i).selected = (json.indexes.indexOf(i) != -1);
+            let newValue = (json.indexes.indexOf(i) != -1);
+            if (options.item(i).selected != newValue) {
+              options.item(i).selected = newValue;
+              valueChanged = true;
+            }
           }
+        }
+
+        // only fire onchange event if any selected option is changed
+        if (valueChanged) {
+          let event = content.document.createEvent('HTMLEvents');
+          event.initEvent('change', true, true);
+          target.dispatchEvent(event);
         }
         break;
     }
@@ -137,10 +198,10 @@ let FormAssistant = {
           let target = Services.fm.focusedElement;
 
           if (!target || !this.tryShowIme(target)) {
-            this.previousTarget = null;
+            this.setFocusedElement(null);
             return;
           } else {
-            this.previousTarget = target;
+            this.setFocusedElement(target);
           }
         } else if (!shouldOpen && isOpen) {
           sendAsyncMessage("Forms:Input", { "type": "blur" });
@@ -152,6 +213,7 @@ let FormAssistant = {
         Services.obs.removeObserver(this, "ime-enabled-state-changed", false);
         Services.obs.removeObserver(this, "xpcom-shutdown");
         removeMessageListener("Forms:Select:Choice", this);
+        removeMessageListener("Forms:Input:Value", this);
         break;
     }
   },
@@ -179,15 +241,44 @@ FormAssistant.init();
 function getJSON(element) {
   let type = element.type || "";
 
-  // FIXME/bug 344616 is input type="number"
-  // Until then, let's return 'number' even if the platform returns 'text'
+  // Until the input type=date/datetime/time have been implemented
+  // let's return their real type even if the platform returns 'text'
+  // Related to Bug 769352 - Implement <input type=date>
+  // Related to Bug 777279 - Implement <input type=time>
   let attributeType = element.getAttribute("type") || "";
-  if (attributeType && attributeType.toLowerCase() === "number")
-    type = "number";
+
+  if (attributeType) {
+    var typeLowerCase = attributeType.toLowerCase(); 
+    switch (typeLowerCase) {
+      case "date":
+      case "time":
+      case "datetime":
+      case "datetime-local":
+        type = typeLowerCase;
+        break;
+    }
+  }
+
+  // Gecko supports the inputmode attribute on text fields (but not textareas).
+  // But it doesn't recognize "verbatim" and other modes that we're interested
+  // in in Gaia, and the inputmode property returns "auto" for any value
+  // that gecko does not support. So we must query the inputmode attribute
+  // with getAttribute() rather than just using the inputmode property here.
+  // See https://bugzilla.mozilla.org/show_bug.cgi?id=746142
+  let inputmode = element.getAttribute('inputmode');
+  if (inputmode) {
+    inputmode = inputmode.toLowerCase();
+  } else {
+    inputmode = '';
+  }
 
   return {
     "type": type.toLowerCase(),
-    "choices": getListForElement(element)
+    "choices": getListForElement(element),
+    "value": element.value,
+    "inputmode": inputmode,
+    "selectionStart": element.selectionStart,
+    "selectionEnd": element.selectionEnd
   };
 }
 

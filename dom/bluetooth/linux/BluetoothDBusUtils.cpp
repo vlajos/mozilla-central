@@ -1,5 +1,5 @@
 /* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
-/* vim: set ts=2 et sw=2 tw=40: */
+/* vim: set ts=2 et sw=2 tw=80: */
 /*
 ** Copyright 2006, The Android Open Source Project
 **
@@ -170,7 +170,7 @@ EventFilter(DBusConnection *aConn, DBusMessage *aMsg,
 nsresult
 StartBluetoothConnection()
 {
-  if(sDBusConnection) {
+  if (sDBusConnection) {
     NS_WARNING("DBusConnection already established, skipping");
     return NS_OK;    
   }
@@ -193,7 +193,7 @@ StartBluetoothConnection()
 nsresult
 StopBluetoothConnection()
 {
-  if(!sDBusConnection) {
+  if (!sDBusConnection) {
     NS_WARNING("DBusConnection does not exist, nothing to stop, skipping.");
     return NS_OK;
   }

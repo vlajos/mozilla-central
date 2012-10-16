@@ -10,6 +10,7 @@
 
 #include "mozilla/Mutex.h"
 #include "mozilla/storage.h"
+#include "mozilla/dom/ContentParent.h"
 #include "nsDOMClassInfo.h"
 #include "nsDOMLists.h"
 #include "nsJSUtils.h"
@@ -20,6 +21,7 @@
 #include "CheckQuotaHelper.h"
 #include "DatabaseInfo.h"
 #include "IDBEvents.h"
+#include "IDBFactory.h"
 #include "IDBFileHandle.h"
 #include "IDBIndex.h"
 #include "IDBObjectStore.h"
@@ -33,6 +35,7 @@
 #include "ipc/IndexedDBChild.h"
 
 USING_INDEXEDDB_NAMESPACE
+using mozilla::dom::ContentParent;
 
 namespace {
 
@@ -47,7 +50,7 @@ public:
   }
 
   virtual ChildProcessSendResult
-  MaybeSendResponseToChildProcess(nsresult aResultCode) MOZ_OVERRIDE;
+  SendResponseToChildProcess(nsresult aResultCode) MOZ_OVERRIDE;
 
   virtual nsresult
   UnpackResponseFromParentProcess(const ResponseValue& aResponseValue)
@@ -79,7 +82,7 @@ class DeleteObjectStoreHelper : public NoRequestDatabaseHelper
 {
 public:
   DeleteObjectStoreHelper(IDBTransaction* aTransaction,
-                          PRInt64 aObjectStoreId)
+                          int64_t aObjectStoreId)
   : NoRequestDatabaseHelper(aTransaction), mObjectStoreId(aObjectStoreId)
   { }
 
@@ -88,7 +91,7 @@ public:
 
 private:
   // In-params.
-  PRInt64 mObjectStoreId;
+  int64_t mObjectStoreId;
 };
 
 class CreateFileHelper : public AsyncConnectionHelper
@@ -114,7 +117,7 @@ public:
     AsyncConnectionHelper::ReleaseMainThreadObjects();
   }
 
-  virtual ChildProcessSendResult MaybeSendResponseToChildProcess(
+  virtual ChildProcessSendResult SendResponseToChildProcess(
                                                            nsresult aResultCode)
                                                            MOZ_OVERRIDE
   {
@@ -168,11 +171,14 @@ private:
 // static
 already_AddRefed<IDBDatabase>
 IDBDatabase::Create(IDBWrapperCache* aOwnerCache,
+                    IDBFactory* aFactory,
                     already_AddRefed<DatabaseInfo> aDatabaseInfo,
                     const nsACString& aASCIIOrigin,
-                    FileManager* aFileManager)
+                    FileManager* aFileManager,
+                    mozilla::dom::ContentParent* aContentParent)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
+  NS_ASSERTION(aFactory, "Null pointer!");
   NS_ASSERTION(!aASCIIOrigin.IsEmpty(), "Empty origin!");
 
   nsRefPtr<DatabaseInfo> databaseInfo(aDatabaseInfo);
@@ -185,12 +191,14 @@ IDBDatabase::Create(IDBWrapperCache* aOwnerCache,
     return nullptr;
   }
 
+  db->mFactory = aFactory;
   db->mDatabaseId = databaseInfo->id;
   db->mName = databaseInfo->name;
   db->mFilePath = databaseInfo->filePath;
   databaseInfo.swap(db->mDatabaseInfo);
   db->mASCIIOrigin = aASCIIOrigin;
   db->mFileManager = aFileManager;
+  db->mContentParent = aContentParent;
 
   IndexedDatabaseManager* mgr = IndexedDatabaseManager::Get();
   NS_ASSERTION(mgr, "This should never be null!");
@@ -207,7 +215,9 @@ IDBDatabase::IDBDatabase()
 : mDatabaseId(0),
   mActorChild(nullptr),
   mActorParent(nullptr),
-  mInvalidated(0),
+  mContentParent(nullptr),
+  mInvalidated(false),
+  mDisconnected(false),
   mRegistered(false),
   mClosed(false),
   mRunningVersionChange(false)
@@ -247,6 +257,8 @@ IDBDatabase::Invalidate()
     return;
   }
 
+  mInvalidated = true;
+
   // Make sure we're closed too.
   Close();
 
@@ -257,14 +269,39 @@ IDBDatabase::Invalidate()
   if (owner) {
     IndexedDatabaseManager::CancelPromptsForWindow(owner);
   }
-
-  mInvalidated = true;
 }
 
 bool
 IDBDatabase::IsInvalidated()
 {
-  return !!mInvalidated;
+  return mInvalidated;
+}
+
+void
+IDBDatabase::DisconnectFromActor()
+{
+  NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
+
+  if (IsDisconnectedFromActor()) {
+    return;
+  }
+
+  mDisconnected = true;
+
+  // Make sure we're closed too.
+  Close();
+
+  // Kill any outstanding prompts.
+  nsPIDOMWindow* owner = GetOwner();
+  if (owner) {
+    IndexedDatabaseManager::CancelPromptsForWindow(owner);
+  }
+}
+
+bool
+IDBDatabase::IsDisconnectedFromActor()
+{
+  return mDisconnected;
 }
 
 void
@@ -273,6 +310,8 @@ IDBDatabase::CloseInternal(bool aIsDead)
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 
   if (!mClosed) {
+    mClosed = true;
+
     // If we're getting called from Unlink, avoid cloning the DatabaseInfo.
     {
       nsRefPtr<DatabaseInfo> previousInfo;
@@ -295,8 +334,6 @@ IDBDatabase::CloseInternal(bool aIsDead)
       NS_ASSERTION(!IndexedDatabaseManager::IsMainProcess(), "Wrong process!");
       mActorChild->SendClose(aIsDead);
     }
-
-    mClosed = true;
   }
 }
 
@@ -398,15 +435,11 @@ IDBDatabase::CreateObjectStoreInternal(IDBTransaction* aTransaction,
 NS_IMPL_CYCLE_COLLECTION_CLASS(IDBDatabase)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(IDBDatabase, IDBWrapperCache)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(abort)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(error)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(versionchange)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mFactory)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(IDBDatabase, IDBWrapperCache)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(abort)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(error)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(versionchange)
+  // Don't unlink mFactory!
 
   // Do some cleanup.
   tmp->OnUnlink();
@@ -436,7 +469,7 @@ IDBDatabase::GetName(nsAString& aName)
 }
 
 NS_IMETHODIMP
-IDBDatabase::GetVersion(PRUint64* aVersion)
+IDBDatabase::GetVersion(uint64_t* aVersion)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 
@@ -460,8 +493,8 @@ IDBDatabase::GetObjectStoreNames(nsIDOMDOMStringList** aObjectStores)
   }
 
   nsRefPtr<nsDOMStringList> list(new nsDOMStringList());
-  PRUint32 count = objectStoreNames.Length();
-  for (PRUint32 index = 0; index < count; index++) {
+  uint32_t count = objectStoreNames.Length();
+  for (uint32_t index = 0; index < count; index++) {
     NS_ENSURE_TRUE(list->Add(objectStoreNames[index]),
                    NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
   }
@@ -489,7 +522,6 @@ IDBDatabase::CreateObjectStore(const nsAString& aName,
 
   mozilla::dom::IDBObjectStoreParameters params;
   KeyPath keyPath(0);
-  nsTArray<nsString> keyPathArray;
 
   nsresult rv;
 
@@ -580,7 +612,7 @@ NS_IMETHODIMP
 IDBDatabase::Transaction(const jsval& aStoreNames,
                          const nsAString& aMode,
                          JSContext* aCx,
-                         PRUint8 aOptionalArgCount,
+                         uint8_t aOptionalArgCount,
                          nsIIDBTransaction** _retval)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
@@ -659,7 +691,7 @@ IDBDatabase::Transaction(const jsval& aStoreNames,
         // We only accept DOMStringList.
         nsCOMPtr<nsIDOMDOMStringList> list = do_QueryInterface(wrappedObject);
         if (list) {
-          PRUint32 length;
+          uint32_t length;
           rv = list->GetLength(&length);
           NS_ENSURE_SUCCESS(rv, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 
@@ -669,7 +701,7 @@ IDBDatabase::Transaction(const jsval& aStoreNames,
 
           storesToOpen.SetCapacity(length);
 
-          for (PRUint32 index = 0; index < length; index++) {
+          for (uint32_t index = 0; index < length; index++) {
             nsString* item = storesToOpen.AppendElement();
             NS_ASSERTION(item, "This should never fail!");
 
@@ -700,7 +732,7 @@ IDBDatabase::Transaction(const jsval& aStoreNames,
 
   // Now check to make sure the object store names we collected actually exist.
   DatabaseInfo* info = Info();
-  for (PRUint32 index = 0; index < storesToOpen.Length(); index++) {
+  for (uint32_t index = 0; index < storesToOpen.Length(); index++) {
     if (!info->ContainsStoreName(storesToOpen[index])) {
       return NS_ERROR_DOM_INDEXEDDB_NOT_FOUND_ERR;
     }
@@ -793,8 +825,8 @@ IDBDatabase::PostHandleEvent(nsEventChainPostVisitor& aVisitor)
   return IndexedDatabaseManager::FireWindowOnError(GetOwner(), aVisitor);
 }
 
-HelperBase::ChildProcessSendResult
-NoRequestDatabaseHelper::MaybeSendResponseToChildProcess(nsresult aResultCode)
+AsyncConnectionHelper::ChildProcessSendResult
+NoRequestDatabaseHelper::SendResponseToChildProcess(nsresult aResultCode)
 {
   NS_ASSERTION(IndexedDatabaseManager::IsMainProcess(), "Wrong process!");
   return Success_NotSent;
@@ -900,13 +932,24 @@ CreateFileHelper::DoDatabaseWork(mozIStorageConnection* aConnection)
   mFileInfo = fileManager->GetNewFileInfo();
   NS_ENSURE_TRUE(mFileInfo, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 
-  nsCOMPtr<nsIFile> directory = fileManager->GetDirectory();
-  NS_ENSURE_TRUE(directory, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
+  const int64_t& fileId = mFileInfo->Id();
 
-  nsCOMPtr<nsIFile> file = fileManager->GetFileForId(directory, mFileInfo->Id());
-  NS_ENSURE_TRUE(file, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
+  nsCOMPtr<nsIFile> directory = fileManager->EnsureJournalDirectory();
+  NS_ENSURE_TRUE(directory, NS_ERROR_FAILURE);
+
+  nsCOMPtr<nsIFile> file = fileManager->GetFileForId(directory, fileId);
+  NS_ENSURE_TRUE(file, NS_ERROR_FAILURE);
 
   nsresult rv = file->Create(nsIFile::NORMAL_FILE_TYPE, 0644);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  directory = fileManager->GetDirectory();
+  NS_ENSURE_TRUE(directory, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
+
+  file = fileManager->GetFileForId(directory, fileId);
+  NS_ENSURE_TRUE(file, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
+
+  rv = file->Create(nsIFile::NORMAL_FILE_TYPE, 0644);
   NS_ENSURE_SUCCESS(rv, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 
   return NS_OK;

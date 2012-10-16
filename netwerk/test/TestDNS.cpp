@@ -24,7 +24,7 @@ class myDNSListener : public nsIDNSListener
 public:
     NS_DECL_ISUPPORTS
 
-    myDNSListener(const char *host, PRInt32 index)
+    myDNSListener(const char *host, int32_t index)
         : mHost(host)
         , mIndex(index) {}
     virtual ~myDNSListener() {}
@@ -37,7 +37,7 @@ public:
             mIndex, mHost.get(), status, (void*)rec);
 
         if (NS_SUCCEEDED(status)) {
-            nsCAutoString buf;
+            nsAutoCString buf;
 
             rec->GetCanonicalName(buf);
             printf("%d: canonname=%s\n", mIndex, buf.get());
@@ -54,7 +54,7 @@ public:
 
 private:
     nsCString mHost;
-    PRInt32   mIndex;
+    int32_t   mIndex;
 };
 
 NS_IMPL_THREADSAFE_ISUPPORTS1(myDNSListener, nsIDNSListener)
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
         for (int j=0; j<2; ++j) {
             for (int i=1; i<argc; ++i) {
                 // assume non-ASCII input is given in the native charset 
-                nsCAutoString hostBuf;
+                nsAutoCString hostBuf;
                 if (IsAscii(argv[i]))
                     hostBuf.Assign(argv[i]);
                 else

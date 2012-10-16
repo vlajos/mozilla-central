@@ -24,6 +24,7 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMSVGTESTS
 
+  DOMSVGTests();
   virtual ~DOMSVGTests() {}
 
   friend class mozilla::DOMSVGStringList;
@@ -40,7 +41,7 @@ public:
    * if only the prefix matches, or -1 if no indices match.
    * XXX This algorithm is O(M*N).
    */
-  PRInt32 GetBestLanguagePreferenceRank(const nsSubstring& aAcceptLangs) const;
+  int32_t GetBestLanguagePreferenceRank(const nsSubstring& aAcceptLangs) const;
 
   /**
    * Special value to pass to PassesConditionalProcessingTests to ignore systemLanguage
@@ -78,15 +79,14 @@ public:
    */
   void UnsetAttr(const nsIAtom* aAttribute);
 
-  nsIAtom* GetAttrName(PRUint8 aAttrEnum) const;
-  SVGStringList* GetStringListAttribute(PRUint8 aAttrEnum) const;
-  SVGStringList* GetOrCreateStringListAttribute(PRUint8 aAttrEnum) const;
-  void GetAttrValue(PRUint8 aAttrEnum, nsAttrValue &aValue) const;
+  nsIAtom* GetAttrName(uint8_t aAttrEnum) const;
+  void GetAttrValue(uint8_t aAttrEnum, nsAttrValue &aValue) const;
 
   void MaybeInvalidate();
 
 private:
   enum { FEATURES, EXTENSIONS, LANGUAGE };
+  SVGStringList mStringListAttributes[3];
   static nsIAtom** sStringListNames[3];
 };
 

@@ -2,11 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH		= ../../..
+DEPTH		= @DEPTH@
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
-relativesrcdir	= docshell/test/chrome 
+relativesrcdir	= @relativesrcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
@@ -94,6 +94,9 @@ MOCHITEST_CHROME_FILES =	\
 		test_principalInherit.xul \
 		test_mozFrameType.xul \
 		mozFrameType_window.xul \
+		test_bug789773.xul \
+		test_bug754029.xul \
+		bug754029_window.xul \
 		$(NULL)
 
 MOCHITEST_CHROME_FILES += \

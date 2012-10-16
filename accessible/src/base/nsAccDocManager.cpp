@@ -13,7 +13,7 @@
 #include "RootAccessibleWrap.h"
 #include "States.h"
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
 #include "Logging.h"
 #endif
 
@@ -45,7 +45,7 @@ nsAccDocManager::GetDocAccessible(nsIDocument *aDocument)
     return nullptr;
 
   // Ensure CacheChildren is called before we query cache.
-  nsAccessNode::GetApplicationAccessible()->EnsureChildren();
+  ApplicationAcc()->EnsureChildren();
 
   DocAccessible* docAcc = mDocAccessibleCache.GetWeak(aDocument);
   if (docAcc)
@@ -124,7 +124,7 @@ NS_IMPL_THREADSAFE_ISUPPORTS3(nsAccDocManager,
 
 NS_IMETHODIMP
 nsAccDocManager::OnStateChange(nsIWebProgress *aWebProgress,
-                               nsIRequest *aRequest, PRUint32 aStateFlags,
+                               nsIRequest *aRequest, uint32_t aStateFlags,
                                nsresult aStatus)
 {
   NS_ASSERTION(aStateFlags & STATE_IS_DOCUMENT, "Other notifications excluded");
@@ -145,13 +145,13 @@ nsAccDocManager::OnStateChange(nsIWebProgress *aWebProgress,
 
   // Document was loaded.
   if (aStateFlags & STATE_STOP) {
-#ifdef DEBUG
+#ifdef A11Y_LOG
     if (logging::IsEnabled(logging::eDocLoad))
       logging::DocLoad("document loaded", aWebProgress, aRequest, aStateFlags);
 #endif
 
     // Figure out an event type to notify the document has been loaded.
-    PRUint32 eventType = nsIAccessibleEvent::EVENT_DOCUMENT_LOAD_STOPPED;
+    uint32_t eventType = nsIAccessibleEvent::EVENT_DOCUMENT_LOAD_STOPPED;
 
     // Some XUL documents get start state and then stop state with failure
     // status when everything is ok. Fire document load complete event in this
@@ -163,7 +163,7 @@ nsAccDocManager::OnStateChange(nsIWebProgress *aWebProgress,
     // any event because it means no new document has been loaded, for example,
     // it happens when user clicks on file link.
     if (aRequest) {
-      PRUint32 loadFlags = 0;
+      uint32_t loadFlags = 0;
       aRequest->GetLoadFlags(&loadFlags);
       if (loadFlags & nsIChannel::LOAD_RETARGETED_DOCUMENT_URI)
         eventType = 0;
@@ -174,7 +174,7 @@ nsAccDocManager::OnStateChange(nsIWebProgress *aWebProgress,
   }
 
   // Document loading was started.
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocLoad))
     logging::DocLoad("start document loading", aWebProgress, aRequest, aStateFlags);
 #endif
@@ -188,7 +188,7 @@ nsAccDocManager::OnStateChange(nsIWebProgress *aWebProgress,
   NS_ENSURE_STATE(docShell);
 
   bool isReloading = false;
-  PRUint32 loadType;
+  uint32_t loadType;
   docShell->GetLoadType(&loadType);
   if (loadType == LOAD_RELOAD_NORMAL ||
       loadType == LOAD_RELOAD_BYPASS_CACHE ||
@@ -204,10 +204,10 @@ nsAccDocManager::OnStateChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 nsAccDocManager::OnProgressChange(nsIWebProgress *aWebProgress,
                                   nsIRequest *aRequest,
-                                  PRInt32 aCurSelfProgress,
-                                  PRInt32 aMaxSelfProgress,
-                                  PRInt32 aCurTotalProgress,
-                                  PRInt32 aMaxTotalProgress)
+                                  int32_t aCurSelfProgress,
+                                  int32_t aMaxSelfProgress,
+                                  int32_t aCurTotalProgress,
+                                  int32_t aMaxTotalProgress)
 {
   NS_NOTREACHED("notification excluded in AddProgressListener(...)");
   return NS_OK;
@@ -216,7 +216,7 @@ nsAccDocManager::OnProgressChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 nsAccDocManager::OnLocationChange(nsIWebProgress *aWebProgress,
                                   nsIRequest *aRequest, nsIURI *aLocation,
-                                  PRUint32 aFlags)
+                                  uint32_t aFlags)
 {
   NS_NOTREACHED("notification excluded in AddProgressListener(...)");
   return NS_OK;
@@ -234,7 +234,7 @@ nsAccDocManager::OnStatusChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 nsAccDocManager::OnSecurityChange(nsIWebProgress *aWebProgress,
                                   nsIRequest *aRequest,
-                                  PRUint32 aState)
+                                  uint32_t aState)
 {
   NS_NOTREACHED("notification excluded in AddProgressListener(...)");
   return NS_OK;
@@ -263,7 +263,7 @@ nsAccDocManager::HandleEvent(nsIDOMEvent *aEvent)
     // accessible and all its sub document accessible are shutdown as result of
     // processing.
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
     if (logging::IsEnabled(logging::eDocDestroy))
       logging::DocDestroy("received 'pagehide' event", document);
 #endif
@@ -289,7 +289,7 @@ nsAccDocManager::HandleEvent(nsIDOMEvent *aEvent)
   // webprogress notifications nor 'pageshow' event.
   if (type.EqualsLiteral("DOMContentLoaded") &&
       nsCoreUtils::IsErrorPage(document)) {
-#ifdef DEBUG
+#ifdef A11Y_LOG
     if (logging::IsEnabled(logging::eDocLoad))
       logging::DocLoad("handled 'DOMContentLoaded' event", document);
 #endif
@@ -306,7 +306,7 @@ nsAccDocManager::HandleEvent(nsIDOMEvent *aEvent)
 
 void
 nsAccDocManager::HandleDOMDocumentLoad(nsIDocument *aDocument,
-                                       PRUint32 aLoadEventType)
+                                       uint32_t aLoadEventType)
 {
   // Document accessible can be created before we were notified the DOM document
   // was loaded completely. However if it's not created yet then create it.
@@ -330,7 +330,7 @@ nsAccDocManager::AddListeners(nsIDocument *aDocument,
   elm->AddEventListenerByType(this, NS_LITERAL_STRING("pagehide"),
                               NS_EVENT_FLAG_CAPTURE);
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocCreate))
     logging::Text("added 'pagehide' listener");
 #endif
@@ -338,7 +338,7 @@ nsAccDocManager::AddListeners(nsIDocument *aDocument,
   if (aAddDOMContentLoadedListener) {
     elm->AddEventListenerByType(this, NS_LITERAL_STRING("DOMContentLoaded"),
                                 NS_EVENT_FLAG_CAPTURE);
-#ifdef DEBUG
+#ifdef A11Y_LOG
     if (logging::IsEnabled(logging::eDocCreate))
       logging::Text("added 'DOMContentLoaded' listener");
 #endif
@@ -356,7 +356,7 @@ nsAccDocManager::CreateDocOrRootAccessible(nsIDocument* aDocument)
 
   // Ignore documents without presshell and not having root frame.
   nsIPresShell* presShell = aDocument->GetShell();
-  if (!presShell || !presShell->GetRootFrame())
+  if (!presShell || !presShell->GetRootFrame() || presShell->IsDestroying())
     return nullptr;
 
   // Do not create document accessible until role content is loaded, otherwise
@@ -388,16 +388,12 @@ nsAccDocManager::CreateDocOrRootAccessible(nsIDocument* aDocument)
   mDocAccessibleCache.Put(aDocument, docAcc);
 
   // Initialize the document accessible.
-  if (!docAcc->Init()) {
-    docAcc->Shutdown();
-    return nullptr;
-  }
+  docAcc->Init();
   docAcc->SetRoleMapEntry(aria::GetRoleMap(aDocument));
 
   // Bind the document to the tree.
   if (isRootDoc) {
-    Accessible* appAcc = nsAccessNode::GetApplicationAccessible();
-    if (!appAcc->AppendChild(docAcc)) {
+    if (!ApplicationAcc()->AppendChild(docAcc)) {
       docAcc->Shutdown();
       return nullptr;
     }
@@ -407,15 +403,15 @@ nsAccDocManager::CreateDocOrRootAccessible(nsIDocument* aDocument)
     // constructed because event processing and tree construction are done by
     // the same document.
     nsRefPtr<AccEvent> reorderEvent =
-      new AccEvent(nsIAccessibleEvent::EVENT_REORDER, appAcc, eAutoDetect,
-                   AccEvent::eCoalesceFromSameSubtree);
+      new AccEvent(nsIAccessibleEvent::EVENT_REORDER, ApplicationAcc(),
+                   eAutoDetect, AccEvent::eCoalesceFromSameSubtree);
     docAcc->FireDelayedAccessibleEvent(reorderEvent);
 
   } else {
     parentDocAcc->BindChildDocument(docAcc);
   }
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocCreate)) {
     logging::DocCreate("document creation finished", aDocument);
     logging::Stack();

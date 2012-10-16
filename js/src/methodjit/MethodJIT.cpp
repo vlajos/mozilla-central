@@ -19,9 +19,16 @@
 #include "jscntxtinlines.h"
 #include "jscompartment.h"
 #include "jsscope.h"
+#include "ion/Ion.h"
+#include "ion/IonCompartment.h"
+#include "methodjit/Retcon.h"
 
 #include "jsgcinlines.h"
 #include "jsinterpinlines.h"
+
+#if JS_TRACE_LOGGING
+#include "TraceLogging.h"
+#endif
 
 using namespace js;
 using namespace js::mjit;
@@ -789,6 +796,21 @@ SYMBOL_STRING(JaegerStubVeneer) ":"         "\n"
 "   pop     {ip,pc}"                        "\n"
 );
 
+asm (
+".text\n"
+FUNCTION_HEADER_EXTRA
+".globl " SYMBOL_STRING(IonVeneer)          "\n"
+SYMBOL_STRING(IonVeneer) ":"                "\n"
+    /* We enter this function as a veneer between a compiled method and one of the js_ stubs. We
+     * need to store the LR somewhere (so it can be modified in case on an exception) and then
+     * branch to the js_ stub as if nothing had happened.
+     * The arguments are identical to those for js_* except that the target function should be in
+     * 'ip'. */
+"   push    {lr}"                           "\n"
+"   blx     ip"                             "\n"
+"   pop     {pc}"                           "\n"
+);
+
 # elif defined(JS_CPU_SPARC)
 # elif defined(JS_CPU_MIPS)
 # else
@@ -1012,7 +1034,14 @@ mjit::EnterMethodJIT(JSContext *cx, StackFrame *fp, void *code, Value *stackLimi
     JSBool ok;
     {
         AssertCompartmentUnchanged pcc(cx);
+
+#ifdef JS_ION
+        ion::IonContext ictx(cx, cx->compartment, NULL);
+        ion::IonActivation activation(cx, NULL);
+#endif
+
         JSAutoResolveFlags rf(cx, RESOLVE_INFER);
+
         ok = JaegerTrampoline(cx, fp, code, stackLimit);
     }
 
@@ -1040,9 +1069,9 @@ mjit::EnterMethodJIT(JSContext *cx, StackFrame *fp, void *code, Value *stackLimi
         InterpMode mode = (status == Jaeger_UnfinishedAtTrap)
             ? JSINTERP_SKIP_TRAP
             : JSINTERP_REJOIN;
-        ok = Interpret(cx, fp, mode);
+        InterpretStatus status = Interpret(cx, fp, mode);
 
-        return ok ? Jaeger_Returned : Jaeger_Throwing;
+        return (status != Interpret_Error) ? Jaeger_Returned : Jaeger_Throwing;
     }
 
     cx->regs().refreshFramePointer(fp);
@@ -1079,9 +1108,16 @@ mjit::JaegerShot(JSContext *cx, bool partial)
 {
     StackFrame *fp = cx->fp();
     JSScript *script = fp->script();
-    JITScript *jit = script->getJIT(fp->isConstructing(), cx->compartment->needsBarrier());
+    JITScript *jit = script->getJIT(fp->isConstructing(), cx->compartment->compileBarriers());
 
     JS_ASSERT(cx->regs().pc == script->code);
+
+#if JS_TRACE_LOGGING
+    AutoTraceLog logger(TraceLogging::defaultLogger(),
+                        TraceLogging::JM_START,
+                        TraceLogging::JM_STOP,
+                        script);
+#endif
 
     return CheckStackAndEnterMethodJIT(cx, cx->fp(), jit->invokeEntry, partial);
 }
@@ -1089,6 +1125,12 @@ mjit::JaegerShot(JSContext *cx, bool partial)
 JaegerStatus
 js::mjit::JaegerShotAtSafePoint(JSContext *cx, void *safePoint, bool partial)
 {
+#if JS_TRACE_LOGGING
+    AutoTraceLog logger(TraceLogging::defaultLogger(),
+                        TraceLogging::JM_SAFEPOINT_START,
+                        TraceLogging::JM_SAFEPOINT_STOP,
+                        cx->fp()->script());
+#endif
     return CheckStackAndEnterMethodJIT(cx, cx->fp(), safePoint, partial);
 }
 
@@ -1122,10 +1164,22 @@ JITChunk::rootedRegExps() const
     return (RegExpShared **)&rootedTemplates()[nRootedTemplates];
 }
 
+uint32_t *
+JITChunk::monitoredBytecodes() const
+{
+    return (uint32_t *)&rootedRegExps()[nRootedRegExps];
+}
+
+uint32_t *
+JITChunk::typeBarrierBytecodes() const
+{
+    return (uint32_t *)&monitoredBytecodes()[nMonitoredBytecodes];
+}
+
 char *
 JITChunk::commonSectionLimit() const
 {
-    return (char *)&rootedRegExps()[nRootedRegExps];
+    return (char *)&typeBarrierBytecodes()[nTypeBarrierBytecodes];
 }
 
 #ifdef JS_MONOIC
@@ -1248,7 +1302,7 @@ JITChunk::~JITChunk()
         rootedRegExps()[i]->decRef();
 
     if (pcLengths)
-        Foreground::free_(pcLengths);
+        js_free(pcLengths);
 }
 
 void
@@ -1256,6 +1310,9 @@ JITScript::destroy(FreeOp *fop)
 {
     for (unsigned i = 0; i < nchunks; i++)
         destroyChunk(fop, i);
+
+    if (liveness)
+        fop->free_(liveness);
 
     if (shimPool)
         shimPool->release();
@@ -1267,6 +1324,10 @@ JITScript::destroyChunk(FreeOp *fop, unsigned chunkIndex, bool resetUses)
     ChunkDescriptor &desc = chunkDescriptor(chunkIndex);
 
     if (desc.chunk) {
+        // Invalidates the CompilerOutput of the chunk.
+        types::TypeCompartment &types = script->compartment()->types;
+        desc.chunk->recompileInfo.compilerOutput(types)->invalidate();
+
         /*
          * Write barrier: Before we destroy the chunk, trace through the objects
          * it holds.
@@ -1306,23 +1367,7 @@ JITScript::destroyChunk(FreeOp *fop, unsigned chunkIndex, bool resetUses)
             argsCheckPool = NULL;
         }
 
-        invokeEntry = NULL;
-        fastEntry = NULL;
-        argsCheckEntry = NULL;
-        arityCheckEntry = NULL;
-
-        // Fixup any ICs still referring to this chunk.
-        while (!JS_CLIST_IS_EMPTY(&callers)) {
-            JS_STATIC_ASSERT(offsetof(ic::CallICInfo, links) == 0);
-            ic::CallICInfo *ic = (ic::CallICInfo *) callers.next;
-
-            uint8_t *start = (uint8_t *)ic->funGuard.executableAddress();
-            JSC::RepatchBuffer repatch(JSC::JITCode(start - 32, 64));
-
-            repatch.repatch(ic->funGuard, NULL);
-            repatch.relink(ic->funJump, ic->slowPathStart);
-            ic->purgeGuardedObject();
-        }
+        disableScriptEntry();
     }
 }
 
@@ -1336,6 +1381,35 @@ JITScript::trace(JSTracer *trc)
     }
 }
 
+static ic::PICInfo *
+GetPIC(JSContext *cx, JSScript *script, jsbytecode *pc, bool constructing)
+{
+    JITScript *jit = script->getJIT(constructing, cx->compartment->needsBarrier());
+    if (!jit)
+        return NULL;
+
+    JITChunk *chunk = jit->chunk(pc);
+    if (!chunk)
+        return NULL;
+
+    ic::PICInfo *pics = chunk->pics();
+    for (uint32_t i = 0; i < chunk->nPICs; i++) {
+        if (pics[i].pc == pc)
+            return &pics[i];
+    }
+
+    return NULL;
+}
+
+Shape *
+mjit::GetPICSingleShape(JSContext *cx, JSScript *script, jsbytecode *pc, bool constructing)
+{
+    ic::PICInfo *pic = GetPIC(cx, script, pc, constructing);
+    if (!pic)
+        return NULL;
+    return pic->getSingleShape();
+}
+
 void
 JITScript::purgeCaches()
 {
@@ -1343,6 +1417,28 @@ JITScript::purgeCaches()
         ChunkDescriptor &desc = chunkDescriptor(i);
         if (desc.chunk)
             desc.chunk->purgeCaches();
+    }
+}
+
+void
+JITScript::disableScriptEntry()
+{
+    invokeEntry = NULL;
+    fastEntry = NULL;
+    argsCheckEntry = NULL;
+    arityCheckEntry = NULL;
+
+    // Fixup any ICs still referring to this script.
+    while (!JS_CLIST_IS_EMPTY(&callers)) {
+        JS_STATIC_ASSERT(offsetof(ic::CallICInfo, links) == 0);
+        ic::CallICInfo *ic = (ic::CallICInfo *) callers.next;
+
+        uint8_t *start = (uint8_t *)ic->funGuard.executableAddress();
+        JSC::RepatchBuffer repatch(JSC::JITCode(start - 32, 64));
+
+        repatch.repatch(ic->funGuard, NULL);
+        repatch.relink(ic->funJump, ic->slowPathStart);
+        ic->purgeGuardedObject();
     }
 }
 
@@ -1380,6 +1476,8 @@ size_t
 mjit::JITScript::sizeOfIncludingThis(JSMallocSizeOfFun mallocSizeOf)
 {
     size_t n = mallocSizeOf(this);
+    if (liveness)
+        n += mallocSizeOf(liveness);
     for (unsigned i = 0; i < nchunks; i++) {
         const ChunkDescriptor &desc = chunkDescriptor(i);
         if (desc.chunk)
@@ -1398,6 +1496,8 @@ mjit::JITChunk::computedSizeOfIncludingThis()
            sizeof(CallSite) * nCallSites +
            sizeof(JSObject*) * nRootedTemplates +
            sizeof(RegExpShared*) * nRootedRegExps +
+           sizeof(uint32_t) * nMonitoredBytecodes +
+           sizeof(uint32_t) * nTypeBarrierBytecodes +
 #if defined JS_MONOIC
            sizeof(ic::GetGlobalNameIC) * nGetGlobalNames +
            sizeof(ic::SetGlobalNameIC) * nSetGlobalNames +
@@ -1431,6 +1531,16 @@ JSScript::ReleaseCode(FreeOp *fop, JITScriptHandle *jith)
         jit->destroy(fop);
         fop->free_(jit);
         jith->setEmpty();
+    }
+}
+
+void
+mjit::ReleaseScriptCodeFromVM(JSContext *cx, JSScript *script)
+{
+    if (script->hasMJITInfo()) {
+        ExpandInlineFrames(cx->compartment);
+        Recompiler::clearStackReferences(cx->runtime->defaultFreeOp(), script);
+        ReleaseScriptCode(cx->runtime->defaultFreeOp(), script);
     }
 }
 

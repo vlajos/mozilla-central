@@ -20,7 +20,7 @@
 #include "States.h"
 #include "uiaRawElmProvider.h"
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
 #include "Logging.h"
 #endif
 
@@ -45,7 +45,7 @@
 using namespace mozilla;
 using namespace mozilla::a11y;
 
-const PRUint32 USE_ROLE_STRING = 0;
+const uint32_t USE_ROLE_STRING = 0;
 
 /* For documentation of the accessibility architecture,
  * see http://lxr.mozilla.org/seamonkey/source/accessible/accessible-docs.html
@@ -60,7 +60,7 @@ static gAccessibles = 0;
 EXTERN_C GUID CDECL CLSID_Accessible =
 { 0x61044601, 0xa811, 0x4e2b, { 0xbb, 0xba, 0x17, 0xbf, 0xab, 0xd3, 0x29, 0xd7 } };
 
-static const PRInt32 kIEnumVariantDisconnected = -1;
+static const int32_t kIEnumVariantDisconnected = -1;
 
 ////////////////////////////////////////////////////////////////////////////////
 // AccessibleWrap
@@ -107,7 +107,7 @@ __try {
   }
 
   if (NULL == *ppv) {
-    HRESULT hr = CAccessibleValue::QueryInterface(iid, ppv);
+    HRESULT hr = ia2AccessibleValue::QueryInterface(iid, ppv);
     if (SUCCEEDED(hr))
       return hr;
   }
@@ -166,7 +166,7 @@ __try {
     // accessibles.
     if (!doc->ParentDocument() ||
         nsWinUtils::IsWindowEmulationStarted() &&
-        nsCoreUtils::IsTabDocument(doc->GetDocumentNode())) {
+        nsCoreUtils::IsTabDocument(doc->DocumentNode())) {
       HWND hwnd = static_cast<HWND>(doc->GetNativeWindow());
       if (hwnd && SUCCEEDED(::AccessibleObjectFromWindow(hwnd, OBJID_WINDOW,
                                                          IID_IAccessible,
@@ -264,7 +264,7 @@ __try {
 
   // The name was not provided, e.g. no alt attribute for an image. A screen
   // reader may choose to invent its own accessible name, e.g. from an image src
-  // attribute. Refer to NS_OK_EMPTY_NAME return value.
+  // attribute. Refer to eNoNameOnPurpose return value.
   if (name.IsVoid())
     return S_FALSE;
 
@@ -368,7 +368,7 @@ __try {
 #endif
 
   a11y::role geckoRole = xpAccessible->Role();
-  PRUint32 msaaRole = 0;
+  uint32_t msaaRole = 0;
 
 #define ROLE(_geckoRole, stringRole, atkRole, macRole, \
              _msaaRole, ia2Role, nameRule) \
@@ -464,7 +464,7 @@ __try {
   //   INVALID -> ALERT_HIGH
   //   CHECKABLE -> MARQUEED
 
-  PRUint32 msaaState = 0;
+  uint32_t msaaState = 0;
   nsAccUtils::To32States(xpAccessible->State(), &msaaState, nullptr);
   pvarState->lVal = msaaState;
 } __except(FilterA11yExceptions(::GetExceptionCode(), GetExceptionInformation())) { }
@@ -597,7 +597,7 @@ public:
 
 private:
   nsCOMPtr<nsIArray> mArray;
-  PRUint32 mCurIndex;
+  uint32_t mCurIndex;
   nsAutoRefCnt mRefCnt;
 };
 
@@ -640,7 +640,7 @@ STDMETHODIMP
 AccessibleEnumerator::Next(unsigned long celt, VARIANT FAR* rgvar, unsigned long FAR* pceltFetched)
 {
 __try {
-  PRUint32 length = 0;
+  uint32_t length = 0;
   mArray->GetLength(&length);
 
   HRESULT hr = S_OK;
@@ -651,7 +651,7 @@ __try {
     celt = length - mCurIndex;
   }
 
-  for (PRUint32 i = 0; i < celt; ++i, ++mCurIndex) {
+  for (uint32_t i = 0; i < celt; ++i, ++mCurIndex) {
     // Copy the elements of the array into rgvar
     nsCOMPtr<nsIAccessible> accel(do_QueryElementAt(mArray, mCurIndex));
     NS_ASSERTION(accel, "Invalid pointer in mArray");
@@ -687,7 +687,7 @@ STDMETHODIMP
 AccessibleEnumerator::Skip(unsigned long celt)
 {
 __try {
-  PRUint32 length = 0;
+  uint32_t length = 0;
   mArray->GetLength(&length);
   // Check if we can skip the requested number of elements
   if (celt > length - mCurIndex) {
@@ -834,7 +834,7 @@ __try {
   if (xpAccessible->IsDefunct())
     return CO_E_OBJNOTCONNECTED;
 
-  PRInt32 x, y, width, height;
+  int32_t x, y, width, height;
   if (NS_FAILED(xpAccessible->GetBounds(&x, &y, &width, &height)))
     return E_FAIL;
 
@@ -872,7 +872,7 @@ __try {
   VariantInit(pvarEndUpAt);
 
   Accessible* navAccessible = nullptr;
-  PRUint32 xpRelation = 0;
+  uint32_t xpRelation = 0;
 
   switch(navDir) {
     case NAVDIR_FIRSTCHILD:
@@ -1051,7 +1051,7 @@ __try {
   if (IsDefunct())
     return CO_E_OBJNOTCONNECTED;
 
-  for (PRUint32 relType = nsIAccessibleRelation::RELATION_FIRST;
+  for (uint32_t relType = nsIAccessibleRelation::RELATION_FIRST;
        relType <= nsIAccessibleRelation::RELATION_LAST; relType++) {
     Relation rel = RelationByType(relType);
     if (rel.Next())
@@ -1075,8 +1075,8 @@ __try {
   if (IsDefunct())
     return CO_E_OBJNOTCONNECTED;
 
-  PRUint32 relIdx = 0;
-  for (PRUint32 relType = nsIAccessibleRelation::RELATION_FIRST;
+  uint32_t relIdx = 0;
+  for (uint32_t relType = nsIAccessibleRelation::RELATION_FIRST;
        relType <= nsIAccessibleRelation::RELATION_LAST; relType++) {
     Relation rel = RelationByType(relType);
     nsRefPtr<ia2AccessibleRelation> ia2Relation =
@@ -1110,7 +1110,7 @@ __try {
   if (IsDefunct())
     return CO_E_OBJNOTCONNECTED;
 
-  for (PRUint32 relType = nsIAccessibleRelation::RELATION_FIRST;
+  for (uint32_t relType = nsIAccessibleRelation::RELATION_FIRST;
        relType <= nsIAccessibleRelation::RELATION_LAST &&
        *aNRelations < aMaxRelations; relType++) {
     Relation rel = RelationByType(relType);
@@ -1187,7 +1187,7 @@ __try {
   if (IsDefunct())
       return CO_E_OBJNOTCONNECTED;
 
-  PRUint32 geckoCoordType = (aCoordType == IA2_COORDTYPE_SCREEN_RELATIVE) ?
+  uint32_t geckoCoordType = (aCoordType == IA2_COORDTYPE_SCREEN_RELATIVE) ?
     nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE :
     nsIAccessibleCoordinateType::COORDTYPE_PARENT_RELATIVE;
 
@@ -1233,7 +1233,7 @@ __try {
 
   // XXX: bug 344674 should come with better approach that we have here.
 
-  PRUint64 state = State();
+  uint64_t state = State();
 
   if (state & states::INVALID)
     *aStates |= IA2_STATE_INVALID_ENTRY;
@@ -1398,7 +1398,7 @@ __try {
   Language(lang);
 
   // If primary code consists from two letters then expose it as language.
-  PRInt32 offset = lang.FindChar('-', 0);
+  int32_t offset = lang.FindChar('-', 0);
   if (offset == -1) {
     if (lang.Length() == 2) {
       aLocale->language = ::SysAllocString(lang.get());
@@ -1534,17 +1534,17 @@ AccessibleWrap::HandleAccEvent(AccEvent* aEvent)
 nsresult
 AccessibleWrap::FirePlatformEvent(AccEvent* aEvent)
 {
-  PRUint32 eventType = aEvent->GetEventType();
+  uint32_t eventType = aEvent->GetEventType();
 
   NS_ENSURE_TRUE(eventType > 0 &&
                  eventType < nsIAccessibleEvent::EVENT_LAST_ENTRY,
                  NS_ERROR_FAILURE);
 
-  PRUint32 winLastEntry = gWinEventMap[nsIAccessibleEvent::EVENT_LAST_ENTRY];
+  uint32_t winLastEntry = gWinEventMap[nsIAccessibleEvent::EVENT_LAST_ENTRY];
   NS_ASSERTION(winLastEntry == kEVENT_LAST_ENTRY,
                "MSAA event map skewed");
 
-  PRUint32 winEvent = gWinEventMap[eventType];
+  uint32_t winEvent = gWinEventMap[eventType];
   if (!winEvent)
     return NS_OK;
 
@@ -1560,7 +1560,7 @@ AccessibleWrap::FirePlatformEvent(AccEvent* aEvent)
     UpdateSystemCaret();
   }
 
-  PRInt32 childID = GetChildIDFor(accessible); // get the id for the accessible
+  int32_t childID = GetChildIDFor(accessible); // get the id for the accessible
   if (!childID)
     return NS_OK; // Can't fire an event without a child ID
 
@@ -1568,7 +1568,7 @@ AccessibleWrap::FirePlatformEvent(AccEvent* aEvent)
   NS_ENSURE_TRUE(hWnd, NS_ERROR_FAILURE);
 
   nsAutoString tag;
-  nsCAutoString id;
+  nsAutoCString id;
   nsIContent* cnt = accessible->GetContent();
   if (cnt) {
     cnt->Tag()->ToString(tag);
@@ -1577,7 +1577,7 @@ AccessibleWrap::FirePlatformEvent(AccEvent* aEvent)
       aid->ToUTF8String(id);
   }
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
   if (logging::IsEnabled(logging::ePlatforms)) {
     printf("\n\nMSAA event: event: %d, target: %s@id='%s', childid: %d, hwnd: %d\n\n",
            eventType, NS_ConvertUTF16toUTF8(tag).get(), id.get(),
@@ -1601,7 +1601,7 @@ AccessibleWrap::FirePlatformEvent(AccEvent* aEvent)
 
 //------- Helper methods ---------
 
-PRInt32
+int32_t
 AccessibleWrap::GetChildIDFor(Accessible* aAccessible)
 {
   // A child ID of the window is required, when we use NotifyWinEvent,
@@ -1678,11 +1678,11 @@ AccessibleWrap::ConvertToIA2Attributes(nsIPersistentProperties *aAttributes,
     if (!propElem)
       return E_FAIL;
 
-    nsCAutoString name;
+    nsAutoCString name;
     if (NS_FAILED(propElem->GetKey(name)))
       return E_FAIL;
 
-    PRUint32 offset = 0;
+    uint32_t offset = 0;
     while ((offset = name.FindCharInSet(kCharsToEscape, offset)) != kNotFound) {
       name.Insert('\\', offset);
       offset += 2;

@@ -8,6 +8,7 @@
 
 using namespace mozilla;
 
+NS_IMPL_ISUPPORTS1(WebGLMemoryPressureObserver, nsIObserver)
 
 class WebGLMemoryMultiReporter MOZ_FINAL : public nsIMemoryMultiReporter 
 {
@@ -26,7 +27,7 @@ WebGLMemoryMultiReporter::GetName(nsACString &aName)
 }
 
 NS_IMETHODIMP
-WebGLMemoryMultiReporter::GetExplicitNonHeap(PRInt64 *aAmount)
+WebGLMemoryMultiReporter::GetExplicitNonHeap(int64_t *aAmount)
 {
     // WebGLMemoryMultiReporterWrapper has no KIND_NONHEAP measurements.
     *aAmount = 0;

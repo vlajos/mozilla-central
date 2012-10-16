@@ -11,6 +11,7 @@
 #include "nsIFormControl.h"
 #include "nsGUIEvent.h"
 #include "nsEventDispatcher.h"
+#include "nsContentList.h"
 
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(FieldSet)
@@ -30,8 +31,8 @@ nsHTMLFieldSetElement::nsHTMLFieldSetElement(already_AddRefed<nsINodeInfo> aNode
 
 nsHTMLFieldSetElement::~nsHTMLFieldSetElement()
 {
-  PRUint32 length = mDependentElements.Length();
-  for (PRUint32 i = 0; i < length; ++i) {
+  uint32_t length = mDependentElements.Length();
+  for (uint32_t i = 0; i < length; ++i) {
     mDependentElements[i]->ForgetFieldSet(this);
   }
 }
@@ -86,7 +87,7 @@ nsHTMLFieldSetElement::PreHandleEvent(nsEventChainPreVisitor& aVisitor)
 }
 
 nsresult
-nsHTMLFieldSetElement::AfterSetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+nsHTMLFieldSetElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                                     const nsAttrValue* aValue, bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None && aName == nsGkAtoms::disabled &&
@@ -96,8 +97,8 @@ nsHTMLFieldSetElement::AfterSetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
                                     true);
     }
 
-    PRUint32 length = mElements->Length(true);
-    for (PRUint32 i=0; i<length; ++i) {
+    uint32_t length = mElements->Length(true);
+    for (uint32_t i=0; i<length; ++i) {
       static_cast<nsGenericHTMLFormElement*>(mElements->GetNodeAt(i))
         ->FieldSetDisabledChanged(aNotify);
     }
@@ -124,7 +125,7 @@ nsHTMLFieldSetElement::GetType(nsAString& aType)
 
 /* static */
 bool
-nsHTMLFieldSetElement::MatchListedElements(nsIContent* aContent, PRInt32 aNamespaceID,
+nsHTMLFieldSetElement::MatchListedElements(nsIContent* aContent, int32_t aNamespaceID,
                                            nsIAtom* aAtom, void* aData)
 {
   nsCOMPtr<nsIFormControl> formControl = do_QueryInterface(aContent);
@@ -158,7 +159,7 @@ nsHTMLFieldSetElement::SubmitNamesValues(nsFormSubmission* aFormSubmission)
 }
 
 nsresult
-nsHTMLFieldSetElement::InsertChildAt(nsIContent* aChild, PRUint32 aIndex,
+nsHTMLFieldSetElement::InsertChildAt(nsIContent* aChild, uint32_t aIndex,
                                      bool aNotify)
 {
   bool firstLegendHasChanged = false;
@@ -170,7 +171,7 @@ nsHTMLFieldSetElement::InsertChildAt(nsIContent* aChild, PRUint32 aIndex,
     } else {
       // If mFirstLegend is before aIndex, we do not change it.
       // Otherwise, mFirstLegend is now aChild.
-      if (PRInt32(aIndex) <= IndexOf(mFirstLegend)) {
+      if (int32_t(aIndex) <= IndexOf(mFirstLegend)) {
         mFirstLegend = aChild;
         firstLegendHasChanged = true;
       }
@@ -188,7 +189,7 @@ nsHTMLFieldSetElement::InsertChildAt(nsIContent* aChild, PRUint32 aIndex,
 }
 
 void
-nsHTMLFieldSetElement::RemoveChildAt(PRUint32 aIndex, bool aNotify)
+nsHTMLFieldSetElement::RemoveChildAt(uint32_t aIndex, bool aNotify)
 {
   bool firstLegendHasChanged = false;
 
@@ -227,8 +228,8 @@ nsHTMLFieldSetElement::NotifyElementsForFirstLegendChange(bool aNotify)
                                   true);
   }
 
-  PRUint32 length = mElements->Length(true);
-  for (PRUint32 i = 0; i < length; ++i) {
+  uint32_t length = mElements->Length(true);
+  for (uint32_t i = 0; i < length; ++i) {
     static_cast<nsGenericHTMLFormElement*>(mElements->GetNodeAt(i))
       ->FieldSetFirstLegendChanged(aNotify);
   }

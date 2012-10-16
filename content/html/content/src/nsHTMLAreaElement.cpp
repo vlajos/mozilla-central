@@ -35,24 +35,8 @@ public:
   NS_FORWARD_NSIDOMELEMENT(nsGenericHTMLElement::)
 
   // nsIDOMHTMLElement
-  NS_FORWARD_NSIDOMHTMLELEMENT_BASIC(nsGenericHTMLElement::)
-  NS_IMETHOD Click() {
-    return nsGenericHTMLElement::Click();
-  }
-  NS_IMETHOD GetTabIndex(PRInt32* aTabIndex);
-  NS_IMETHOD SetTabIndex(PRInt32 aTabIndex);
-  NS_IMETHOD Focus() {
-    return nsGenericHTMLElement::Focus();
-  }
-  NS_IMETHOD GetDraggable(bool* aDraggable) {
-    return nsGenericHTMLElement::GetDraggable(aDraggable);
-  }
-  NS_IMETHOD GetInnerHTML(nsAString& aInnerHTML) {
-    return nsGenericHTMLElement::GetInnerHTML(aInnerHTML);
-  }
-  NS_IMETHOD SetInnerHTML(const nsAString& aInnerHTML) {
-    return nsGenericHTMLElement::SetInnerHTML(aInnerHTML);
-  }
+  NS_FORWARD_NSIDOMHTMLELEMENT(nsGenericHTMLElement::)
+  virtual int32_t TabIndexDefault() MOZ_OVERRIDE;
 
   // nsIDOMHTMLAreaElement
   NS_DECL_NSIDOMHTMLAREAELEMENT
@@ -73,15 +57,15 @@ public:
                               bool aCompileEventHandlers);
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true);
-  nsresult SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+  nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                    const nsAString& aValue, bool aNotify)
   {
     return SetAttr(aNameSpaceID, aName, nullptr, aValue, aNotify);
   }
-  virtual nsresult SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+  virtual nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                            nsIAtom* aPrefix, const nsAString& aValue,
                            bool aNotify);
-  virtual nsresult UnsetAttr(PRInt32 aNameSpaceID, nsIAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
                              bool aNotify);
 
   virtual nsresult Clone(nsINodeInfo *aNodeInfo, nsINode **aResult) const;
@@ -135,7 +119,12 @@ NS_IMPL_STRING_ATTR(nsHTMLAreaElement, Coords, coords)
 NS_IMPL_URI_ATTR(nsHTMLAreaElement, Href, href)
 NS_IMPL_BOOL_ATTR(nsHTMLAreaElement, NoHref, nohref)
 NS_IMPL_STRING_ATTR(nsHTMLAreaElement, Shape, shape)
-NS_IMPL_INT_ATTR(nsHTMLAreaElement, TabIndex, tabindex)
+
+int32_t
+nsHTMLAreaElement::TabIndexDefault()
+{
+  return 0;
+}
 
 void
 nsHTMLAreaElement::GetItemValueText(nsAString& aValue)
@@ -222,7 +211,7 @@ nsHTMLAreaElement::UnbindFromTree(bool aDeep, bool aNullParent)
 }
 
 nsresult
-nsHTMLAreaElement::SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+nsHTMLAreaElement::SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                            nsIAtom* aPrefix, const nsAString& aValue,
                            bool aNotify)
 {
@@ -242,7 +231,7 @@ nsHTMLAreaElement::SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
 }
 
 nsresult
-nsHTMLAreaElement::UnsetAttr(PRInt32 aNameSpaceID, nsIAtom* aAttribute,
+nsHTMLAreaElement::UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
                              bool aNotify)
 {
   nsresult rv = nsGenericHTMLElement::UnsetAttr(aNameSpaceID, aAttribute,

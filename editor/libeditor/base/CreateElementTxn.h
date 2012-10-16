@@ -13,7 +13,6 @@
 #include "nsISupportsImpl.h"
 #include "nsString.h"
 #include "nscore.h"
-#include "prtypes.h"
 
 class nsEditor;
 
@@ -35,7 +34,7 @@ public:
   NS_IMETHOD Init(nsEditor *aEditor,
                   const nsAString& aTag,
                   nsIDOMNode *aParent,
-                  PRUint32 aOffsetInParent);
+                  uint32_t aOffsetInParent);
 
   CreateElementTxn();
 
@@ -60,7 +59,7 @@ protected:
   nsCOMPtr<nsIDOMNode> mParent;
 
   /** the index in mParent for the new node */
-  PRUint32 mOffsetInParent;
+  uint32_t mOffsetInParent;
 
   /** the new node to insert */
   nsCOMPtr<nsIDOMNode> mNewNode;  

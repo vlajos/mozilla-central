@@ -60,12 +60,13 @@ nsBaseChannel::nsBaseChannel()
   , mWasOpened(false)
   , mWaitingOnAsyncRedirect(false)
   , mStatus(NS_OK)
+  , mContentDispositionHint(UINT32_MAX)
 {
   mContentType.AssignLiteral(UNKNOWN_CONTENT_TYPE);
 }
 
 nsresult
-nsBaseChannel::Redirect(nsIChannel *newChannel, PRUint32 redirectFlags,
+nsBaseChannel::Redirect(nsIChannel *newChannel, uint32_t redirectFlags,
                         bool openNewChannel)
 {
   SUSPEND_PUMP_FOR_SCOPE();
@@ -154,7 +155,7 @@ nsBaseChannel::HasContentTypeHint() const
 }
 
 void
-nsBaseChannel::SetContentLength64(PRInt64 len)
+nsBaseChannel::SetContentLength64(int64_t len)
 {
   // XXX: Storing the content-length as a property may not be what we want.
   //      It has the drawback of being copied if we redirect this channel.
@@ -162,10 +163,10 @@ nsBaseChannel::SetContentLength64(PRInt64 len)
   SetPropertyAsInt64(NS_CHANNEL_PROP_CONTENT_LENGTH, len);
 }
 
-PRInt64
+int64_t
 nsBaseChannel::ContentLength64()
 {
-  PRInt64 len;
+  int64_t len;
   nsresult rv = GetPropertyAsInt64(NS_CHANNEL_PROP_CONTENT_LENGTH, &len);
   return NS_SUCCEEDED(rv) ? len : -1;
 }
@@ -296,7 +297,7 @@ nsBaseChannel::ClassifyURI()
 //-----------------------------------------------------------------------------
 // nsBaseChannel::nsISupports
 
-NS_IMPL_ISUPPORTS_INHERITED7(nsBaseChannel,
+NS_IMPL_ISUPPORTS_INHERITED8(nsBaseChannel,
                              nsHashPropertyBag,
                              nsIRequest,
                              nsIChannel,
@@ -304,7 +305,8 @@ NS_IMPL_ISUPPORTS_INHERITED7(nsBaseChannel,
                              nsITransportEventSink,
                              nsIRequestObserver,
                              nsIStreamListener,
-                             nsIAsyncVerifyRedirectCallback)
+                             nsIAsyncVerifyRedirectCallback,
+                             nsIPrivateBrowsingChannel)
 
 //-----------------------------------------------------------------------------
 // nsBaseChannel::nsIRequest
@@ -390,6 +392,10 @@ nsBaseChannel::GetLoadGroup(nsILoadGroup **aLoadGroup)
 NS_IMETHODIMP
 nsBaseChannel::SetLoadGroup(nsILoadGroup *aLoadGroup)
 {
+  if (!CanSetLoadGroup(aLoadGroup)) {
+    return NS_ERROR_FAILURE;
+  }
+
   mLoadGroup = aLoadGroup;
   CallbacksChanged();
   return NS_OK;
@@ -445,6 +451,10 @@ nsBaseChannel::GetNotificationCallbacks(nsIInterfaceRequestor **aCallbacks)
 NS_IMETHODIMP
 nsBaseChannel::SetNotificationCallbacks(nsIInterfaceRequestor *aCallbacks)
 {
+  if (!CanSetCallbacks(aCallbacks)) {
+    return NS_ERROR_FAILURE;
+  }
+
   mCallbacks = aCallbacks;
   CallbacksChanged();
   return NS_OK;
@@ -488,15 +498,40 @@ nsBaseChannel::SetContentCharset(const nsACString &aContentCharset)
 }
 
 NS_IMETHODIMP
-nsBaseChannel::GetContentDisposition(PRUint32 *aContentDisposition)
+nsBaseChannel::GetContentDisposition(uint32_t *aContentDisposition)
 {
-  return NS_ERROR_NOT_AVAILABLE;
+  // preserve old behavior, fail unless explicitly set.
+  if (mContentDispositionHint == UINT32_MAX) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  *aContentDisposition = mContentDispositionHint;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsBaseChannel::SetContentDisposition(uint32_t aContentDisposition)
+{
+  mContentDispositionHint = aContentDisposition;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsBaseChannel::GetContentDispositionFilename(nsAString &aContentDispositionFilename)
 {
-  return NS_ERROR_NOT_AVAILABLE;
+  if (!mContentDispositionFilename) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  aContentDispositionFilename = *mContentDispositionFilename;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsBaseChannel::SetContentDispositionFilename(const nsAString &aContentDispositionFilename)
+{
+  mContentDispositionFilename = new nsString(aContentDispositionFilename);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -506,18 +541,18 @@ nsBaseChannel::GetContentDispositionHeader(nsACString &aContentDispositionHeader
 }
 
 NS_IMETHODIMP
-nsBaseChannel::GetContentLength(PRInt32 *aContentLength)
+nsBaseChannel::GetContentLength(int32_t *aContentLength)
 {
-  PRInt64 len = ContentLength64();
-  if (len > PR_INT32_MAX || len < 0)
+  int64_t len = ContentLength64();
+  if (len > INT32_MAX || len < 0)
     *aContentLength = -1;
   else
-    *aContentLength = (PRInt32) len;
+    *aContentLength = (int32_t) len;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsBaseChannel::SetContentLength(PRInt32 aContentLength)
+nsBaseChannel::SetContentLength(int32_t aContentLength)
 {
   SetContentLength64(aContentLength);
   return NS_OK;
@@ -602,7 +637,7 @@ nsBaseChannel::AsyncOpen(nsIStreamListener *listener, nsISupports *ctxt)
 
 NS_IMETHODIMP
 nsBaseChannel::OnTransportStatus(nsITransport *transport, nsresult status,
-                                 PRUint64 progress, PRUint64 progressMax)
+                                 uint64_t progress, uint64_t progressMax)
 {
   // In some cases, we may wish to suppress transport-layer status events.
 
@@ -645,15 +680,15 @@ nsBaseChannel::GetInterface(const nsIID &iid, void **result)
 // nsBaseChannel::nsIRequestObserver
 
 static void
-CallTypeSniffers(void *aClosure, const PRUint8 *aData, PRUint32 aCount)
+CallTypeSniffers(void *aClosure, const uint8_t *aData, uint32_t aCount)
 {
   nsIChannel *chan = static_cast<nsIChannel*>(aClosure);
 
   const nsCOMArray<nsIContentSniffer>& sniffers =
     gIOService->GetContentSniffers();
-  PRUint32 length = sniffers.Count();
-  for (PRUint32 i = 0; i < length; ++i) {
-    nsCAutoString newType;
+  uint32_t length = sniffers.Count();
+  for (uint32_t i = 0; i < length; ++i) {
+    nsAutoCString newType;
     nsresult rv =
       sniffers[i]->GetMIMETypeFromContent(chan, aData, aCount, newType);
     if (NS_SUCCEEDED(rv) && !newType.IsEmpty()) {
@@ -664,7 +699,7 @@ CallTypeSniffers(void *aClosure, const PRUint8 *aData, PRUint32 aCount)
 }
 
 static void
-CallUnknownTypeSniffer(void *aClosure, const PRUint8 *aData, PRUint32 aCount)
+CallUnknownTypeSniffer(void *aClosure, const uint8_t *aData, uint32_t aCount)
 {
   nsIChannel *chan = static_cast<nsIChannel*>(aClosure);
 
@@ -673,7 +708,7 @@ CallUnknownTypeSniffer(void *aClosure, const PRUint8 *aData, PRUint32 aCount)
   if (!sniffer)
     return;
 
-  nsCAutoString detected;
+  nsAutoCString detected;
   nsresult rv = sniffer->GetMIMETypeFromContent(chan, aData, aCount, detected);
   if (NS_SUCCEEDED(rv))
     chan->SetContentType(detected);
@@ -701,7 +736,9 @@ nsBaseChannel::OnStartRequest(nsIRequest *request, nsISupports *ctxt)
 
   SUSPEND_PUMP_FOR_SCOPE();
 
-  return mListener->OnStartRequest(this, mListenerContext);
+  if (mListener) // null in case of redirect
+      return mListener->OnStartRequest(this, mListenerContext);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -716,7 +753,8 @@ nsBaseChannel::OnStopRequest(nsIRequest *request, nsISupports *ctxt,
   // Cause IsPending to return false.
   mPump = nullptr;
 
-  mListener->OnStopRequest(this, mListenerContext, mStatus);
+  if (mListener) // null in case of redirect
+      mListener->OnStopRequest(this, mListenerContext, mStatus);
   mListener = nullptr;
   mListenerContext = nullptr;
 
@@ -738,17 +776,17 @@ nsBaseChannel::OnStopRequest(nsIRequest *request, nsISupports *ctxt,
 
 NS_IMETHODIMP
 nsBaseChannel::OnDataAvailable(nsIRequest *request, nsISupports *ctxt,
-                               nsIInputStream *stream, PRUint32 offset,
-                               PRUint32 count)
+                               nsIInputStream *stream, uint64_t offset,
+                               uint32_t count)
 {
   SUSPEND_PUMP_FOR_SCOPE();
 
   nsresult rv = mListener->OnDataAvailable(this, mListenerContext, stream,
                                            offset, count);
   if (mSynthProgressEvents && NS_SUCCEEDED(rv)) {
-    PRUint64 prog = PRUint64(offset) + count;
-    PRUint64 progMax = ContentLength64();
-    OnTransportStatus(nullptr, nsITransport::STATUS_READING, prog, progMax);
+    uint64_t prog = offset + count;
+    uint64_t progMax = ContentLength64();
+    OnTransportStatus(nullptr, NS_NET_STATUS_READING, prog, progMax);
   }
 
   return rv;

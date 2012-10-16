@@ -5,9 +5,12 @@
 
 #include "gfxMatrix.h"
 #include "gfx3DMatrix.h"
+#include "mozilla/gfx/Tools.h"
 #include <math.h>
 #include <algorithm>
+
 using namespace std;
+using namespace mozilla::gfx;
 
 /* Force small values to zero.  We do this to avoid having sin(360deg)
  * evaluate to a tiny but nonzero value.
@@ -112,6 +115,13 @@ gfx3DMatrix::operator==(const gfx3DMatrix& o) const
          _41 == o._41 && _42 == o._42 && _43 == o._43 && _44 == o._44;
 }
 
+bool
+gfx3DMatrix::operator!=(const gfx3DMatrix& o) const
+{
+  return !((*this) == o);
+}
+
+
 gfx3DMatrix&
 gfx3DMatrix::operator/=(const gfxFloat scalar)
 {
@@ -180,6 +190,25 @@ gfx3DMatrix::TranslatePost(const gfxPoint3D& aPoint)
     _23 += _24 * aPoint.z;
     _33 += _34 * aPoint.z;
     _43 += _44 * aPoint.z;
+}
+
+void
+gfx3DMatrix::ScalePost(float aX, float aY, float aZ)
+{
+  _11 *= aX;
+  _21 *= aX;
+  _31 *= aX;
+  _41 *= aX;
+
+  _12 *= aY;
+  _22 *= aY;
+  _32 *= aY;
+  _42 *= aY;
+
+  _13 *= aZ;
+  _23 *= aZ;
+  _33 *= aZ;
+  _43 *= aZ;
 }
 
 void
@@ -791,3 +820,22 @@ bool gfx3DMatrix::IsBackfaceVisible() const
   return (_33 * det) < 0;
 }
 
+void gfx3DMatrix::NudgeToIntegers(void)
+{
+  NudgeToInteger(&_11);
+  NudgeToInteger(&_12);
+  NudgeToInteger(&_13);
+  NudgeToInteger(&_14);
+  NudgeToInteger(&_21);
+  NudgeToInteger(&_22);
+  NudgeToInteger(&_23);
+  NudgeToInteger(&_24);
+  NudgeToInteger(&_31);
+  NudgeToInteger(&_32);
+  NudgeToInteger(&_33);
+  NudgeToInteger(&_34);
+  NudgeToInteger(&_41);
+  NudgeToInteger(&_42);
+  NudgeToInteger(&_43);
+  NudgeToInteger(&_44);
+}

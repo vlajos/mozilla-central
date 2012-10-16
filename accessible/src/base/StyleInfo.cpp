@@ -8,6 +8,7 @@
 
 #include "mozilla/dom/Element.h"
 #include "nsComputedDOMStyle.h"
+#include "nsIFrame.h"
 
 using namespace mozilla;
 using namespace mozilla::a11y;
@@ -114,7 +115,7 @@ StyleInfo::FormatFontStyle(const nscoord& aValue, nsAString& aFormattedValue)
 }
 
 void
-StyleInfo::FormatTextDecorationStyle(PRUint8 aValue, nsAString& aFormattedValue)
+StyleInfo::FormatTextDecorationStyle(uint8_t aValue, nsAString& aFormattedValue)
 {
   nsCSSKeyword keyword =
     nsCSSProps::ValueToKeywordEnum(aValue,

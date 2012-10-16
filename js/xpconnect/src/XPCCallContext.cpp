@@ -324,55 +324,8 @@ XPCCallContext::~XPCCallContext()
         }
     }
 
-#ifdef DEBUG
-    for (PRUint32 i = 0; i < XPCCCX_STRING_CACHE_SIZE; ++i) {
-        NS_ASSERTION(!mScratchStrings[i].mInUse, "Uh, string wrapper still in use!");
-    }
-#endif
-
     if (shouldReleaseXPC && mXPC)
         NS_RELEASE(mXPC);
-}
-
-XPCReadableJSStringWrapper *
-XPCCallContext::NewStringWrapper(const PRUnichar *str, PRUint32 len)
-{
-    for (PRUint32 i = 0; i < XPCCCX_STRING_CACHE_SIZE; ++i) {
-        StringWrapperEntry& ent = mScratchStrings[i];
-
-        if (!ent.mInUse) {
-            ent.mInUse = true;
-
-            // Construct the string using placement new.
-
-            return new (ent.mString.addr()) XPCReadableJSStringWrapper(str, len);
-        }
-    }
-
-    // All our internal string wrappers are used, allocate a new string.
-
-    return new XPCReadableJSStringWrapper(str, len);
-}
-
-void
-XPCCallContext::DeleteString(nsAString *string)
-{
-    for (PRUint32 i = 0; i < XPCCCX_STRING_CACHE_SIZE; ++i) {
-        StringWrapperEntry& ent = mScratchStrings[i];
-        if (string == ent.mString.addr()) {
-            // One of our internal strings is no longer in use, mark
-            // it as such and destroy the string.
-
-            ent.mInUse = false;
-            ent.mString.addr()->~XPCReadableJSStringWrapper();
-
-            return;
-        }
-    }
-
-    // We're done with a string that's not one of our internal
-    // strings, delete it.
-    delete string;
 }
 
 /* readonly attribute nsISupports Callee; */
@@ -385,9 +338,9 @@ XPCCallContext::GetCallee(nsISupports * *aCallee)
     return NS_OK;
 }
 
-/* readonly attribute PRUint16 CalleeMethodIndex; */
+/* readonly attribute uint16_t CalleeMethodIndex; */
 NS_IMETHODIMP
-XPCCallContext::GetCalleeMethodIndex(PRUint16 *aCalleeMethodIndex)
+XPCCallContext::GetCalleeMethodIndex(uint16_t *aCalleeMethodIndex)
 {
     *aCalleeMethodIndex = mMethodIndex;
     return NS_OK;
@@ -432,11 +385,11 @@ XPCCallContext::GetJSContext(JSContext * *aJSContext)
     return NS_OK;
 }
 
-/* readonly attribute PRUint32 Argc; */
+/* readonly attribute uint32_t Argc; */
 NS_IMETHODIMP
-XPCCallContext::GetArgc(PRUint32 *aArgc)
+XPCCallContext::GetArgc(uint32_t *aArgc)
 {
-    *aArgc = (PRUint32) mArgc;
+    *aArgc = (uint32_t) mArgc;
     return NS_OK;
 }
 
@@ -457,7 +410,7 @@ XPCCallContext::GetPreviousCallContext(nsAXPCNativeCallContext **aResult)
 }
 
 NS_IMETHODIMP
-XPCCallContext::GetLanguage(PRUint16 *aResult)
+XPCCallContext::GetLanguage(uint16_t *aResult)
 {
   NS_ENSURE_ARG_POINTER(aResult);
   *aResult = GetCallerLanguage();

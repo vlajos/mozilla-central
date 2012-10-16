@@ -1,5 +1,5 @@
 /* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
-/* vim: set ts=2 et sw=2 tw=40: */
+/* vim: set ts=2 et sw=2 tw=80: */
 /*
 ** Copyright 2006, The Android Open Source Project
 **
@@ -90,6 +90,7 @@ DBusMessage*  dbus_func_args_error(DBusConnection* conn,
 
 DBusMessage*  dbus_func_args_timeout(DBusConnection* conn,
                                      int timeout_ms,
+                                     DBusError* err,
                                      const char* path,
                                      const char* ifc,
                                      const char* func,
@@ -105,6 +106,9 @@ DBusMessage*  dbus_func_args_timeout_valist(DBusConnection* conn,
                                             int first_arg_type,
                                             va_list args);
 
+int dbus_returns_int32(DBusMessage *reply);
+
+int dbus_returns_uint32(DBusMessage *reply);
 
 }
 }

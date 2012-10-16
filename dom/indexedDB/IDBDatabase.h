@@ -19,10 +19,17 @@
 class nsIScriptContext;
 class nsPIDOMWindow;
 
+namespace mozilla {
+namespace dom {
+class ContentParent;
+}
+}
+
 BEGIN_INDEXEDDB_NAMESPACE
 
 class AsyncConnectionHelper;
 struct DatabaseInfo;
+class IDBFactory;
 class IDBIndex;
 class IDBObjectStore;
 class IDBTransaction;
@@ -48,9 +55,11 @@ public:
 
   static already_AddRefed<IDBDatabase>
   Create(IDBWrapperCache* aOwnerCache,
+         IDBFactory* aFactory,
          already_AddRefed<DatabaseInfo> aDatabaseInfo,
          const nsACString& aASCIIOrigin,
-         FileManager* aFileManager);
+         FileManager* aFileManager,
+         mozilla::dom::ContentParent* aContentParent);
 
   // nsIDOMEventTarget
   virtual nsresult PostHandleEvent(nsEventChainPostVisitor& aVisitor);
@@ -97,6 +106,13 @@ public:
   // transactions for this database will be allowed to run.
   bool IsInvalidated();
 
+  void DisconnectFromActor();
+
+  // Whether or not the database has been disconnected from its actor.  If true
+  // it is not safe to send any IPC messages to the actor representing this db
+  // or any of its subactors.
+  bool IsDisconnectedFromActor();
+
   void CloseInternal(bool aIsDead);
 
   // Whether or not the database has had Close called on it.
@@ -135,6 +151,12 @@ public:
     return mActorChild;
   }
 
+  mozilla::dom::ContentParent*
+  GetContentParent() const
+  {
+    return mContentParent;
+  }
+
   nsresult
   CreateObjectStoreInternal(IDBTransaction* aTransaction,
                             const ObjectStoreInfoGuts& aInfo,
@@ -146,7 +168,13 @@ private:
 
   void OnUnlink();
 
+  // The factory must be kept alive when IndexedDB is used in multiple
+  // processes. If it dies then the entire actor tree will be destroyed with it
+  // and the world will explode.
+  nsRefPtr<IDBFactory> mFactory;
+
   nsRefPtr<DatabaseInfo> mDatabaseInfo;
+
   // Set to a copy of the existing DatabaseInfo when starting a versionchange
   // transaction.
   nsRefPtr<DatabaseInfo> mPreviousDatabaseInfo;
@@ -157,15 +185,13 @@ private:
 
   nsRefPtr<FileManager> mFileManager;
 
-  // Only touched on the main thread.
-  NS_DECL_EVENT_HANDLER(abort)
-  NS_DECL_EVENT_HANDLER(error)
-  NS_DECL_EVENT_HANDLER(versionchange)
-
   IndexedDBDatabaseChild* mActorChild;
   IndexedDBDatabaseParent* mActorParent;
 
-  PRInt32 mInvalidated;
+  mozilla::dom::ContentParent* mContentParent;
+
+  bool mInvalidated;
+  bool mDisconnected;
   bool mRegistered;
   bool mClosed;
   bool mRunningVersionChange;

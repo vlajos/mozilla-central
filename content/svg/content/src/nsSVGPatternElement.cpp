@@ -10,7 +10,6 @@
 #include "nsCOMPtr.h"
 #include "nsGkAtoms.h"
 #include "nsSVGPatternElement.h"
-#include "nsIFrame.h"
 
 using namespace mozilla;
 
@@ -18,10 +17,10 @@ using namespace mozilla;
 
 nsSVGElement::LengthInfo nsSVGPatternElement::sLengthInfo[4] =
 {
-  { &nsGkAtoms::x, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, nsSVGUtils::X },
-  { &nsGkAtoms::y, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, nsSVGUtils::Y },
-  { &nsGkAtoms::width, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, nsSVGUtils::X },
-  { &nsGkAtoms::height, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, nsSVGUtils::Y },
+  { &nsGkAtoms::x, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
+  { &nsGkAtoms::y, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
+  { &nsGkAtoms::width, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
+  { &nsGkAtoms::height, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
 };
 
 nsSVGElement::EnumInfo nsSVGPatternElement::sEnumInfo[2] =
@@ -174,7 +173,7 @@ nsSVGPatternElement::IsAttributeMapped(const nsIAtom* name) const
 // nsSVGElement methods
 
 SVGAnimatedTransformList*
-nsSVGPatternElement::GetAnimatedTransformList(PRUint32 aFlags)
+nsSVGPatternElement::GetAnimatedTransformList(uint32_t aFlags)
 {
   if (!mPatternTransform && (aFlags & DO_ALLOCATE)) {
     mPatternTransform = new SVGAnimatedTransformList();

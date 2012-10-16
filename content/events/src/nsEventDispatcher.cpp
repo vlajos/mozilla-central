@@ -9,8 +9,7 @@
 #include "nsPresContext.h"
 #include "nsEventListenerManager.h"
 #include "nsContentUtils.h"
-#include "nsDOMError.h"
-#include "mozilla/FunctionTimer.h"
+#include "nsError.h"
 #include "nsMutationEvent.h"
 #include NEW_H
 #include "nsFixedSizeAllocator.h"
@@ -21,6 +20,8 @@
 #include "nsDOMStorage.h"
 #include "sampler.h"
 #include "GeneratedEvents.h"
+
+using namespace mozilla;
 
 #define NS_TARGET_CHAIN_FORCE_CONTENT_DISPATCH  (1 << 0)
 #define NS_TARGET_CHAIN_WANTS_WILL_HANDLE_EVENT (1 << 1)
@@ -141,7 +142,7 @@ public:
    * item in the chain.
    */
   nsresult HandleEventTargetChain(nsEventChainPostVisitor& aVisitor,
-                                  PRUint32 aFlags,
+                                  uint32_t aFlags,
                                   nsDispatchingCallback* aCallback,
                                   bool aMayHaveNewListenerManagers,
                                   nsCxPusher* aPusher);
@@ -156,7 +157,7 @@ public:
    * If the current item in the event target chain has an event listener
    * manager, this method calls nsEventListenerManager::HandleEvent().
    */
-  nsresult HandleEvent(nsEventChainPostVisitor& aVisitor, PRUint32 aFlags,
+  nsresult HandleEvent(nsEventChainPostVisitor& aVisitor, uint32_t aFlags,
                        bool aMayHaveNewListenerManagers,
                        nsCxPusher* aPusher)
   {
@@ -193,7 +194,7 @@ public:
   nsresult PostHandleEvent(nsEventChainPostVisitor& aVisitor,
                            nsCxPusher* aPusher);
 
-  static PRUint32 MaxEtciCount() { return sMaxEtciCount; }
+  static uint32_t MaxEtciCount() { return sMaxEtciCount; }
 
   static void ResetMaxEtciCount()
   {
@@ -208,26 +209,26 @@ public:
      // This is used only when caching ETCI objects.
     nsEventTargetChainItem*         mNext;
   };
-  PRUint16                          mFlags;
-  PRUint16                          mItemFlags;
+  uint16_t                          mFlags;
+  uint16_t                          mItemFlags;
   nsCOMPtr<nsISupports>             mItemData;
   // Event retargeting must happen whenever mNewTarget is non-null.
   nsCOMPtr<nsIDOMEventTarget>       mNewTarget;
   // Cache mTarget's event listener manager.
   nsRefPtr<nsEventListenerManager>  mManager;
 
-  static PRUint32                   sMaxEtciCount;
-  static PRUint32                   sCurrentEtciCount;
+  static uint32_t                   sMaxEtciCount;
+  static uint32_t                   sCurrentEtciCount;
 };
 
-PRUint32 nsEventTargetChainItem::sMaxEtciCount = 0;
-PRUint32 nsEventTargetChainItem::sCurrentEtciCount = 0;
+uint32_t nsEventTargetChainItem::sMaxEtciCount = 0;
+uint32_t nsEventTargetChainItem::sCurrentEtciCount = 0;
 
 nsEventTargetChainItem::nsEventTargetChainItem(nsIDOMEventTarget* aTarget,
                                                nsEventTargetChainItem* aChild)
-: mChild(aChild), mParent(nullptr), mFlags(0), mItemFlags(0)
+: mTarget(aTarget), mChild(aChild), mParent(nullptr), mFlags(0), mItemFlags(0)
 {
-  mTarget = aTarget->GetTargetForEventTargetChain();
+  MOZ_ASSERT(!aTarget || mTarget == aTarget->GetTargetForEventTargetChain());
   if (mChild) {
     mChild->mParent = this;
   }
@@ -262,12 +263,12 @@ nsEventTargetChainItem::PostHandleEvent(nsEventChainPostVisitor& aVisitor,
 }
 
 nsresult
-nsEventTargetChainItem::HandleEventTargetChain(nsEventChainPostVisitor& aVisitor, PRUint32 aFlags,
+nsEventTargetChainItem::HandleEventTargetChain(nsEventChainPostVisitor& aVisitor, uint32_t aFlags,
                                                nsDispatchingCallback* aCallback,
                                                bool aMayHaveNewListenerManagers,
                                                nsCxPusher* aPusher)
 {
-  PRUint32 createdELMs = nsEventListenerManager::sCreatedCount;
+  uint32_t createdELMs = nsEventListenerManager::sCreatedCount;
   // Save the target so that it can be restored later.
   nsCOMPtr<nsIDOMEventTarget> firstTarget = aVisitor.mEvent->target;
 
@@ -387,8 +388,8 @@ public:
       sEtciPool = new nsFixedSizeAllocator();
       if (sEtciPool) {
         static const size_t kBucketSizes[] = { sizeof(nsEventTargetChainItem) };
-        static const PRInt32 kNumBuckets = sizeof(kBucketSizes) / sizeof(size_t);
-        static const PRInt32 kInitialPoolSize =
+        static const int32_t kNumBuckets = sizeof(kBucketSizes) / sizeof(size_t);
+        static const int32_t kInitialPoolSize =
           sizeof(nsEventTargetChainItem) * NS_CHAIN_POOL_SIZE;
         nsresult rv = sEtciPool->Init("EventTargetChainItem Pool", kBucketSizes,
                                       kNumBuckets, kInitialPoolSize);
@@ -430,11 +431,11 @@ public:
   nsFixedSizeAllocator* GetPool() { return sEtciPool; }
 
   static nsFixedSizeAllocator* sEtciPool;
-  static PRInt32               sEtciPoolUsers;
+  static int32_t               sEtciPoolUsers;
 };
 
 nsFixedSizeAllocator* ChainItemPool::sEtciPool = nullptr;
-PRInt32 ChainItemPool::sEtciPoolUsers = 0;
+int32_t ChainItemPool::sEtciPoolUsers = 0;
 
 void NS_ShutdownChainItemPool() { ChainItemPool::Shutdown(); }
 
@@ -459,12 +460,6 @@ nsEventDispatcher::Dispatch(nsISupports* aTarget,
   NS_ENSURE_TRUE(aEvent->message || !aDOMEvent || aTargets,
                  NS_ERROR_DOM_INVALID_STATE_ERR);
 
-#ifdef NS_FUNCTION_TIMER
-  const char* timer_event_name = nsDOMEvent::GetEventName(aEvent->message);
-  NS_TIME_FUNCTION_MIN_FMT(20, "Dispatching '%s' event",
-                           timer_event_name ? timer_event_name : "<other>");
-#endif
-
   nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(aTarget);
 
   bool retargeted = false;
@@ -473,7 +468,7 @@ nsEventDispatcher::Dispatch(nsISupports* aTarget,
     nsCOMPtr<nsIContent> content = do_QueryInterface(target);
     if (content && content->IsInNativeAnonymousSubtree()) {
       nsCOMPtr<nsPIDOMEventTarget> newTarget =
-        do_QueryInterface(content->FindFirstNonNativeAnonymous());
+        do_QueryInterface(content->FindFirstNonChromeOnlyAccessContent());
       NS_ENSURE_STATE(newTarget);
 
       aEvent->originalTarget = target;
@@ -538,14 +533,15 @@ nsEventDispatcher::Dispatch(nsISupports* aTarget,
 
   // Create the event target chain item for the event target.
   nsEventTargetChainItem* targetEtci =
-    nsEventTargetChainItem::Create(pool.GetPool(), target);
+    nsEventTargetChainItem::Create(pool.GetPool(),
+                                   target->GetTargetForEventTargetChain());
   NS_ENSURE_TRUE(targetEtci, NS_ERROR_OUT_OF_MEMORY);
   if (!targetEtci->IsValid()) {
     nsEventTargetChainItem::Destroy(pool.GetPool(), targetEtci);
     return NS_ERROR_FAILURE;
   }
 
-  // Make sure that nsIDOMEvent::target and nsIDOMNSEvent::originalTarget
+  // Make sure that nsIDOMEvent::target and nsIDOMEvent::originalTarget
   // point to the last item in the chain.
   if (!aEvent->target) {
     // Note, CurrentTarget() points always to the object returned by
@@ -682,10 +678,8 @@ nsEventDispatcher::DispatchDOMEvent(nsISupports* aTarget,
     if (innerEvent->flags & NS_EVENT_DISPATCHED) {
       innerEvent->target = nullptr;
       innerEvent->originalTarget = nullptr;
-    }
-    else {
-      nsCOMPtr<nsIDOMNSEvent> nsevent(do_QueryInterface(aDOMEvent));
-      nsevent->GetIsTrusted(&dontResetTrusted);
+    } else {
+      aDOMEvent->GetIsTrusted(&dontResetTrusted);
     }
 
     if (!dontResetTrusted) {
@@ -736,6 +730,9 @@ nsEventDispatcher::CreateEvent(nsPresContext* aPresContext,
     case NS_MOUSE_SCROLL_EVENT:
       return NS_NewDOMMouseScrollEvent(aDOMEvent, aPresContext,
                                  static_cast<nsInputEvent*>(aEvent));
+    case NS_WHEEL_EVENT:
+      return NS_NewDOMWheelEvent(aDOMEvent, aPresContext,
+                                 static_cast<widget::WheelEvent*>(aEvent));
     case NS_DRAG_EVENT:
       return NS_NewDOMDragEvent(aDOMEvent, aPresContext,
                                  static_cast<nsDragEvent*>(aEvent));
@@ -757,9 +754,6 @@ nsEventDispatcher::CreateEvent(nsPresContext* aPresContext,
     case NS_SIMPLE_GESTURE_EVENT:
       return NS_NewDOMSimpleGestureEvent(aDOMEvent, aPresContext,
                                          static_cast<nsSimpleGestureEvent*>(aEvent));
-    case NS_MOZTOUCH_EVENT:
-      return NS_NewDOMMozTouchEvent(aDOMEvent, aPresContext,
-                                    static_cast<nsMozTouchEvent*>(aEvent));
     case NS_TOUCH_EVENT:
       return NS_NewDOMTouchEvent(aDOMEvent, aPresContext,
                                  static_cast<nsTouchEvent*>(aEvent));
@@ -840,8 +834,6 @@ nsEventDispatcher::CreateEvent(nsPresContext* aPresContext,
     return NS_NewDOMBeforeUnloadEvent(aDOMEvent, aPresContext, nullptr);
   if (aEventType.LowerCaseEqualsLiteral("pagetransition"))
     return NS_NewDOMPageTransitionEvent(aDOMEvent, aPresContext, nullptr);
-  if (aEventType.LowerCaseEqualsLiteral("moztouchevent"))
-    return NS_NewDOMMozTouchEvent(aDOMEvent, aPresContext, nullptr);
   if (aEventType.LowerCaseEqualsLiteral("scrollareaevent"))
     return NS_NewDOMScrollAreaEvent(aDOMEvent, aPresContext, nullptr);
   // FIXME: Should get spec to say what the right string is here!  This
@@ -866,8 +858,7 @@ nsEventDispatcher::CreateEvent(nsPresContext* aPresContext,
   if (aEventType.LowerCaseEqualsLiteral("mozsmsevent"))
     return NS_NewDOMSmsEvent(aDOMEvent, aPresContext, nullptr);
   if (aEventType.LowerCaseEqualsLiteral("storageevent")) {
-    NS_ADDREF(*aDOMEvent = static_cast<nsDOMEvent*>(new nsDOMStorageEvent()));
-    return NS_OK;
+    return NS_NewDOMStorageEvent(aDOMEvent, aPresContext, nullptr);
   }
     
 

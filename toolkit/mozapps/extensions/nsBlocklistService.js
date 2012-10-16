@@ -1,9 +1,8 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/*
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-*/
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
@@ -17,6 +16,8 @@ Components.utils.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "FileUtils",
                                   "resource://gre/modules/FileUtils.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "UpdateChannel",
+                                  "resource://gre/modules/UpdateChannel.jsm");
 
 const TOOLKIT_ID                      = "toolkit@mozilla.org"
 const KEY_PROFILEDIR                  = "ProfD";
@@ -32,10 +33,8 @@ const PREF_BLOCKLIST_PINGCOUNTTOTAL   = "extensions.blocklist.pingCountTotal";
 const PREF_BLOCKLIST_PINGCOUNTVERSION = "extensions.blocklist.pingCountVersion";
 const PREF_PLUGINS_NOTIFYUSER         = "plugins.update.notifyUser";
 const PREF_GENERAL_USERAGENT_LOCALE   = "general.useragent.locale";
-const PREF_PARTNER_BRANCH             = "app.partner.";
 const PREF_APP_DISTRIBUTION           = "distribution.id";
 const PREF_APP_DISTRIBUTION_VERSION   = "distribution.version";
-const PREF_APP_UPDATE_CHANNEL         = "app.update.channel";
 const PREF_EM_LOGGING_ENABLED         = "extensions.logging.enabled";
 const XMLURI_BLOCKLIST                = "http://www.mozilla.org/2006/addons-blocklist";
 const XMLURI_PARSE_ERROR              = "http://www.mozilla.org/newlayout/xml/parsererror.xml"
@@ -224,42 +223,6 @@ function getLocale() {
   } catch (e) {}
 
   return gPref.getCharPref(PREF_GENERAL_USERAGENT_LOCALE);
-}
-
-/**
- * Read the update channel from defaults only.  We do this to ensure that
- * the channel is tightly coupled with the application and does not apply
- * to other installations of the application that may use the same profile.
- */
-function getUpdateChannel() {
-  var channel = "default";
-  var prefName;
-  var prefValue;
-
-  var defaults = gPref.getDefaultBranch(null);
-  try {
-    channel = defaults.getCharPref(PREF_APP_UPDATE_CHANNEL);
-  } catch (e) {
-    // use default when pref not found
-  }
-
-  try {
-    var partners = gPref.getChildList(PREF_PARTNER_BRANCH);
-    if (partners.length) {
-      channel += "-cck";
-      partners.sort();
-
-      for each (prefName in partners) {
-        prefValue = gPref.getCharPref(prefName);
-        channel += "-" + prefValue;
-      }
-    }
-  }
-  catch (e) {
-    Components.utils.reportError(e);
-  }
-
-  return channel;
 }
 
 /* Get the distribution pref values, from defaults only */
@@ -462,7 +425,7 @@ Blocklist.prototype = {
     dsURI = dsURI.replace(/%BUILD_TARGET%/g, gApp.OS + "_" + gABI);
     dsURI = dsURI.replace(/%OS_VERSION%/g, gOSVersion);
     dsURI = dsURI.replace(/%LOCALE%/g, getLocale());
-    dsURI = dsURI.replace(/%CHANNEL%/g, getUpdateChannel());
+    dsURI = dsURI.replace(/%CHANNEL%/g, UpdateChannel.get());
     dsURI = dsURI.replace(/%PLATFORM_VERSION%/g, gApp.platformVersion);
     dsURI = dsURI.replace(/%DISTRIBUTION%/g,
                       getDistributionPrefValue(PREF_APP_DISTRIBUTION));
@@ -972,6 +935,10 @@ Blocklist.prototype = {
         if (state == Ci.nsIBlocklistService.STATE_VULNERABLE_UPDATE_AVAILABLE ||
             state == Ci.nsIBlocklistService.STATE_VULNERABLE_NO_UPDATE)
           plugin.clicktoplay = true;
+        // turn off clicktoplay if it was previously set by the blocklist
+        else if (oldState == Ci.nsIBlocklistService.STATE_VULNERABLE_UPDATE_AVAILABLE ||
+                 oldState == Ci.nsIBlocklistService.STATE_VULNERABLE_NO_UPDATE)
+          plugin.clicktoplay = false;
       }
 
       if (addonList.length == 0) {

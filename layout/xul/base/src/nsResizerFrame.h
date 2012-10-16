@@ -5,6 +5,7 @@
 #ifndef nsResizerFrame_h___
 #define nsResizerFrame_h___
 
+#include "mozilla/Attributes.h"
 #include "nsTitleBarFrame.h"
 
 class nsIBaseWindow;
@@ -14,8 +15,8 @@ class nsResizerFrame : public nsTitleBarFrame
 {
 protected:
   struct Direction {
-    PRInt8 mHorizontal;
-    PRInt8 mVertical;
+    int8_t mHorizontal;
+    int8_t mVertical;
   };
 
 public:
@@ -27,9 +28,9 @@ public:
 
   NS_IMETHOD HandleEvent(nsPresContext* aPresContext, 
                                       nsGUIEvent* aEvent,
-                                      nsEventStatus* aEventStatus);
+                                      nsEventStatus* aEventStatus) MOZ_OVERRIDE;
 
-  virtual void MouseClicked(nsPresContext* aPresContext, nsGUIEvent *aEvent);
+  virtual void MouseClicked(nsPresContext* aPresContext, nsGUIEvent *aEvent) MOZ_OVERRIDE;
 
 protected:
   nsIContent* GetContentToResize(nsIPresShell* aPresShell, nsIBaseWindow** aWindow);
@@ -48,9 +49,9 @@ protected:
    * @param aMovement the amount the mouse was moved
    * @param aResizerDirection resizer direction returned by GetDirection
    */
-  static void AdjustDimensions(PRInt32* aPos, PRInt32* aSize,
-                               PRInt32 aMinSize, PRInt32 aMaxSize,
-                               PRInt32 aMovement, PRInt8 aResizerDirection);
+  static void AdjustDimensions(int32_t* aPos, int32_t* aSize,
+                               int32_t aMinSize, int32_t aMaxSize,
+                               int32_t aMovement, int8_t aResizerDirection);
 
   struct SizeInfo {
     nsString width, height;

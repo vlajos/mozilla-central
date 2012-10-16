@@ -28,6 +28,9 @@
 #include "nsCSSRendering.h"
 #include "nsContentUtils.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "ImageContainer.h"
+#include "ImageLayers.h"
+#include "nsContentList.h"
 
 #ifdef ACCESSIBILITY
 #include "nsAccessibilityService.h"
@@ -117,7 +120,7 @@ nsVideoFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
 
 void
 nsVideoFrame::AppendAnonymousContentTo(nsBaseContentList& aElements,
-                                       PRUint32 aFliter)
+                                       uint32_t aFliter)
 {
   aElements.MaybeAppendElement(mPosterImage);
   aElements.MaybeAppendElement(mVideoControls);
@@ -156,7 +159,8 @@ CorrectForAspectRatio(const gfxRect& aRect, const nsIntSize& aRatio)
 already_AddRefed<Layer>
 nsVideoFrame::BuildLayer(nsDisplayListBuilder* aBuilder,
                          LayerManager* aManager,
-                         nsDisplayItem* aItem)
+                         nsDisplayItem* aItem,
+                         const ContainerParameters& aContainerParameters)
 {
   nsRect area = GetContentRect() - GetPosition() + aItem->ToReferenceFrame();
   nsHTMLVideoElement* element = static_cast<nsHTMLVideoElement*>(GetContent());
@@ -187,12 +191,12 @@ nsVideoFrame::BuildLayer(nsDisplayListBuilder* aBuilder,
                       presContext->AppUnitsToGfxUnits(area.height));
   r = CorrectForAspectRatio(r, videoSize);
   r.Round();
-  gfxIntSize scaleHint(static_cast<PRInt32>(r.Width()),
-                       static_cast<PRInt32>(r.Height()));
+  gfxIntSize scaleHint(static_cast<int32_t>(r.Width()),
+                       static_cast<int32_t>(r.Height()));
   container->SetScaleHint(scaleHint);
 
   nsRefPtr<ImageLayer> layer = static_cast<ImageLayer*>
-    (GetLayerBuilderForManager(aManager)->GetLeafLayerFor(aBuilder, aManager, aItem));
+    (aManager->GetLayerBuilder()->GetLeafLayerFor(aBuilder, aItem));
   if (!layer) {
     layer = aManager->CreateImageLayer();
     if (!layer)
@@ -204,7 +208,7 @@ nsVideoFrame::BuildLayer(nsDisplayListBuilder* aBuilder,
   layer->SetContentFlags(Layer::CONTENT_OPAQUE);
   // Set a transform on the layer to draw the video in the right place
   gfxMatrix transform;
-  transform.Translate(r.TopLeft());
+  transform.Translate(r.TopLeft() + aContainerParameters.mOffset);
   transform.Scale(r.Width()/frameSize.width, r.Height()/frameSize.height);
   layer->SetBaseTransform(gfx3DMatrix::From2D(transform));
   layer->SetVisibleRegion(nsIntRect(0, 0, frameSize.width, frameSize.height));
@@ -255,7 +259,7 @@ nsVideoFrame::Reflow(nsPresContext*           aPresContext,
                                        aMetrics.width,
                                        aMetrics.height);
 
-      PRUint32 posterHeight, posterWidth;
+      uint32_t posterHeight, posterWidth;
       nsSize scaledPosterSize(0, 0);
       nsSize computedArea(aReflowState.ComputedWidth(), aReflowState.ComputedHeight());
       nsPoint posterTopLeft(0, 0);
@@ -271,7 +275,7 @@ nsVideoFrame::Reflow(nsPresContext*           aPresContext,
                  static_cast<float>(computedArea.height)/nsPresContext::CSSPixelsToAppUnits(static_cast<float>(posterHeight)));
         gfxSize scaledRatio = gfxSize(scale*posterWidth, scale*posterHeight);
         scaledPosterSize.width = nsPresContext::CSSPixelsToAppUnits(static_cast<float>(scaledRatio.width));
-        scaledPosterSize.height = nsPresContext::CSSPixelsToAppUnits(static_cast<PRInt32>(scaledRatio.height));
+        scaledPosterSize.height = nsPresContext::CSSPixelsToAppUnits(static_cast<int32_t>(scaledRatio.height));
       }
       kidReflowState.SetComputedWidth(scaledPosterSize.width);
       kidReflowState.SetComputedHeight(scaledPosterSize.height);
@@ -296,10 +300,6 @@ nsVideoFrame::Reflow(nsPresContext*           aPresContext,
   aMetrics.SetOverflowAreasToDesiredBounds();
 
   FinishAndStoreOverflow(&aMetrics);
-
-  if (mRect.width != aMetrics.width || mRect.height != aMetrics.height) {
-    Invalidate(nsRect(0, 0, mRect.width, mRect.height));
-  }
 
   NS_FRAME_TRACE(NS_FRAME_TRACE_CALLS,
                   ("exit nsVideoFrame::Reflow: size=%d,%d",
@@ -343,7 +343,7 @@ public:
                                              LayerManager* aManager,
                                              const ContainerParameters& aContainerParameters)
   {
-    return static_cast<nsVideoFrame*>(mFrame)->BuildLayer(aBuilder, aManager, this);
+    return static_cast<nsVideoFrame*>(mFrame)->BuildLayer(aBuilder, aManager, this, aContainerParameters);
   }
 
   virtual LayerState GetLayerState(nsDisplayListBuilder* aBuilder,
@@ -440,7 +440,7 @@ nsSize nsVideoFrame::ComputeSize(nsRenderingContext *aRenderingContext,
                                      nsSize aMargin,
                                      nsSize aBorder,
                                      nsSize aPadding,
-                                     PRUint32 aFlags)
+                                     uint32_t aFlags)
 {
   nsSize size = GetVideoIntrinsicSize(aRenderingContext);
 
@@ -498,7 +498,7 @@ bool nsVideoFrame::ShouldDisplayPoster()
     return false;
   }
 
-  PRUint32 status = 0;
+  uint32_t status = 0;
   res = request->GetImageStatus(&status);
   if (NS_FAILED(res) || (status & imgIRequest::STATUS_ERROR))
     return false;
@@ -558,9 +558,9 @@ nsVideoFrame::UpdatePosterSource(bool aNotify)
 }
 
 NS_IMETHODIMP
-nsVideoFrame::AttributeChanged(PRInt32 aNameSpaceID,
+nsVideoFrame::AttributeChanged(int32_t aNameSpaceID,
                                nsIAtom* aAttribute,
-                               PRInt32 aModType)
+                               int32_t aModType)
 {
   if (aAttribute == nsGkAtoms::poster && HasVideoElement()) {
     nsresult res = UpdatePosterSource(true);

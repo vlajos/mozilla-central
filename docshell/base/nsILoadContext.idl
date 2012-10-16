@@ -7,14 +7,14 @@
 #include "nsISupports.idl"
 
 interface nsIDOMWindow;
-interface nsIURI;
+interface nsIDOMElement;
 
 /**
  * An nsILoadContext represents the context of a load.  This interface
  * can be queried for various information about where the load is
  * happening.
  */
-[scriptable, uuid(386806c3-c4cb-4b3d-b05d-c08ea10f5585)]
+[scriptable, uuid(17f6a38a-3f4b-4c94-8252-9d9f7dbf4960)]
 interface nsILoadContext : nsISupports
 {
   /**
@@ -33,6 +33,15 @@ interface nsILoadContext : nsISupports
    * course.  This attribute may be null if there is no associated window.
    */
   readonly attribute nsIDOMWindow topWindow;
+
+  /**
+   * topFrameElement is the <iframe> or <frame> element which contains the
+   * topWindow with which the load is associated.
+   *
+   * Note that we may have a topFrameElement even when we don't have an
+   * associatedWindow, if the topFrameElement's content lives out of process.
+   */
+  readonly attribute nsIDOMElement topFrameElement;
 
   /**
    * Check whether the load is happening in a particular type of application.
@@ -79,19 +88,4 @@ interface nsILoadContext : nsISupports
    */
   readonly attribute unsigned long appId;
 
-  /**
-   * Get the extended origin of a channel in this load context.
-   * The extended origin is a string that has more information than the origin
-   * and can be used to isolate data or permissions between different
-   * principals while taking into account parameters like the app id or the
-   * fact that the load is taking place in a mozbrowser.
-   *
-   * In some cases this function will simply return the origin for the
-   * channel's URI.
-   *
-   * The extendedOrigin is intended to be an opaque identifier. It is
-   * currently "human-readable" but no callers should assume it will stay
-   * as-is and it might be crypto-hashed at some point.
-   */
-  AUTF8String GetExtendedOrigin(in nsIURI channel);
 };

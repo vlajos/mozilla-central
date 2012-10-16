@@ -14,7 +14,6 @@
 #include "nsTransactionStack.h"
 #include "nsWeakReference.h"
 #include "nscore.h"
-#include "prtypes.h"
 
 class nsITransaction;
 class nsITransactionListener;
@@ -28,7 +27,7 @@ class nsTransactionManager : public nsITransactionManager
 {
 private:
 
-  PRInt32                mMaxTransactionCount;
+  int32_t                mMaxTransactionCount;
   nsTransactionStack     mDoStack;
   nsTransactionStack     mUndoStack;
   nsTransactionStack     mRedoStack;
@@ -38,7 +37,7 @@ public:
 
   /** The default constructor.
    */
-  nsTransactionManager(PRInt32 aMaxTransactionCount=-1);
+  nsTransactionManager(int32_t aMaxTransactionCount=-1);
 
   /** The default destructor.
    */

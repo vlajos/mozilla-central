@@ -5,7 +5,6 @@
 
 
 #include "nsStringEnumerator.h"
-#include "prtypes.h"
 #include "nsCRT.h"
 #include "nsString.h"
 #include "nsReadableUtils.h"
@@ -64,11 +63,11 @@ private:
         const nsTArray<nsCString>* mCArray;
     };
 
-    inline PRUint32 Count() {
+    inline uint32_t Count() {
         return mIsUnicode ? mArray->Length() : mCArray->Length();
     }
     
-    PRUint32 mIndex;
+    uint32_t mIndex;
 
     // the owner allows us to hold a strong reference to the object
     // that owns the array. Having a non-null value in mOwner implies

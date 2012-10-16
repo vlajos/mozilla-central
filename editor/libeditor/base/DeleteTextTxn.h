@@ -13,7 +13,6 @@
 #include "nsIDOMCharacterData.h"
 #include "nsString.h"
 #include "nscore.h"
-#include "prtypes.h"
 
 class nsEditor;
 class nsRangeUpdater;
@@ -32,8 +31,8 @@ public:
     */
   NS_IMETHOD Init(nsEditor* aEditor,
                   nsIDOMCharacterData* aCharData,
-                  PRUint32 aOffset,
-                  PRUint32 aNumCharsToDelete,
+                  uint32_t aOffset,
+                  uint32_t aNumCharsToDelete,
                   nsRangeUpdater* aRangeUpdater);
 
   DeleteTextTxn();
@@ -43,9 +42,9 @@ public:
 
   NS_DECL_EDITTXN
 
-  PRUint32 GetOffset() { return mOffset; }
+  uint32_t GetOffset() { return mOffset; }
 
-  PRUint32 GetNumCharsToDelete() { return mNumCharsToDelete; }
+  uint32_t GetNumCharsToDelete() { return mNumCharsToDelete; }
 
 protected:
 
@@ -56,10 +55,10 @@ protected:
   nsCOMPtr<nsIDOMCharacterData> mCharData;
 
   /** the offset into mCharData where the deletion is to take place */
-  PRUint32 mOffset;
+  uint32_t mOffset;
 
   /** the number of characters to delete */
-  PRUint32 mNumCharsToDelete;
+  uint32_t mNumCharsToDelete;
 
   /** the text that was deleted */
   nsString mDeletedText;

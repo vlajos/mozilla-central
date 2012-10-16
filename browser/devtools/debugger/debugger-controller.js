@@ -9,8 +9,10 @@ const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cu = Components.utils;
 
+const NEW_SCRIPT_DISPLAY_DELAY = 100; // ms
 const FRAME_STEP_CACHE_DURATION = 100; // ms
 const DBG_STRINGS_URI = "chrome://browser/locale/devtools/debugger.properties";
+const SCRIPTS_URL_MAX_LENGTH = 64; // chars
 const SYNTAX_HIGHLIGHT_MAX_FILE_SIZE = 1048576; // 1 MB in bytes
 
 Cu.import("resource:///modules/source-editor.jsm");
@@ -19,6 +21,7 @@ Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import('resource://gre/modules/Services.jsm');
+Cu.import("resource:///modules/devtools/LayoutHelpers.jsm");
 
 /**
  * Controls the debugger view by handling the source scripts, the current
@@ -49,16 +52,21 @@ let DebuggerController = {
     this._isInitialized = true;
     window.removeEventListener("DOMContentLoaded", this._startupDebugger, true);
 
+    DebuggerView.cacheView();
+    DebuggerView.initializeKeys();
     DebuggerView.initializePanes();
-    DebuggerView.initializeEditor();
-    DebuggerView.StackFrames.initialize();
-    DebuggerView.Breakpoints.initialize();
-    DebuggerView.Properties.initialize();
-    DebuggerView.Scripts.initialize();
-    DebuggerView.showCloseButton(!this._isRemoteDebugger && !this._isChromeDebugger);
+    DebuggerView.initializeEditor(function() {
+      DebuggerView.GlobalSearch.initialize();
+      DebuggerView.Scripts.initialize();
+      DebuggerView.StackFrames.initialize();
+      DebuggerView.Breakpoints.initialize();
+      DebuggerView.Properties.initialize();
+      DebuggerView.toggleCloseButton(!this._isRemoteDebugger &&
+                                     !this._isChromeDebugger);
 
-    this.dispatchEvent("Debugger:Loaded");
-    this._connect();
+      this.dispatchEvent("Debugger:Loaded");
+      this._connect();
+    }.bind(this));
   },
 
   /**
@@ -72,6 +80,7 @@ let DebuggerController = {
     this._isDestroyed = true;
     window.removeEventListener("unload", this._shutdownDebugger, true);
 
+    DebuggerView.GlobalSearch.destroy();
     DebuggerView.Scripts.destroy();
     DebuggerView.StackFrames.destroy();
     DebuggerView.Breakpoints.destroy();
@@ -183,21 +192,14 @@ let DebuggerController = {
   },
 
   /**
-   * Starts debugging the current tab. This function is called on each location
-   * change in this tab.
+   * This function is called on each location change in this tab.
    */
   _onTabNavigated: function DC__onTabNavigated(aNotification, aPacket) {
-    let client = this.client;
-
-    client.activeThread.detach(function() {
-      client.activeTab.detach(function() {
-        client.listTabs(function(aResponse) {
-          let tab = aResponse.tabs[aResponse.selected];
-          this._startDebuggingTab(client, tab);
-          this.dispatchEvent("Debugger:Connecting");
-        }.bind(this));
-      }.bind(this));
-    }.bind(this));
+    DebuggerController.ThreadState._handleTabNavigation(function() {
+      DebuggerController.StackFrames._handleTabNavigation(function() {
+        DebuggerController.SourceScripts._handleTabNavigation();
+      });
+    });
   },
 
   /**
@@ -249,23 +251,6 @@ let DebuggerController = {
   },
 
   /**
-   * Returns true if this is a remote debugger instance.
-   * @return boolean
-   */
-  get _isRemoteDebugger() {
-    return window._remoteFlag;
-  },
-
-  /**
-   * Returns true if this is a chrome debugger instance.
-   * @return boolean
-   */
-  get _isChromeDebugger() {
-    // Directly accessing window.parent.content may throw in some cases.
-    return !("content" in window.parent) && !this._isRemoteDebugger;
-  },
-
-  /**
    * Attempts to quit the current process if allowed.
    */
   _quitApp: function DC__quitApp() {
@@ -298,6 +283,26 @@ let DebuggerController = {
 };
 
 /**
+ * Returns true if this is a remote debugger instance.
+ * @return boolean
+ */
+XPCOMUtils.defineLazyGetter(DebuggerController, "_isRemoteDebugger", function() {
+  // We're inside a single top level XUL window, not an iframe container.
+  return !(window.frameElement instanceof XULElement) &&
+         !!window._remoteFlag;
+});
+
+/**
+ * Returns true if this is a chrome debugger instance.
+ * @return boolean
+ */
+XPCOMUtils.defineLazyGetter(DebuggerController, "_isChromeDebugger", function() {
+  // We're inside a single top level XUL window, but not a remote debugger.
+  return !(window.frameElement instanceof XULElement) &&
+         !window._remoteFlag;
+});
+
+/**
  * ThreadState keeps the UI up to date with the state of the
  * thread (paused/attached/etc.).
  */
@@ -325,7 +330,7 @@ ThreadState.prototype = {
     this.activeThread.addListener("resumed", this._update);
     this.activeThread.addListener("detached", this._update);
 
-    this._update();
+    this._handleTabNavigation();
 
     aCallback && aCallback();
   },
@@ -340,6 +345,15 @@ ThreadState.prototype = {
     this.activeThread.removeListener("paused", this._update);
     this.activeThread.removeListener("resumed", this._update);
     this.activeThread.removeListener("detached", this._update);
+  },
+
+  /**
+   * Handles any initialization on a tab navigation event issued by the client.
+   */
+  _handleTabNavigation: function TS__handleTabNavigation(aCallback) {
+    DebuggerView.StackFrames.updateState(this.activeThread.state);
+
+    aCallback && aCallback();
   },
 
   /**
@@ -395,12 +409,12 @@ StackFrames.prototype = {
    */
   connect: function SF_connect(aCallback) {
     window.addEventListener("Debugger:FetchedVariables", this._onFetchedVars, false);
-
     this.activeThread.addListener("paused", this._onPaused);
     this.activeThread.addListener("resumed", this._onResume);
     this.activeThread.addListener("framesadded", this._onFrames);
     this.activeThread.addListener("framescleared", this._onFramesCleared);
 
+    this._handleTabNavigation();
     this.updatePauseOnExceptions(this.pauseOnExceptions);
 
     aCallback && aCallback();
@@ -410,15 +424,23 @@ StackFrames.prototype = {
    * Disconnect from the client.
    */
   disconnect: function SF_disconnect() {
-    window.removeEventListener("Debugger:FetchedVariables", this._onFetchedVars, false);
-
     if (!this.activeThread) {
       return;
     }
+    window.removeEventListener("Debugger:FetchedVariables", this._onFetchedVars, false);
     this.activeThread.removeListener("paused", this._onPaused);
     this.activeThread.removeListener("resumed", this._onResume);
     this.activeThread.removeListener("framesadded", this._onFrames);
     this.activeThread.removeListener("framescleared", this._onFramesCleared);
+  },
+
+  /**
+   * Handles any initialization on a tab navigation event issued by the client.
+   */
+  _handleTabNavigation: function SF__handleTabNavigation(aCallback) {
+    // Nothing to do here yet.
+
+    aCallback && aCallback();
   },
 
   /**
@@ -434,7 +456,9 @@ StackFrames.prototype = {
     if (aPacket.why.type == "exception") {
       this.exception = aPacket.why.exception;
     }
+
     this.activeThread.fillFrames(this.pageSize);
+    DebuggerView.editor.focus();
   },
 
   /**
@@ -831,7 +855,6 @@ StackFrames.prototype = {
 function SourceScripts() {
   this._onNewScript = this._onNewScript.bind(this);
   this._onScriptsAdded = this._onScriptsAdded.bind(this);
-  this._onScriptsCleared = this._onScriptsCleared.bind(this);
   this._onShowScript = this._onShowScript.bind(this);
   this._onLoadSource = this._onLoadSource.bind(this);
   this._onLoadSourceFinished = this._onLoadSourceFinished.bind(this);
@@ -866,17 +889,9 @@ SourceScripts.prototype = {
    */
   connect: function SS_connect(aCallback) {
     window.addEventListener("Debugger:LoadSource", this._onLoadSource, false);
-
     this.debuggerClient.addListener("newScript", this._onNewScript);
-    this.activeThread.addListener("scriptsadded", this._onScriptsAdded);
-    this.activeThread.addListener("scriptscleared", this._onScriptsCleared);
 
-    this._clearLabelsCache();
-    this._onScriptsCleared();
-
-    // Retrieve the list of scripts known to the server from before the client
-    // was ready to handle new script notifications.
-    this.activeThread.fillScripts();
+    this._handleTabNavigation();
 
     aCallback && aCallback();
   },
@@ -884,15 +899,26 @@ SourceScripts.prototype = {
   /**
    * Disconnect from the client.
    */
-  disconnect: function TS_disconnect() {
-    window.removeEventListener("Debugger:LoadSource", this._onLoadSource, false);
-
+  disconnect: function SS_disconnect() {
     if (!this.activeThread) {
       return;
     }
+    window.removeEventListener("Debugger:LoadSource", this._onLoadSource, false);
     this.debuggerClient.removeListener("newScript", this._onNewScript);
-    this.activeThread.removeListener("scriptsadded", this._onScriptsAdded);
-    this.activeThread.removeListener("scriptscleared", this._onScriptsCleared);
+  },
+
+  /**
+   * Handles any initialization on a tab navigation event issued by the client.
+   */
+  _handleTabNavigation: function SS__handleTabNavigation(aCallback) {
+    this._clearLabelsCache();
+    this._onScriptsCleared();
+
+    // Retrieve the list of scripts known to the server from before the client
+    // was ready to handle new script notifications.
+    this.activeThread.getScripts(this._onScriptsAdded);
+
+    aCallback && aCallback();
   },
 
   /**
@@ -904,7 +930,34 @@ SourceScripts.prototype = {
       return;
     }
 
-    this._addScript({ url: aPacket.url, startLine: aPacket.startLine }, true);
+    this._addScript({
+      url: aPacket.url,
+      startLine: aPacket.startLine,
+      source: aPacket.source
+    }, true);
+
+    let preferredScriptUrl = DebuggerView.Scripts.preferredScriptUrl;
+
+    // Select this script if it's the preferred one.
+    if (aPacket.url === DebuggerView.Scripts.preferredScriptUrl) {
+      DebuggerView.Scripts.selectScript(aPacket.url);
+    }
+    // ..or the first entry if there's none selected yet after a while
+    else {
+      window.setTimeout(function() {
+        // If after a certain delay the preferred script still wasn't received,
+        // just give up on waiting and display the first entry.
+        if (!DebuggerView.Scripts.selected) {
+          DebuggerView.Scripts.selectIndex(0);
+          // Selecting a script would make it "preferred", which is a lie here,
+          // because we're only displaying a script to make sure there's always
+          // something available in the SourceEditor and the scripts menulist.
+          // Hence the need revert back to the initial preferred script, just
+          // in case it will be available soon.
+          DebuggerView.Scripts.preferredScriptUrl = preferredScriptUrl;
+        }
+      }, NEW_SCRIPT_DISPLAY_DELAY);
+    }
 
     // If there are any stored breakpoints for this script, display them again,
     // both in the editor and the pane.
@@ -913,23 +966,41 @@ SourceScripts.prototype = {
         DebuggerController.Breakpoints.displayBreakpoint(breakpoint);
       }
     }
+
+    DebuggerController.dispatchEvent("Debugger:AfterNewScript");
   },
 
   /**
-   * Handler for the thread client's scriptsadded notification.
+   * Callback for the getScripts() method.
    */
-  _onScriptsAdded: function SS__onScriptsAdded() {
-    for each (let script in this.activeThread.cachedScripts) {
+  _onScriptsAdded: function SS__onScriptsAdded(aResponse) {
+    for each (let script in aResponse.scripts) {
       this._addScript(script, false);
     }
     DebuggerView.Scripts.commitScripts();
     DebuggerController.Breakpoints.updatePaneBreakpoints();
+
+    let preferredScriptUrl = DebuggerView.Scripts.preferredScriptUrl;
+
+    // Select the preferred script if it exists and was part of the response.
+    if (preferredScriptUrl && DebuggerView.Scripts.contains(preferredScriptUrl)) {
+      DebuggerView.Scripts.selectScript(preferredScriptUrl);
+    }
+    // ..or the first entry if there's not one selected yet.
+    else if (!DebuggerView.Scripts.selected) {
+      DebuggerView.Scripts.selectIndex(0);
+    }
+
+    DebuggerController.dispatchEvent("Debugger:AfterScriptsAdded");
   },
 
   /**
-   * Handler for the thread client's scriptscleared notification.
+   * Called during navigation to clear the currently-loaded scripts.
    */
   _onScriptsCleared: function SS__onScriptsCleared() {
+    DebuggerView.GlobalSearch.hideAndEmpty();
+    DebuggerView.GlobalSearch.clearCache();
+    DebuggerView.Scripts.clearSearch();
     DebuggerView.Scripts.empty();
     DebuggerView.Breakpoints.emptyText();
     DebuggerView.editor.setText("");
@@ -983,7 +1054,26 @@ SourceScripts.prototype = {
   },
 
   /**
-   * Trims as much as possible from a URL, while keeping the result unique
+   * Trims the url by shortening it if it exceeds a certain length, adding an
+   * ellipsis at the end.
+   *
+   * @param string aUrl
+   *        The script URL.
+   * @param number aMaxLength [optional]
+   *        The max string length.
+   * @return string
+   *         The shortened url.
+   */
+  trimUrlLength: function SS_trimUrlLength(aUrl, aMaxLength = SCRIPTS_URL_MAX_LENGTH) {
+    if (aUrl.length > aMaxLength) {
+      let ellipsis = Services.prefs.getComplexValue("intl.ellipsis", Ci.nsIPrefLocalizedString);
+      return aUrl.substring(0, aMaxLength) + ellipsis.data;
+    }
+    return aUrl;
+  },
+
+  /**
+   * Trims as much as possible from a url, while keeping the result unique
    * in the Debugger View scripts container.
    *
    * @param string | nsIURL aUrl
@@ -1088,7 +1178,10 @@ SourceScripts.prototype = {
    *         The simplified label.
    */
   getScriptLabel: function SS_getScriptLabel(aUrl, aHref) {
-    return this._labelsCache[aUrl] || (this._labelsCache[aUrl] = this._trimUrl(aUrl));
+    if (!this._labelsCache[aUrl]) {
+      this._labelsCache[aUrl] = this.trimUrlLength(this._trimUrl(aUrl));
+    }
+    return this._labelsCache[aUrl];
   },
 
   /**
@@ -1118,13 +1211,17 @@ SourceScripts.prototype = {
    *
    * @param object aScript
    *        The script object coming from the active thread.
-   * @param object [aOptions]
+   * @param object aOptions [optional]
    *        Additional options for showing the script. Supported options:
    *        - targetLine: place the editor at the given line number.
    */
-  showScript: function SS_showScript(aScript, aOptions) {
+  showScript: function SS_showScript(aScript, aOptions = {}) {
     if (aScript.loaded) {
-      this._onShowScript(aScript, aOptions);
+      // Scripts may take a longer time to load than expected, therefore the
+      // required one may change at any time after a previous request was made.
+      if (aScript.url === DebuggerView.Scripts.selected) {
+        this._onShowScript(aScript, aOptions);
+      }
       return;
     }
 
@@ -1135,7 +1232,7 @@ SourceScripts.prototype = {
 
     // Notify that we need to load a script file.
     DebuggerController.dispatchEvent("Debugger:LoadSource", {
-      url: aScript.url,
+      script: aScript,
       options: aOptions
     });
   },
@@ -1150,9 +1247,7 @@ SourceScripts.prototype = {
    *        Additional options for showing the script. Supported options:
    *        - targetLine: place the editor at the given line number.
    */
-  _onShowScript: function SS__onShowScript(aScript, aOptions) {
-    aOptions = aOptions || {};
-
+  _onShowScript: function SS__onShowScript(aScript, aOptions = {}) {
     if (aScript.text.length < SYNTAX_HIGHLIGHT_MAX_FILE_SIZE) {
       this._setEditorMode(aScript.url, aScript.contentType);
     }
@@ -1176,87 +1271,59 @@ SourceScripts.prototype = {
   },
 
   /**
-   * Handles notifications to load a source script from the cache or from a
-   * local file.
-   *
-   * XXX: It may be better to use nsITraceableChannel to get to the sources
-   * without relying on caching when we can (not for eval, etc.):
-   * http://www.softwareishard.com/blog/firebug/nsitraceablechannel-intercept-http-traffic/
+   * Handles notifications to load a source script.
    */
   _onLoadSource: function SS__onLoadSource(aEvent) {
-    let url = aEvent.detail.url;
+    let script = aEvent.detail.script;
     let options = aEvent.detail.options;
-    let self = this;
 
-    switch (Services.io.extractScheme(url)) {
-      case "file":
-      case "chrome":
-      case "resource":
-        try {
-          NetUtil.asyncFetch(url, function onFetch(aStream, aStatus) {
-            if (!Components.isSuccessCode(aStatus)) {
-              return self._logError(url, aStatus);
-            }
-            let source = NetUtil.readInputStreamToString(aStream, aStream.available());
-            self._onLoadSourceFinished(url, source, null, options);
-            aStream.close();
-          });
-        } catch (ex) {
-          return self._logError(url, ex.name);
-        }
-        break;
+    let sourceClient = this.activeThread.source(script.source);
+    sourceClient.source(function (aResponse) {
+      if (aResponse.error) {
+        return this._logError(script.url, -1);
+      }
 
-      default:
-        let channel = Services.io.newChannel(url, null, null);
-        let chunks = [];
-        let streamListener = {
-          onStartRequest: function(aRequest, aContext, aStatusCode) {
-            if (!Components.isSuccessCode(aStatusCode)) {
-              return self._logError(url, aStatusCode);
-            }
-          },
-          onDataAvailable: function(aRequest, aContext, aStream, aOffset, aCount) {
-            chunks.push(NetUtil.readInputStreamToString(aStream, aCount));
-          },
-          onStopRequest: function(aRequest, aContext, aStatusCode) {
-            if (!Components.isSuccessCode(aStatusCode)) {
-              return self._logError(url, aStatusCode);
-            }
-            self._onLoadSourceFinished(
-              url, chunks.join(""), channel.contentType, options);
-          }
-        };
-
-        channel.loadFlags = channel.LOAD_FROM_CACHE;
-        channel.asyncOpen(streamListener, null);
-        break;
-    }
+      this._onLoadSourceFinished(script.url,
+                                 aResponse.source,
+                                 options);
+    }.bind(this));
   },
 
   /**
-   * Called when source has been loaded.
+   * Called when a script's source has been loaded.
    *
    * @private
-   * @param string aSourceUrl
+   * @param string aScriptUrl
    *        The URL of the source script.
    * @param string aSourceText
    *        The text of the source script.
-   * @param string aContentType
-   *        The content type of the source script.
    * @param object aOptions [optional]
    *        Additional options for showing the script. Supported options:
    *        - targetLine: place the editor at the given line number.
    */
   _onLoadSourceFinished:
-  function SS__onLoadSourceFinished(aSourceUrl, aSourceText, aContentType, aOptions) {
-    let scripts = document.getElementById("scripts");
-    let element = scripts.getElementsByAttribute("value", aSourceUrl)[0];
+  function SS__onLoadSourceFinished(aScriptUrl, aSourceText, aOptions) {
+    let element = DebuggerView.Scripts.getScriptByLocation(aScriptUrl);
+
+    // Tab navigated before we got a chance to finish loading and displaying
+    // the source. The outcome is that the expected url is not present anymore
+    // in the scripts container, hence the original script object coming from
+    // the active thread no longer exists. There's really nothing that needs
+    // to be done in this case, nor something that can be currently avoided.
+    if (!element) {
+      return;
+    }
+
     let script = element.getUserData("sourceScript");
 
     script.loaded = true;
     script.text = aSourceText;
-    script.contentType = aContentType;
     element.setUserData("sourceScript", script, null);
+
+    if (aOptions.silent) {
+      aOptions.callback && aOptions.callback(aScriptUrl, aSourceText);
+      return;
+    }
 
     this.showScript(script, aOptions);
   },
@@ -1396,7 +1463,18 @@ Breakpoints.prototype = {
 
     let line = aBreakpoint.line + 1;
 
-    this.addBreakpoint({ url: url, line: line }, null, true);
+    this.addBreakpoint({ url: url, line: line }, function (aBp) {
+      if (aBp.requestedLocation) {
+        this.editor.removeBreakpoint(aBp.requestedLocation.line - 1);
+
+        let breakpoints = this.getBreakpoints(url, aBp.location.line);
+        if (breakpoints.length > 1) {
+          this.removeBreakpoint(breakpoints[0], null, true, true);
+        } else {
+          this.updateEditorBreakpoints();
+        }
+      }
+    }.bind(this), true);
   },
 
   /**
@@ -1488,6 +1566,18 @@ Breakpoints.prototype = {
     }
 
     this.activeThread.setBreakpoint(aLocation, function(aResponse, aBpClient) {
+      let loc = aResponse.actualLocation;
+
+      if (loc) {
+        aBpClient.requestedLocation = {
+          line: aBpClient.location.line,
+          url: aBpClient.location.url
+        };
+
+        aBpClient.location.line = loc.line;
+        aBpClient.location.url = loc.url;
+      }
+
       this.store[aBpClient.actor] = aBpClient;
       this.displayBreakpoint(aBpClient, aNoEditorUpdate, aNoPaneUpdate);
       aCallback && aCallback(aBpClient, aResponse.error);
@@ -1588,6 +1678,18 @@ Breakpoints.prototype = {
       }
     }
     return null;
+  },
+
+  getBreakpoints: function BP_getBreakpoints(aUrl, aLine) {
+    let breakpoints = [];
+
+    for each (let breakpoint in this.store) {
+      if (breakpoint.location.url == aUrl && breakpoint.location.line == aLine) {
+        breakpoints.push(breakpoint);
+      }
+    }
+
+    return breakpoints;
   }
 };
 
@@ -1622,6 +1724,17 @@ XPCOMUtils.defineLazyGetter(L10N, "stringBundle", function() {
   return Services.strings.createBundle(DBG_STRINGS_URI);
 });
 
+const STACKFRAMES_WIDTH = "devtools.debugger.ui.stackframes-width";
+const STACKFRAMES_VISIBLE = "devtools.debugger.ui.stackframes-pane-visible";
+const VARIABLES_WIDTH = "devtools.debugger.ui.variables-width";
+const VARIABLES_PANE_VISIBLE = "devtools.debugger.ui.variables-pane-visible";
+const REMOTE_AUTO_CONNECT = "devtools.debugger.remote-autoconnect";
+const REMOTE_HOST = "devtools.debugger.remote-host";
+const REMOTE_PORT = "devtools.debugger.remote-port";
+const REMOTE_CONNECTION_RETRIES = "devtools.debugger.remote-connection-retries";
+const REMOTE_TIMEOUT = "devtools.debugger.remote-timeout";
+const NON_ENUM_VISIBLE = "devtools.debugger.ui.non-enum-visible";
+
 /**
  * Shortcuts for accessing various debugger preferences.
  */
@@ -1632,19 +1745,39 @@ let Prefs = {
    * @return number
    */
   get stackframesWidth() {
-    if (this._sfrmWidth === undefined) {
-      this._sfrmWidth = Services.prefs.getIntPref("devtools.debugger.ui.stackframes-width");
+    if (this._stackframesWidth === undefined) {
+      this._stackframesWidth = Services.prefs.getIntPref(STACKFRAMES_WIDTH);
     }
-    return this._sfrmWidth;
+    return this._stackframesWidth;
   },
 
   /**
    * Sets the preferred stackframes pane width.
-   * @return number
+   * @param number value
    */
   set stackframesWidth(value) {
-    Services.prefs.setIntPref("devtools.debugger.ui.stackframes-width", value);
-    this._sfrmWidth = value;
+    Services.prefs.setIntPref(STACKFRAMES_WIDTH, value);
+    this._stackframesWidth = value;
+  },
+
+  /**
+   * Gets the preferred stackframes pane visibility state.
+   * @return boolean
+   */
+  get stackframesPaneVisible() {
+    if (this._stackframesVisible === undefined) {
+      this._stackframesVisible = Services.prefs.getBoolPref(STACKFRAMES_VISIBLE);
+    }
+    return this._stackframesVisible;
+  },
+
+  /**
+   * Sets the preferred stackframes pane visibility state.
+   * @param boolean value
+   */
+  set stackframesPaneVisible(value) {
+    Services.prefs.setBoolPref(STACKFRAMES_VISIBLE, value);
+    this._stackframesVisible = value;
   },
 
   /**
@@ -1652,40 +1785,83 @@ let Prefs = {
    * @return number
    */
   get variablesWidth() {
-    if (this._varsWidth === undefined) {
-      this._varsWidth = Services.prefs.getIntPref("devtools.debugger.ui.variables-width");
+    if (this._variablesWidth === undefined) {
+      this._variablesWidth = Services.prefs.getIntPref(VARIABLES_WIDTH);
     }
-    return this._varsWidth;
+    return this._variablesWidth;
   },
 
   /**
    * Sets the preferred variables pane width.
-   * @return number
+   * @param number value
    */
   set variablesWidth(value) {
-    Services.prefs.setIntPref("devtools.debugger.ui.variables-width", value);
-    this._varsWidth = value;
+    Services.prefs.setIntPref(VARIABLES_WIDTH, value);
+    this._variablesWidth = value;
   },
 
   /**
-   * Gets a flag specifying if the the debugger should automatically connect to
+   * Gets the preferred variables pane visibility state.
+   * @return boolean
+   */
+  get variablesPaneVisible() {
+    if (this._variablesVisible === undefined) {
+      this._variablesVisible = Services.prefs.getBoolPref(VARIABLES_PANE_VISIBLE);
+    }
+    return this._variablesVisible;
+  },
+
+  /**
+   * Sets the preferred variables pane visibility state.
+   * @param boolean value
+   */
+  set variablesPaneVisible(value) {
+    Services.prefs.setBoolPref(VARIABLES_PANE_VISIBLE, value);
+    this._variablesVisible = value;
+  },
+
+  /**
+   * Gets a flag specifying if the debugger should automatically connect to
    * the default host and port number.
    * @return boolean
    */
   get remoteAutoConnect() {
-    if (this._autoConn === undefined) {
-      this._autoConn = Services.prefs.getBoolPref("devtools.debugger.remote-autoconnect");
+    if (this._autoConnect === undefined) {
+      this._autoConnect = Services.prefs.getBoolPref(REMOTE_AUTO_CONNECT);
     }
-    return this._autoConn;
+    return this._autoConnect;
   },
 
   /**
-   * Sets a flag specifying if the the debugger should automatically connect.
+   * Sets a flag specifying if the debugger should automatically connect to
+   * the default host and port number.
    * @param boolean value
    */
   set remoteAutoConnect(value) {
-    Services.prefs.setBoolPref("devtools.debugger.remote-autoconnect", value);
-    this._autoConn = value;
+    Services.prefs.setBoolPref(REMOTE_AUTO_CONNECT, value);
+    this._autoConnect = value;
+  },
+
+  /**
+   * Gets a flag specifying if the debugger should show non-enumerable
+   * properties and variables in the scope view.
+   * @return boolean
+   */
+  get nonEnumVisible() {
+    if (this._nonEnumVisible === undefined) {
+      this._nonEnumVisible = Services.prefs.getBoolPref(NON_ENUM_VISIBLE);
+    }
+    return this._nonEnumVisible;
+  },
+
+  /**
+   * Sets a flag specifying if the debugger should show non-enumerable
+   * properties and variables in the scope view.
+   * @param boolean value
+   */
+  set nonEnumVisible(value) {
+    Services.prefs.setBoolPref(NON_ENUM_VISIBLE, value);
+    this._nonEnumVisible = value;
   }
 };
 
@@ -1694,7 +1870,7 @@ let Prefs = {
  * @return string
  */
 XPCOMUtils.defineLazyGetter(Prefs, "remoteHost", function() {
-  return Services.prefs.getCharPref("devtools.debugger.remote-host");
+  return Services.prefs.getCharPref(REMOTE_HOST);
 });
 
 /**
@@ -1702,7 +1878,7 @@ XPCOMUtils.defineLazyGetter(Prefs, "remoteHost", function() {
  * @return number
  */
 XPCOMUtils.defineLazyGetter(Prefs, "remotePort", function() {
-  return Services.prefs.getIntPref("devtools.debugger.remote-port");
+  return Services.prefs.getIntPref(REMOTE_PORT);
 });
 
 /**
@@ -1710,7 +1886,7 @@ XPCOMUtils.defineLazyGetter(Prefs, "remotePort", function() {
  * @return number
  */
 XPCOMUtils.defineLazyGetter(Prefs, "remoteConnectionRetries", function() {
-  return Services.prefs.getIntPref("devtools.debugger.remote-connection-retries");
+  return Services.prefs.getIntPref(REMOTE_CONNECTION_RETRIES);
 });
 
 /**
@@ -1718,7 +1894,7 @@ XPCOMUtils.defineLazyGetter(Prefs, "remoteConnectionRetries", function() {
  * @return number
  */
 XPCOMUtils.defineLazyGetter(Prefs, "remoteTimeout", function() {
-  return Services.prefs.getIntPref("devtools.debugger.remote-timeout");
+  return Services.prefs.getIntPref(REMOTE_TIMEOUT);
 });
 
 /**

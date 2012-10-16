@@ -23,9 +23,9 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource:///modules/PropertyPanel.jsm");
 Cu.import("resource:///modules/source-editor.jsm");
+Cu.import("resource:///modules/devtools/LayoutHelpers.jsm");
 Cu.import("resource:///modules/devtools/scratchpad-manager.jsm");
 Cu.import("resource://gre/modules/jsdebugger.jsm");
-
 
 const SCRATCHPAD_CONTEXT_CONTENT = 1;
 const SCRATCHPAD_CONTEXT_BROWSER = 2;
@@ -35,6 +35,7 @@ const PREF_RECENT_FILES_MAX = "devtools.scratchpad.recentFilesMax";
 const BUTTON_POSITION_SAVE = 0;
 const BUTTON_POSITION_CANCEL = 1;
 const BUTTON_POSITION_DONT_SAVE = 2;
+const BUTTON_POSITION_REVERT=0;
 
 /**
  * The scratchpad object handles the Scratchpad window functionality.
@@ -226,6 +227,7 @@ var Scratchpad = {
       this._contentSandbox = new Cu.Sandbox(contentWindow,
         { sandboxPrototype: contentWindow, wantXrays: false, 
           sandboxName: 'scratchpad-content'});
+      this._contentSandbox.__SCRATCHPAD__ = this;
 
       this._previousBrowserWindow = this.browserWindow;
       this._previousBrowser = this.gBrowser.selectedBrowser;
@@ -260,6 +262,7 @@ var Scratchpad = {
       this._chromeSandbox = new Cu.Sandbox(this.browserWindow,
         { sandboxPrototype: this.browserWindow, wantXrays: false, 
           sandboxName: 'scratchpad-chrome'});
+      this._chromeSandbox.__SCRATCHPAD__ = this;
       addDebuggerToGlobal(this._chromeSandbox);
 
       this._previousBrowserWindow = this.browserWindow;
@@ -409,6 +412,34 @@ var Scratchpad = {
   },
 
   /**
+   * Reload the current page and execute the entire editor content when
+   * the page finishes loading. Note that this operation should be available
+   * only in the content context.
+   */
+  reloadAndRun: function SP_reloadAndRun()
+  {
+    if (this.executionContext !== SCRATCHPAD_CONTEXT_CONTENT) {
+      Cu.reportError(this.strings.
+          GetStringFromName("scratchpadContext.invalid"));
+      return;
+    }
+
+    let browser = this.gBrowser.selectedBrowser;
+
+    this._reloadAndRunEvent = function onLoad(evt) {
+      if (evt.target !== browser.contentDocument) {
+        return;
+      }
+
+      browser.removeEventListener("load", this._reloadAndRunEvent, true);
+      this.run();
+    }.bind(this);
+
+    browser.addEventListener("load", this._reloadAndRunEvent, true);
+    browser.contentWindow.location.reload();
+  },
+
+  /**
    * Execute the selected text (if any) or the entire editor content in the
    * current context. The evaluation result is inserted into the editor after
    * the selected text, or at the end of the editor content if there is no
@@ -437,9 +468,9 @@ var Scratchpad = {
     let insertionPoint = selection.start != selection.end ?
                          selection.end : // after selected text
                          this.editor.getCharCount(); // after text end
-                         
+
     let newComment = "\n/*\n" + aValue + "\n*/";
-    
+
     this.setText(newComment, insertionPoint, insertionPoint);
 
     // Select the new comment.
@@ -453,9 +484,24 @@ var Scratchpad = {
    */
   writeAsErrorComment: function SP_writeAsErrorComment(aError)
   {
-    let stack = aError.stack || aError.fileName + ":" + aError.lineNumber;
-    let newComment = "Exception: " + aError.message + "\n" + stack.replace(/\n$/, "");
-    
+    let stack = "";
+    if (aError.stack) {
+      stack = aError.stack;
+    }
+    else if (aError.fileName) {
+      if (aError.lineNumber) {
+        stack = "@" + aError.fileName + ":" + aError.lineNumber;
+      }
+      else {
+        stack = "@" + aError.fileName;
+      }
+    }
+    else if (aError.lineNumber) {
+      stack = "@" + aError.lineNumber;
+    }
+
+    let newComment = "Exception: " + ( aError.message || aError) + ( stack == "" ? stack : "\n" + stack.replace(/\n$/, "") );
+
     this.writeAsComment(newComment);
   },
 
@@ -622,15 +668,7 @@ var Scratchpad = {
    */
   openFile: function SP_openFile(aIndex)
   {
-    let fp;
-    if (!aIndex && aIndex !== 0) {
-      fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-      fp.init(window, this.strings.GetStringFromName("openFile.title"),
-              Ci.nsIFilePicker.modeOpen);
-      fp.defaultString = "";
-    }
-
-    if (aIndex > -1 || fp.show() != Ci.nsIFilePicker.returnCancel) {
+    let promptCallback = function(aFile) {
       this.promptSave(function(aCloseFile, aSaved, aStatus) {
         let shouldOpen = aCloseFile;
         if (aSaved && !Components.isSuccessCode(aStatus)) {
@@ -641,8 +679,8 @@ var Scratchpad = {
           this._skipClosePrompt = true;
 
           let file;
-          if (fp) {
-            file = fp.file;
+          if (aFile) {
+            file = aFile;
           } else {
             file = Components.classes["@mozilla.org/file/local;1"].
                    createInstance(Components.interfaces.nsILocalFile);
@@ -650,11 +688,39 @@ var Scratchpad = {
             file.initWithPath(filePath);
           }
 
+          if (!file.exists()) {
+            this.notificationBox.appendNotification(
+              this.strings.GetStringFromName("fileNoLongerExists.notification"),
+              "file-no-longer-exists",
+              null,
+              this.notificationBox.PRIORITY_WARNING_HIGH,
+              null);
+
+            this.clearFiles(aIndex, 1);
+            return;
+          }
+
           this.setFilename(file.path);
           this.importFromFile(file, false);
           this.setRecentFile(file);
         }
       }.bind(this));
+    }.bind(this);
+
+    if (aIndex > -1) {
+      promptCallback();
+    } else {
+      let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+      let fpCallback = function fpCallback_done(aResult) {
+        if (aResult != Ci.nsIFilePicker.returnCancel) {
+          promptCallback(fp.file);
+        }
+      };
+
+      fp.init(window, this.strings.GetStringFromName("openFile.title"),
+              Ci.nsIFilePicker.modeOpen);
+      fp.defaultString = "";
+      fp.open(fpCallback);
     }
   },
 
@@ -776,6 +842,23 @@ var Scratchpad = {
   },
 
   /**
+   * Clear a range of files from the list.
+   *
+   * @param integer aIndex
+   *        Index of file in menu to remove.
+   * @param integer aLength
+   *        Number of files from the index 'aIndex' to remove.
+   */
+  clearFiles: function SP_clearFile(aIndex, aLength)
+  {
+    let filePaths = this.getRecentFiles();
+    let branch = Services.prefs.
+                 getBranch("devtools.scratchpad.");
+    filePaths.splice(aIndex, aLength);
+    branch.setCharPref("recentFilePaths", JSON.stringify(filePaths));
+  },
+
+  /**
    * Clear all recent files.
    */
   clearRecentFiles: function SP_clearRecentFiles()
@@ -805,11 +888,8 @@ var Scratchpad = {
 
       let filePaths = this.getRecentFiles();
       if (maxRecent < filePaths.length) {
-        let branch = Services.prefs.
-                     getBranch("devtools.scratchpad.");
         let diff = filePaths.length - maxRecent;
-        filePaths.splice(0, diff);
-        branch.setCharPref("recentFilePaths", JSON.stringify(filePaths));
+        this.clearFiles(0, diff);
       }
     }
   },
@@ -848,21 +928,89 @@ var Scratchpad = {
   saveFileAs: function SP_saveFileAs(aCallback)
   {
     let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    let fpCallback = function fpCallback_done(aResult) {
+      if (aResult != Ci.nsIFilePicker.returnCancel) {
+        this.setFilename(fp.file.path);
+        this.exportToFile(fp.file, true, false, function(aStatus) {
+          if (Components.isSuccessCode(aStatus)) {
+            this.editor.dirty = false;
+            this.setRecentFile(fp.file);
+          }
+          if (aCallback) {
+            aCallback(aStatus);
+          }
+        });
+      }
+    }.bind(this);
+
     fp.init(window, this.strings.GetStringFromName("saveFileAs"),
             Ci.nsIFilePicker.modeSave);
     fp.defaultString = "scratchpad.js";
-    if (fp.show() != Ci.nsIFilePicker.returnCancel) {
-      this.setFilename(fp.file.path);
+    fp.open(fpCallback);
+  },
 
-      this.exportToFile(fp.file, true, false, function(aStatus) {
-        if (Components.isSuccessCode(aStatus)) {
-          this.editor.dirty = false;
-          this.setRecentFile(fp.file);
-        }
+  /**
+   * Restore content from saved version of current file.
+   *
+   * @param function aCallback
+   *        Optional function you want to call when file is saved
+   */
+  revertFile: function SP_revertFile(aCallback)
+  {
+    let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsILocalFile);
+    file.initWithPath(this.filename);
+
+    if (!file.exists()) {
+      return;
+    }
+
+    this.importFromFile(file, false, function(aStatus, aContent) {
+      if (aCallback) {
+        aCallback(aStatus);
+      }
+    });
+  },
+
+  /**
+   * Prompt to revert scratchpad if it has unsaved changes.
+   *
+   * @param function aCallback
+   *        Optional function you want to call when file is saved. The callback
+   *        receives three arguments:
+   *          - aRevert (boolean) - tells if the file has been reverted.
+   *          - status (number) - the file revert status result (if the file was
+   *          saved).
+   */
+  promptRevert: function SP_promptRervert(aCallback)
+  {
+    if (this.filename) {
+      let ps = Services.prompt;
+      let flags = ps.BUTTON_POS_0 * ps.BUTTON_TITLE_REVERT +
+                  ps.BUTTON_POS_1 * ps.BUTTON_TITLE_CANCEL;
+
+      let button = ps.confirmEx(window,
+                          this.strings.GetStringFromName("confirmRevert.title"),
+                          this.strings.GetStringFromName("confirmRevert"),
+                          flags, null, null, null, null, {});
+      if (button == BUTTON_POSITION_CANCEL) {
         if (aCallback) {
-          aCallback(aStatus);
+          aCallback(false);
         }
-      });
+
+        return;
+      }
+      if (button == BUTTON_POSITION_REVERT) {
+        this.revertFile(function(aStatus) {
+          if(aCallback){
+            aCallback(true, aStatus);
+          }
+        });
+
+        return;
+      }
+    }
+    if (aCallback) {
+      aCallback(false);
     }
   },
 
@@ -896,6 +1044,7 @@ var Scratchpad = {
 
     let content = document.getElementById("sp-menu-content");
     document.getElementById("sp-menu-browser").removeAttribute("checked");
+    document.getElementById("sp-cmd-reloadAndRun").removeAttribute("disabled");
     content.setAttribute("checked", true);
     this.executionContext = SCRATCHPAD_CONTEXT_CONTENT;
     this.notificationBox.removeAllNotifications(false);
@@ -912,8 +1061,12 @@ var Scratchpad = {
     }
 
     let browser = document.getElementById("sp-menu-browser");
+    let reloadAndRun = document.getElementById("sp-cmd-reloadAndRun");
+
     document.getElementById("sp-menu-content").removeAttribute("checked");
+    reloadAndRun.setAttribute("disabled", true);
     browser.setAttribute("checked", true);
+
     this.executionContext = SCRATCHPAD_CONTEXT_BROWSER;
     this.notificationBox.appendNotification(
       this.strings.GetStringFromName("browserContext.notification"),
@@ -971,7 +1124,14 @@ var Scratchpad = {
     }
 
     let state = null;
-    let initialText = this.strings.GetStringFromName("scratchpadIntro");
+
+    let initialText = this.strings.formatStringFromName(
+      "scratchpadIntro1",
+      [LayoutHelpers.prettyKey(document.getElementById("sp-key-run")),
+       LayoutHelpers.prettyKey(document.getElementById("sp-key-inspect")),
+       LayoutHelpers.prettyKey(document.getElementById("sp-key-display"))],
+      3);
+
     if ("arguments" in window &&
          window.arguments[0] instanceof Ci.nsIDialogParamBlock) {
       state = JSON.parse(window.arguments[0].GetString(0));
@@ -1044,6 +1204,14 @@ var Scratchpad = {
   _onDirtyChanged: function SP__onDirtyChanged(aEvent)
   {
     Scratchpad._updateTitle();
+    if (Scratchpad.filename) {
+      if (Scratchpad.editor.dirty) {
+        document.getElementById("sp-cmd-revert").removeAttribute("disabled");
+      }
+      else {
+        document.getElementById("sp-cmd-revert").setAttribute("disabled", true);
+      }
+    }
   },
 
   /**
@@ -1075,6 +1243,8 @@ var Scratchpad = {
     }
 
     this.resetContext();
+    this.gBrowser.selectedBrowser.removeEventListener("load",
+        this._reloadAndRunEvent, true);
     this.editor.removeEventListener(SourceEditor.EVENTS.DIRTY_CHANGED,
                                     this._onDirtyChanged);
     PreferenceObserver.uninit();

@@ -19,7 +19,10 @@ XPCOMUtils.defineLazyModuleGetter(this, "SocialService",
 let Social = {
   lastEventReceived: 0,
   provider: null,
+  _disabledForSafeMode: false,
   init: function Social_init(callback) {
+    this._disabledForSafeMode = Services.appinfo.inSafeMode && this.enabled;
+
     if (this.provider) {
       schedule(callback);
       return;
@@ -31,12 +34,11 @@ let Social = {
       if (providers.length)
         this.provider = providers[0];
       callback();
-      Services.obs.notifyObservers(null, "test-social-ui-ready", "");
     }.bind(this));
   },
 
   get uiVisible() {
-    return this.provider && this.provider.enabled && this.provider.port;
+    return this.provider && this.provider.enabled;
   },
 
   set enabled(val) {
@@ -55,7 +57,8 @@ let Social = {
   },
 
   toggle: function Social_toggle() {
-    this.enabled = !this.enabled;
+    this.enabled = this._disabledForSafeMode ? false : !this.enabled;
+    this._disabledForSafeMode = false;
   },
 
   toggleSidebar: function SocialSidebar_toggle() {
@@ -63,11 +66,9 @@ let Social = {
     Services.prefs.setBoolPref("social.sidebar.open", !prefValue);
   },
 
-  sendWorkerMessage: function Social_sendWorkerMessage(message) {
-    // Responses aren't handled yet because there is no actions to perform
-    // based on the response from the provider at this point.
-    if (this.provider && this.provider.port)
-      this.provider.port.postMessage(message);
+  toggleNotifications: function SocialNotifications_toggle() {
+    let prefValue = Services.prefs.getBoolPref("social.toast-notifications.enabled");
+    Services.prefs.setBoolPref("social.toast-notifications.enabled", !prefValue);
   },
 
   // Sharing functionality
@@ -86,21 +87,43 @@ let Social = {
   },
 
   sharePage: function Social_sharePage(aURI) {
+    // this should not be called if this.provider or the port is null
+    if (!this.provider) {
+      Cu.reportError("Can't share a page when no provider is current");
+      return;
+    }
+    let port = this.provider.getWorkerPort();
+    if (!port) {
+      Cu.reportError("Can't share page as no provider port is available");
+      return;
+    }
     let url = this._getShareablePageUrl(aURI);
     this._sharedUrls[url] = true;
-    this.sendWorkerMessage({
+    port.postMessage({
       topic: "social.user-recommend",
       data: { url: url }
     });
+    port.close();
   },
 
   unsharePage: function Social_unsharePage(aURI) {
+    // this should not be called if this.provider or the port is null
+    if (!this.provider) {
+      Cu.reportError("Can't unshare a page when no provider is current");
+      return;
+    }
+    let port = this.provider.getWorkerPort();
+    if (!port) {
+      Cu.reportError("Can't unshare page as no provider port is available");
+      return;
+    }
     let url = this._getShareablePageUrl(aURI);
     delete this._sharedUrls[url];
-    this.sendWorkerMessage({
+    port.postMessage({
       topic: "social.user-unrecommend",
       data: { url: url }
     });
+    port.close();
   },
 
   _sharedUrls: {}

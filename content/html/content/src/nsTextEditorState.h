@@ -13,6 +13,7 @@
 #include "nsITextControlFrame.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIContent.h"
+#include "mozilla/WeakPtr.h"
 
 class nsTextInputListener;
 class nsTextControlFrame;
@@ -117,7 +118,7 @@ class nsITextControlElement;
 
 class RestoreSelectionState;
 
-class nsTextEditorState {
+class nsTextEditorState : public mozilla::SupportsWeakPtr<nsTextEditorState> {
 public:
   explicit nsTextEditorState(nsITextControlElement* aOwningElement);
   ~nsTextEditorState();
@@ -162,13 +163,13 @@ public:
   bool IsPasswordTextControl() const {
     return mTextCtrlElement->IsPasswordTextControl();
   }
-  PRInt32 GetCols() {
+  int32_t GetCols() {
     return mTextCtrlElement->GetCols();
   }
-  PRInt32 GetWrapCols() {
+  int32_t GetWrapCols() {
     return mTextCtrlElement->GetWrapCols();
   }
-  PRInt32 GetRows() {
+  int32_t GetRows() {
     return mTextCtrlElement->GetRows();
   }
 
@@ -181,7 +182,7 @@ public:
    * @param aMaxLength the value of the max length attr
    * @returns false if attr not defined
    */
-  bool GetMaxLength(PRInt32* aMaxLength);
+  bool GetMaxLength(int32_t* aMaxLength);
 
   /* called to free up native keybinding services */
   static NS_HIDDEN_(void) ShutDown();
@@ -197,7 +198,7 @@ public:
       return mStart == 0 && mEnd == 0 &&
              mDirection == nsITextControlFrame::eForward;
     }
-    PRInt32 mStart, mEnd;
+    int32_t mStart, mEnd;
     nsITextControlFrame::SelectionDirection mDirection;
   };
 

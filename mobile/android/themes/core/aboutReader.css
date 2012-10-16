@@ -2,16 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-%filter substitution
-%include defines.inc
-
-@font-face {
-  font-family: 'OpenSansRegular';
-  src: url('chrome://browser/skin/fonts/opensans-regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 html {
   -moz-text-size-adjust: none;
 }
@@ -20,157 +10,319 @@ body {
   font-family: "OpenSansRegular","Droid Sans",sans-serif;
   margin-top: 20px;
   margin-bottom: 20px;
-  background-repeat: repeat;
 }
 
 .light {
-  background-image: url('chrome://browser/skin/images/reader-light-bg.png');
+  background-color: #ffffff;
   color: #222222;
 }
 
 .dark {
-  background-image: url('chrome://browser/skin/images/reader-dark-bg.png');
+  background-color: #000000;
   color: #eeeeee;
 }
 
-.sepia {
-  background-image: url('chrome://browser/skin/images/reader-sepia-bg.png');
-  color: #332e20;
+.message {
+  margin-top: 40px;
+  display: none;
+  text-align: center;
+  width: 100%;
+  font-size: 16px;
 }
 
 .header {
-  font-family: "Droid Serif",serif;
-  width: 100%;
-  text-align: center;
-  padding-top: 20px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid;
-  -moz-border-bottom-colors: #ff9400 #ee6700;
+  text-align: left;
   display: none;
 }
 
-.light > .header {
-  -moz-border-bottom-colors: #ff9400 #ee6700;
+.header > .domain {
+  margin-top: 10px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid; 
 }
 
-.dark > .header {
-  -moz-border-bottom-colors: #ff9400 #ee6700;
+.header > h1 {
+  font-family: "OpenSansLight","Droid Sans",sans-serif;
+  font-weight: normal;
+  line-height: 1.1em;
+  width: 100%;
+  margin: 0px;
+  margin-top: 32px;
+  margin-bottom: 16px;
+  padding: 0px;
 }
 
-.sepia > .header {
-  -moz-border-bottom-colors: #c1531b #75391c;
+.header > .credits {
+  padding: 0px;
+  margin: 0px;
+  margin-bottom: 32px;
 }
 
-.font-size1 > .header {
+.light > .header > .domain {
+  color: #ee7600;
+  border-bottom-color: #d0d0d0; 
+}
+
+.light > .header > h1 {
+  color: #222222;
+}
+
+.light > .header > .credits {
+  color: #898989;
+}
+
+.dark > .header > .domain {
+  color: #ff9400;
+  border-bottom-color: #777777; 
+}
+
+.dark > .header > h1 {
+  color: #eeeeee;
+}
+
+.dark > .header > .credits {
+  color: #aaaaaa;
+}
+
+.font-size1 > .header > h1 {
   font-size: 23px;
 }
 
-.font-size2 > .header {
+.font-size2 > .header > h1 {
   font-size: 25px;
 }
 
-.font-size3 > .header {
+.font-size3 > .header > h1 {
   font-size: 27px;
 }
 
-.font-size4 > .header {
+.font-size4 > .header > h1 {
   font-size: 29px;
 }
 
-.font-size5 > .header {
+.font-size5 > .header > h1 {
   font-size: 31px;
 }
 
-.font-size6 > .header {
+.font-size6 > .header > h1 {
   font-size: 33px;
 }
 
-.font-size7 > .header {
+.font-size7 > .header > h1 {
   font-size: 35px;
 }
 
+/* This covers caption, domain, and credits
+   texts in the reader UI */
+.font-size1 > .content .wp-caption-text,
+.font-size1 > .content figcaption,
+.font-size1 > .header > .domain,
+.font-size1 > .header > .credits {
+  font-size: 6px;
+}
+
+.font-size2 > .content .wp-caption-text,
+.font-size2 > .content figcaption,
+.font-size2 > .header > .domain,
+.font-size2 > .header > .credits {
+  font-size: 8px;
+}
+
+.font-size3 > .content .wp-caption-text,
+.font-size3 > .content figcaption,
+.font-size3 > .header > .domain,
+.font-size3 > .header > .credits {
+  font-size: 11px;
+}
+
+.font-size4 > .content .wp-caption-text,
+.font-size4 > .content figcaption,
+.font-size4 > .header > .domain,
+.font-size4 > .header > .credits {
+  font-size: 13px;
+}
+
+.font-size5 > .content .wp-caption-text,
+.font-size5 > .content figcaption,
+.font-size5 > .header > .domain,
+.font-size5 > .header > .credits {
+  font-size: 15px;
+}
+
+.font-size6 > .content .wp-caption-text,
+.font-size6 > .content figcaption,
+.font-size6 > .header > .domain,
+.font-size6 > .header > .credits {
+  font-size: 17px;
+}
+
+.font-size7 > .content .wp-caption-text,
+.font-size7 > .content figcaption,
+.font-size7 > .header > .domain,
+.font-size7 > .header > .credits {
+  font-size: 19px;
+}
+
 .content {
-  padding-top: 20px;
-  padding-bottom: 20px;
   display: none;
 }
 
 .content a {
-  text-decoration: underline;
+  text-decoration: underline !important;
+  font-weight: normal;
 }
 
 .light > .content a,
 .light > .content a:visited,
 .light > .content a:hover,
 .light > .content a:active {
-  color: #ee6700;
+  color: #ee6700 !important;
 }
 
 .dark > .content a,
 .dark > .content a:visited,
 .dark > .content a:hover,
 .dark > .content a:active {
-  color: #ff9400;
-}
-
-.sepia > .content a,
-.sepia > .content a:visited,
-.sepia > .content a:hover,
-.sepia > .content a:active {
-  color: #c1531b;
+  color: #ff9400 !important;
 }
 
 .content * {
   max-width: 100% !important;
-  overflow: scroll !important;
-}
-
-.content img {
   height: auto !important;
 }
 
+.content p {
+  line-height: 1.4em !important;
+  margin: 0px !important;
+  margin-bottom: 20px !important;
+}
+
+/* Covers all images showing edge-to-edge using a 
+   an optional caption text */
+.content .wp-caption,
+.content figure {
+  display: block !important;
+  width: 100% !important;
+  margin: 0px !important;
+  margin-bottom: 32px !important;
+}
+
+/* Images marked to be shown edge-to-edge with an
+   optional captio ntext */
+.content p > img:only-child,
+.content p > a:only-child > img:only-child,
+.content .wp-caption img,
+.content figure img {
+  max-width: none !important;
+  height: auto !important;
+  display: block !important;
+  margin-top: 0px !important;
+  margin-bottom: 32px !important;
+}
+
+/* If image is place inside one of these blocks
+   there's no need to add margin at the bottom */
+.content .wp-caption img,
+.content figure img {
+  margin-bottom: 0px !important;
+}
+
+/* Image caption text */
+.content .caption,
+.content .wp-caption-text,
+.content figcaption {
+  margin: 0px !important;
+  padding-top: 4px !important;
+}
+
+.light > .content .caption,
+.light > .content .wp-caption-text,
+.light > .content figcaption {
+  color: #898989;
+}
+
+.dark > .content .caption,
+.dark > .content .wp-caption-text,
+.dark > .content figcaption {
+  color: #aaaaaa;
+}
+
+/* Ensure all pre-formatted code inside the reader content
+   are properly wrapped inside content width */
+.content code,
 .content pre {
-  overflow: scroll !important;
+  white-space: pre-wrap !important;
+  margin-bottom: 20px !important;
 }
 
 .content blockquote {
   margin: 0px !important;
+  margin-bottom: 20px !important;
   padding: 0px !important;
+  padding-left: 16px !important;
   border: 0px !important;
-  padding-left: 23px !important;
+  border-left: 2px solid !important;
+}
+
+.light > .content blockquote {
+  color: #898989 !important;
+  border-left-color: #d0d0d0 !important;
+}
+
+.dark > .content blockquote {
+  color: #aaaaaa !important;
+  border-left-color: #777777 !important;
+}
+
+.content ul,
+.content ol {
+  margin: 0px !important;
+  margin-bottom: 20px !important;
+  padding: 0px !important;
+  line-height: 1.5em;
+}
+
+.content ul {
+  padding-left: 30px !important;
+  list-style: disk !important;
+}
+
+.content ol {
+  padding-left: 35px !important;
+  list-style: decimal !important;
 }
 
 .font-size1 > .content {
-  font-size: 10px;
+  font-size: 10px !important;
 }
 
 .font-size2 > .content {
-  font-size: 12px;
+  font-size: 12px !important;
 }
 
 .font-size3 > .content {
-  font-size: 14px;
+  font-size: 14px !important;
 }
 
 .font-size4 > .content {
-  font-size: 16px;
+  font-size: 16px !important;
 }
 
 .font-size5 > .content {
-  font-size: 18px;
+  font-size: 18px !important;
 }
 
 .font-size6 > .content {
-  font-size: 20px;
+  font-size: 20px !important;
 }
 
 .font-size7 > .content {
-  font-size: 22px;
+  font-size: 22px !important;
 }
 
 .toolbar {
   font-family: "Droid Sans",helvetica,arial,clean,sans-serif;
-  -moz-transition-property: visibility opacity;
+  -moz-transition-property: visibility, opacity;
   -moz-transition-duration: 0.7s;
   visibility: visible;
   opacity: 1.0;
@@ -185,7 +337,7 @@ body {
 }
 
 .toolbar-hidden {
-  -moz-transition-property: visibility opacity;
+  -moz-transition-property: visibility, opacity;
   -moz-transition-duration: 0.7s;
   visibility: hidden;
   opacity: 0.0;
@@ -193,6 +345,7 @@ body {
 
 .toolbar > * {
   float: right;
+  width: 25%;
 }
 
 .button {
@@ -203,12 +356,15 @@ body {
 }
 
 .button:active {
-  background-color: rgba(170, 170, 170, 1.0);
+  background-color: #ff9500;
 }
 
 .dropdown {
   text-align: center;
   display: inline-block;
+  list-style: none;
+  margin: 0px;
+  padding: 0px;
 }
 
 .dropdown li {
@@ -234,6 +390,7 @@ body {
   padding-bottom: 8px;
   font-size: 14px;
   box-shadow: 0px -1px 12px #333;
+  visibility: hidden;
 }
 
 .dropdown-popup > hr {
@@ -242,13 +399,19 @@ body {
   border: 0px;
   border-top: 1px solid #ccc;
   border-bottom: 1px solid white;
-  margin: 10px 0px 10px 0px;
+  margin: 0px 0px 10px 0px;
   float: left;
+}
+
+.dropdown-popup .button:active {
+  background-color: #ccc;
 }
 
 .open > .dropdown-popup {
   margin-top: 0px;
+  margin-bottom: 6px;
   bottom: 100%;
+  visibility: visible;
 }
 
 .dropdown-arrow {
@@ -283,7 +446,7 @@ body {
 .segmented-button > li > a:hover
 .segmented-button > li > a:visited {
   display: block;
-  padding: 10px 16px;
+  padding: 10px 34px;
   text-decoration: none;
   color: black;
   border-radius: 4px;
@@ -305,6 +468,7 @@ body {
   color: black;
   margin: 0px;
   margin-top: 12px;
+  margin-bottom: 20px;
   margin-left: 10px;
   float: left;
 }
@@ -329,7 +493,6 @@ body {
 
 @media screen and (orientation: portrait) {
   .button {
-    width: 48px;
     height: 48px;
     background-size: 30px 24px
   }
@@ -337,6 +500,18 @@ body {
   .toolbar {
     background-size: 48px;
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-port-mdpi.png');
+  }
+
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-port-mdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-port-mdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-port-mdpi.png');
   }
 
   .share-button {
@@ -350,7 +525,6 @@ body {
 
 @media screen and (orientation: landscape) {
   .button {
-    width: 40px;
     height: 40px;
     background-size: 24px 20px
   }
@@ -358,6 +532,18 @@ body {
   .toolbar {
     background-size: 40px;
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-land-mdpi.png');
+  }
+
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-land-mdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-land-mdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-land-mdpi.png');
   }
 
   .share-button {
@@ -379,6 +565,22 @@ body {
   .toolbar {
     background-size: 56px;
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-xlarge-mdpi.png');
+  }
+
+  .toolbar > * {
+    width: 56px;
+  }
+
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-xlarge-mdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-xlarge-mdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-xlarge-mdpi.png');
   }
 
   .share-button {
@@ -423,6 +625,18 @@ body {
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-port-hdpi.png');
   }
 
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-port-hdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-port-hdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-port-hdpi.png');
+  }
+
   .share-button {
     background-image: url('chrome://browser/skin/images/reader-share-icon-port-hdpi.png');
   }
@@ -435,6 +649,18 @@ body {
 @media screen and (orientation: landscape) and (min-resolution: 200dpi) {
   .toolbar {
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-land-hdpi.png');
+  }
+
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-land-hdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-land-hdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-land-hdpi.png');
   }
 
   .share-button {
@@ -451,6 +677,18 @@ body {
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-port-xhdpi.png');
   }
 
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-port-xhdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-port-xhdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-port-xhdpi.png');
+  }
+
   .share-button {
     background-image: url('chrome://browser/skin/images/reader-share-icon-port-xhdpi.png');
   }
@@ -463,6 +701,18 @@ body {
 @media screen and (orientation: landscape) and (min-resolution: 300dpi) {
   .toolbar {
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-land-xhdpi.png');
+  }
+
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-land-xhdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-land-xhdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-land-xhdpi.png');
   }
 
   .share-button {
@@ -479,6 +729,18 @@ body {
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-xlarge-hdpi.png');
   }
 
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-xlarge-hdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-xlarge-hdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-xlarge-hdpi.png');
+  }
+
   .share-button {
     background-image: url('chrome://browser/skin/images/reader-share-icon-xlarge-hdpi.png');
   }
@@ -491,6 +753,18 @@ body {
 @media screen and (min-width: 960px) and (min-resolution: 300dpi) {
   .toolbar {
     background-image: url('chrome://browser/skin/images/reader-toolbar-bg-xlarge-xhdpi.png');
+  }
+
+  .toggle-button.on {
+    background-image: url('chrome://browser/skin/images/reader-toggle-on-icon-xlarge-xhdpi.png');
+  }
+
+  .toggle-button {
+    background-image: url('chrome://browser/skin/images/reader-toggle-off-icon-xlarge-xhdpi.png');
+  }
+
+  .list-button {
+    background-image: url('chrome://browser/skin/images/reader-list-icon-xlarge-xhdpi.png');
   }
 
   .share-button {

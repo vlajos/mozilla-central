@@ -29,7 +29,6 @@ NS_IMPL_ISUPPORTS2(nsXMLPrettyPrinter,
                    nsIMutationObserver)
 
 nsXMLPrettyPrinter::nsXMLPrettyPrinter() : mDocument(nullptr),
-                                           mUpdateDepth(0),
                                            mUnhookPending(false)
 {
 }
@@ -44,7 +43,7 @@ nsXMLPrettyPrinter::PrettyPrint(nsIDocument* aDocument,
                                 bool* aDidPrettyPrint)
 {
     *aDidPrettyPrint = false;
-    
+
     // Check for iframe with display:none. Such iframes don't have presshells
     if (!aDocument->GetShell()) {
         return NS_OK;
@@ -197,9 +196,9 @@ nsXMLPrettyPrinter::Unhook()
 void
 nsXMLPrettyPrinter::AttributeChanged(nsIDocument* aDocument,
                                      Element* aElement,
-                                     PRInt32 aNameSpaceID,
+                                     int32_t aNameSpaceID,
                                      nsIAtom* aAttribute,
-                                     PRInt32 aModType)
+                                     int32_t aModType)
 {
     MaybeUnhook(aElement);
 }
@@ -208,7 +207,7 @@ void
 nsXMLPrettyPrinter::ContentAppended(nsIDocument* aDocument,
                                     nsIContent* aContainer,
                                     nsIContent* aFirstNewContent,
-                                    PRInt32 aNewIndexInContainer)
+                                    int32_t aNewIndexInContainer)
 {
     MaybeUnhook(aContainer);
 }
@@ -217,7 +216,7 @@ void
 nsXMLPrettyPrinter::ContentInserted(nsIDocument* aDocument,
                                     nsIContent* aContainer,
                                     nsIContent* aChild,
-                                    PRInt32 aIndexInContainer)
+                                    int32_t aIndexInContainer)
 {
     MaybeUnhook(aContainer);
 }
@@ -226,7 +225,7 @@ void
 nsXMLPrettyPrinter::ContentRemoved(nsIDocument* aDocument,
                                    nsIContent* aContainer,
                                    nsIContent* aChild,
-                                   PRInt32 aIndexInContainer,
+                                   int32_t aIndexInContainer,
                                    nsIContent* aPreviousSibling)
 {
     MaybeUnhook(aContainer);

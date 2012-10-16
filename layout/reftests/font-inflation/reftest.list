@@ -49,12 +49,13 @@ test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineTh
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == select-combobox-2.html select-combobox-2-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) != select-combobox-2.html select-combobox-2.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == select-combobox-3.html select-combobox-3-ref.html
-asserts-if(gtk2Widget,0-2) test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) != input-checkbox.html input-checkbox.html
-asserts-if(gtk2Widget,0-2) test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) != input-radio.html input-radio.html
+asserts-if(gtk2Widget,0-4) test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) != input-checkbox.html input-checkbox.html
+asserts-if(gtk2Widget,0-4) test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) != input-radio.html input-radio.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == disable-fontinfl-on-mobile.html disable-fontinfl-on-mobile-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == disable-fontinfl-on-mobile-2.html disable-fontinfl-on-mobile-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == disable-fontinfl-on-mobile-3.html disable-fontinfl-on-mobile-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == disable-fontinfl-on-mobile-4.html disable-fontinfl-on-mobile-ref.html
+test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) != disable-fontinfl-on-mobile-5.html disable-fontinfl-on-mobile-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == preformatted-text.html preformatted-text-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == fixed-height-body.html fixed-height-body-ref.html
 test-pref(font.size.inflation.emPerLine,15) test-pref(font.size.inflation.lineThreshold,0) == fixed-height-body-child.html fixed-height-body-child-ref.html

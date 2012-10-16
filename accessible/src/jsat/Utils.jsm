@@ -12,15 +12,25 @@ Cu.import('resource://gre/modules/Services.jsm');
 
 var EXPORTED_SYMBOLS = ['Utils', 'Logger'];
 
-var gAccRetrieval = Cc['@mozilla.org/accessibleRetrieval;1'].
-  getService(Ci.nsIAccessibleRetrieval);
-
 var Utils = {
   _buildAppMap: {
     '{3c2e2abc-06d4-11e1-ac3b-374f68613e61}': 'b2g',
     '{ec8030f7-c20a-464f-9b0e-13a3a9e97384}': 'browser',
     '{aa3c5121-dab2-40e2-81ca-7ea25febc110}': 'mobile/android',
     '{a23983c0-fd0e-11dc-95ff-0800200c9a66}': 'mobile/xul'
+  },
+
+  get AccRetrieval() {
+    if (!this._AccRetrieval) {
+      this._AccRetrieval = Cc['@mozilla.org/accessibleRetrieval;1'].
+        getService(Ci.nsIAccessibleRetrieval);
+    }
+
+    return this._AccRetrieval;
+  },
+
+  set MozBuildApp(value) {
+    this._buildApp = value;
   },
 
   get MozBuildApp() {
@@ -35,14 +45,21 @@ var Utils = {
     return this._OS;
   },
 
+  get ScriptName() {
+    if (!this._ScriptName)
+      this._ScriptName =
+        (Services.appinfo.processType == 2) ? 'AccessFuContent' : 'AccessFu';
+    return this._ScriptName;
+  },
+
   get AndroidSdkVersion() {
     if (!this._AndroidSdkVersion) {
-      let shellVersion = Services.sysinfo.get('shellVersion') || '';
-      let matches = shellVersion.match(/\((\d+)\)$/);
-      if (matches)
-        this._AndroidSdkVersion = parseInt(matches[1]);
-      else
-        this._AndroidSdkVersion = 15; // Most useful in desktop debugging.
+      if (Services.appinfo.OS == 'Android') {
+        this._AndroidSdkVersion = Services.sysinfo.getPropertyAsInt32('version');
+      } else {
+        // Most useful in desktop debugging.
+        this._AndroidSdkVersion = 15;
+      }
     }
     return this._AndroidSdkVersion;
   },
@@ -65,10 +82,41 @@ var Utils = {
     }
   },
 
+  getCurrentBrowser: function getCurrentBrowser(aWindow) {
+    if (this.MozBuildApp == 'b2g')
+      return this.getBrowserApp(aWindow).contentBrowser;
+    return this.getBrowserApp(aWindow).selectedBrowser;
+  },
+
   getCurrentContentDoc: function getCurrentContentDoc(aWindow) {
-    if (this.MozBuildApp == "b2g")
-      return this.getBrowserApp(aWindow).contentBrowser.contentDocument;
-    return this.getBrowserApp(aWindow).selectedBrowser.contentDocument;
+    return this.getCurrentBrowser(aWindow).contentDocument;
+  },
+
+  getMessageManager: function getMessageManager(aBrowser) {
+    try {
+      return aBrowser.QueryInterface(Ci.nsIFrameLoaderOwner).
+         frameLoader.messageManager;
+    } catch (x) {
+      Logger.error(x);
+      return null;
+    }
+  },
+
+  getAllMessageManagers: function getAllMessageManagers(aWindow) {
+    let messageManagers = [];
+
+    for (let i = 0; i < aWindow.messageManager.childCount; i++)
+      messageManagers.push(aWindow.messageManager.getChildAt(i));
+
+    let remoteframes = this.getCurrentContentDoc(aWindow).
+      querySelectorAll('iframe[remote=true]');
+
+    for (let i = 0; i < remoteframes.length; ++i)
+      messageManagers.push(this.getMessageManager(remoteframes[i]));
+
+    Logger.info(messageManagers.length);
+
+    return messageManagers;
   },
 
   getViewport: function getViewport(aWindow) {
@@ -92,7 +140,7 @@ var Utils = {
 
   getVirtualCursor: function getVirtualCursor(aDocument) {
     let doc = (aDocument instanceof Ci.nsIAccessible) ? aDocument :
-      gAccRetrieval.getAccessibleFor(aDocument);
+      this.AccRetrieval.getAccessibleFor(aDocument);
 
     while (doc) {
       try {
@@ -120,7 +168,8 @@ var Logger = {
       return;
 
     let message = Array.prototype.slice.call(arguments, 1).join(' ');
-    dump('[AccessFu] ' + this._LEVEL_NAMES[aLogLevel] + ' ' + message + '\n');
+    dump('[' + Utils.ScriptName + '] ' +
+         this._LEVEL_NAMES[aLogLevel] +' ' + message + '\n');
   },
 
   info: function info() {
@@ -146,7 +195,7 @@ var Logger = {
   accessibleToString: function accessibleToString(aAccessible) {
     let str = '[ defunct ]';
     try {
-      str = '[ ' + gAccRetrieval.getStringRole(aAccessible.role) +
+      str = '[ ' + Utils.AccRetrieval.getStringRole(aAccessible.role) +
         ' | ' + aAccessible.name + ' ]';
     } catch (x) {
     }
@@ -155,12 +204,12 @@ var Logger = {
   },
 
   eventToString: function eventToString(aEvent) {
-    let str = gAccRetrieval.getStringEventType(aEvent.eventType);
+    let str = Utils.AccRetrieval.getStringEventType(aEvent.eventType);
     if (aEvent.eventType == Ci.nsIAccessibleEvent.EVENT_STATE_CHANGE) {
       let event = aEvent.QueryInterface(Ci.nsIAccessibleStateChangeEvent);
       let stateStrings = (event.isExtraState()) ?
-        gAccRetrieval.getStringStates(0, event.state) :
-        gAccRetrieval.getStringStates(event.state, 0);
+        Utils.AccRetrieval.getStringStates(0, event.state) :
+        Utils.AccRetrieval.getStringStates(event.state, 0);
       str += ' (' + stateStrings.item(0) + ')';
     }
 
@@ -170,7 +219,7 @@ var Logger = {
   statesToString: function statesToString(aAccessible) {
     let [state, extState] = Utils.getStates(aAccessible);
     let stringArray = [];
-    let stateStrings = gAccRetrieval.getStringStates(state, extState);
+    let stateStrings = Utils.AccRetrieval.getStringStates(state, extState);
     for (var i=0; i < stateStrings.length; i++)
       stringArray.push(stateStrings.item(i));
     return stringArray.join(' ');

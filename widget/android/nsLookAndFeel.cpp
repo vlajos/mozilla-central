@@ -18,6 +18,8 @@ AndroidSystemColors nsLookAndFeel::mSystemColors;
 bool nsLookAndFeel::mInitializedShowPassword = false;
 bool nsLookAndFeel::mShowPassword = true;
 
+static const PRUnichar UNICODE_BULLET = 0x2022;
+
 nsLookAndFeel::nsLookAndFeel()
     : nsXPLookAndFeel()
 {
@@ -55,8 +57,8 @@ nsresult
 nsLookAndFeel::CallRemoteGetSystemColors()
 {
     // An array has to be used to get data from remote process
-    InfallibleTArray<PRUint32> colors;
-    PRUint32 colorsCount = sizeof(AndroidSystemColors) / sizeof(nscolor);
+    InfallibleTArray<uint32_t> colors;
+    uint32_t colorsCount = sizeof(AndroidSystemColors) / sizeof(nscolor);
 
     if (!ContentChild::GetSingleton()->SendGetSystemColors(colorsCount, &colors))
         return NS_ERROR_FAILURE;
@@ -98,7 +100,7 @@ nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor)
         // (except here at least TextSelectBackground and TextSelectForeground)
         // The CSS2 colors below are used.
     case eColorID_WindowBackground:
-        aColor = mSystemColors.colorBackground;
+        aColor = NS_RGB(0xFF, 0xFF, 0xFF);
         break;
     case eColorID_WindowForeground:
         aColor = mSystemColors.textColorPrimary;
@@ -341,7 +343,7 @@ nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor)
 
 
 nsresult
-nsLookAndFeel::GetIntImpl(IntID aID, PRInt32 &aResult)
+nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
 {
     nsresult rv = nsXPLookAndFeel::GetIntImpl(aID, aResult);
     if (NS_SUCCEEDED(rv))
@@ -444,7 +446,8 @@ nsLookAndFeel::GetFloatImpl(FloatID aID, float &aResult)
 /*virtual*/
 bool
 nsLookAndFeel::GetFontImpl(FontID aID, nsString& aFontName,
-                           gfxFontStyle& aFontStyle)
+                           gfxFontStyle& aFontStyle,
+                           float aDevPixPerCSSPixel)
 {
     aFontName.AssignLiteral("\"Droid Sans\"");
     aFontStyle.style = NS_FONT_STYLE_NORMAL;
@@ -473,9 +476,17 @@ nsLookAndFeel::GetEchoPasswordImpl()
     return mShowPassword;
 }
 
-PRUint32
+uint32_t
 nsLookAndFeel::GetPasswordMaskDelayImpl()
 {
-  // This value is hard-coded in PasswordTransformationMethod.java
+  // This value is hard-coded in Android OS's PasswordTransformationMethod.java
   return 1500;
+}
+
+/* virtual */
+PRUnichar
+nsLookAndFeel::GetPasswordCharacterImpl()
+{
+  // This value is hard-coded in Android OS's PasswordTransformationMethod.java
+  return UNICODE_BULLET;
 }

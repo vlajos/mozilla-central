@@ -24,8 +24,6 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(SmsRequest)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(SmsRequest,
                                                   nsDOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_SCRIPT_OBJECTS
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(success)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(error)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mCursor)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mError)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -36,8 +34,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(SmsRequest,
     tmp->mResult = JSVAL_VOID;
     tmp->UnrootResult();
   }
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(success)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(error)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mCursor)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mError)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -159,11 +155,7 @@ SmsRequest::SetSuccessInternal(nsISupports* aObject)
   NS_ASSERTION(global, "Failed to get global object!");
 
   JSAutoRequest ar(cx);
-  JSAutoEnterCompartment ac;
-  if (!ac.enter(cx, global)) {
-    SetError(nsISmsRequestManager::INTERNAL_ERROR);
-    return false;
-  }
+  JSAutoCompartment ac(cx, global);
 
   RootResult();
 
@@ -179,7 +171,7 @@ SmsRequest::SetSuccessInternal(nsISupports* aObject)
 }
 
 void
-SmsRequest::SetError(PRInt32 aError)
+SmsRequest::SetError(int32_t aError)
 {
   NS_PRECONDITION(!mDone, "mDone shouldn't have been set to true already!");
   NS_PRECONDITION(!mError, "mError shouldn't have been set!");

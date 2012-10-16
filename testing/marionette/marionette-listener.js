@@ -23,6 +23,7 @@ utils.window = content;
 loader.loadSubScript("chrome://marionette/content/EventUtils.js", utils);
 loader.loadSubScript("chrome://marionette/content/ChromeUtils.js", utils);
 loader.loadSubScript("chrome://marionette/content/atoms.js", utils);
+loader.loadSubScript("chrome://marionette/content/marionette-sendkeys.js", utils);
 
 loader.loadSubScript("chrome://specialpowers/content/specialpowersAPI.js");
 loader.loadSubScript("chrome://specialpowers/content/specialpowers.js");
@@ -56,6 +57,8 @@ let asyncTestTimeoutId;
  * If the actor returns an ID, we start the listeners. Otherwise, nothing happens.
  */
 function registerSelf() {
+  Services.io.manageOfflineStatus = false;
+  Services.io.offline = false;
   let register = sendSyncMessage("Marionette:register", {value: winUtil.outerWindowID, href: content.location.href});
   
   if (register[0]) {
@@ -91,6 +94,7 @@ function startListeners() {
   addMessageListenerId("Marionette:goUrl", goUrl);
   addMessageListenerId("Marionette:getUrl", getUrl);
   addMessageListenerId("Marionette:getTitle", getTitle);
+  addMessageListenerId("Marionette:getPageSource", getPageSource);
   addMessageListenerId("Marionette:goBack", goBack);
   addMessageListenerId("Marionette:goForward", goForward);
   addMessageListenerId("Marionette:refresh", refresh);
@@ -99,6 +103,7 @@ function startListeners() {
   addMessageListenerId("Marionette:clickElement", clickElement);
   addMessageListenerId("Marionette:getElementAttribute", getElementAttribute);
   addMessageListenerId("Marionette:getElementText", getElementText);
+  addMessageListenerId("Marionette:getElementTagName", getElementTagName);
   addMessageListenerId("Marionette:isElementDisplayed", isElementDisplayed);
   addMessageListenerId("Marionette:isElementEnabled", isElementEnabled);
   addMessageListenerId("Marionette:isElementSelected", isElementSelected);
@@ -150,6 +155,7 @@ function deleteSession(msg) {
   removeMessageListenerId("Marionette:setSearchTimeout", setSearchTimeout);
   removeMessageListenerId("Marionette:goUrl", goUrl);
   removeMessageListenerId("Marionette:getTitle", getTitle);
+  removeMessageListenerId("Marionette:getPageSource", getPageSource);
   removeMessageListenerId("Marionette:getUrl", getUrl);
   removeMessageListenerId("Marionette:goBack", goBack);
   removeMessageListenerId("Marionette:goForward", goForward);
@@ -158,7 +164,7 @@ function deleteSession(msg) {
   removeMessageListenerId("Marionette:findElementsContent", findElementsContent);
   removeMessageListenerId("Marionette:clickElement", clickElement);
   removeMessageListenerId("Marionette:getElementAttribute", getElementAttribute);
-  removeMessageListenerId("Marionette:getElementText", getElementText);
+  removeMessageListenerId("Marionette:getElementTagName", getElementTagName);
   removeMessageListenerId("Marionette:isElementDisplayed", isElementDisplayed);
   removeMessageListenerId("Marionette:isElementEnabled", isElementEnabled);
   removeMessageListenerId("Marionette:isElementSelected", isElementSelected);
@@ -255,7 +261,12 @@ function createExecuteContentSandbox(aWindow) {
   let marionette = new Marionette(this, aWindow, "content", marionetteLogObj, marionettePerf);
   sandbox.marionette = marionette;
   marionette.exports.forEach(function(fn) {
-    sandbox[fn] = marionette[fn].bind(marionette);
+    try {
+      sandbox[fn] = marionette[fn].bind(marionette);
+    }
+    catch(e) {
+      sandbox[fn] = marionette[fn];
+    }
   });
 
   sandbox.SpecialPowers = new SpecialPowers(aWindow);
@@ -377,6 +388,7 @@ function executeScript(msg, directInject) {
  */
 function setScriptTimeout(msg) {
   marionetteTimeout = msg.json.value;
+  sendOk();
 }
 
 /**
@@ -460,8 +472,8 @@ function executeWithCallback(msg, timeout) {
   try {
     asyncTestRunning = true;
     if (importedScripts.exists()) {
-      let stream = Components.classes["@mozilla.org/network/file-input-stream;1"].  
-                      createInstance(Components.interfaces.nsIFileInputStream);
+      let stream = Cc["@mozilla.org/network/file-input-stream;1"].
+                      createInstance(Ci.nsIFileInputStream);
       stream.init(importedScripts, -1, 0, 0);
       let data = NetUtil.readInputStreamToString(stream, stream.available());
       scriptSrc = data + scriptSrc;
@@ -469,7 +481,7 @@ function executeWithCallback(msg, timeout) {
     Cu.evalInSandbox(scriptSrc, sandbox, "1.8");
   } catch (e) {
     // 17 = JavascriptException
-    sendError(e.name + ': ' + e.message, 17, e.stack);
+    sandbox.asyncComplete(e.name + ': ' + e.message, 17);
   }
 }
 
@@ -492,17 +504,24 @@ function setSearchTimeout(msg) {
  * All other navigation is handled by the server (in chrome space).
  */
 function goUrl(msg) {
-  curWindow.location = msg.json.value;
-  //TODO: replace this with DOMContentLoaded event listening when Bug 720714 is resolved
-  let checkTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-  function checkLoad() { 
-    if (curWindow.document.readyState == "complete") { 
+  addEventListener("DOMContentLoaded", function onDOMContentLoaded(event) {
+    // Prevent DOMContentLoaded events from frames from invoking this code,
+    // unless the event is coming from the frame associated with the current
+    // window (i.e., someone has used switch_to_frame).
+    if (!event.originalTarget.defaultView.frameElement || 
+        event.originalTarget.defaultView.frameElement == curWindow.frameElement) {
+      removeEventListener("DOMContentLoaded", onDOMContentLoaded, false);
+
+      let errorRegex = /about:.+(error)|(blocked)\?/;
+      if (curWindow.document.readyState == "interactive" && errorRegex.exec(curWindow.document.baseURI)) {
+        sendError("Error loading page", 13, null);
+        return;
+      }
+
       sendOk();
-      return;
-    } 
-    checkTimer.initWithCallback(checkLoad, 100, Ci.nsITimer.TYPE_ONE_SHOT);
-  }
-  checkTimer.initWithCallback(checkLoad, 100, Ci.nsITimer.TYPE_ONE_SHOT);
+    }
+  }, false);
+  curWindow.location = msg.json.value;
 }
 
 /**
@@ -517,6 +536,15 @@ function getUrl(msg) {
  */
 function getTitle(msg) {
   sendResponse({value: curWindow.top.document.title});
+}
+
+/**
+ * Get the current page source 
+ */
+function getPageSource(msg) {
+  var XMLSerializer = curWindow.XMLSerializer;
+  var pageSource = new XMLSerializer().serializeToString(curWindow.document);
+  sendResponse({value: pageSource });
 }
 
 /**
@@ -548,10 +576,10 @@ function refresh(msg) {
  * Find an element in the document using requested search strategy 
  */
 function findElementContent(msg) {
-  let id;
   try {
-    let notify = function(id) { sendResponse({value:id});};
-    id = elementManager.find(curWindow, msg.json, notify, false);
+    let on_success = function(id) { sendResponse({value:id}); };
+    let on_error = sendError;
+    elementManager.find(curWindow, msg.json, on_success, on_error, false);
   }
   catch (e) {
     sendError(e.message, e.code, e.stack);
@@ -562,10 +590,10 @@ function findElementContent(msg) {
  * Find elements in the document using requested search strategy 
  */
 function findElementsContent(msg) {
-  let id;
   try {
-    let notify = function(id) { sendResponse({value:id});};
-    id = elementManager.find(curWindow, msg.json, notify, true);
+    let on_success = function(id) { sendResponse({value:id}); };
+    let on_error = sendError;
+    elementManager.find(curWindow, msg.json, on_success, on_error, true);
   }
   catch (e) {
     sendError(e.message, e.code, e.stack);
@@ -607,6 +635,19 @@ function getElementText(msg) {
   try {
     let el = elementManager.getKnownElement(msg.json.element, curWindow);
     sendResponse({value: utils.getElementText(el)});
+  }
+  catch (e) {
+    sendError(e.message, e.code, e.stack);
+  }
+}
+
+/**
+ * Get the tag name of an element.
+ */
+function getElementTagName(msg) {
+  try {
+    let el = elementManager.getKnownElement(msg.json.element, curWindow);
+    sendResponse({value: el.tagName.toLowerCase()});
   }
   catch (e) {
     sendError(e.message, e.code, e.stack);
@@ -658,7 +699,7 @@ function isElementSelected(msg) {
 function sendKeysToElement(msg) {
   try {
     let el = elementManager.getKnownElement(msg.json.element, curWindow);
-    utils.sendKeysToElement(el, msg.json.value);
+    utils.type(curWindow.document, el, msg.json.value.join(""), true);
     sendOk();
   }
   catch (e) {
@@ -706,28 +747,31 @@ function switchToFrame(msg) {
       }
     }
   }
+  let frames = curWindow.document.getElementsByTagName("iframe");
   switch(typeof(msg.json.value)) {
     case "string" :
       let foundById = null;
-      let numFrames = curWindow.frames.length;
-      for (let i = 0; i < numFrames; i++) {
+      for (let i = 0; i < frames.length; i++) {
         //give precedence to name
-        let frame = curWindow.frames[i];
-        let frameElement = frame.frameElement;
-        if (frameElement.name == msg.json.value) {
+        let frame = frames[i];
+        let name = utils.getElementAttribute(frame, 'name');
+        let id = utils.getElementAttribute(frame, 'id');
+        if (name == msg.json.value) {
           foundFrame = i;
           break;
-        } else if ((foundById == null) && (frameElement.id == msg.json.value)) {
+        } else if ((foundById == null) && (id == msg.json.value)) {
           foundById = i;
         }
       }
       if ((foundFrame == null) && (foundById != null)) {
         foundFrame = foundById;
+        curWindow = frames[foundFrame];
       }
       break;
     case "number":
-      if (curWindow.frames[msg.json.value] != undefined) {
+      if (frames[msg.json.value] != undefined) {
         foundFrame = msg.json.value;
+        curWindow = frames[foundFrame];
       }
       break;
   }
@@ -735,11 +779,20 @@ function switchToFrame(msg) {
     sendError("Unable to locate frame: " + msg.json.value, 8, null);
     return;
   }
-  curWindow = curWindow.frames[foundFrame];
-  curWindow.focus();
-  sendOk();
 
   sandbox = null;
+
+  if (curWindow.contentWindow == null) {
+    // The frame we want to switch to is a remote frame; notify our parent to handle
+    // the switch.
+    curWindow = content;
+    sendToServer('Marionette:switchToFrame', {win: winUtil.outerWindowID, frame: foundFrame});
+  }
+  else {
+    curWindow = curWindow.contentWindow;
+    curWindow.focus();
+    sendOk();
+  }
 }
 
 // emulator callbacks

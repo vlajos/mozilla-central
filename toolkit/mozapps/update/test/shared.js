@@ -12,7 +12,7 @@ const AUS_Cr = Components.results;
 const AUS_Cu = Components.utils;
 
 const PREF_APP_UPDATE_AUTO                = "app.update.auto";
-const PREF_APP_UPDATE_STAGE_ENABLED       = "app.update.stage.enabled";
+const PREF_APP_UPDATE_STAGE_ENABLED       = "app.update.staging.enabled";
 const PREF_APP_UPDATE_BACKGROUNDERRORS    = "app.update.backgroundErrors";
 const PREF_APP_UPDATE_BACKGROUNDMAXERRORS = "app.update.backgroundMaxErrors";
 const PREF_APP_UPDATE_CERTS_BRANCH        = "app.update.certs.";
@@ -91,7 +91,8 @@ XPCOMUtils.defineLazyGetter(this, "gAUS", function test_gAUS() {
   return AUS_Cc["@mozilla.org/updates/update-service;1"].
          getService(AUS_Ci.nsIApplicationUpdateService).
          QueryInterface(AUS_Ci.nsITimerCallback).
-         QueryInterface(AUS_Ci.nsIObserver);
+         QueryInterface(AUS_Ci.nsIObserver).
+         QueryInterface(AUS_Ci.nsIUpdateCheckListener);
 });
 
 XPCOMUtils.defineLazyServiceGetter(this, "gUpdateManager",

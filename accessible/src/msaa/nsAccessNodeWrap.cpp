@@ -20,7 +20,6 @@
 #include "nsAttrName.h"
 #include "nsIDOMNodeList.h"
 #include "nsIDOMHTMLElement.h"
-#include "nsIFrame.h"
 #include "nsINameSpaceManager.h"
 #include "nsPIDOMWindow.h"
 #include "nsIServiceManager.h"
@@ -57,7 +56,8 @@ NS_IMPL_ISUPPORTS_INHERITED1(nsAccessNodeWrap, nsAccessNode, nsIWinAccessNode);
 NS_IMETHODIMP
 nsAccessNodeWrap::QueryNativeInterface(REFIID aIID, void** aInstancePtr)
 {
-  return QueryInterface(aIID, aInstancePtr);
+  // XXX Wrong for E_NOINTERFACE
+  return static_cast<nsresult>(QueryInterface(aIID, aInstancePtr));
 }
 
 //-----------------------------------------------------
@@ -112,7 +112,7 @@ nsAccessNodeWrap::QueryService(REFGUID guidService, REFIID iid, void** ppv)
 
     // If the item type is typeContent, we assume we are in browser tab content.
     // Note this includes content such as about:addons, for consistency.
-    PRInt32 itemType;
+    int32_t itemType;
     root->GetItemType(&itemType);
     if (itemType != nsIDocShellTreeItem::typeContent)
       return E_NOINTERFACE;
@@ -130,7 +130,7 @@ nsAccessNodeWrap::QueryService(REFGUID guidService, REFIID iid, void** ppv)
 
   // Can get to IAccessibleApplication from any node via QS
   if (guidService == IID_IAccessibleApplication) {
-    ApplicationAccessible* applicationAcc = GetApplicationAccessible();
+    ApplicationAccessible* applicationAcc = ApplicationAcc();
     if (!applicationAcc)
       return E_NOINTERFACE;
 
@@ -184,7 +184,7 @@ __try{
 
   nsCOMPtr<nsIDOMNode> DOMNode(do_QueryInterface(node));
 
-  PRUint16 nodeType = 0;
+  uint16_t nodeType = 0;
   DOMNode->GetNodeType(&nodeType);
   *aNodeType=static_cast<unsigned short>(nodeType);
 
@@ -229,12 +229,12 @@ __try{
   if (!mContent || IsDocumentNode())
     return E_FAIL;
 
-  PRUint32 numAttribs = mContent->GetAttrCount();
+  uint32_t numAttribs = mContent->GetAttrCount();
   if (numAttribs > aMaxAttribs)
     numAttribs = aMaxAttribs;
   *aNumAttribs = static_cast<unsigned short>(numAttribs);
 
-  for (PRUint32 index = 0; index < numAttribs; index++) {
+  for (uint32_t index = 0; index < numAttribs; index++) {
     aNameSpaceIDs[index] = 0; aAttribValues[index] = aAttribNames[index] = nullptr;
     nsAutoString attributeValue;
 
@@ -264,7 +264,7 @@ __try {
   nsCOMPtr<nsINameSpaceManager> nameSpaceManager =
     do_GetService(NS_NAMESPACEMANAGER_CONTRACTID);
 
-  PRInt32 index;
+  int32_t index;
 
   for (index = 0; index < aNumAttribs; index++) {
     aAttribValues[index] = nullptr;
@@ -306,10 +306,10 @@ __try{
     nsWinUtils::GetComputedStyleDeclaration(mContent);
   NS_ENSURE_TRUE(cssDecl, E_FAIL);
 
-  PRUint32 length;
+  uint32_t length;
   cssDecl->GetLength(&length);
 
-  PRUint32 index, realIndex;
+  uint32_t index, realIndex;
   for (index = realIndex = 0; index < length && realIndex < aMaxStyleProperties; index ++) {
     nsAutoString property, value;
     if (NS_SUCCEEDED(cssDecl->Item(index, property)) && property.CharAt(0) != '-')  // Ignore -moz-* properties
@@ -341,7 +341,7 @@ __try {
     nsWinUtils::GetComputedStyleDeclaration(mContent);
   NS_ENSURE_TRUE(cssDecl, E_FAIL);
 
-  PRUint32 index;
+  uint32_t index;
   for (index = 0; index < aNumStyleProperties; index ++) {
     nsAutoString value;
     if (aStyleProperties[index])
@@ -356,7 +356,7 @@ __try {
 STDMETHODIMP nsAccessNodeWrap::scrollTo(/* [in] */ boolean aScrollTopLeft)
 {
 __try {
-  PRUint32 scrollType =
+  uint32_t scrollType =
     aScrollTopLeft ? nsIAccessibleScrollType::SCROLL_TYPE_TOP_LEFT :
                      nsIAccessibleScrollType::SCROLL_TYPE_BOTTOM_RIGHT;
 
@@ -501,7 +501,7 @@ __try {
     return E_FAIL; // Node already shut down
 
   nsAutoString innerHTML;
-  htmlElement->GetInnerHTML(innerHTML);
+  htmlElement->GetDOMInnerHTML(innerHTML);
   if (innerHTML.IsEmpty())
     return S_FALSE;
 
@@ -558,8 +558,6 @@ void nsAccessNodeWrap::ShutdownAccessibility()
   ::DestroyCaret();
 
   nsWinUtils::ShutdownWindowEmulation();
-
-  nsAccessNode::ShutdownXPAccessibility();
 }
 
 int nsAccessNodeWrap::FilterA11yExceptions(unsigned int aCode, EXCEPTION_POINTERS *aExceptionInfo)

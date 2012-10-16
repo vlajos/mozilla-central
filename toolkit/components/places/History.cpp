@@ -28,11 +28,13 @@
 #include "nsContentUtils.h"
 #include "nsIMemoryReporter.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/ipc/URIUtils.h"
 
 // Initial size for the cache holding visited status observers.
 #define VISIT_OBSERVERS_INITIAL_CACHE_SIZE 128
 
 using namespace mozilla::dom;
+using namespace mozilla::ipc;
 using mozilla::unused;
 
 namespace mozilla {
@@ -62,7 +64,7 @@ struct VisitData {
   , sessionId(0)
   , hidden(true)
   , typed(false)
-  , transitionType(PR_UINT32_MAX)
+  , transitionType(UINT32_MAX)
   , visitTime(0)
   , frecency(-1)
   , titleChanged(false)
@@ -78,7 +80,7 @@ struct VisitData {
   , sessionId(0)
   , hidden(true)
   , typed(false)
-  , transitionType(PR_UINT32_MAX)
+  , transitionType(UINT32_MAX)
   , visitTime(0)
   , frecency(-1)
   , titleChanged(false)
@@ -99,7 +101,7 @@ struct VisitData {
    *        The transition type constant to set.  Must be one of the
    *        TRANSITION_ constants on nsINavHistoryService.
    */
-  void SetTransitionType(PRUint32 aTransitionType)
+  void SetTransitionType(uint32_t aTransitionType)
   {
     typed = aTransitionType == nsINavHistoryService::TRANSITION_TYPED;
     transitionType = aTransitionType;
@@ -125,17 +127,17 @@ struct VisitData {
     return true;
   }
 
-  PRInt64 placeId;
+  int64_t placeId;
   nsCString guid;
-  PRInt64 visitId;
-  PRInt64 sessionId;
+  int64_t visitId;
+  int64_t sessionId;
   nsCString spec;
   nsString revHost;
   bool hidden;
   bool typed;
-  PRUint32 transitionType;
+  uint32_t transitionType;
   PRTime visitTime;
-  PRInt32 frecency;
+  int32_t frecency;
 
   /**
    * Stores the title.  If this is empty (IsEmpty() returns true), then the
@@ -308,10 +310,13 @@ public:
   // If we are a content process, always remote the request to the
   // parent process.
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
+    URIParams uri;
+    SerializeURI(aURI, uri);
+
     mozilla::dom::ContentChild* cpc =
       mozilla::dom::ContentChild::GetSingleton();
     NS_ASSERTION(cpc, "Content Protocol is NULL!");
-    (void)cpc->SendStartVisitedQuery(aURI);
+    (void)cpc->SendStartVisitedQuery(uri);
     return NS_OK;
   }
 
@@ -359,7 +364,7 @@ public:
     return NS_OK;
   }
 
-  NS_IMETHOD HandleCompletion(PRUint16 aReason)
+  NS_IMETHOD HandleCompletion(uint16_t aReason)
   {
     if (aReason != mozIStorageStatementCallback::REASON_FINISHED) {
       return NS_OK;
@@ -784,7 +789,7 @@ private:
       // check to make sure we do not store a bogus session id that is higher
       // than the current maximum session id.
       if (i == 0) {
-        PRInt64 newSessionId = navHistory->GetNewSessionID();
+        int64_t newSessionId = navHistory->GetNewSessionID();
         if (mPlaces[0].sessionId > newSessionId) {
           mPlaces[0].sessionId = newSessionId;
         }
@@ -902,7 +907,7 @@ private:
       mozStorageStatementScoper scoper(stmt);
       nsresult rv = stmt->BindInt64ByName(NS_LITERAL_CSTRING("visit_date"),
                                           _place.visitTime);
-      NS_ENSURE_SUCCESS(rv, rv);
+      NS_ENSURE_SUCCESS(rv, false);
 
       scoper.Abandon();
     }
@@ -933,7 +938,7 @@ private:
     NS_ENSURE_SUCCESS(rv, false);
     rv = stmt->GetInt64(1, &_place.sessionId);
     NS_ENSURE_SUCCESS(rv, false);
-    rv = stmt->GetInt64(2, &_place.visitTime);
+    rv = stmt->GetInt64(2, reinterpret_cast<int64_t*>(&_place.visitTime));
     NS_ENSURE_SUCCESS(rv, false);
 
     // If we have been given a visit threshold start time, go ahead and
@@ -1022,7 +1027,7 @@ private:
     rv = stmt->BindInt64ByName(NS_LITERAL_CSTRING("visit_date"),
                                _place.visitTime);
     NS_ENSURE_SUCCESS(rv, rv);
-    PRUint32 transitionType = _place.transitionType;
+    uint32_t transitionType = _place.transitionType;
     NS_ASSERTION(transitionType >= nsINavHistoryService::TRANSITION_LINK &&
                  transitionType <= nsINavHistoryService::TRANSITION_FRAMED_LINK,
                  "Invalid transition type!");
@@ -1288,7 +1293,7 @@ public:
     rv = destinationFile->GetLeafName(destinationFileName);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    nsCAutoString destinationURISpec;
+    nsAutoCString destinationURISpec;
     rv = destinationFileURL->GetSpec(destinationURISpec);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1398,7 +1403,7 @@ StoreAndNotifyEmbedVisit(VisitData& aPlace,
 NS_MEMORY_REPORTER_MALLOC_SIZEOF_FUN(HistoryLinksHashtableMallocSizeOf,
                                      "history-links-hashtable")
 
-PRInt64 GetHistoryObserversSize()
+int64_t GetHistoryObserversSize()
 {
   History* history = History::GetService();
   return history ?
@@ -1459,8 +1464,13 @@ History::NotifyVisited(nsIURI* aURI)
   if (XRE_GetProcessType() == GeckoProcessType_Default) {
     nsTArray<ContentParent*> cplist;
     ContentParent::GetAll(cplist);
-    for (PRUint32 i = 0; i < cplist.Length(); ++i) {
-      unused << cplist[i]->SendNotifyVisited(aURI);
+
+    if (!cplist.IsEmpty()) {
+      URIParams uri;
+      SerializeURI(aURI, uri);
+      for (uint32_t i = 0; i < cplist.Length(); ++i) {
+        unused << cplist[i]->SendNotifyVisited(uri);
+      }
     }
   }
 
@@ -1556,7 +1566,7 @@ History::InsertPlace(const VisitData& aPlace)
   NS_ENSURE_SUCCESS(rv, rv);
   rv = stmt->BindInt32ByName(NS_LITERAL_CSTRING("hidden"), aPlace.hidden);
   NS_ENSURE_SUCCESS(rv, rv);
-  nsCAutoString guid(aPlace.guid);
+  nsAutoCString guid(aPlace.guid);
   if (aPlace.guid.IsVoid()) {
     rv = GenerateGUID(guid);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -1661,7 +1671,7 @@ History::FetchPageInfo(VisitData& _place)
     // If this transition was hidden, it is possible that others were not.
     // Any one visible transition makes this location visible. If database
     // has location as visible, reflect that in our data structure.
-    PRInt32 hidden;
+    int32_t hidden;
     rv = stmt->GetInt32(2, &hidden);
     _place.hidden = !!hidden;
     NS_ENSURE_SUCCESS(rv, true);
@@ -1670,7 +1680,7 @@ History::FetchPageInfo(VisitData& _place)
   if (!_place.typed) {
     // If this transition wasn't typed, others might have been. If database
     // has location as typed, reflect that in our data structure.
-    PRInt32 typed;
+    int32_t typed;
     rv = stmt->GetInt32(3, &typed);
     _place.typed = !!typed;
     NS_ENSURE_SUCCESS(rv, true);
@@ -1784,7 +1794,7 @@ History::IsRecentlyVisitedURI(nsIURI* aURI) {
 NS_IMETHODIMP
 History::VisitURI(nsIURI* aURI,
                   nsIURI* aLastVisitedURI,
-                  PRUint32 aFlags)
+                  uint32_t aFlags)
 {
   NS_PRECONDITION(aURI, "URI should not be NULL.");
   if (mShuttingDown) {
@@ -1792,10 +1802,16 @@ History::VisitURI(nsIURI* aURI,
   }
 
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
+    URIParams uri;
+    SerializeURI(aURI, uri);
+
+    OptionalURIParams lastVisitedURI;
+    SerializeURI(aLastVisitedURI, lastVisitedURI);
+
     mozilla::dom::ContentChild* cpc =
       mozilla::dom::ContentChild::GetSingleton();
     NS_ASSERTION(cpc, "Content Protocol is NULL!");
-    (void)cpc->SendVisitURI(aURI, aLastVisitedURI, aFlags);
+    (void)cpc->SendVisitURI(uri, lastVisitedURI, aFlags);
     return NS_OK;
   } 
 
@@ -1830,7 +1846,7 @@ History::VisitURI(nsIURI* aURI,
 
   // Assigns a type to the edge in the visit linked list. Each type will be
   // considered differently when weighting the frecency of a location.
-  PRUint32 recentFlags = navHistory->GetRecentFlags(aURI);
+  uint32_t recentFlags = navHistory->GetRecentFlags(aURI);
   bool isFollowedLink = recentFlags & nsNavHistory::RECENT_ACTIVATED;
 
   // Embed visits should never be added to the database, and the same is valid
@@ -1839,7 +1855,7 @@ History::VisitURI(nsIURI* aURI,
   // if the visit is toplevel or a non-toplevel followed link, then it can be
   // handled as usual and stored on disk.
 
-  PRUint32 transitionType = nsINavHistoryService::TRANSITION_LINK;
+  uint32_t transitionType = nsINavHistoryService::TRANSITION_LINK;
 
   if (!(aFlags & IHistory::TOP_LEVEL) && !isFollowedLink) {
     // A frame redirected to a new site without user interaction.
@@ -1995,10 +2011,13 @@ History::SetURITitle(nsIURI* aURI, const nsAString& aTitle)
   }
 
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
+    URIParams uri;
+    SerializeURI(aURI, uri);
+
     mozilla::dom::ContentChild * cpc = 
       mozilla::dom::ContentChild::GetSingleton();
     NS_ASSERTION(cpc, "Content Protocol is NULL!");
-    (void)cpc->SendSetURITitle(aURI, nsString(aTitle));
+    (void)cpc->SendSetURITitle(uri, nsString(aTitle));
     return NS_OK;
   } 
 
@@ -2191,7 +2210,7 @@ History::UpdatePlaces(const jsval& aPlaceInfos,
       // We must have a date and a transaction type!
       rv = GetIntFromJSObject(aCtx, visit, "visitDate", &data.visitTime);
       NS_ENSURE_SUCCESS(rv, rv);
-      PRUint32 transitionType = 0;
+      uint32_t transitionType = 0;
       rv = GetIntFromJSObject(aCtx, visit, "transitionType", &transitionType);
       NS_ENSURE_SUCCESS(rv, rv);
       NS_ENSURE_ARG_RANGE(transitionType,

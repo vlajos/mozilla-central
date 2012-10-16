@@ -3,11 +3,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH		= ../../../..
+DEPTH		= @DEPTH@
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
-relativesrcdir  = js/xpconnect/tests/mochitest
+relativesrcdir  = @relativesrcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
@@ -61,16 +61,26 @@ MOCHITEST_FILES =	bug500931_helper.html \
 		test_bug691059.html \
 		file_bug706301.html \
 		test_bug745483.html \
-		file_bug758563.html \
 		file_bug760131.html \
 		test_bug764389.html \
 		test_bug772288.html \
+		test_bug781476.html \
+		file_bug781476.html \
+		test_bug789713.html \
+		file_bug795275.html \
+		file_bug795275.xml \
+		file_bug799348.html \
 		file_nodelists.html \
 		file_exnstack.html \
 		file_expandosharing.html \
 		file_empty.html \
 		file_documentdomain.html \
 		test_lookupMethod.html \
+		file_bug738244.html \
+		file_mozMatchesSelector.html \
+		file_bug720619.html \
+		test_bug720619.html \
+		test_bug785096.html \
 		$(NULL)
 
 MOCHITEST_CHROME_FILES	= \
@@ -80,9 +90,7 @@ MOCHITEST_CHROME_FILES	= \
 
 ifneq ($(OS_TARGET),Android)
 ifndef MOZ_PLATFORM_MAEMO
-MOCHITEST_FILES +=	test_bug657267.html \
-		bug657267.jar \
-		test_bug564330.html \
+MOCHITEST_FILES +=	test_bug564330.html \
 		test_bug618017.html
 endif
 endif

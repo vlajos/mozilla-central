@@ -17,13 +17,14 @@
 #include "nsIFaviconService.h" 
 #include "nsIDownloader.h"
 
+#include "mozilla/Attributes.h"
 
 class nsWindow;
 
 namespace mozilla {
 namespace widget {
 
-class myDownloadObserver: public nsIDownloadObserver
+class myDownloadObserver MOZ_FINAL : public nsIDownloadObserver
 {
 public:
   NS_DECL_ISUPPORTS
@@ -111,7 +112,7 @@ public:
   /**
    * GetMonitorCount() returns count of monitors on the environment.
    */
-  static PRInt32 GetMonitorCount();
+  static int32_t GetMonitorCount();
 
   /**
    * IsOurProcessWindow() returns TRUE if aWnd belongs our process.
@@ -180,7 +181,7 @@ public:
    * one of nsIDOMMouseEvent::MOZ_SOURCE_*.  This method MUST be called during
    * mouse message handling.
    */
-  static PRUint16 GetMouseInputSource();
+  static uint16_t GetMouseInputSource();
 
   /**
    * SHCreateItemFromParsingName() calls native SHCreateItemFromParsingName()
@@ -216,7 +217,7 @@ private:
   static bool VistaCreateItemFromParsingNameInit();
 };
 
-class AsyncFaviconDataReady : public nsIFaviconDataCallback
+class AsyncFaviconDataReady MOZ_FINAL : public nsIFaviconDataCallback
 {
 public:
   NS_DECL_ISUPPORTS
@@ -245,16 +246,16 @@ public:
   // Warning: AsyncWriteIconToDisk assumes ownership of the aData buffer passed in
   AsyncWriteIconToDisk(const nsAString &aIconPath,
                        const nsACString &aMimeTypeOfInputData,
-                       PRUint8 *aData, 
-                       PRUint32 aDataLen,
+                       uint8_t *aData, 
+                       uint32_t aDataLen,
                        const bool aURLShortcut);
   virtual ~AsyncWriteIconToDisk();
 
 private:
   nsAutoString mIconPath;
-  nsCAutoString mMimeTypeOfInputData;
-  nsAutoArrayPtr<PRUint8> mBuffer;
-  PRUint32 mBufferLength;
+  nsAutoCString mMimeTypeOfInputData;
+  nsAutoArrayPtr<uint8_t> mBuffer;
+  uint32_t mBufferLength;
 };
 
 class AsyncDeleteIconFromDisk : public nsIRunnable
@@ -304,7 +305,7 @@ public:
                                    nsCOMPtr<nsIThread> &aIOThread,
                                    bool aURLShortcut);
 
-  static PRInt32 GetICOCacheSecondsTimeout();
+  static int32_t GetICOCacheSecondsTimeout();
 };
 
 

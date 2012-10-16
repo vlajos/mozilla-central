@@ -32,9 +32,6 @@
 class nsIFile;
 class nsIInputStream;
 class nsIClassInfo;
-class nsIBlobBuilder;
-
-nsresult NS_NewBlobBuilder(nsISupports* *aSupports);
 
 class nsDOMFileBase : public nsIDOMFile,
                       public nsIXHRSendable,
@@ -44,7 +41,7 @@ public:
   typedef mozilla::dom::indexedDB::FileInfo FileInfo;
 
   virtual already_AddRefed<nsIDOMBlob>
-  CreateSlice(PRUint64 aStart, PRUint64 aLength,
+  CreateSlice(uint64_t aStart, uint64_t aLength,
               const nsAString& aContentType) = 0;
 
   virtual const nsTArray<nsCOMPtr<nsIDOMBlob> >*
@@ -55,9 +52,27 @@ public:
   NS_DECL_NSIXHRSENDABLE
   NS_DECL_NSIMUTABLE
 
+  void
+  SetLazyData(const nsAString& aName, const nsAString& aContentType,
+              uint64_t aLength)
+  {
+    NS_ASSERTION(aLength, "must have length");
+
+    mName = aName;
+    mContentType = aContentType;
+    mLength = aLength;
+
+    mIsFile = !aName.IsVoid();
+  }
+
+  bool IsSizeUnknown() const
+  {
+    return mLength == UINT64_MAX;
+  }
+
 protected:
   nsDOMFileBase(const nsAString& aName, const nsAString& aContentType,
-                PRUint64 aLength)
+                uint64_t aLength)
     : mIsFile(true), mImmutable(false), mContentType(aContentType),
       mName(aName), mStart(0), mLength(aLength)
   {
@@ -65,7 +80,7 @@ protected:
     mContentType.SetIsVoid(false);
   }
 
-  nsDOMFileBase(const nsAString& aContentType, PRUint64 aLength)
+  nsDOMFileBase(const nsAString& aContentType, uint64_t aLength)
     : mIsFile(false), mImmutable(false), mContentType(aContentType),
       mStart(0), mLength(aLength)
   {
@@ -73,8 +88,8 @@ protected:
     mContentType.SetIsVoid(false);
   }
 
-  nsDOMFileBase(const nsAString& aContentType, PRUint64 aStart,
-                PRUint64 aLength)
+  nsDOMFileBase(const nsAString& aContentType, uint64_t aStart,
+                uint64_t aLength)
     : mIsFile(false), mImmutable(false), mContentType(aContentType),
       mStart(aStart), mLength(aLength)
   {
@@ -85,11 +100,6 @@ protected:
   }
 
   virtual ~nsDOMFileBase() {}
-
-  bool IsSizeUnknown() const
-  {
-    return mLength == UINT64_MAX;
-  }
 
   virtual bool IsStoredFile() const
   {
@@ -120,8 +130,8 @@ protected:
   nsString mContentType;
   nsString mName;
 
-  PRUint64 mStart;
-  PRUint64 mLength;
+  uint64_t mStart;
+  uint64_t mLength;
 
   // Protected by IndexedDatabaseManager::FileMutex()
   nsTArray<nsRefPtr<FileInfo> > mFileInfos;
@@ -131,15 +141,15 @@ class nsDOMFile : public nsDOMFileBase
 {
 public:
   nsDOMFile(const nsAString& aName, const nsAString& aContentType,
-            PRUint64 aLength)
+            uint64_t aLength)
   : nsDOMFileBase(aName, aContentType, aLength)
   { }
 
-  nsDOMFile(const nsAString& aContentType, PRUint64 aLength)
+  nsDOMFile(const nsAString& aContentType, uint64_t aLength)
   : nsDOMFileBase(aContentType, aLength)
   { }
 
-  nsDOMFile(const nsAString& aContentType, PRUint64 aStart, PRUint64 aLength)
+  nsDOMFile(const nsAString& aContentType, uint64_t aStart, uint64_t aLength)
   : nsDOMFileBase(aContentType, aStart, aLength)
   { }
 
@@ -150,15 +160,15 @@ class nsDOMFileCC : public nsDOMFileBase
 {
 public:
   nsDOMFileCC(const nsAString& aName, const nsAString& aContentType,
-              PRUint64 aLength)
+              uint64_t aLength)
   : nsDOMFileBase(aName, aContentType, aLength)
   { }
 
-  nsDOMFileCC(const nsAString& aContentType, PRUint64 aLength)
+  nsDOMFileCC(const nsAString& aContentType, uint64_t aLength)
   : nsDOMFileBase(aContentType, aLength)
   { }
 
-  nsDOMFileCC(const nsAString& aContentType, PRUint64 aStart, PRUint64 aLength)
+  nsDOMFileCC(const nsAString& aContentType, uint64_t aStart, uint64_t aLength)
   : nsDOMFileBase(aContentType, aStart, aLength)
   { }
 
@@ -184,7 +194,7 @@ public:
 
   // Create as a file
   nsDOMFileFile(const nsAString& aName, const nsAString& aContentType,
-                PRUint64 aLength, nsIFile *aFile)
+                uint64_t aLength, nsIFile *aFile)
     : nsDOMFile(aName, aContentType, aLength),
       mFile(aFile), mWholeFile(true), mStoredFile(false)
   {
@@ -213,7 +223,7 @@ public:
 
   // Create as a stored file
   nsDOMFileFile(const nsAString& aName, const nsAString& aContentType,
-                PRUint64 aLength, nsIFile* aFile,
+                uint64_t aLength, nsIFile* aFile,
                 FileInfo* aFileInfo)
     : nsDOMFile(aName, aContentType, aLength),
       mFile(aFile), mWholeFile(true), mStoredFile(true)
@@ -223,7 +233,7 @@ public:
   }
 
   // Create as a stored blob
-  nsDOMFileFile(const nsAString& aContentType, PRUint64 aLength,
+  nsDOMFileFile(const nsAString& aContentType, uint64_t aLength,
                 nsIFile* aFile, FileInfo* aFileInfo)
     : nsDOMFile(aContentType, aLength),
       mFile(aFile), mWholeFile(true), mStoredFile(true)
@@ -248,11 +258,11 @@ public:
   NS_IMETHOD Initialize(nsISupports* aOwner,
                         JSContext* aCx,
                         JSObject* aObj,
-                        PRUint32 aArgc,
+                        uint32_t aArgc,
                         jsval* aArgv);
 
   // Overrides
-  NS_IMETHOD GetSize(PRUint64* aSize);
+  NS_IMETHOD GetSize(uint64_t* aSize);
   NS_IMETHOD GetType(nsAString& aType);
   NS_IMETHOD GetLastModifiedDate(JSContext* cx, JS::Value *aLastModifiedDate);
   NS_IMETHOD GetMozFullPathInternal(nsAString& aFullPath);
@@ -264,7 +274,7 @@ public:
 
 protected:
   // Create slice
-  nsDOMFileFile(const nsDOMFileFile* aOther, PRUint64 aStart, PRUint64 aLength,
+  nsDOMFileFile(const nsDOMFileFile* aOther, uint64_t aStart, uint64_t aLength,
                 const nsAString& aContentType)
     : nsDOMFile(aContentType, aOther->mStart + aStart, aLength),
       mFile(aOther->mFile), mWholeFile(false),
@@ -291,7 +301,7 @@ protected:
   }
 
   virtual already_AddRefed<nsIDOMBlob>
-  CreateSlice(PRUint64 aStart, PRUint64 aLength,
+  CreateSlice(uint64_t aStart, uint64_t aLength,
               const nsAString& aContentType);
 
   virtual bool IsStoredFile() const
@@ -315,7 +325,7 @@ class nsDOMMemoryFile : public nsDOMFile
 public:
   // Create as file
   nsDOMMemoryFile(void *aMemoryBuffer,
-                  PRUint64 aLength,
+                  uint64_t aLength,
                   const nsAString& aName,
                   const nsAString& aContentType)
     : nsDOMFile(aName, aContentType, aLength),
@@ -326,7 +336,7 @@ public:
 
   // Create as blob
   nsDOMMemoryFile(void *aMemoryBuffer,
-                  PRUint64 aLength,
+                  uint64_t aLength,
                   const nsAString& aContentType)
     : nsDOMFile(aContentType, aLength),
       mDataOwner(new DataOwner(aMemoryBuffer))
@@ -338,8 +348,8 @@ public:
 
 protected:
   // Create slice
-  nsDOMMemoryFile(const nsDOMMemoryFile* aOther, PRUint64 aStart,
-                  PRUint64 aLength, const nsAString& aContentType)
+  nsDOMMemoryFile(const nsDOMMemoryFile* aOther, uint64_t aStart,
+                  uint64_t aLength, const nsAString& aContentType)
     : nsDOMFile(aContentType, aOther->mStart + aStart, aLength),
       mDataOwner(aOther->mDataOwner)
   {
@@ -347,7 +357,7 @@ protected:
     mImmutable = aOther->mImmutable;
   }
   virtual already_AddRefed<nsIDOMBlob>
-  CreateSlice(PRUint64 aStart, PRUint64 aLength,
+  CreateSlice(uint64_t aStart, uint64_t aLength,
               const nsAString& aContentType);
 
   friend class DataOwnerAdapter; // Needs to see DataOwner
@@ -397,7 +407,7 @@ public:
 
   bool Append(nsIDOMFile *aFile) { return mFiles.AppendObject(aFile); }
 
-  bool Remove(PRUint32 aIndex) { return mFiles.RemoveObjectAt(aIndex); }
+  bool Remove(uint32_t aIndex) { return mFiles.RemoveObjectAt(aIndex); }
   void Clear() { return mFiles.Clear(); }
 
   static nsDOMFileList* FromSupports(nsISupports* aSupports)
@@ -415,6 +425,20 @@ public:
 #endif
 
     return static_cast<nsDOMFileList*>(aSupports);
+  }
+
+  nsIDOMFile* Item(uint32_t aIndex)
+  {
+    return mFiles.SafeObjectAt(aIndex);
+  }
+  nsIDOMFile* IndexedGetter(uint32_t aIndex, bool& aFound)
+  {
+    aFound = aIndex < static_cast<uint32_t>(mFiles.Count());
+    return aFound ? mFiles.ObjectAt(aIndex) : nullptr;
+  }
+  uint32_t Length()
+  {
+    return mFiles.Count();
   }
 
 private:

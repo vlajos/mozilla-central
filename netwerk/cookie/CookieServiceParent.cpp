@@ -4,8 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/net/CookieServiceParent.h"
+
+#include "mozilla/ipc/URIUtils.h"
 #include "nsCookieService.h"
 #include "nsNetUtil.h"
+
+using namespace mozilla::ipc;
 
 namespace mozilla {
 namespace net {
@@ -27,9 +31,11 @@ CookieServiceParent::~CookieServiceParent()
 }
 
 bool
-CookieServiceParent::RecvGetCookieString(const IPC::URI& aHost,
+CookieServiceParent::RecvGetCookieString(const URIParams& aHost,
                                          const bool& aIsForeign,
                                          const bool& aFromHttp,
+                                         const IPC::SerializedLoadContext&
+                                               aLoadContext,
                                          nsCString* aResult)
 {
   if (!mCookieService)
@@ -37,36 +43,63 @@ CookieServiceParent::RecvGetCookieString(const IPC::URI& aHost,
 
   // Deserialize URI. Having a host URI is mandatory and should always be
   // provided by the child; thus we consider failure fatal.
-  nsCOMPtr<nsIURI> hostURI(aHost);
+  nsCOMPtr<nsIURI> hostURI = DeserializeURI(aHost);
   if (!hostURI)
     return false;
 
-  mCookieService->GetCookieStringInternal(hostURI, aIsForeign,
-                                          aFromHttp, *aResult);
+  uint32_t appId;
+  bool isInBrowserElement;
+  GetAppInfoFromLoadContext(aLoadContext, appId, isInBrowserElement);
+
+  mCookieService->GetCookieStringInternal(hostURI, aIsForeign, aFromHttp, appId,
+                                          isInBrowserElement, *aResult);
   return true;
 }
 
 bool
-CookieServiceParent::RecvSetCookieString(const IPC::URI& aHost,
+CookieServiceParent::RecvSetCookieString(const URIParams& aHost,
                                          const bool& aIsForeign,
                                          const nsCString& aCookieString,
                                          const nsCString& aServerTime,
-                                         const bool& aFromHttp)
+                                         const bool& aFromHttp,
+                                         const IPC::SerializedLoadContext&
+                                               aLoadContext)
 {
   if (!mCookieService)
     return true;
 
   // Deserialize URI. Having a host URI is mandatory and should always be
   // provided by the child; thus we consider failure fatal.
-  nsCOMPtr<nsIURI> hostURI(aHost);
+  nsCOMPtr<nsIURI> hostURI = DeserializeURI(aHost);
   if (!hostURI)
     return false;
 
+  uint32_t appId;
+  bool isInBrowserElement;
+  GetAppInfoFromLoadContext(aLoadContext, appId, isInBrowserElement);
+
   nsDependentCString cookieString(aCookieString, 0);
-  mCookieService->SetCookieStringInternal(hostURI, aIsForeign,
-                                          cookieString, aServerTime,
-                                          aFromHttp);
+  mCookieService->SetCookieStringInternal(hostURI, aIsForeign, cookieString,
+                                          aServerTime, aFromHttp, appId,
+                                          isInBrowserElement);
   return true;
+}
+
+void
+CookieServiceParent::GetAppInfoFromLoadContext(
+                       const IPC::SerializedLoadContext &aLoadContext,
+                        uint32_t& aAppId,
+                        bool& aIsInBrowserElement)
+{
+  // TODO: bug 782542: what to do when we get null loadContext?  For now assume
+  // NECKO_NO_APP_ID.
+  aAppId = NECKO_NO_APP_ID;
+  aIsInBrowserElement = false;
+
+  if (aLoadContext.IsNotNull()) {
+    aAppId = aLoadContext.mAppId;
+    aIsInBrowserElement = aLoadContext.mIsInBrowserElement;
+  }
 }
 
 }

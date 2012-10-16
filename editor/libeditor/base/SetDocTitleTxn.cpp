@@ -19,7 +19,6 @@
 #include "nsIEditor.h"                  // for nsIEditor
 #include "nsIHTMLEditor.h"              // for nsIHTMLEditor
 #include "nsLiteralString.h"            // for NS_LITERAL_STRING
-#include "prtypes.h"                    // for PRUint32
 
 using namespace mozilla;
 
@@ -118,7 +117,7 @@ nsresult SetDocTitleTxn::SetDomTitle(const nsAString& aTitle)
   NS_ENSURE_STATE(head);
 
   bool     newTitleNode = false;
-  PRUint32 newTitleIndex = 0;
+  uint32_t newTitleIndex = 0;
 
   if (!titleNode)
   {

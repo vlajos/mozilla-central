@@ -57,7 +57,7 @@ public:
                              nsIURI *aReferrerURI,
                              nsIApplicationCache *aApplicationCache,
                              nsIApplicationCache *aPreviousApplicationCache,
-                             PRUint32 aType);
+                             uint32_t aType);
     virtual ~nsOfflineCacheUpdateItem();
 
     nsCOMPtr<nsIURI>           mURI;
@@ -65,7 +65,7 @@ public:
     nsCOMPtr<nsIApplicationCache> mApplicationCache;
     nsCOMPtr<nsIApplicationCache> mPreviousApplicationCache;
     nsCString                  mCacheKey;
-    PRUint32                   mItemType;
+    uint32_t                   mItemType;
 
     nsresult OpenChannel(nsOfflineCacheUpdate *aUpdate);
     nsresult Cancel();
@@ -78,10 +78,10 @@ public:
 private:
     nsRefPtr<nsOfflineCacheUpdate> mUpdate;
     nsCOMPtr<nsIChannel>           mChannel;
-    PRUint16                       mState;
+    uint16_t                       mState;
 
 protected:
-    PRInt32                        mBytesRead;
+    int32_t                        mBytesRead;
 };
 
 
@@ -116,11 +116,11 @@ private:
     static NS_METHOD ReadManifest(nsIInputStream *aInputStream,
                                   void *aClosure,
                                   const char *aFromSegment,
-                                  PRUint32 aOffset,
-                                  PRUint32 aCount,
-                                  PRUint32 *aBytesConsumed);
+                                  uint32_t aOffset,
+                                  uint32_t aCount,
+                                  uint32_t *aBytesConsumed);
 
-    nsresult AddNamespace(PRUint32 namespaceType,
+    nsresult AddNamespace(uint32_t namespaceType,
                           const nsCString &namespaceSpec,
                           const nsCString &data);
 
@@ -209,28 +209,30 @@ public:
 
     void SetOwner(nsOfflineCacheUpdateOwner *aOwner);
 
+    bool IsForGroupID(const nsCSubstring &groupID);
+
     virtual nsresult UpdateFinished(nsOfflineCacheUpdate *aUpdate);
 
 protected:
     friend class nsOfflineCacheUpdateItem;
-    void OnByteProgress(PRUint64 byteIncrement);
+    void OnByteProgress(uint64_t byteIncrement);
 
 private:
     nsresult HandleManifest(bool *aDoUpdate);
-    nsresult AddURI(nsIURI *aURI, PRUint32 aItemType);
+    nsresult AddURI(nsIURI *aURI, uint32_t aItemType);
 
     nsresult ProcessNextURI();
 
     // Adds items from the previous cache witha type matching aType.
     // If namespaceFilter is non-null, only items matching the
     // specified namespaces will be added.
-    nsresult AddExistingItems(PRUint32 aType,
+    nsresult AddExistingItems(uint32_t aType,
                               nsTArray<nsCString>* namespaceFilter = nullptr);
     nsresult ScheduleImplicit();
-    nsresult AssociateDocuments(nsIApplicationCache* cache);
+    void AssociateDocuments(nsIApplicationCache* cache);
 
-    nsresult GatherObservers(nsCOMArray<nsIOfflineCacheUpdateObserver> &aObservers);
-    nsresult NotifyState(PRUint32 state);
+    void GatherObservers(nsCOMArray<nsIOfflineCacheUpdateObserver> &aObservers);
+    void NotifyState(uint32_t state);
     nsresult Finish();
     nsresult FinishNoNotify();
 
@@ -254,9 +256,11 @@ private:
     bool mObsolete;
 
     nsCString mUpdateDomain;
+    nsCString mGroupID;
     nsCOMPtr<nsIURI> mManifestURI;
     nsCOMPtr<nsIURI> mDocumentURI;
     nsCOMPtr<nsIFile> mCustomProfileDir;
+    nsCOMPtr<nsILoadContext> mLoadContext;
 
     nsCOMPtr<nsIApplicationCache> mApplicationCache;
     nsCOMPtr<nsIApplicationCache> mPreviousApplicationCache;
@@ -266,7 +270,7 @@ private:
     nsRefPtr<nsOfflineManifestItem> mManifestItem;
 
     /* Items being updated */
-    PRUint32 mItemsInProgress;
+    uint32_t mItemsInProgress;
     nsTArray<nsRefPtr<nsOfflineCacheUpdateItem> > mItems;
 
     /* Clients watching this update for changes */
@@ -278,17 +282,17 @@ private:
 
     /* Reschedule count.  When an update is rescheduled due to
      * mismatched manifests, the reschedule count will be increased. */
-    PRUint32 mRescheduleCount;
+    uint32_t mRescheduleCount;
 
     /* Whena an entry for a pinned app is retried, retries count is
      * increaded. */
-    PRUint32 mPinnedEntryRetriesCount;
+    uint32_t mPinnedEntryRetriesCount;
 
     nsRefPtr<nsOfflineCacheUpdate> mImplicitUpdate;
 
     bool                           mPinned;
 
-    PRUint64                       mByteProgress;
+    uint64_t                       mByteProgress;
 };
 
 class nsOfflineCacheUpdateService MOZ_FINAL : public nsIOfflineCacheUpdateService
@@ -308,7 +312,7 @@ public:
 
     nsresult ScheduleUpdate(nsOfflineCacheUpdate *aUpdate);
     nsresult FindUpdate(nsIURI *aManifestURI,
-                        nsIURI *aDocumentURI,
+                        nsILoadContext *aLoadContext,
                         nsOfflineCacheUpdate **aUpdate);
 
     nsresult Schedule(nsIURI *aManifestURI,

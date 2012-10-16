@@ -7,9 +7,10 @@
 #include "DOMSVGTransform.h"
 #include "DOMSVGMatrix.h"
 #include "SVGAnimatedTransformList.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 #include <math.h>
 #include "nsContentUtils.h"
+#include "nsAttrValueInlines.h"
 
 namespace mozilla {
 
@@ -51,7 +52,7 @@ NS_INTERFACE_MAP_END
 // Ctors:
 
 DOMSVGTransform::DOMSVGTransform(DOMSVGTransformList *aList,
-                                 PRUint32 aListIndex,
+                                 uint32_t aListIndex,
                                  bool aIsAnimValItem)
   : mList(aList)
   , mListIndex(aListIndex)
@@ -61,8 +62,7 @@ DOMSVGTransform::DOMSVGTransform(DOMSVGTransformList *aList,
 {
   // These shifts are in sync with the members in the header.
   NS_ABORT_IF_FALSE(aList &&
-                    aListIndex <= MaxListIndex() &&
-                    aIsAnimValItem < (1 << 1), "bad arg");
+                    aListIndex <= MaxListIndex(), "bad arg");
 
   NS_ABORT_IF_FALSE(IndexIsValid(), "Bad index for DOMSVGNumber!");
 }
@@ -102,7 +102,7 @@ DOMSVGTransform::DOMSVGTransform(const SVGTransform &aTransform)
 
 /* readonly attribute unsigned short type; */
 NS_IMETHODIMP
-DOMSVGTransform::GetType(PRUint16 *aType)
+DOMSVGTransform::GetType(uint16_t *aType)
 {
   *aType = Transform().Type();
   return NS_OK;
@@ -261,7 +261,7 @@ DOMSVGTransform::SetSkewY(float angle)
 
 void
 DOMSVGTransform::InsertingIntoList(DOMSVGTransformList *aList,
-                                   PRUint32 aListIndex,
+                                   uint32_t aListIndex,
                                    bool aIsAnimValItem)
 {
   NS_ABORT_IF_FALSE(!HasOwner(), "Inserting item that is already in a list");

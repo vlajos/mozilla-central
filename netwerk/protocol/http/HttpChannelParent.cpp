@@ -22,31 +22,46 @@
 #include "nsIApplicationCacheService.h"
 #include "nsIOfflineCacheUpdate.h"
 #include "nsIRedirectChannelRegistrar.h"
+#include "mozilla/LoadContext.h"
 #include "prinit.h"
+#include "mozilla/ipc/InputStreamUtils.h"
+#include "mozilla/ipc/URIUtils.h"
+
+using namespace mozilla::dom;
+using namespace mozilla::ipc;
 
 namespace mozilla {
 namespace net {
 
-HttpChannelParent::HttpChannelParent(PBrowserParent* iframeEmbedding)
+HttpChannelParent::HttpChannelParent(PBrowserParent* iframeEmbedding,
+                                     const IPC::SerializedLoadContext& loadContext)
   : mIPCClosed(false)
-  , mStoredStatus(0)
+  , mStoredStatus(NS_OK)
   , mStoredProgress(0)
   , mStoredProgressMax(0)
   , mSentRedirect1Begin(false)
   , mSentRedirect1BeginFailed(false)
   , mReceivedRedirect2Verify(false)
-  , mHaveLoadContext(false)
-  , mIsContent(false)
-  , mUsePrivateBrowsing(false)
-  , mIsInBrowserElement(false)
-  , mAppId(0)
+  , mPBOverride(kPBOverride_Unset)
 {
   // Ensure gHttpHandler is initialized: we need the atom table up and running.
   nsIHttpProtocolHandler* handler;
   CallGetService(NS_NETWORK_PROTOCOL_CONTRACTID_PREFIX "http", &handler);
   NS_ASSERTION(handler, "no http handler");
 
-  mTabParent = do_QueryObject(static_cast<TabParent*>(iframeEmbedding));
+  mTabParent = static_cast<mozilla::dom::TabParent*>(iframeEmbedding);
+
+  if (loadContext.IsNotNull()) {
+    if (mTabParent) {
+      mLoadContext = new LoadContext(loadContext, mTabParent->GetOwnerElement());
+    } else {
+      mLoadContext = new LoadContext(loadContext);
+    }
+  } else if (loadContext.IsPrivateBitValid()) {
+    // Don't have channel yet: override PB status after we create it.
+    mPBOverride = loadContext.mUsePrivateBrowsing ? kPBOverride_Private
+                                                  : kPBOverride_NotPrivate;
+  }
 }
 
 HttpChannelParent::~HttpChannelParent()
@@ -67,8 +82,7 @@ HttpChannelParent::ActorDestroy(ActorDestroyReason why)
 // HttpChannelParent::nsISupports
 //-----------------------------------------------------------------------------
 
-NS_IMPL_ISUPPORTS7(HttpChannelParent,
-                   nsILoadContext,
+NS_IMPL_ISUPPORTS6(HttpChannelParent,
                    nsIInterfaceRequestor,
                    nsIProgressEventSink,
                    nsIRequestObserver,
@@ -92,8 +106,10 @@ HttpChannelParent::GetInterface(const nsIID& aIID, void **result)
   }
 
   // Only support nsILoadContext if child channel's callbacks did too
-  if (aIID.Equals(NS_GET_IID(nsILoadContext)) && !mHaveLoadContext) {
-    return NS_NOINTERFACE;
+  if (aIID.Equals(NS_GET_IID(nsILoadContext)) && mLoadContext) {
+    NS_ADDREF(mLoadContext);
+    *result = static_cast<nsILoadContext*>(mLoadContext);
+    return NS_OK;
   }
 
   return QueryInterface(aIID, result);
@@ -104,36 +120,30 @@ HttpChannelParent::GetInterface(const nsIID& aIID, void **result)
 //-----------------------------------------------------------------------------
 
 bool 
-HttpChannelParent::RecvAsyncOpen(const IPC::URI&            aURI,
-                                 const IPC::URI&            aOriginalURI,
-                                 const IPC::URI&            aDocURI,
-                                 const IPC::URI&            aReferrerURI,
-                                 const PRUint32&            loadFlags,
+HttpChannelParent::RecvAsyncOpen(const URIParams&           aURI,
+                                 const OptionalURIParams&   aOriginalURI,
+                                 const OptionalURIParams&   aDocURI,
+                                 const OptionalURIParams&   aReferrerURI,
+                                 const uint32_t&            loadFlags,
                                  const RequestHeaderTuples& requestHeaders,
                                  const nsHttpAtom&          requestMethod,
-                                 const IPC::InputStream&    uploadStream,
+                                 const OptionalInputStreamParams& uploadStream,
                                  const bool&              uploadStreamHasHeaders,
-                                 const PRUint16&            priority,
-                                 const PRUint8&             redirectionLimit,
+                                 const uint16_t&            priority,
+                                 const uint8_t&             redirectionLimit,
                                  const bool&              allowPipelining,
                                  const bool&              forceAllowThirdPartyCookie,
                                  const bool&                doResumeAt,
-                                 const PRUint64&            startPos,
+                                 const uint64_t&            startPos,
                                  const nsCString&           entityID,
                                  const bool&                chooseApplicationCache,
                                  const nsCString&           appCacheClientID,
-                                 const bool&                allowSpdy,
-                                 const bool&                haveLoadContext,
-                                 const bool&                isContent,
-                                 const bool&                usePrivateBrowsing,
-                                 const bool&                isInBrowserElement,
-                                 const PRUint32&            appId,
-                                 const nsCString&           extendedOrigin)
+                                 const bool&                allowSpdy)
 {
-  nsCOMPtr<nsIURI> uri(aURI);
-  nsCOMPtr<nsIURI> originalUri(aOriginalURI);
-  nsCOMPtr<nsIURI> docUri(aDocURI);
-  nsCOMPtr<nsIURI> referrerUri(aReferrerURI);
+  nsCOMPtr<nsIURI> uri = DeserializeURI(aURI);
+  nsCOMPtr<nsIURI> originalUri = DeserializeURI(aOriginalURI);
+  nsCOMPtr<nsIURI> docUri = DeserializeURI(aDocURI);
+  nsCOMPtr<nsIURI> referrerUri = DeserializeURI(aReferrerURI);
 
   nsCString uriSpec;
   uri->GetSpec(uriSpec);
@@ -150,15 +160,10 @@ HttpChannelParent::RecvAsyncOpen(const IPC::URI&            aURI,
   if (NS_FAILED(rv))
     return SendFailedAsyncOpen(rv);
 
-  // fields needed to impersonate nsILoadContext
-  mHaveLoadContext = haveLoadContext;
-  mIsContent = isContent;
-  mUsePrivateBrowsing = usePrivateBrowsing;
-  mIsInBrowserElement = isInBrowserElement;
-  mAppId = appId;
-  mExtendedOrigin = extendedOrigin;
-
   nsHttpChannel *httpChan = static_cast<nsHttpChannel *>(mChannel.get());
+  if (mPBOverride != kPBOverride_Unset) {
+    httpChan->SetPrivate(mPBOverride == kPBOverride_Private ? true : false);
+  }
 
   if (doResumeAt)
     httpChan->ResumeAt(startPos, entityID);
@@ -172,7 +177,7 @@ HttpChannelParent::RecvAsyncOpen(const IPC::URI&            aURI,
   if (loadFlags != nsIRequest::LOAD_NORMAL)
     httpChan->SetLoadFlags(loadFlags);
 
-  for (PRUint32 i = 0; i < requestHeaders.Length(); i++) {
+  for (uint32_t i = 0; i < requestHeaders.Length(); i++) {
     httpChan->SetRequestHeader(requestHeaders[i].mHeader,
                                requestHeaders[i].mValue,
                                requestHeaders[i].mMerge);
@@ -185,7 +190,7 @@ HttpChannelParent::RecvAsyncOpen(const IPC::URI&            aURI,
 
   httpChan->SetRequestMethod(nsDependentCString(requestMethod.get()));
 
-  nsCOMPtr<nsIInputStream> stream(uploadStream);
+  nsCOMPtr<nsIInputStream> stream = DeserializeInputStream(uploadStream);
   if (stream) {
     httpChan->InternalSetUploadStream(stream);
     httpChan->SetUploadStreamHasHeaders(uploadStreamHasHeaders);
@@ -241,7 +246,7 @@ HttpChannelParent::RecvAsyncOpen(const IPC::URI&            aURI,
 }
 
 bool
-HttpChannelParent::RecvConnectChannel(const PRUint32& channelId)
+HttpChannelParent::RecvConnectChannel(const uint32_t& channelId)
 {
   nsresult rv;
 
@@ -249,11 +254,19 @@ HttpChannelParent::RecvConnectChannel(const PRUint32& channelId)
   rv = NS_LinkRedirectChannels(channelId, this, getter_AddRefs(mChannel));
   LOG(("  found channel %p, rv=%08x", mChannel.get(), rv));
 
+  if (mPBOverride != kPBOverride_Unset) {
+    // redirected-to channel may not support PB
+    nsCOMPtr<nsIPrivateBrowsingChannel> pbChannel = do_QueryInterface(mChannel);
+    if (pbChannel) {
+      pbChannel->SetPrivate(mPBOverride == kPBOverride_Private ? true : false);
+    }
+  }
+
   return true;
 }
 
 bool 
-HttpChannelParent::RecvSetPriority(const PRUint16& priority)
+HttpChannelParent::RecvSetPriority(const uint16_t& priority)
 {
   if (mChannel) {
     nsHttpChannel *httpChan = static_cast<nsHttpChannel *>(mChannel.get());
@@ -307,10 +320,10 @@ HttpChannelParent::RecvSetCacheTokenCachedCharset(const nsCString& charset)
 }
 
 bool
-HttpChannelParent::RecvUpdateAssociatedContentSecurity(const PRInt32& high,
-                                                       const PRInt32& low,
-                                                       const PRInt32& broken,
-                                                       const PRInt32& no)
+HttpChannelParent::RecvUpdateAssociatedContentSecurity(const int32_t& high,
+                                                       const int32_t& low,
+                                                       const int32_t& broken,
+                                                       const int32_t& no)
 {
   if (mAssociatedContentSecurity) {
     mAssociatedContentSecurity->SetCountSubRequestsHighSecurity(high);
@@ -330,7 +343,7 @@ HttpChannelParent::RecvRedirect2Verify(const nsresult& result,
         do_QueryInterface(mRedirectChannel);
 
     if (newHttpChannel) {
-      for (PRUint32 i = 0; i < changedHeaders.Length(); i++) {
+      for (uint32_t i = 0; i < changedHeaders.Length(); i++) {
         newHttpChannel->SetRequestHeader(changedHeaders[i].mHeader,
                                          changedHeaders[i].mValue,
                                          changedHeaders[i].mMerge);
@@ -399,7 +412,7 @@ HttpChannelParent::OnStartRequest(nsIRequest *aRequest, nsISupports *aContext)
   nsHttpRequestHead  *requestHead = chan->GetRequestHead();
   bool isFromCache = false;
   chan->IsFromCache(&isFromCache);
-  PRUint32 expirationTime = nsICache::NO_EXPIRATION_TIME;
+  uint32_t expirationTime = nsICache::NO_EXPIRATION_TIME;
   chan->GetCacheTokenExpirationTime(&expirationTime);
   nsCString cachedCharset;
   chan->GetCacheTokenCachedCharset(cachedCharset);
@@ -475,8 +488,8 @@ NS_IMETHODIMP
 HttpChannelParent::OnDataAvailable(nsIRequest *aRequest, 
                                    nsISupports *aContext, 
                                    nsIInputStream *aInputStream, 
-                                   PRUint32 aOffset, 
-                                   PRUint32 aCount)
+                                   uint64_t aOffset, 
+                                   uint32_t aCount)
 {
   LOG(("HttpChannelParent::OnDataAvailable [this=%x]\n", this));
 
@@ -504,20 +517,20 @@ HttpChannelParent::OnDataAvailable(nsIRequest *aRequest,
 NS_IMETHODIMP
 HttpChannelParent::OnProgress(nsIRequest *aRequest, 
                               nsISupports *aContext, 
-                              PRUint64 aProgress, 
-                              PRUint64 aProgressMax)
+                              uint64_t aProgress, 
+                              uint64_t aProgressMax)
 {
   // OnStatus has always just set mStoredStatus. If it indicates this precedes
   // OnDataAvailable, store and ODA will send to child.
-  if (mStoredStatus == nsISocketTransport::STATUS_RECEIVING_FROM ||
-      mStoredStatus == nsITransport::STATUS_READING)
+  if (mStoredStatus == NS_NET_STATUS_RECEIVING_FROM ||
+      mStoredStatus == NS_NET_STATUS_READING)
   {
     mStoredProgress = aProgress;
     mStoredProgressMax = aProgressMax;
   } else {
     // Send to child now.  The only case I've observed that this handles (i.e.
     // non-ODA status with progress > 0) is data upload progress notification
-    // (status == nsISocketTransport::STATUS_SENDING_TO)
+    // (status == NS_NET_STATUS_SENDING_TO)
     if (mIPCClosed || !SendOnProgress(aProgress, aProgressMax))
       return NS_ERROR_UNEXPECTED;
   }
@@ -532,8 +545,8 @@ HttpChannelParent::OnStatus(nsIRequest *aRequest,
                             const PRUnichar *aStatusArg)
 {
   // If this precedes OnDataAvailable, store and ODA will send to child.
-  if (aStatus == nsISocketTransport::STATUS_RECEIVING_FROM ||
-      aStatus == nsITransport::STATUS_READING)
+  if (aStatus == NS_NET_STATUS_RECEIVING_FROM ||
+      aStatus == NS_NET_STATUS_READING)
   {
     mStoredStatus = aStatus;
     return NS_OK;
@@ -562,9 +575,9 @@ HttpChannelParent::Delete()
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-HttpChannelParent::StartRedirect(PRUint32 newChannelId,
+HttpChannelParent::StartRedirect(uint32_t newChannelId,
                                  nsIChannel* newChannel,
-                                 PRUint32 redirectFlags,
+                                 uint32_t redirectFlags,
                                  nsIAsyncVerifyRedirectCallback* callback)
 {
   if (mIPCClosed)
@@ -573,11 +586,12 @@ HttpChannelParent::StartRedirect(PRUint32 newChannelId,
   nsCOMPtr<nsIURI> newURI;
   newChannel->GetURI(getter_AddRefs(newURI));
 
+  URIParams uriParams;
+  SerializeURI(newURI, uriParams);
+
   nsHttpChannel *httpChan = static_cast<nsHttpChannel *>(mChannel.get());
   nsHttpResponseHead *responseHead = httpChan->GetResponseHead();
-  bool result = SendRedirect1Begin(newChannelId,
-                                   IPC::URI(newURI),
-                                   redirectFlags,
+  bool result = SendRedirect1Begin(newChannelId, uriParams, redirectFlags,
                                    responseHead ? *responseHead
                                                 : nsHttpResponseHead());
   if (!result) {
@@ -605,81 +619,6 @@ HttpChannelParent::CompleteRedirect(bool succeeded)
   }
 
   mRedirectChannel = nullptr;
-  return NS_OK;
-}
-
-//-----------------------------------------------------------------------------
-// HttpChannelParent::nsILoadContext
-//-----------------------------------------------------------------------------
-
-NS_IMETHODIMP
-HttpChannelParent::GetAssociatedWindow(nsIDOMWindow**)
-{
-  // can't support this in the parent process
-  return NS_ERROR_UNEXPECTED;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::GetTopWindow(nsIDOMWindow**)
-{
-  // can't support this in the parent process
-  return NS_ERROR_UNEXPECTED;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::IsAppOfType(PRUint32, bool*)
-{
-  // don't expect we need this in parent (Thunderbird/SeaMonkey specific?)
-  return NS_ERROR_UNEXPECTED;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::GetIsContent(bool *aIsContent)
-{
-  NS_ENSURE_ARG_POINTER(aIsContent);
-
-  *aIsContent = mIsContent;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::GetUsePrivateBrowsing(bool* aUsePrivateBrowsing)
-{
-  NS_ENSURE_ARG_POINTER(aUsePrivateBrowsing);
-
-  *aUsePrivateBrowsing = mUsePrivateBrowsing;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::SetUsePrivateBrowsing(bool aUsePrivateBrowsing)
-{
-  // We shouldn't need this on parent...
-  return NS_ERROR_UNEXPECTED;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::GetIsInBrowserElement(bool* aIsInBrowserElement)
-{
-  NS_ENSURE_ARG_POINTER(aIsInBrowserElement);
-
-  *aIsInBrowserElement = mIsInBrowserElement;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::GetAppId(PRUint32* aAppId)
-{
-  NS_ENSURE_ARG_POINTER(aAppId);
-
-  *aAppId = mAppId;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-HttpChannelParent::GetExtendedOrigin(nsIURI *aUri, nsACString &aResult)
-{
-  aResult = mExtendedOrigin;
   return NS_OK;
 }
 

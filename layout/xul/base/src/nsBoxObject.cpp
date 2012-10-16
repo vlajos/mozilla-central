@@ -21,7 +21,6 @@
 #endif
 #include "nsLayoutUtils.h"
 #include "nsISupportsPrimitives.h"
-#include "prtypes.h"
 #include "nsSupportsPrimitives.h"
 #include "mozilla/dom/Element.h"
 
@@ -48,7 +47,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsBoxObject)
   NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(BoxObject)
 NS_INTERFACE_MAP_END
 
-PR_STATIC_CALLBACK(PLDHashOperator)
+static PLDHashOperator
 PropertyTraverser(const nsAString& aKey, nsISupports* aProperty, void* userArg)
 {
   nsCycleCollectionTraversalCallback *cb = 
@@ -230,7 +229,7 @@ nsBoxObject::GetScreenPosition(nsIntPoint& aPoint)
 }
 
 NS_IMETHODIMP
-nsBoxObject::GetX(PRInt32* aResult)
+nsBoxObject::GetX(int32_t* aResult)
 {
   nsIntRect rect;
   GetOffsetRect(rect);
@@ -239,7 +238,7 @@ nsBoxObject::GetX(PRInt32* aResult)
 }
 
 NS_IMETHODIMP 
-nsBoxObject::GetY(PRInt32* aResult)
+nsBoxObject::GetY(int32_t* aResult)
 {
   nsIntRect rect;
   GetOffsetRect(rect);
@@ -248,7 +247,7 @@ nsBoxObject::GetY(PRInt32* aResult)
 }
 
 NS_IMETHODIMP
-nsBoxObject::GetWidth(PRInt32* aResult)
+nsBoxObject::GetWidth(int32_t* aResult)
 {
   nsIntRect rect;
   GetOffsetRect(rect);
@@ -257,7 +256,7 @@ nsBoxObject::GetWidth(PRInt32* aResult)
 }
 
 NS_IMETHODIMP 
-nsBoxObject::GetHeight(PRInt32* aResult)
+nsBoxObject::GetHeight(int32_t* aResult)
 {
   nsIntRect rect;
   GetOffsetRect(rect);
@@ -266,7 +265,7 @@ nsBoxObject::GetHeight(PRInt32* aResult)
 }
 
 NS_IMETHODIMP
-nsBoxObject::GetScreenX(PRInt32 *_retval)
+nsBoxObject::GetScreenX(int32_t *_retval)
 {
   nsIntPoint position;
   nsresult rv = GetScreenPosition(position);
@@ -278,7 +277,7 @@ nsBoxObject::GetScreenX(PRInt32 *_retval)
 }
 
 NS_IMETHODIMP
-nsBoxObject::GetScreenY(PRInt32 *_retval)
+nsBoxObject::GetScreenY(int32_t *_retval)
 {
   nsIntPoint position;
   nsresult rv = GetScreenPosition(position);

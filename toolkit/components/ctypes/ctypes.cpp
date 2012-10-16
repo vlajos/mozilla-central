@@ -23,7 +23,7 @@ namespace ctypes {
 static char*
 UnicodeToNative(JSContext *cx, const jschar *source, size_t slen)
 {
-  nsCAutoString native;
+  nsAutoCString native;
   nsDependentString unicode(reinterpret_cast<const PRUnichar*>(source), slen);
   nsresult rv = NS_CopyUnicodeToNative(unicode, native);
   if (NS_FAILED(rv)) {
@@ -108,7 +108,7 @@ NS_IMETHODIMP
 Module::Call(nsIXPConnectWrappedNative* wrapper,
              JSContext* cx,
              JSObject* obj,
-             PRUint32 argc,
+             uint32_t argc,
              jsval* argv,
              jsval* vp,
              bool* _retval)

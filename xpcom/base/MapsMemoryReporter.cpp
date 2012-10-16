@@ -13,6 +13,7 @@
 #include "nsTHashtable.h"
 #include "nsHashKeys.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/unused.h"
 #include <stdio.h>
 
 namespace mozilla {
@@ -50,7 +51,7 @@ namespace {
 
 bool EndsWithLiteral(const nsCString &aHaystack, const char *aNeedle)
 {
-  PRInt32 idx = aHaystack.RFind(aNeedle);
+  int32_t idx = aHaystack.RFind(aNeedle);
   if (idx == -1) {
     return false;
   }
@@ -60,7 +61,7 @@ bool EndsWithLiteral(const nsCString &aHaystack, const char *aNeedle)
 
 void GetDirname(const nsCString &aPath, nsACString &aOut)
 {
-  PRInt32 idx = aPath.RFind("/");
+  int32_t idx = aPath.RFind("/");
   if (idx == -1) {
     aOut.Truncate();
   }
@@ -72,7 +73,7 @@ void GetDirname(const nsCString &aPath, nsACString &aOut)
 void GetBasename(const nsCString &aPath, nsACString &aOut)
 {
   nsCString out;
-  PRInt32 idx = aPath.RFind("/");
+  int32_t idx = aPath.RFind("/");
   if (idx == -1) {
     out.Assign(aPath);
   }
@@ -128,7 +129,7 @@ public:
                  nsISupports *aClosure);
 
   NS_IMETHOD
-  GetExplicitNonHeap(PRInt64 *aAmount) {
+  GetExplicitNonHeap(int64_t *aAmount) {
     // This reporter doesn't do any "explicit" measurements.
     *aAmount = 0;
     return NS_OK;
@@ -169,10 +170,10 @@ NS_IMPL_THREADSAFE_ISUPPORTS1(MapsReporter, nsIMemoryMultiReporter)
 MapsReporter::MapsReporter()
   : mSearchedForLibxul(false)
 {
-  const PRUint32 len = ArrayLength(mozillaLibraries);
+  const uint32_t len = ArrayLength(mozillaLibraries);
   mMozillaLibraries.Init(len);
-  for (PRUint32 i = 0; i < len; i++) {
-    nsCAutoString str;
+  for (uint32_t i = 0; i < len; i++) {
+    nsAutoCString str;
     str.Assign(mozillaLibraries[i]);
     mMozillaLibraries.PutEntry(str);
   }
@@ -245,10 +246,10 @@ MapsReporter::FindLibxul()
       break;
     }
 
-    nsCAutoString pathStr;
+    nsAutoCString pathStr;
     pathStr.Append(path);
 
-    nsCAutoString basename;
+    nsAutoCString basename;
     GetBasename(pathStr, basename);
 
     if (basename.EqualsLiteral("libxul.so")) {
@@ -270,10 +271,10 @@ MapsReporter::ParseMapping(
 {
   // We need to use native types in order to get good warnings from fscanf, so
   // let's make sure that the native types have the sizes we expect.
-  MOZ_STATIC_ASSERT(sizeof(long long) == sizeof(PRInt64),
-                    "size of (long long) is expected to match (PRInt64)");
-  MOZ_STATIC_ASSERT(sizeof(int) == sizeof(PRInt32),
-                    "size of (int) is expected to match (PRInt32)");
+  MOZ_STATIC_ASSERT(sizeof(long long) == sizeof(int64_t),
+                    "size of (long long) is expected to match (int64_t)");
+  MOZ_STATIC_ASSERT(sizeof(int) == sizeof(int32_t),
+                    "size of (int) is expected to match (int32_t)");
 
   // Don't bail if FindLibxul fails.  We can still gather meaningful stats
   // here.
@@ -313,7 +314,7 @@ MapsReporter::ParseMapping(
                        devMinor, &inode, path);
 
   // Eat up any whitespace at the end of this line, including the newline.
-  fscanf(aFile, " ");
+  unused << fscanf(aFile, " ");
 
   // We might or might not have a path, but the rest of the arguments should be
   // there.
@@ -321,7 +322,7 @@ MapsReporter::ParseMapping(
     return NS_ERROR_FAILURE;
   }
 
-  nsCAutoString name, description;
+  nsAutoCString name, description;
   GetReporterNameAndDescription(path, perms, name, description);
 
   while (true) {
@@ -347,11 +348,11 @@ MapsReporter::GetReporterNameAndDescription(
   // If aPath points to a file, we have its absolute path, plus some
   // whitespace.  Truncate this to its basename, and put the absolute path in
   // the description.
-  nsCAutoString absPath;
+  nsAutoCString absPath;
   absPath.Append(aPath);
   absPath.StripChars(" ");
 
-  nsCAutoString basename;
+  nsAutoCString basename;
   GetBasename(absPath, basename);
 
   if (basename.EqualsLiteral("[heap]")) {
@@ -376,7 +377,7 @@ MapsReporter::GetReporterNameAndDescription(
                  "syscall.");
   }
   else if (!basename.IsEmpty()) {
-    nsCAutoString dirname;
+    nsAutoCString dirname;
     GetDirname(absPath, dirname);
 
     // Hack: A file is a shared library if the basename contains ".so" and its
@@ -458,8 +459,8 @@ MapsReporter::ParseMapBody(
   nsISupports *aClosure,
   CategoriesSeen *aCategoriesSeen)
 {
-  MOZ_STATIC_ASSERT(sizeof(long long) == sizeof(PRInt64),
-                    "size of (long long) is expected to match (PRInt64)");
+  MOZ_STATIC_ASSERT(sizeof(long long) == sizeof(int64_t),
+                    "size of (long long) is expected to match (int64_t)");
 
   const int argCount = 2;
 
@@ -496,7 +497,7 @@ MapsReporter::ParseMapBody(
     return NS_OK;
   }
 
-  nsCAutoString path;
+  nsAutoCString path;
   path.Append(category);
   path.Append("/");
   path.Append(aName);
@@ -506,7 +507,7 @@ MapsReporter::ParseMapBody(
                      path,
                      nsIMemoryReporter::KIND_NONHEAP,
                      nsIMemoryReporter::UNITS_BYTES,
-                     PRInt64(size) * 1024, // convert from kB to bytes
+                     int64_t(size) * 1024, // convert from kB to bytes
                      aDescription, aClosure);
   NS_ENSURE_SUCCESS(rv, rv);
 

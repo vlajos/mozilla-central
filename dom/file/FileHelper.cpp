@@ -8,14 +8,13 @@
 
 #include "nsIFileStorage.h"
 
-#include "nsNetError.h"
+#include "nsError.h"
 #include "nsProxyRelease.h"
 
 #include "FileHandle.h"
 #include "FileRequest.h"
 #include "FileService.h"
 #include "nsIRequest.h"
-#include "nsDOMError.h"
 
 USING_FILE_NAMESPACE
 
@@ -119,7 +118,7 @@ FileHelper::OnStopRequest(nsIRequest* aRequest, nsISupports* aCtxt,
 }
 
 void
-FileHelper::OnStreamProgress(PRUint64 aProgress, PRUint64 aProgressMax)
+FileHelper::OnStreamProgress(uint64_t aProgress, uint64_t aProgressMax)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 

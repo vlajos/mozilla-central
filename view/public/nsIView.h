@@ -13,13 +13,12 @@
 #include "nsNativeWidget.h"
 #include "nsIWidget.h"
 #include "nsWidgetInitData.h"
-#include "nsIFrame.h"
 
 class nsIViewManager;
 class nsViewManager;
 class nsView;
-class nsWeakView;
 class nsIWidget;
+class nsIFrame;
 
 // Enumerated type to indicate the visibility of a layer.
 // hide - the layer is not shown.
@@ -31,8 +30,8 @@ enum nsViewVisibility {
 };
 
 #define NS_IVIEW_IID    \
-  { 0x697948d2, 0x3f10, 0x407d, \
-    { 0xb8, 0x94, 0x9f, 0x36, 0xd2, 0x11, 0xdb, 0xf1 } }
+  { 0xa4577c1d, 0xbc80, 0x444c, \
+    { 0xb0, 0x9d, 0x5b, 0xef, 0x94, 0x7c, 0x43, 0x31 } }
 
 // Public view flags
 
@@ -307,13 +306,16 @@ public:
    * Returns true if the view has a widget associated with it.
    */
   bool HasWidget() const { return mWindow != nullptr; }
+  
+  void SetForcedRepaint(bool aForceRepaint) { mForcedRepaint = aForceRepaint; }
+  bool ForcedRepaint() { return mForcedRepaint; }
 
   /**
    * Make aWidget direct its events to this view.
    * The caller must call DetachWidgetEventHandler before this view
    * is destroyed.
    */
-  EVENT_CALLBACK AttachWidgetEventHandler(nsIWidget* aWidget);
+  void AttachWidgetEventHandler(nsIWidget* aWidget);
   /**
    * Stop aWidget directing its events to this view.
    */
@@ -326,7 +328,7 @@ public:
    * @param aIndent indentation depth
    * NOTE: virtual so that debugging tools not linked into gklayout can access it
    */
-  virtual void List(FILE* out, PRInt32 aIndent = 0) const;
+  virtual void List(FILE* out, int32_t aIndent = 0) const;
 #endif // DEBUG
 
   /**
@@ -335,8 +337,6 @@ public:
   bool IsRoot() const;
 
   virtual bool ExternalIsRoot() const;
-
-  void SetDeletionObserver(nsWeakView* aDeletionObserver);
 
   nsIntRect CalcWidgetBounds(nsWindowType aType);
 
@@ -349,14 +349,13 @@ public:
   nsPoint ViewToWidgetOffset() const { return mViewToWidgetOffset; }
 
 protected:
-  friend class nsWeakView;
   nsViewManager     *mViewManager;
   nsView            *mParent;
   nsIWidget         *mWindow;
   nsView            *mNextSibling;
   nsView            *mFirstChild;
   nsIFrame          *mFrame;
-  PRInt32           mZIndex;
+  int32_t           mZIndex;
   nsViewVisibility  mVis;
   // position relative our parent view origin but in our appunits
   nscoord           mPosX, mPosY;
@@ -365,9 +364,9 @@ protected:
   // in our appunits
   nsPoint           mViewToWidgetOffset;
   float             mOpacity;
-  PRUint32          mVFlags;
-  nsWeakView*       mDeletionObserver;
+  uint32_t          mVFlags;
   bool              mWidgetIsTopLevel;
+  bool              mForcedRepaint;
 
   virtual ~nsIView() {}
 
@@ -377,48 +376,5 @@ private:
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIView, NS_IVIEW_IID)
-
-// nsWeakViews must *not* be used in heap!
-class nsWeakView
-{
-public:
-  nsWeakView(nsIView* aView) : mPrev(nullptr), mView(aView)
-  {
-    if (mView) {
-      mView->SetDeletionObserver(this);
-    }
-  }
-
-  ~nsWeakView()
-  {
-    if (mView) {
-      NS_ASSERTION(mView->mDeletionObserver == this,
-                   "nsWeakViews deleted in wrong order!");
-      // Clear deletion observer temporarily.
-      mView->SetDeletionObserver(nullptr);
-      // Put back the previous deletion observer.
-      mView->SetDeletionObserver(mPrev);
-    }
-  }
-
-  bool IsAlive() { return !!mView; }
-
-  nsIView* GetView() { return mView; }
-
-  void SetPrevious(nsWeakView* aWeakView) { mPrev = aWeakView; }
-
-  void Clear()
-  {
-    if (mPrev) {
-      mPrev->Clear();
-    }
-    mView = nullptr;
-  }
-private:
-  static void* operator new(size_t) CPP_THROW_NEW { return 0; }
-  static void operator delete(void*, size_t) {}
-  nsWeakView* mPrev;
-  nsIView*    mView;
-};
 
 #endif

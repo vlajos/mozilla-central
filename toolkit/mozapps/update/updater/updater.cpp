@@ -80,6 +80,10 @@ void LaunchMacPostProcess(const char* aAppExe);
 #define USE_EXECV
 #endif
 
+#if defined(MOZ_WIDGET_GONK)
+# include "automounter_gonk.h"
+#endif
+
 #ifdef XP_WIN
 #include "updatehelper.h"
 
@@ -268,6 +272,7 @@ static bool gSucceeded = false;
 static bool sBackgroundUpdate = false;
 static bool sReplaceRequest = false;
 static bool sUsingService = false;
+static bool sIsOSUpdate = false;
 
 #ifdef XP_WIN
 // The current working directory specified in the command line.
@@ -505,10 +510,36 @@ static int ensure_remove_recursive(const NS_tchar *path)
   return rv;
 }
 
+static bool is_read_only(const NS_tchar *flags)
+{
+  size_t length = NS_tstrlen(flags);
+  if (length == 0)
+    return false;
+
+  // Make sure the string begins with "r"
+  if (flags[0] != NS_T('r'))
+    return false;
+
+  // Look for "r+" or "r+b"
+  if (length > 1 && flags[1] == NS_T('+'))
+    return false;
+
+  // Look for "rb+"
+  if (NS_tstrcmp(flags, NS_T("rb+")) == 0)
+    return false;
+
+  return true;
+}
+
 static FILE* ensure_open(const NS_tchar *path, const NS_tchar *flags, unsigned int options)
 {
   ensure_write_permissions(path);
   FILE* f = NS_tfopen(path, flags);
+  if (is_read_only(flags)) {
+    // Don't attempt to modify the file permissions if the file is being opened
+    // in read-only mode.
+    return f;
+  }
   if (NS_tchmod(path, options) != 0) {
     if (f != NULL) {
       fclose(f);
@@ -1235,9 +1266,9 @@ PatchFile::LoadSourceFile(FILE* ofile)
     return READ_ERROR;
   }
 
-  if (PRUint32(os.st_size) != header.slen) {
+  if (uint32_t(os.st_size) != header.slen) {
     LOG(("LoadSourceFile: destination file size %d does not match expected size %d\n",
-         PRUint32(os.st_size), header.slen));
+         uint32_t(os.st_size), header.slen));
     return UNEXPECTED_FILE_OPERATION_ERROR;
   }
 
@@ -1623,20 +1654,25 @@ LaunchCallbackApp(const NS_tchar *workingDir,
 #endif
 }
 
-static void
-WriteStatusText(const char* text)
+static bool
+WriteStatusFile(const char* aStatus)
 {
-  // This is how we communicate our completion status to the main application.
-
   NS_tchar filename[MAXPATHLEN];
   NS_tsnprintf(filename, sizeof(filename)/sizeof(filename[0]),
                NS_T("%s/update.status"), gSourcePath);
 
+  // Make sure that the directory for the update status file exists
+  if (ensure_parent_dir(filename))
+    return false;
+
   AutoFile file = NS_tfopen(filename, NS_T("wb+"));
   if (file == NULL)
-    return;
+    return false;
 
-  fwrite(text, strlen(text), 1, file);
+  if (fwrite(aStatus, strlen(aStatus), 1, file) != 1)
+    return false;
+
+  return true;
 }
 
 static void
@@ -1656,24 +1692,7 @@ WriteStatusFile(int status)
     text = buf;
   }
 
-  WriteStatusText(text);
-}
-
-static bool
-WriteStatusFile(const char* aStatus)
-{
-  NS_tchar filename[MAXPATHLEN];
-  NS_tsnprintf(filename, sizeof(filename)/sizeof(filename[0]),
-               NS_T("%s/update.status"), gSourcePath);
-
-  AutoFile file = NS_tfopen(filename, NS_T("wb+"));
-  if (file == NULL)
-    return false;
-
-  if (fwrite(aStatus, strlen(aStatus), 1, file) != 1)
-    return false;
-
-  return true;
+  WriteStatusFile(text);
 }
 
 #ifdef MOZ_MAINTENANCE_SERVICE
@@ -2005,6 +2024,7 @@ WaitForServiceFinishThread(void *param)
 }
 #endif
 
+#ifdef MOZ_VERIFY_MAR_SIGNATURE
 /**
  * This function reads in the ACCEPTED_MAR_CHANNEL_IDS from update-settings.ini
  *
@@ -2027,6 +2047,7 @@ ReadMARChannelIDs(const NS_tchar *path, MARChannelStringTable *results)
 
   return result;
 }
+#endif
 
 static void
 UpdateThreadFunc(void *param)
@@ -2074,7 +2095,7 @@ UpdateThreadFunc(void *param)
     }
 #endif
 
-    if (rv == OK && sBackgroundUpdate) {
+    if (rv == OK && sBackgroundUpdate && !sIsOSUpdate) {
       rv = CopyInstallDirToDestDir();
     }
 
@@ -2109,8 +2130,9 @@ UpdateThreadFunc(void *param)
                    installDir);
 
       ensure_remove_recursive(stageDir);
-      WriteStatusText(sUsingService ? "pending-service" : "pending");
-      putenv("MOZ_PROCESS_UPDATES="); // We need to use -process-updates again in the tests
+      WriteStatusFile(sUsingService ? "pending-service" : "pending");
+      char processUpdates[] = "MOZ_PROCESS_UPDATES=";
+      putenv(processUpdates); // We need to use -process-updates again in the tests
       reportRealResults = false; // pretend success
     }
   }
@@ -2239,6 +2261,11 @@ int NS_main(int argc, NS_tchar **argv)
     }
   }
 
+  if (getenv("MOZ_OS_UPDATE")) {
+    sIsOSUpdate = true;
+    putenv(const_cast<char*>("MOZ_OS_UPDATE="));
+  }
+
   if (sReplaceRequest) {
     // If we're attempting to replace the application, try to append to the
     // log generated when staging the background update.
@@ -2278,6 +2305,7 @@ int NS_main(int argc, NS_tchar **argv)
   }
 
 #ifdef XP_WIN
+  int possibleWriteError; // Variable holding one of the errors 46-48
   if (pid > 0) {
     HANDLE parent = OpenProcess(SYNCHRONIZE, false, (DWORD) pid);
     // May return NULL if the parent process has already gone away.
@@ -2288,7 +2316,12 @@ int NS_main(int argc, NS_tchar **argv)
       CloseHandle(parent);
       if (result != WAIT_OBJECT_0)
         return 1;
+      possibleWriteError = WRITE_ERROR_SHARING_VIOLATION_SIGNALED;
+    } else {
+      possibleWriteError = WRITE_ERROR_SHARING_VIOLATION_NOPROCESSFORPID;
     }
+  } else {
+    possibleWriteError = WRITE_ERROR_SHARING_VIOLATION_NOPID;
   }
 #else
   if (pid > 0)
@@ -2620,6 +2653,25 @@ int NS_main(int argc, NS_tchar **argv)
   }
 #endif
 
+#if defined(MOZ_WIDGET_GONK)
+  // In gonk, the master b2g process sets its umask to 0027 because
+  // there's no reason for it to ever create world-readable files.
+  // The updater binary, however, needs to do this, and it inherits
+  // the master process's cautious umask.  So we drop down a bit here.
+  umask(0022);
+
+  // Remount the /system partition as read-write for gonk. The destructor will
+  // remount /system as read-only. We add an extra level of scope here to avoid
+  // calling LogFinish() before the GonkAutoMounter destructor has a chance
+  // to be called
+  {
+    GonkAutoMounter mounter;
+    if (mounter.GetAccess() != MountAccess::ReadWrite) {
+      WriteStatusFile(FILESYSTEM_MOUNT_READWRITE_ERROR);
+      return 1;
+    }
+#endif
+
   if (sBackgroundUpdate) {
     // For background updates, we want to blow away the old installation
     // directory and create it from scratch.
@@ -2795,7 +2847,7 @@ int NS_main(int argc, NS_tchar **argv)
         if (ERROR_ACCESS_DENIED == lastWriteError) {
           WriteStatusFile(WRITE_ERROR_ACCESS_DENIED);
         } else if (ERROR_SHARING_VIOLATION == lastWriteError) {
-          WriteStatusFile(WRITE_ERROR_SHARING_VIOLATION);
+          WriteStatusFile(possibleWriteError);
         } else {
           WriteStatusFile(WRITE_ERROR_CALLBACK_APP);
         }
@@ -2861,6 +2913,10 @@ int NS_main(int argc, NS_tchar **argv)
   }
 #endif /* XP_WIN */
 
+#if defined(MOZ_WIDGET_GONK)
+  } // end the extra level of scope for the GonkAutoMounter
+#endif
+
   LogFinish();
 
   if (argc > callbackIndex) {
@@ -2891,6 +2947,7 @@ int NS_main(int argc, NS_tchar **argv)
       LaunchMacPostProcess(argv[callbackIndex]);
     }
 #endif /* XP_MACOSX */
+
     LaunchCallbackApp(argv[4], 
                       argc - callbackIndex, 
                       argv + callbackIndex, 
@@ -3343,6 +3400,10 @@ GetManifestContents(const NS_tchar *manifest)
 
 int AddPreCompleteActions(ActionList *list)
 {
+  if (sIsOSUpdate) {
+    return OK;
+  }
+
   NS_tchar *rb = GetManifestContents(NS_T("precomplete"));
   if (rb == NULL) {
     LOG(("AddPreCompleteActions: error getting contents of precomplete " \

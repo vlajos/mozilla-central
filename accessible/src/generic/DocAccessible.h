@@ -22,7 +22,6 @@
 #include "nsIScrollPositionListener.h"
 #include "nsITimer.h"
 #include "nsIWeakReference.h"
-#include "nsCOMArray.h"
 #include "nsIDocShellTreeNode.h"
 
 template<class Class, class Arg>
@@ -32,7 +31,15 @@ class NotificationController;
 class nsIScrollableView;
 class nsAccessiblePivot;
 
-const PRUint32 kDefaultCacheSize = 256;
+const uint32_t kDefaultCacheSize = 256;
+
+namespace mozilla {
+namespace a11y {
+
+class RelatedAccIterator;
+
+} // namespace a11y
+} // namespace mozilla
 
 class DocAccessible : public HyperTextAccessibleWrap,
                       public nsIAccessibleDocument,
@@ -72,25 +79,25 @@ public:
   NS_DECL_NSIDOCUMENTOBSERVER
 
   // nsAccessNode
-  virtual bool Init();
+  virtual void Init();
   virtual void Shutdown();
   virtual nsIFrame* GetFrame() const;
   virtual nsINode* GetNode() const { return mDocument; }
-  virtual nsIDocument* GetDocumentNode() const { return mDocument; }
+  nsIDocument* DocumentNode() const { return mDocument; }
 
   // Accessible
   virtual mozilla::a11y::ENameValueFlag Name(nsString& aName);
   virtual void Description(nsString& aDescription);
   virtual Accessible* FocusedChild();
   virtual mozilla::a11y::role NativeRole();
-  virtual PRUint64 NativeState();
-  virtual PRUint64 NativeInteractiveState() const;
+  virtual uint64_t NativeState();
+  virtual uint64_t NativeInteractiveState() const;
   virtual bool NativelyUnavailable() const;
-  virtual void ApplyARIAState(PRUint64* aState) const;
+  virtual void ApplyARIAState(uint64_t* aState) const;
 
   virtual void SetRoleMapEntry(nsRoleMapEntry* aRoleMapEntry);
 
-#ifdef DEBUG
+#ifdef A11Y_LOG
   virtual nsresult HandleAccEvent(AccEvent* aEvent);
 #endif
 
@@ -143,8 +150,8 @@ public:
    * Return true if the document has given document state.
    */
   bool HasLoadState(LoadState aState) const
-    { return (mLoadState & static_cast<PRUint32>(aState)) == 
-        static_cast<PRUint32>(aState); }
+    { return (mLoadState & static_cast<uint32_t>(aState)) == 
+        static_cast<uint32_t>(aState); }
 
   /**
    * Return a native window handler or pointer depending on platform.
@@ -160,13 +167,13 @@ public:
   /**
    * Return the child document count.
    */
-  PRUint32 ChildDocumentCount() const
+  uint32_t ChildDocumentCount() const
     { return mChildDocuments.Length(); }
 
   /**
    * Return the child document at the given index.
    */
-  DocAccessible* GetChildDocumentAt(PRUint32 aIndex) const
+  DocAccessible* GetChildDocumentAt(uint32_t aIndex) const
     { return mChildDocuments.SafeElementAt(aIndex, nullptr); }
 
   /**
@@ -176,7 +183,7 @@ public:
    * @param aDOMNode     [in] DOM node the accesible event should be fired for
    * @param aAllowDupes  [in] rule to process an event (see EEventRule constants)
    */
-  nsresult FireDelayedAccessibleEvent(PRUint32 aEventType, nsINode *aNode,
+  nsresult FireDelayedAccessibleEvent(uint32_t aEventType, nsINode *aNode,
                                       AccEvent::EEventRule aAllowDupes = AccEvent::eRemoveDupes,
                                       EIsFromUserInput aIsFromUserInput = eAutoDetect);
 
@@ -325,7 +332,7 @@ protected:
   /**
    * Marks this document as loaded or loading.
    */
-  void NotifyOfLoad(PRUint32 aLoadEventType)
+  void NotifyOfLoad(uint32_t aLoadEventType)
   {
     mLoadState |= eDOMLoaded;
     mLoadEventType = aLoadEventType;
@@ -407,7 +414,7 @@ protected:
      * @param aNameSpaceID - namespace of changed attribute
      * @param aAttribute - changed attribute
      */
-    void AttributeChangedImpl(nsIContent* aContent, PRInt32 aNameSpaceID, nsIAtom* aAttribute);
+    void AttributeChangedImpl(nsIContent* aContent, int32_t aNameSpaceID, nsIAtom* aAttribute);
 
     /**
      * Fires accessible events when ARIA attribute is changed.
@@ -459,7 +466,7 @@ protected:
     eAlertAccessible = 2
   };
 
-  PRUint32 UpdateTreeInternal(Accessible* aChild, bool aIsInsert);
+  uint32_t UpdateTreeInternal(Accessible* aChild, bool aIsInsert);
 
   /**
    * Create accessible tree.
@@ -509,17 +516,17 @@ protected:
 
     nsCOMPtr<nsIDocument> mDocument;
     nsCOMPtr<nsITimer> mScrollWatchTimer;
-    PRUint16 mScrollPositionChangedTicks; // Used for tracking scroll events
+    uint16_t mScrollPositionChangedTicks; // Used for tracking scroll events
 
   /**
    * Bit mask of document load states (@see LoadState).
    */
-  PRUint32 mLoadState;
+  uint32_t mLoadState;
 
   /**
    * Type of document load event fired after the document is loaded completely.
    */
-  PRUint32 mLoadEventType;
+  uint32_t mLoadEventType;
 
   /**
    * Reference to anchor jump element.
@@ -568,7 +575,7 @@ protected:
   typedef nsTArray<nsAutoPtr<AttrRelProvider> > AttrRelProviderArray;
   nsClassHashtable<nsStringHashKey, AttrRelProviderArray> mDependentIDsHash;
 
-  friend class RelatedAccIterator;
+  friend class mozilla::a11y::RelatedAccIterator;
 
   /**
    * Used for our caching algorithm. We store the list of nodes that should be

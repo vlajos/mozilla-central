@@ -16,7 +16,7 @@
 #include "nsISVGChildFrame.h"
 #include "nsIDOMSVGPoint.h"
 #include "nsSVGUtils.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 #include "nsSVGRect.h"
 #include "nsContentUtils.h"
 
@@ -47,14 +47,14 @@ nsSVGGraphicElement::nsSVGGraphicElement(already_AddRefed<nsINodeInfo> aNodeInfo
 /* readonly attribute nsIDOMSVGElement nearestViewportElement; */
 NS_IMETHODIMP nsSVGGraphicElement::GetNearestViewportElement(nsIDOMSVGElement * *aNearestViewportElement)
 {
-  *aNearestViewportElement = nsSVGUtils::GetNearestViewportElement(this).get();
+  *aNearestViewportElement = SVGContentUtils::GetNearestViewportElement(this).get();
   return NS_OK;
 }
 
 /* readonly attribute nsIDOMSVGElement farthestViewportElement; */
 NS_IMETHODIMP nsSVGGraphicElement::GetFarthestViewportElement(nsIDOMSVGElement * *aFarthestViewportElement)
 {
-  NS_IF_ADDREF(*aFarthestViewportElement = nsSVGUtils::GetOuterSVGElement(this));
+  NS_IF_ADDREF(*aFarthestViewportElement = SVGContentUtils::GetOuterSVGElement(this));
   return NS_OK;
 }
 
@@ -78,7 +78,7 @@ NS_IMETHODIMP nsSVGGraphicElement::GetBBox(nsIDOMSVGRect **_retval)
 /* nsIDOMSVGMatrix getCTM (); */
 NS_IMETHODIMP nsSVGGraphicElement::GetCTM(nsIDOMSVGMatrix * *aCTM)
 {
-  gfxMatrix m = nsSVGUtils::GetCTM(this, false);
+  gfxMatrix m = SVGContentUtils::GetCTM(this, false);
   *aCTM = m.IsSingular() ? nullptr : new DOMSVGMatrix(m);
   NS_IF_ADDREF(*aCTM);
   return NS_OK;
@@ -87,7 +87,7 @@ NS_IMETHODIMP nsSVGGraphicElement::GetCTM(nsIDOMSVGMatrix * *aCTM)
 /* nsIDOMSVGMatrix getScreenCTM (); */
 NS_IMETHODIMP nsSVGGraphicElement::GetScreenCTM(nsIDOMSVGMatrix * *aCTM)
 {
-  gfxMatrix m = nsSVGUtils::GetCTM(this, true);
+  gfxMatrix m = SVGContentUtils::GetCTM(this, true);
   *aCTM = m.IsSingular() ? nullptr : new DOMSVGMatrix(m);
   NS_IF_ADDREF(*aCTM);
   return NS_OK;
@@ -149,7 +149,7 @@ nsSVGGraphicElement::IsAttributeMapped(const nsIAtom* name) const
 
 nsChangeHint
 nsSVGGraphicElement::GetAttributeChangeHint(const nsIAtom* aAttribute,
-                                            PRInt32 aModType) const
+                                            int32_t aModType) const
 {
   nsChangeHint retval =
     nsSVGGraphicElementBase::GetAttributeChangeHint(aAttribute, aModType);
@@ -238,7 +238,7 @@ nsSVGGraphicElement::SetAnimateMotionTransform(const gfxMatrix* aMatrix)
 }
 
 SVGAnimatedTransformList*
-nsSVGGraphicElement::GetAnimatedTransformList(PRUint32 aFlags)
+nsSVGGraphicElement::GetAnimatedTransformList(uint32_t aFlags)
 {
   if (!mTransforms && (aFlags & DO_ALLOCATE)) {
     mTransforms = new SVGAnimatedTransformList();

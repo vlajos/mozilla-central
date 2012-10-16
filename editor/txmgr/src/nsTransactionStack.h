@@ -8,7 +8,6 @@
 
 #include "nsCOMPtr.h"
 #include "nsDeque.h"
-#include "prtypes.h"
 
 class nsCycleCollectionTraversalCallback;
 class nsTransactionItem;
@@ -25,9 +24,9 @@ public:
   already_AddRefed<nsTransactionItem> Pop();
   already_AddRefed<nsTransactionItem> PopBottom();
   already_AddRefed<nsTransactionItem> Peek();
-  already_AddRefed<nsTransactionItem> GetItem(PRInt32 aIndex);
+  already_AddRefed<nsTransactionItem> GetItem(int32_t aIndex);
   void Clear();
-  PRInt32 GetSize() { return mQue.GetSize(); }
+  int32_t GetSize() { return mQue.GetSize(); }
 
   void DoUnlink() { Clear(); }
   void DoTraverse(nsCycleCollectionTraversalCallback &cb);

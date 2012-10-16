@@ -36,8 +36,6 @@
 #include "nsIDOMSVGTitleElement.h"
 #include "nsIDOMEvent.h"
 #include "nsIDOMMouseEvent.h"
-#include "nsIDOMNSEvent.h"
-#include "nsIDOMNamedNodeMap.h"
 #include "nsIFormControl.h"
 #include "nsIDOMHTMLInputElement.h"
 #include "nsIDOMHTMLTextAreaElement.h"
@@ -365,7 +363,7 @@ nsDocShellTreeOwner::GetPrimaryContentShell(nsIDocShellTreeItem** aShell)
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::SizeShellTo(nsIDocShellTreeItem* aShellItem,
-                                 PRInt32 aCX, PRInt32 aCY)
+                                 int32_t aCX, int32_t aCY)
 {
    nsCOMPtr<nsIWebBrowserChrome> webBrowserChrome = GetWebBrowserChrome();
 
@@ -407,8 +405,8 @@ nsDocShellTreeOwner::SizeShellTo(nsIDocShellTreeItem* aShellItem,
    
    nsRect shellArea = presContext->GetVisibleArea();
 
-   PRInt32 browserCX = presContext->AppUnitsToDevPixels(shellArea.width);
-   PRInt32 browserCY = presContext->AppUnitsToDevPixels(shellArea.height);
+   int32_t browserCX = presContext->AppUnitsToDevPixels(shellArea.width);
+   int32_t browserCY = presContext->AppUnitsToDevPixels(shellArea.height);
 
    return webBrowserChrome->SizeBrowserTo(browserCX, browserCY);
 }
@@ -430,7 +428,7 @@ nsDocShellTreeOwner::GetPersistence(bool* aPersistPosition,
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::GetTargetableShellCount(PRUint32* aResult)
+nsDocShellTreeOwner::GetTargetableShellCount(uint32_t* aResult)
 {
   if(mTreeOwner) {
     mTreeOwner->GetTargetableShellCount(aResult);
@@ -448,8 +446,8 @@ nsDocShellTreeOwner::GetTargetableShellCount(PRUint32* aResult)
 
 NS_IMETHODIMP
 nsDocShellTreeOwner::InitWindow(nativeWindow aParentNativeWindow,
-                                nsIWidget* aParentWidget, PRInt32 aX,
-                                PRInt32 aY, PRInt32 aCX, PRInt32 aCY)   
+                                nsIWidget* aParentWidget, int32_t aX,
+                                int32_t aY, int32_t aCX, int32_t aCY)   
 {
   return NS_ERROR_NULL_POINTER;
 }
@@ -473,7 +471,7 @@ nsDocShellTreeOwner::Destroy()
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::SetPosition(PRInt32 aX, PRInt32 aY)
+nsDocShellTreeOwner::SetPosition(int32_t aX, int32_t aY)
 {
   nsCOMPtr<nsIEmbeddingSiteWindow> ownerWin = GetOwnerWin();
   if (ownerWin)
@@ -485,7 +483,7 @@ nsDocShellTreeOwner::SetPosition(PRInt32 aX, PRInt32 aY)
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::GetPosition(PRInt32* aX, PRInt32* aY)
+nsDocShellTreeOwner::GetPosition(int32_t* aX, int32_t* aY)
 {
   nsCOMPtr<nsIEmbeddingSiteWindow> ownerWin = GetOwnerWin();
   if (ownerWin)
@@ -497,7 +495,7 @@ nsDocShellTreeOwner::GetPosition(PRInt32* aX, PRInt32* aY)
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::SetSize(PRInt32 aCX, PRInt32 aCY, bool aRepaint)
+nsDocShellTreeOwner::SetSize(int32_t aCX, int32_t aCY, bool aRepaint)
 {
   nsCOMPtr<nsIEmbeddingSiteWindow> ownerWin = GetOwnerWin();
   if (ownerWin)
@@ -509,7 +507,7 @@ nsDocShellTreeOwner::SetSize(PRInt32 aCX, PRInt32 aCY, bool aRepaint)
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::GetSize(PRInt32* aCX, PRInt32* aCY)
+nsDocShellTreeOwner::GetSize(int32_t* aCX, int32_t* aCY)
 {
   nsCOMPtr<nsIEmbeddingSiteWindow> ownerWin = GetOwnerWin();
   if (ownerWin)
@@ -521,8 +519,8 @@ nsDocShellTreeOwner::GetSize(PRInt32* aCX, PRInt32* aCY)
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::SetPositionAndSize(PRInt32 aX, PRInt32 aY, PRInt32 aCX,
-                                        PRInt32 aCY, bool aRepaint)
+nsDocShellTreeOwner::SetPositionAndSize(int32_t aX, int32_t aY, int32_t aCX,
+                                        int32_t aCY, bool aRepaint)
 {
   nsCOMPtr<nsIEmbeddingSiteWindow> ownerWin = GetOwnerWin();
   if (ownerWin)
@@ -535,8 +533,8 @@ nsDocShellTreeOwner::SetPositionAndSize(PRInt32 aX, PRInt32 aY, PRInt32 aCX,
 }
 
 NS_IMETHODIMP
-nsDocShellTreeOwner::GetPositionAndSize(PRInt32* aX, PRInt32* aY, PRInt32* aCX,
-                                        PRInt32* aCY)
+nsDocShellTreeOwner::GetPositionAndSize(int32_t* aX, int32_t* aY, int32_t* aCX,
+                                        int32_t* aCY)
 {
   nsCOMPtr<nsIEmbeddingSiteWindow> ownerWin = GetOwnerWin();
   if (ownerWin)
@@ -674,10 +672,10 @@ nsDocShellTreeOwner::SetTitle(const PRUnichar* aTitle)
 NS_IMETHODIMP
 nsDocShellTreeOwner::OnProgressChange(nsIWebProgress* aProgress,
                                       nsIRequest* aRequest,
-                                      PRInt32 aCurSelfProgress,
-                                      PRInt32 aMaxSelfProgress, 
-                                      PRInt32 aCurTotalProgress,
-                                      PRInt32 aMaxTotalProgress)
+                                      int32_t aCurSelfProgress,
+                                      int32_t aMaxSelfProgress, 
+                                      int32_t aCurTotalProgress,
+                                      int32_t aMaxTotalProgress)
 {
     // In the absence of DOM document creation event, this method is the
     // most convenient place to install the mouse listener on the
@@ -688,7 +686,7 @@ nsDocShellTreeOwner::OnProgressChange(nsIWebProgress* aProgress,
 NS_IMETHODIMP
 nsDocShellTreeOwner::OnStateChange(nsIWebProgress* aProgress,
                                    nsIRequest* aRequest,
-                                   PRUint32 aProgressStateFlags,
+                                   uint32_t aProgressStateFlags,
                                    nsresult aStatus)
 {
     return NS_OK;
@@ -698,7 +696,7 @@ NS_IMETHODIMP
 nsDocShellTreeOwner::OnLocationChange(nsIWebProgress* aWebProgress,
                                       nsIRequest* aRequest,
                                       nsIURI* aURI,
-                                      PRUint32 aFlags)
+                                      uint32_t aFlags)
 {
     return NS_OK;
 }
@@ -715,7 +713,7 @@ nsDocShellTreeOwner::OnStatusChange(nsIWebProgress* aWebProgress,
 NS_IMETHODIMP 
 nsDocShellTreeOwner::OnSecurityChange(nsIWebProgress *aWebProgress, 
                                       nsIRequest *aRequest, 
-                                      PRUint32 state)
+                                      uint32_t state)
 {
     return NS_OK;
 }
@@ -899,12 +897,10 @@ nsDocShellTreeOwner::HandleEvent(nsIDOMEvent* aEvent)
   nsCOMPtr<nsIDOMDragEvent> dragEvent = do_QueryInterface(aEvent);
   NS_ENSURE_TRUE(dragEvent, NS_ERROR_INVALID_ARG);
 
-  nsCOMPtr<nsIDOMNSEvent> domNSEvent = do_QueryInterface(aEvent);
-  if (domNSEvent) {
-    bool defaultPrevented;
-    domNSEvent->GetPreventDefault(&defaultPrevented);
-    if (defaultPrevented)
-      return NS_OK;
+  bool defaultPrevented;
+  aEvent->GetPreventDefault(&defaultPrevented);
+  if (defaultPrevented) {
+    return NS_OK;
   }
 
   nsCOMPtr<nsIDroppedLinkHandler> handler = do_GetService("@mozilla.org/content/dropped-link-handler;1");
@@ -1020,7 +1016,7 @@ UseSVGTitle(nsIDOMElement *currElement)
   if (!parent)
     return false;
 
-  PRUint16 nodeType;
+  uint16_t nodeType;
   nsresult rv = parent->GetNodeType(&nodeType);
 
   return NS_SUCCEEDED(rv) && nodeType != nsIDOMNode::DOCUMENT_NODE;
@@ -1094,9 +1090,9 @@ DefaultTooltipTextProvider::GetNodeText(nsIDOMNode *aNode, PRUnichar **aText,
               if (lookingForSVGTitle) {
                 nsCOMPtr<nsIDOMNodeList>childNodes;
                 aNode->GetChildNodes(getter_AddRefs(childNodes));
-                PRUint32 childNodeCount;
+                uint32_t childNodeCount;
                 childNodes->GetLength(&childNodeCount);
-                for (PRUint32 i = 0; i < childNodeCount; i++) {
+                for (uint32_t i = 0; i < childNodeCount; i++) {
                   nsCOMPtr<nsIDOMNode>childNode;
                   childNodes->Item(i, getter_AddRefs(childNode));
                   nsCOMPtr<nsIDOMSVGTitleElement> titleElement(do_QueryInterface(childNode));
@@ -1302,7 +1298,7 @@ ChromeTooltipListener::MouseMove(nsIDOMEvent* aMouseEvent)
   // timer callback. On win32, we'll get a MouseMove event even when a popup goes away --
   // even when the mouse doesn't change position! To get around this, we make sure the
   // mouse has really moved before proceeding.
-  PRInt32 newMouseX, newMouseY;
+  int32_t newMouseX, newMouseY;
   mouseEvent->GetClientX(&newMouseX);
   mouseEvent->GetClientY(&newMouseY);
   if ( mMouseClientX == newMouseX && mMouseClientY == newMouseY )
@@ -1349,7 +1345,7 @@ ChromeTooltipListener::MouseMove(nsIDOMEvent* aMouseEvent)
 // Tell the registered chrome that they should show the tooltip
 //
 NS_IMETHODIMP
-ChromeTooltipListener::ShowTooltip(PRInt32 inXCoords, PRInt32 inYCoords,
+ChromeTooltipListener::ShowTooltip(int32_t inXCoords, int32_t inYCoords,
                                    const nsAString & inTipText)
 {
   nsresult rv = NS_OK;
@@ -1647,15 +1643,10 @@ ChromeContextMenuListener::HandleEvent(nsIDOMEvent* aMouseEvent)
   nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(aMouseEvent);
   NS_ENSURE_TRUE(mouseEvent, NS_ERROR_UNEXPECTED);
 
-  nsCOMPtr<nsIDOMNSEvent> domNSEvent = do_QueryInterface(aMouseEvent);
-
-  if (domNSEvent) {
-    bool isDefaultPrevented = false;
-    domNSEvent->GetPreventDefault(&isDefaultPrevented);
-
-    if (isDefaultPrevented) {
-      return NS_OK;
-    }
+  bool isDefaultPrevented = false;
+  aMouseEvent->GetPreventDefault(&isDefaultPrevented);
+  if (isDefaultPrevented) {
+    return NS_OK;
   }
 
   nsCOMPtr<nsIDOMEventTarget> targetNode;
@@ -1679,17 +1670,15 @@ ChromeContextMenuListener::HandleEvent(nsIDOMEvent* aMouseEvent)
   nsCOMPtr<nsIContextMenuInfo> menuInfo;
   if (menuListener2) {
     menuInfoImpl = new nsContextMenuInfo;
-    if (!menuInfoImpl)
-      return NS_ERROR_OUT_OF_MEMORY;
     menuInfo = menuInfoImpl; 
   }
 
-  PRUint32 flags = nsIContextMenuListener::CONTEXT_NONE;
-  PRUint32 flags2 = nsIContextMenuListener2::CONTEXT_NONE;
+  uint32_t flags = nsIContextMenuListener::CONTEXT_NONE;
+  uint32_t flags2 = nsIContextMenuListener2::CONTEXT_NONE;
 
   // XXX test for selected text
 
-  PRUint16 nodeType;
+  uint16_t nodeType;
   res = node->GetNodeType(&nodeType);
   NS_ENSURE_SUCCESS(res, res);
 
@@ -1744,7 +1733,7 @@ ChromeContextMenuListener::HandleEvent(nsIDOMEvent* aMouseEvent)
 
   // Bubble out, looking for items of interest
   do {
-    PRUint16 nodeType;
+    uint16_t nodeType;
     res = node->GetNodeType(&nodeType);
     NS_ENSURE_SUCCESS(res, res);
 

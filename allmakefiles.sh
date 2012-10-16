@@ -25,6 +25,7 @@ fi
 
 # Common makefiles used by everyone
 add_makefiles "
+mozilla-config.h
 Makefile
 build/Makefile
 build/pgo/Makefile
@@ -106,12 +107,6 @@ if [ "$OS_ARCH" != "WINNT" -a "$OS_ARCH" != "OS2" ]; then
   fi
 fi
 
-if [ "$COMPILER_DEPEND" = "" -a "$MOZ_NATIVE_MAKEDEPEND" = "" ]; then
-  add_makefiles "
-    config/mkdepend/Makefile
-  "
-fi
-
 if [ "$ENABLE_MARIONETTE" ]; then
   add_makefiles "
     testing/marionette/Makefile
@@ -121,7 +116,6 @@ fi
 
 if [ "$ENABLE_TESTS" ]; then
   add_makefiles "
-    build/autoconf/test/Makefile
     config/makefiles/test/Makefile
     config/tests/makefiles/autodeps/Makefile
     config/tests/src-simple/Makefile

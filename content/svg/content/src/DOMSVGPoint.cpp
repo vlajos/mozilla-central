@@ -9,7 +9,7 @@
 #include "SVGAnimatedPointList.h"
 #include "nsSVGElement.h"
 #include "nsIDOMSVGPoint.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 #include "nsIDOMSVGMatrix.h"
 #include "nsContentUtils.h" // NS_ENSURE_FINITE
 #include "DOMSVGMatrix.h"
@@ -136,7 +136,7 @@ DOMSVGPoint::MatrixTransform(nsIDOMSVGMatrix *matrix,
 
 void
 DOMSVGPoint::InsertingIntoList(DOMSVGPointList *aList,
-                               PRUint32 aListIndex,
+                               uint32_t aListIndex,
                                bool aIsAnimValItem)
 {
   NS_ABORT_IF_FALSE(!HasOwner(), "Inserting item that already has an owner");

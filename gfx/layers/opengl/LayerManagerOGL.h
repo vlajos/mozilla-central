@@ -42,6 +42,7 @@ class ShadowContainerLayer;
 class ShadowImageLayer;
 class ShadowCanvasLayer;
 class ShadowColorLayer;
+struct FPSState;
 
 /**
  * This is the LayerManager used for OpenGL 2.1 and OpenGL ES 2.0.
@@ -57,8 +58,6 @@ public:
   LayerManagerOGL(nsIWidget *aWidget, int aSurfaceWidth = -1, int aSurfaceHeight = -1,
                   bool aIsRenderingToEGLSurface = false);
   virtual ~LayerManagerOGL();
-
-  void CleanupResources();
 
   void Destroy();
 
@@ -102,7 +101,8 @@ public:
 
   void EndConstruction();
 
-  virtual bool EndEmptyTransaction();
+  virtual bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT);
+  virtual void NotifyShadowTreeTransaction();
   virtual void EndTransaction(DrawThebesLayerCallback aCallback,
                               void* aCallbackData,
                               EndTransactionFlags aFlags = END_DEFAULT);
@@ -113,11 +113,11 @@ public:
   {
       if (!mGLContext)
           return false;
-      PRInt32 maxSize = mGLContext->GetMaxTextureSize();
+      int32_t maxSize = mGLContext->GetMaxTextureSize();
       return aSize <= gfxIntSize(maxSize, maxSize);
   }
 
-  virtual PRInt32 GetMaxTextureSize() const
+  virtual int32_t GetMaxTextureSize() const
   {
     return mGLContext->GetMaxTextureSize();
   }
@@ -350,6 +350,17 @@ public:
    */
   void SetSurfaceSize(int width, int height);
 
+  bool CompositingDisabled() { return mCompositingDisabled; }
+  void SetCompositingDisabled(bool aCompositingDisabled) { mCompositingDisabled = aCompositingDisabled; }
+
+  /**
+   * Creates a DrawTarget which is optimized for inter-operating with this
+   * layermanager.
+   */
+  virtual TemporaryRef<mozilla::gfx::DrawTarget>
+    CreateDrawTarget(const mozilla::gfx::IntSize &aSize,
+                     mozilla::gfx::SurfaceFormat aFormat);
+
 private:
   /** Widget associated with this layer manager */
   nsIWidget *mWidget;
@@ -391,6 +402,7 @@ private:
 
   /** Misc */
   bool mHasBGRA;
+  bool mCompositingDisabled;
 
   /**
    * When rendering to an EGL surface (e.g. on Android), we rely on being told
@@ -433,27 +445,10 @@ private:
   DrawThebesLayerCallback mThebesLayerCallback;
   void *mThebesLayerCallbackData;
   gfxMatrix mWorldMatrix;
-
-  struct FPSState
-  {
-      GLuint texture;
-      int fps;
-      bool initialized;
-      int fcount;
-      TimeStamp last;
-
-      FPSState()
-        : texture(0)
-        , fps(0)
-        , initialized(false)
-        , fcount(0)
-      {
-        last = TimeStamp::Now();
-      }
-      void DrawFPS(GLContext*, ShaderProgramOGL*);
-  } mFPS;
+  nsAutoPtr<FPSState> mFPS;
 
   static bool sDrawFPS;
+  static bool sFrameCounter;
 };
 
 /**

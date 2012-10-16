@@ -78,7 +78,7 @@ function runNextTest() {
         onHidden.call(nextTest, this);
         if (!onHiddenArray.length)
           goNext();
-      });
+      }.bind(this));
     }, onHiddenArray.length);
     info("[Test #" + gTestIndex + "] added listeners; panel state: " + PopupNotifications.isPanelOpen);
   }
@@ -756,7 +756,7 @@ function triggerSecondaryCommand(popup, index) {
   }, false);
 
   // One down event to open the popup
-  EventUtils.synthesizeKey("VK_DOWN", { altKey: (navigator.platform.indexOf("Mac") == -1) });
+  EventUtils.synthesizeKey("VK_DOWN", { altKey: !navigator.platform.contains("Mac") });
 }
 
 function loadURI(uri, callback) {

@@ -14,12 +14,16 @@
 #include "mozilla/TimeStamp.h"
 #include "InputData.h"
 #include "Axis.h"
+#include "nsContentUtils.h"
+
+#include "base/message_loop.h"
 
 namespace mozilla {
 namespace layers {
 
 class CompositorParent;
 class GestureEventListener;
+class ContainerLayer;
 
 /**
  * Controller for all panning and zooming logic. Any time a user input is
@@ -56,6 +60,14 @@ public:
     USE_GESTURE_DETECTOR
   };
 
+  /**
+   * Constant describing the tolerance in distance we use, multiplied by the
+   * device DPI, before we start panning the screen. This is to prevent us from
+   * accidentally processing taps as touch moves, and from very short/accidental
+   * touches moving the screen.
+   */
+  static const float TOUCH_START_TOLERANCE;
+
   AsyncPanZoomController(GeckoContentController* aController,
                          GestureBehavior aGestures = DEFAULT_GESTURES);
   ~AsyncPanZoomController();
@@ -67,10 +79,10 @@ public:
   /**
    * General handler for incoming input events. Manipulates the frame metrics
    * basde on what type of input it is. For example, a PinchGestureEvent will
-   * cause scaling.
+   * cause scaling. This should only be called externally to this class.
+   * HandleInputEvent() should be used internally.
    */
-
-  nsEventStatus HandleInputEvent(const InputData& aEvent);
+  nsEventStatus ReceiveInputEvent(const InputData& aEvent);
 
   /**
    * Special handler for nsInputEvents. Also sets |aOutEvent| (which is assumed
@@ -82,21 +94,49 @@ public:
    * called on the main thread. See widget/InputData.h for more information on
    * why we have InputData and nsInputEvent separated.
    */
-  nsEventStatus HandleInputEvent(const nsInputEvent& aEvent,
-                                 nsInputEvent* aOutEvent);
+  nsEventStatus ReceiveInputEvent(const nsInputEvent& aEvent,
+                                  nsInputEvent* aOutEvent);
 
   /**
-   * Updates the viewport size, i.e. the dimensions of the frame (not
-   * necessarily the screen) content will actually be rendered onto in device
-   * pixels for example, a subframe will not take the entire screen, but we
-   * still want to know how big it is in device pixels. Ideally we want to be
-   * using CSS pixels everywhere inside here, but in this case we need to know
-   * how large of a displayport to set so we use these dimensions plus some
-   * extra.
-   *
-   * XXX: Use nsIntRect instead.
+   * Updates the composition bounds, i.e. the dimensions of the final size of
+   * the frame this is tied to during composition onto, in device pixels. In
+   * general, this will just be:
+   * { x = 0, y = 0, width = surface.width, height = surface.height }, however
+   * there is no hard requirement for this.
    */
-  void UpdateViewportSize(int aWidth, int aHeight);
+  void UpdateCompositionBounds(const nsIntRect& aCompositionBounds);
+
+  /**
+   * We have found a scrollable subframe, so disable our machinery until we hit
+   * a touch end or a new touch start. This prevents us from accidentally
+   * panning both the subframe and the parent frame.
+   *
+   * XXX/bug 775452: We should eventually be supporting async scrollable
+   * subframes.
+   */
+  void CancelDefaultPanZoom();
+
+  /**
+   * Kicks an animation to zoom to a rect. This may be either a zoom out or zoom
+   * in. The actual animation is done on the compositor thread after being set
+   * up. |aRect| must be given in CSS pixels, relative to the document.
+   */
+  void ZoomToRect(const gfxRect& aRect);
+
+  /**
+   * If we have touch listeners, this should always be called when we know
+   * definitively whether or not content has preventDefaulted any touch events
+   * that have come in. If |aPreventDefault| is true, any touch events in the
+   * queue will be discarded.
+   */
+  void ContentReceivedTouch(bool aPreventDefault);
+
+  /**
+   * Updates any zoom constraints contained in the <meta name="viewport"> tag.
+   * We try to obey everything it asks us elsewhere, but here we only handle
+   * minimum-scale, maximum-scale, and user-scalable.
+   */
+  void UpdateZoomConstraints(bool aAllowZoom, float aMinScale, float aMaxScale);
 
   // --------------------------------------------------------------------------
   // These methods must only be called on the compositor thread.
@@ -110,15 +150,14 @@ public:
    * sampled at; this is used for interpolating animations. Calling this sets a
    * new transform in |aNewTransform| which should be applied directly to the
    * shadow layer of the frame (do not multiply it in as the code already does
-   * this internally with |aCurrentTransform|.
+   * this internally with |aLayer|'s transform).
    *
    * Return value indicates whether or not any currently running animation
    * should continue. That is, if true, the compositor should schedule another
    * composite.
    */
   bool SampleContentTransformForFrame(const TimeStamp& aSampleTime,
-                                      const FrameMetrics& aFrame,
-                                      const gfx3DMatrix& aCurrentTransform,
+                                      ContainerLayer* aLayer,
                                       gfx3DMatrix* aNewTransform);
 
   /**
@@ -152,7 +191,46 @@ public:
    */
   void SetDPI(int aDPI);
 
+  /**
+   * Gets the DPI of the device for use outside the panning and zooming logic.
+   * It defaults to 72 if not set using SetDPI() at any point.
+   */
+  int GetDPI();
+
+  /**
+   * Recalculates the displayport. Ideally, this should paint an area bigger
+   * than the composite-to dimensions so that when you scroll down, you don't
+   * checkerboard immediately. This includes a bunch of logic, including
+   * algorithms to bias painting in the direction of the velocity.
+   */
+  static const gfx::Rect CalculatePendingDisplayPort(
+    const FrameMetrics& aFrameMetrics,
+    const gfx::Point& aVelocity,
+    const gfx::Point& aAcceleration,
+    double aEstimatedPaintDuration);
+
+  /**
+   * Return the scale factor needed to fit the viewport in |aMetrics|
+   * into its compositiong bounds.
+   */
+  static gfxSize CalculateIntrinsicScale(const FrameMetrics& aMetrics);
+
+  /**
+   * Return the resolution that content should be rendered at given
+   * the configuration in aFrameMetrics: viewport dimensions, zoom
+   * factor, etc.  (The mResolution member of aFrameMetrics is
+   * ignored.)
+   */
+  static gfxSize CalculateResolution(const FrameMetrics& aMetrics);
+
+  static gfx::Rect CalculateCompositedRectInCssPixels(const FrameMetrics& aMetrics);
+
 protected:
+  /**
+   * Internal handler for ReceiveInputEvent(). Does all the actual work.
+   */
+  nsEventStatus HandleInputEvent(const InputData& aEvent);
+
   /**
    * Helper method for touches beginning. Sets everything up for panning and any
    * multitouch gestures.
@@ -234,7 +312,7 @@ protected:
   /**
    * Scrolls the viewport by an X,Y offset.
    */
-  void ScrollBy(const nsIntPoint& aOffset);
+  void ScrollBy(const gfx::Point& aOffset);
 
   /**
    * Scales the viewport by an amount (note that it multiplies this scale in to
@@ -255,6 +333,8 @@ protected:
    * Cancels any currently running animation. Note that all this does is set the
    * state of the AsyncPanZoomController back to NOTHING, but it is the
    * animation's responsibility to check this before advancing.
+   *
+   * *** The monitor must be held while calling this.
    */
   void CancelAnimation();
 
@@ -269,7 +349,12 @@ protected:
   /**
    * Gets a vector of the velocities of each axis.
    */
-  const nsPoint GetVelocityVector();
+  const gfx::Point GetVelocityVector();
+
+  /**
+   * Gets a vector of the acceleration factors of each axis.
+   */
+  const gfx::Point GetAccelerationVector();
 
   /**
    * Gets a reference to the first SingleTouchData from a MultiTouchInput.  This
@@ -296,13 +381,20 @@ protected:
   void TrackTouch(const MultiTouchInput& aEvent);
 
   /**
-   * Recalculates the displayport. Ideally, this should paint an area bigger
-   * than the actual screen. The viewport refers to the size of the screen,
-   * while the displayport is the area actually painted by Gecko. We paint
-   * a larger area than the screen so that when you scroll down, you don't
-   * checkerboard immediately.
+   * Attempts to enlarge the displayport along a single axis. Returns whether or
+   * not the displayport was enlarged. This will fail in circumstances where the
+   * velocity along that axis is not high enough to need any changes. The
+   * displayport metrics are expected to be passed into |aDisplayPortOffset| and
+   * |aDisplayPortLength|. If enlarged, these will be updated with the new
+   * metrics.
    */
-  const nsIntRect CalculatePendingDisplayPort();
+  static bool EnlargeDisplayPortAlongAxis(float aSkateSizeMultiplier,
+                                          double aEstimatedPaintDuration,
+                                          float aCompositionBounds,
+                                          float aVelocity,
+                                          float aAcceleration,
+                                          float* aDisplayPortOffset,
+                                          float* aDisplayPortLength);
 
   /**
    * Utility function to send updated FrameMetrics to Gecko so that it can paint
@@ -328,6 +420,23 @@ protected:
    */
   const FrameMetrics& GetFrameMetrics();
 
+  /**
+   * Timeout function for touch listeners. This should be called on a timer
+   * after we get our first touch event in a batch, under the condition that we
+   * have touch listeners. If a notification comes indicating whether or not
+   * content preventDefaulted a series of touch events before the timeout, the
+   * timeout should be cancelled.
+   */
+  void TimeoutTouchListeners();
+
+  /**
+   * Utility function that sets the zoom and resolution simultaneously. This is
+   * useful when we want to repaint at the current zoom level.
+   *
+   * *** The monitor must be held while calling this.
+   */
+  void SetZoomAndResolution(float aScale);
+
 private:
   enum PanZoomState {
     NOTHING,        /* no touch-start events received */
@@ -335,26 +444,18 @@ private:
     TOUCHING,       /* one touch-start event received */
     PANNING,        /* panning without axis lock */
     PINCHING,       /* nth touch-start, where n > 1. this mode allows pan and zoom */
+    ANIMATING_ZOOM, /* animated zoom to a new rect */
+    WAITING_LISTENERS, /* a state halfway between NOTHING and TOUCHING - the user has
+                    put a finger down, but we don't yet know if a touch listener has
+                    prevented the default actions yet. we still need to abort animations. */
   };
 
-  enum ContentPainterStatus {
-    // A paint may be happening, but it is not due to any action taken by this
-    // thread. For example, content could be invalidating itself, but
-    // AsyncPanZoomController has nothing to do with that.
-    CONTENT_IDLE,
-    // Set every time we dispatch a request for a repaint. When a
-    // ShadowLayersUpdate arrives and the metrics of this frame have changed, we
-    // toggle this off and assume that the paint has completed.
-    CONTENT_PAINTING,
-    // Set when we have a new displayport in the pipeline that we want to paint.
-    // When a ShadowLayersUpdate comes in, we dispatch a new repaint using
-    // mFrameMetrics.mDisplayPort (the most recent request) if this is toggled.
-    // This is distinct from CONTENT_PAINTING in that it signals that a repaint
-    // is happening, whereas this signals that we want to repaint as soon as the
-    // previous paint finishes. When the request is eventually made, it will use
-    // the most up-to-date metrics.
-   CONTENT_PAINTING_AND_PAINT_PENDING
-  };
+  /**
+   * Helper to set the current state. Holds the monitor before actually setting
+   * it. If the monitor is already held by the current thread, it is safe to
+   * instead use: |mState = NEWSTATE;|
+   */
+  void SetState(PanZoomState aState);
 
   nsRefPtr<CompositorParent> mCompositorParent;
   nsRefPtr<GeckoContentController> mGeckoContentController;
@@ -371,28 +472,80 @@ private:
   // If we don't do this check, we don't get a ShadowLayersUpdated back.
   FrameMetrics mLastPaintRequestMetrics;
 
+  // Old metrics from before we started a zoom animation. This is only valid
+  // when we are in the "ANIMATED_ZOOM" state. This is used so that we can
+  // interpolate between the start and end frames. We only use the
+  // |mViewportScrollOffset| and |mResolution| fields on this.
+  FrameMetrics mStartZoomToMetrics;
+  // Target metrics for a zoom to animation. This is only valid when we are in
+  // the "ANIMATED_ZOOM" state. We only use the |mViewportScrollOffset| and
+  // |mResolution| fields on this.
+  FrameMetrics mEndZoomToMetrics;
+
+  nsTArray<MultiTouchInput> mTouchQueue;
+
+  CancelableTask* mTouchListenerTimeoutTask;
+
   AxisX mX;
   AxisY mY;
 
+  // Most up-to-date constraints on zooming. These should always be reasonable
+  // values; for example, allowing a min zoom of 0.0 can cause very bad things
+  // to happen.
+  bool mAllowZoom;
+  float mMinZoom;
+  float mMaxZoom;
+
+  // Protects |mFrameMetrics|, |mLastContentPaintMetrics|, |mState| and
+  // |mMetaViewportInfo|. Before manipulating |mFrameMetrics| or
+  // |mLastContentPaintMetrics|, the monitor should be held. When setting
+  // |mState|, either the SetState() function can be used, or the monitor can be
+  // held and then |mState| updated.  |mMetaViewportInfo| should be updated
+  // using UpdateMetaViewport().
   Monitor mMonitor;
 
   // The last time the compositor has sampled the content transform for this
   // frame.
   TimeStamp mLastSampleTime;
   // The last time a touch event came through on the UI thread.
-  PRInt32 mLastEventTime;
+  int32_t mLastEventTime;
+
+  // Start time of an animation. This is used for a zoom to animation to mark
+  // the beginning.
+  TimeStamp mAnimationStartTime;
 
   // Stores the previous focus point if there is a pinch gesture happening. Used
   // to allow panning by moving multiple fingers (thus moving the focus point).
   nsIntPoint mLastZoomFocus;
+
+  // Stores the state of panning and zooming this frame. This is protected by
+  // |mMonitor|; that is, it should be held whenever this is updated.
   PanZoomState mState;
+
+  // How long it took in the past to paint after a series of previous requests.
+  nsTArray<TimeDuration> mPreviousPaintDurations;
+
+  // When the last paint request started. Used to determine the duration of
+  // previous paints.
+  TimeStamp mPreviousPaintStartTime;
+
   int mDPI;
 
   // Stores the current paint status of the frame that we're managing. Repaints
   // may be triggered by other things (like content doing things), in which case
   // this status will not be updated. It is only changed when this class
   // requests a repaint.
-  ContentPainterStatus mContentPainterStatus;
+  bool mWaitingForContentToPaint;
+
+  // Flag used to determine whether or not we should disable handling of the
+  // next batch of touch events. This is used for sync scrolling of subframes.
+  bool mDisableNextTouchBatch;
+
+  // Flag used to determine whether or not we should try to enter the
+  // WAITING_LISTENERS state. This is used in the case that we are processing a
+  // queued up event block. If set, this means that we are handling this queue
+  // and we don't want to queue the events back up again.
+  bool mHandlingTouchQueue;
 
   friend class Axis;
 };

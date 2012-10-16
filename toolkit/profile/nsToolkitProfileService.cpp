@@ -352,7 +352,7 @@ nsToolkitProfileLock::Unlock()
 }
 
 NS_IMETHODIMP
-nsToolkitProfileLock::GetReplacedLockTime(PRInt64 *aResult)
+nsToolkitProfileLock::GetReplacedLockTime(PRTime *aResult)
 {
     mLock.GetReplacedLockTime(aResult);
     return NS_OK;
@@ -395,7 +395,7 @@ nsToolkitProfileService::Init()
         return NS_OK;
     }
 
-    PRInt64 size;
+    int64_t size;
     rv = mListFile->GetFileSize(&size);
     if (NS_FAILED(rv) || !size) {
         return NS_OK;
@@ -408,7 +408,7 @@ nsToolkitProfileService::Init()
     if (NS_FAILED(rv))
         return rv;
 
-    nsCAutoString buffer;
+    nsAutoCString buffer;
     rv = parser.GetString("General", "StartWithLastProfile", buffer);
     if (NS_SUCCEEDED(rv) && buffer.EqualsLiteral("0"))
         mStartWithLast = false;
@@ -417,7 +417,7 @@ nsToolkitProfileService::Init()
 
     unsigned int c = 0;
     for (c = 0; true; ++c) {
-        nsCAutoString profileID("Profile");
+        nsAutoCString profileID("Profile");
         profileID.AppendInt(c);
 
         rv = parser.GetString(profileID.get(), "IsRelative", buffer);
@@ -425,7 +425,7 @@ nsToolkitProfileService::Init()
 
         bool isRelative = buffer.EqualsLiteral("1");
 
-        nsCAutoString filePath;
+        nsAutoCString filePath;
 
         rv = parser.GetString(profileID.get(), "Path", filePath);
         if (NS_FAILED(rv)) {
@@ -606,8 +606,7 @@ static const char kTable[] =
 
 static void SaltProfileName(nsACString& aName)
 {
-    double fpTime;
-    LL_L2D(fpTime, PR_Now());
+    double fpTime = double(PR_Now());
 
     // use 1e-6, granularity of PR_Now() on the mac is seconds
     srand((uint)(fpTime * 1e-6 + 0.5));
@@ -661,7 +660,7 @@ nsToolkitProfileService::CreateDefaultProfileForApp(const nsACString& aProfileNa
     (*aResult)->GetRootDir(getter_AddRefs(rootDir));
     NS_ENSURE_SUCCESS(rv, rv);
 
-    nsCAutoString profileDir;
+    nsAutoCString profileDir;
     rv = rootDir->GetRelativeDescriptor(appData, profileDir);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -722,7 +721,7 @@ nsToolkitProfileService::CreateProfileInternal(nsIFile* aRootDir,
 
     nsCOMPtr<nsIFile> rootDir (aRootDir);
 
-    nsCAutoString dirName;
+    nsAutoCString dirName;
     if (!rootDir) {
         rv = gDirServiceProvider->GetUserProfilesRootDir(getter_AddRefs(rootDir),
                                                          aProfileName, aAppName,
@@ -829,7 +828,7 @@ nsToolkitProfileService::CreateProfileInternal(nsIFile* aRootDir,
 }
 
 NS_IMETHODIMP
-nsToolkitProfileService::GetProfileCount(PRUint32 *aResult)
+nsToolkitProfileService::GetProfileCount(uint32_t *aResult)
 {
     if (!mFirst)
         *aResult = 0;
@@ -849,13 +848,13 @@ nsToolkitProfileService::Flush()
     // that buffer to disk.
 
     nsresult rv;
-    PRUint32 pCount = 0;
+    uint32_t pCount = 0;
     nsToolkitProfile *cur;
 
     for (cur = mFirst; cur != nullptr; cur = cur->mNext)
         ++pCount;
 
-    PRUint32 length;
+    uint32_t length;
     nsAutoArrayPtr<char> buffer (new char[100+MAXPATHLEN*pCount]);
 
     NS_ENSURE_TRUE(buffer, NS_ERROR_OUT_OF_MEMORY);
@@ -867,7 +866,7 @@ nsToolkitProfileService::Flush()
                    "StartWithLastProfile=%s\n\n",
                    mStartWithLast ? "1" : "0");
 
-    nsCAutoString path;
+    nsAutoCString path;
     cur = mFirst;
     pCount = 0;
 
@@ -976,7 +975,7 @@ nsresult
 XRE_GetFileFromPath(const char *aPath, nsIFile* *aResult)
 {
 #if defined(XP_MACOSX)
-    PRInt32 pathLen = strlen(aPath);
+    int32_t pathLen = strlen(aPath);
     if (pathLen > MAXPATHLEN)
         return NS_ERROR_INVALID_ARG;
 

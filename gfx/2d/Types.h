@@ -7,6 +7,7 @@
 #define MOZILLA_GFX_TYPES_H_
 
 #include "mozilla/StandardInteger.h"
+#include "mozilla/NullPtr.h"
 
 #include <stddef.h>
 
@@ -25,7 +26,8 @@ enum SurfaceType
   SURFACE_COREGRAPHICS_IMAGE, /* Surface wrapping a CoreGraphics Image */
   SURFACE_COREGRAPHICS_CGCONTEXT, /* Surface wrapping a CG context */
   SURFACE_SKIA, /* Surface wrapping a Skia bitmap */
-  SURFACE_DUAL_DT /* Snapshot of a dual drawtarget */
+  SURFACE_DUAL_DT, /* Snapshot of a dual drawtarget */
+  SURFACE_RECORDING /* Surface used for recording */
 };
 
 enum SurfaceFormat
@@ -41,8 +43,10 @@ enum BackendType
   BACKEND_NONE = 0,
   BACKEND_DIRECT2D,
   BACKEND_COREGRAPHICS,
+  BACKEND_COREGRAPHICS_ACCELERATED,
   BACKEND_CAIRO,
-  BACKEND_SKIA
+  BACKEND_SKIA,
+  BACKEND_RECORDING
 };
 
 enum FontType
@@ -59,7 +63,8 @@ enum NativeSurfaceType
 {
   NATIVE_SURFACE_D3D10_TEXTURE,
   NATIVE_SURFACE_CAIRO_SURFACE,
-  NATIVE_SURFACE_CGCONTEXT
+  NATIVE_SURFACE_CGCONTEXT,
+  NATIVE_SURFACE_CGCONTEXT_ACCELERATED
 };
 
 enum NativeFontType
@@ -130,7 +135,7 @@ struct GradientStop
 }
 }
 
-#ifdef XP_WIN
+#if defined(XP_WIN) && defined(MOZ_GFX)
 #ifdef GFX2D_INTERNAL
 #define GFX2D_API __declspec(dllexport)
 #else

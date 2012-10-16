@@ -40,7 +40,6 @@
 #include "nsIScriptElement.h"
 #include "nsScriptLoader.h"
 #include "nsStyleLinkElement.h"
-#include "nsIImageLoadingContent.h"
 #include "nsReadableUtils.h"
 #include "nsUnicharUtils.h"
 #include "nsICookieService.h"
@@ -52,7 +51,7 @@
 #include "nsContentCreatorFunctions.h"
 #include "nsIContentPolicy.h"
 #include "nsContentPolicyUtils.h"
-#include "nsContentErrors.h"
+#include "nsError.h"
 #include "nsIDOMProcessingInstruction.h"
 #include "nsNodeUtils.h"
 #include "nsIScriptGlobalObject.h"
@@ -147,7 +146,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsXMLContentSink,
                                                   nsContentSink)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mCurrentHead)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_RAWPTR(mDocElement)
-  for (PRUint32 i = 0, count = tmp->mContentStack.Length(); i < count; i++) {
+  for (uint32_t i = 0, count = tmp->mContentStack.Length(); i < count; i++) {
     const StackNode& node = tmp->mContentStack.ElementAt(i);
     cb.NoteXPCOMChild(node.mContent);
   }
@@ -170,7 +169,7 @@ nsXMLContentSink::WillBuildModel(nsDTDMode aDTDMode)
 
   // Check for correct load-command for maybe prettyprinting
   if (mPrettyPrintXML) {
-    nsCAutoString command;
+    nsAutoCString command;
     GetParser()->GetCommand(command);
     if (!command.EqualsLiteral("view")) {
       mPrettyPrintXML = false;
@@ -454,8 +453,8 @@ nsXMLContentSink::SetParser(nsParserBase* aParser)
 }
 
 nsresult
-nsXMLContentSink::CreateElement(const PRUnichar** aAtts, PRUint32 aAttsCount,
-                                nsINodeInfo* aNodeInfo, PRUint32 aLineNumber,
+nsXMLContentSink::CreateElement(const PRUnichar** aAtts, uint32_t aAttsCount,
+                                nsINodeInfo* aNodeInfo, uint32_t aLineNumber,
                                 nsIContent** aResult, bool* aAppendContent,
                                 FromParser aFromParser)
 {
@@ -613,7 +612,7 @@ nsXMLContentSink::CloseElement(nsIContent* aContent)
       nsAutoString relVal;
       aContent->GetAttr(kNameSpaceID_None, nsGkAtoms::rel, relVal);
       if (!relVal.IsEmpty()) {
-        PRUint32 linkTypes = nsStyleLinkElement::ParseLinkTypes(relVal);
+        uint32_t linkTypes = nsStyleLinkElement::ParseLinkTypes(relVal);
         bool hasPrefetch = linkTypes & PREFETCH;
         if (hasPrefetch || (linkTypes & NEXT)) {
           nsAutoString hrefVal;
@@ -698,7 +697,7 @@ nsXMLContentSink::ProcessStyleLink(nsIContent* aElement,
   nsresult rv = NS_OK;
   mPrettyPrintXML = false;
 
-  nsCAutoString cmd;
+  nsAutoCString cmd;
   if (mParser)
     GetParser()->GetCommand(cmd);
   if (cmd.EqualsASCII(kLoadAsData))
@@ -730,7 +729,7 @@ nsXMLContentSink::ProcessStyleLink(nsIContent* aElement,
     NS_ENSURE_SUCCESS(rv, NS_OK);
 
     // Do content policy check
-    PRInt16 decision = nsIContentPolicy::ACCEPT;
+    int16_t decision = nsIContentPolicy::ACCEPT;
     rv = NS_CheckContentLoadPolicy(nsIContentPolicy::TYPE_STYLESHEET,
                                    url,
                                    mDocument->NodePrincipal(),
@@ -847,7 +846,7 @@ nsXMLContentSink::GetCurrentContent()
 StackNode*
 nsXMLContentSink::GetCurrentStackNode()
 {
-  PRInt32 count = mContentStack.Length();
+  int32_t count = mContentStack.Length();
   return count != 0 ? &mContentStack[count-1] : nullptr;
 }
 
@@ -867,7 +866,7 @@ nsXMLContentSink::PushContent(nsIContent *aContent)
 void
 nsXMLContentSink::PopContent()
 {
-  PRInt32 count = mContentStack.Length();
+  int32_t count = mContentStack.Length();
 
   if (count == 0) {
     NS_WARNING("Popping empty stack");
@@ -880,7 +879,7 @@ nsXMLContentSink::PopContent()
 bool
 nsXMLContentSink::HaveNotifiedForCurrentContent() const
 {
-  PRUint32 stackLength = mContentStack.Length();
+  uint32_t stackLength = mContentStack.Length();
   if (stackLength) {
     const StackNode& stackNode = mContentStack[stackLength - 1];
     nsIContent* parent = stackNode.mContent;
@@ -903,7 +902,7 @@ nsXMLContentSink::MaybeStartLayout(bool aIgnorePendingSheets)
 ////////////////////////////////////////////////////////////////////////
 
 bool
-nsXMLContentSink::SetDocElement(PRInt32 aNameSpaceID,
+nsXMLContentSink::SetDocElement(int32_t aNameSpaceID,
                                 nsIAtom* aTagName,
                                 nsIContent *aContent)
 {
@@ -948,9 +947,9 @@ nsXMLContentSink::SetDocElement(PRInt32 aNameSpaceID,
 NS_IMETHODIMP
 nsXMLContentSink::HandleStartElement(const PRUnichar *aName,
                                      const PRUnichar **aAtts,
-                                     PRUint32 aAttsCount,
-                                     PRInt32 aIndex,
-                                     PRUint32 aLineNumber)
+                                     uint32_t aAttsCount,
+                                     int32_t aIndex,
+                                     uint32_t aLineNumber)
 {
   return HandleStartElement(aName, aAtts, aAttsCount, aIndex, aLineNumber,
                             true);
@@ -959,9 +958,9 @@ nsXMLContentSink::HandleStartElement(const PRUnichar *aName,
 nsresult
 nsXMLContentSink::HandleStartElement(const PRUnichar *aName,
                                      const PRUnichar **aAtts,
-                                     PRUint32 aAttsCount,
-                                     PRInt32 aIndex,
-                                     PRUint32 aLineNumber,
+                                     uint32_t aAttsCount,
+                                     int32_t aIndex,
+                                     uint32_t aLineNumber,
                                      bool aInterruptable)
 {
   NS_PRECONDITION(aIndex >= -1, "Bogus aIndex");
@@ -983,7 +982,7 @@ nsXMLContentSink::HandleStartElement(const PRUnichar *aName,
 
   mState = eXMLContentSinkState_InDocumentElement;
 
-  PRInt32 nameSpaceID;
+  int32_t nameSpaceID;
   nsCOMPtr<nsIAtom> prefix, localName;
   nsContentUtils::SplitExpatName(aName, getter_AddRefs(prefix),
                                  getter_AddRefs(localName), &nameSpaceID);
@@ -1101,14 +1100,14 @@ nsXMLContentSink::HandleEndElement(const PRUnichar *aName,
 
   nsCOMPtr<nsIContent> content;
   sn->mContent.swap(content);
-  PRUint32 numFlushed = sn->mNumFlushed;
+  uint32_t numFlushed = sn->mNumFlushed;
 
   PopContent();
   NS_ASSERTION(content, "failed to pop content");
 #ifdef DEBUG
   // Check that we're closing the right thing
   nsCOMPtr<nsIAtom> debugNameSpacePrefix, debugTagAtom;
-  PRInt32 debugNameSpaceID;
+  int32_t debugNameSpaceID;
   nsContentUtils::SplitExpatName(aName, getter_AddRefs(debugNameSpacePrefix),
                                  getter_AddRefs(debugTagAtom),
                                  &debugNameSpaceID);
@@ -1131,7 +1130,7 @@ nsXMLContentSink::HandleEndElement(const PRUnichar *aName,
     MaybeStartLayout(false);
   }
 
-  PRInt32 stackLen = mContentStack.Length();
+  int32_t stackLen = mContentStack.Length();
   if (mNotifyLevel >= stackLen) {
     if (numFlushed < content->GetChildCount()) {
     	  NotifyAppend(content, numFlushed);
@@ -1170,7 +1169,7 @@ nsXMLContentSink::HandleComment(const PRUnichar *aName)
 
 NS_IMETHODIMP 
 nsXMLContentSink::HandleCDataSection(const PRUnichar *aData, 
-                                     PRUint32 aLength)
+                                     uint32_t aLength)
 {
   // XSLT doesn't differentiate between text and cdata and wants adjacent
   // textnodes merged, so add as text.
@@ -1224,7 +1223,7 @@ nsXMLContentSink::HandleDoctypeDecl(const nsAString & aSubset,
       mCSSLoader->LoadSheetSync(uri, true, true, getter_AddRefs(sheet));
 
 #ifdef DEBUG
-      nsCAutoString uriStr;
+      nsAutoCString uriStr;
       uri->GetSpec(uriStr);
       printf("Loading catalog stylesheet: %s ... %s\n", uriStr.get(), sheet.get() ? "Done" : "Failed");
 #endif
@@ -1246,13 +1245,13 @@ nsXMLContentSink::HandleDoctypeDecl(const nsAString & aSubset,
 
 NS_IMETHODIMP
 nsXMLContentSink::HandleCharacterData(const PRUnichar *aData, 
-                                      PRUint32 aLength)
+                                      uint32_t aLength)
 {
   return HandleCharacterData(aData, aLength, true);
 }
 
 nsresult
-nsXMLContentSink::HandleCharacterData(const PRUnichar *aData, PRUint32 aLength,
+nsXMLContentSink::HandleCharacterData(const PRUnichar *aData, uint32_t aLength,
                                       bool aInterruptable)
 {
   nsresult rv = NS_OK;
@@ -1362,7 +1361,7 @@ nsXMLContentSink::ParsePIData(const nsString &aData, nsString &aHref,
 NS_IMETHODIMP
 nsXMLContentSink::HandleXMLDeclaration(const PRUnichar *aVersion,
                                        const PRUnichar *aEncoding,
-                                       PRInt32 aStandalone)
+                                       int32_t aStandalone)
 {
   mDocument->SetXMLDeclaration(aVersion, aEncoding, aStandalone);
 
@@ -1433,7 +1432,7 @@ nsXMLContentSink::ReportError(const PRUnichar* aErrorText,
   parsererror.Append((PRUnichar)0xFFFF);
   parsererror.AppendLiteral("parsererror");
   
-  rv = HandleStartElement(parsererror.get(), noAtts, 0, -1, (PRUint32)-1,
+  rv = HandleStartElement(parsererror.get(), noAtts, 0, -1, (uint32_t)-1,
                           false);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1444,7 +1443,7 @@ nsXMLContentSink::ReportError(const PRUnichar* aErrorText,
   sourcetext.Append((PRUnichar)0xFFFF);
   sourcetext.AppendLiteral("sourcetext");
 
-  rv = HandleStartElement(sourcetext.get(), noAtts, 0, -1, (PRUint32)-1,
+  rv = HandleStartElement(sourcetext.get(), noAtts, 0, -1, (uint32_t)-1,
                           false);
   NS_ENSURE_SUCCESS(rv, rv);
   
@@ -1469,7 +1468,7 @@ nsXMLContentSink::AddAttributes(const PRUnichar** aAtts,
   // Add tag attributes to the content attributes
   nsCOMPtr<nsIAtom> prefix, localName;
   while (*aAtts) {
-    PRInt32 nameSpaceID;
+    int32_t nameSpaceID;
     nsContentUtils::SplitExpatName(aAtts[0], getter_AddRefs(prefix),
                                    getter_AddRefs(localName), &nameSpaceID);
 
@@ -1486,7 +1485,7 @@ nsXMLContentSink::AddAttributes(const PRUnichar** aAtts,
 
 nsresult
 nsXMLContentSink::AddText(const PRUnichar* aText, 
-                          PRInt32 aLength)
+                          int32_t aLength)
 {
   // Create buffer when we first need it
   if (0 == mTextSize) {
@@ -1498,9 +1497,9 @@ nsXMLContentSink::AddText(const PRUnichar* aText,
   }
 
   // Copy data from string into our buffer; flush buffer when it fills up
-  PRInt32 offset = 0;
+  int32_t offset = 0;
   while (0 != aLength) {
-    PRInt32 amount = mTextSize - mTextLength;
+    int32_t amount = mTextSize - mTextLength;
     if (0 == amount) {
       // XSLT wants adjacent textnodes merged.
       if (mConstrainSize && !mXSLTProcessor) {
@@ -1573,7 +1572,7 @@ nsXMLContentSink::FlushTags()
 {
   mDeferredFlushTags = false;
   bool oldBeganUpdate = mBeganUpdate;
-  PRUint32 oldUpdates = mUpdatesInNotification;
+  uint32_t oldUpdates = mUpdatesInNotification;
 
   mUpdatesInNotification = 0;
   ++mInNotification;
@@ -1589,10 +1588,10 @@ nsXMLContentSink::FlushTags()
     // a notification from the node that is closest to the root of
     // tree for any content that has been added.
 
-    PRInt32 stackPos;
-    PRInt32 stackLen = mContentStack.Length();
+    int32_t stackPos;
+    int32_t stackLen = mContentStack.Length();
     bool flushed = false;
-    PRUint32 childCount;
+    uint32_t childCount;
     nsIContent* content;
 
     for (stackPos = 0; stackPos < stackLen; ++stackPos) {
@@ -1631,8 +1630,8 @@ nsXMLContentSink::UpdateChildCounts()
   // have been generated for it and we should make sure that no
   // further reflows occur.  Note that we have to include stackPos == 0
   // to properly notify on kids of <html>.
-  PRInt32 stackLen = mContentStack.Length();
-  PRInt32 stackPos = stackLen - 1;
+  int32_t stackLen = mContentStack.Length();
+  int32_t stackPos = stackLen - 1;
   while (stackPos >= 0) {
     StackNode & node = mContentStack[stackPos];
     node.mNumFlushed = node.mContent->GetChildCount();

@@ -11,7 +11,9 @@
 #include "XPCWrapper.h"
 #include "nsWrapperCacheInlines.h"
 #include "mozilla/dom/BindingUtils.h"
+#include "mozilla/Preferences.h"
 
+using namespace mozilla;
 /***************************************************************************/
 
 // All of the exceptions thrown into JS from this file go through here.
@@ -144,9 +146,7 @@ GetDoubleWrappedJSObject(XPCCallContext& ccx, XPCWrappedNative* wrapper)
             jsid id = ccx.GetRuntime()->
                     GetStringID(XPCJSRuntime::IDX_WRAPPED_JSOBJECT);
 
-            JSAutoEnterCompartment ac;
-            if (!ac.enter(ccx, mainObj))
-                return NULL;
+            JSAutoCompartment ac(ccx, mainObj);
 
             jsval val;
             if (JS_GetPropertyById(ccx, mainObj, id, &val) &&
@@ -256,8 +256,25 @@ DefinePropertyIfFound(XPCCallContext& ccx,
     if (!found) {
         if (reflectToStringAndToSource) {
             JSNative call;
+            uint32_t flags = 0;
 
-            if (id == rt->GetStringID(XPCJSRuntime::IDX_TO_STRING)) {
+            if (scriptableInfo) {
+                nsCOMPtr<nsIClassInfo> classInfo = do_QueryInterface(
+                    scriptableInfo->GetCallback());
+
+                if (classInfo) {
+                    nsresult rv = classInfo->GetFlags(&flags);
+                    if (NS_FAILED(rv))
+                        return Throw(rv, ccx);
+                }
+            }
+
+            bool overwriteToString = !(flags & nsIClassInfo::DOM_OBJECT)
+                || Preferences::GetBool("dom.XPCToStringForDOMClasses", false);
+
+            if(id == rt->GetStringID(XPCJSRuntime::IDX_TO_STRING)
+                && overwriteToString)
+            {
                 call = XPC_WN_Shared_ToString;
                 name = rt->GetStringName(XPCJSRuntime::IDX_TO_STRING);
                 id   = rt->GetStringID(XPCJSRuntime::IDX_TO_STRING);
@@ -556,17 +573,17 @@ XPC_WN_Shared_Enumerate(JSContext *cx, JSHandleObject obj)
     XPCNativeSet* protoSet = wrapper->HasProto() ?
                                 wrapper->GetProto()->GetSet() : nullptr;
 
-    PRUint16 interface_count = set->GetInterfaceCount();
+    uint16_t interface_count = set->GetInterfaceCount();
     XPCNativeInterface** interfaceArray = set->GetInterfaceArray();
-    for (PRUint16 i = 0; i < interface_count; i++) {
+    for (uint16_t i = 0; i < interface_count; i++) {
         XPCNativeInterface* iface = interfaceArray[i];
-        PRUint16 member_count = iface->GetMemberCount();
-        for (PRUint16 k = 0; k < member_count; k++) {
+        uint16_t member_count = iface->GetMemberCount();
+        for (uint16_t k = 0; k < member_count; k++) {
             XPCNativeMember* member = iface->GetMemberAt(k);
             jsid name = member->GetName();
 
             // Skip if this member is going to come from the proto.
-            PRUint16 index;
+            uint16_t index;
             if (protoSet &&
                 protoSet->FindMember(name, nullptr, &index) && index == i)
                 continue;
@@ -580,7 +597,7 @@ XPC_WN_Shared_Enumerate(JSContext *cx, JSHandleObject obj)
 /***************************************************************************/
 
 #ifdef DEBUG_slimwrappers
-static PRUint32 sFinalizedSlimWrappers;
+static uint32_t sFinalizedSlimWrappers;
 #endif
 
 enum WNHelperType {
@@ -702,9 +719,8 @@ XPC_GetIdentityObject(JSContext *cx, JSObject *obj)
 }
 
 JSBool
-XPC_WN_Equality(JSContext *cx, JSHandleObject obj, const jsval *valp, JSBool *bp)
+XPC_WN_Equality(JSContext *cx, JSHandleObject obj, JSHandleValue v, JSBool *bp)
 {
-    jsval v = *valp;
     *bp = false;
 
     JSObject *obj2;
@@ -840,7 +856,6 @@ XPCWrappedNativeJSClass XPC_WN_NoHelper_JSClass = {
         XPC_WN_JSOp_Enumerate,
         XPC_WN_JSOp_TypeOf_Object,
         XPC_WN_JSOp_ThisObject,
-        XPC_WN_JSOp_Clear
     }
   },
   0 // interfacesBitmap
@@ -945,10 +960,10 @@ XPC_WN_Helper_Convert(JSContext *cx, JSHandleObject obj, JSType type, JSMutableH
 
 static JSBool
 XPC_WN_Helper_CheckAccess(JSContext *cx, JSHandleObject obj, JSHandleId id,
-                          JSAccessMode mode, jsval *vp)
+                          JSAccessMode mode, JSMutableHandleValue vp)
 {
     PRE_HELPER_STUB
-    CheckAccess(wrapper, cx, obj, id, mode, vp, &retval);
+    CheckAccess(wrapper, cx, obj, id, mode, vp.address(), &retval);
     POST_HELPER_STUB
 }
 
@@ -963,7 +978,7 @@ XPC_WN_Helper_Call(JSContext *cx, unsigned argc, jsval *vp)
     if (!ccx.IsValid())
         return false;
 
-    JS_ASSERT(obj == ccx.GetFlattenedJSObject());
+    MOZ_ASSERT(obj == ccx.GetFlattenedJSObject());
 
     SLIM_LOG_WILL_MORPH(cx, obj);
     PRE_HELPER_STUB_NO_SLIM
@@ -983,7 +998,7 @@ XPC_WN_Helper_Construct(JSContext *cx, unsigned argc, jsval *vp)
     if (!ccx.IsValid())
         return false;
 
-    JS_ASSERT(obj == ccx.GetFlattenedJSObject());
+    MOZ_ASSERT(obj == ccx.GetFlattenedJSObject());
 
     SLIM_LOG_WILL_MORPH(cx, obj);
     PRE_HELPER_STUB_NO_SLIM
@@ -992,12 +1007,12 @@ XPC_WN_Helper_Construct(JSContext *cx, unsigned argc, jsval *vp)
 }
 
 static JSBool
-XPC_WN_Helper_HasInstance(JSContext *cx, JSHandleObject obj, const jsval *valp, JSBool *bp)
+XPC_WN_Helper_HasInstance(JSContext *cx, JSHandleObject obj, JSMutableHandleValue valp, JSBool *bp)
 {
     SLIM_LOG_WILL_MORPH(cx, obj);
     bool retval2;
     PRE_HELPER_STUB_NO_SLIM
-    HasInstance(wrapper, cx, obj, *valp, &retval2, &retval);
+    HasInstance(wrapper, cx, obj, valp, &retval2, &retval);
     *bp = retval2;
     POST_HELPER_STUB
 }
@@ -1148,7 +1163,7 @@ XPC_WN_Helper_NewResolve(JSContext *cx, JSHandleObject obj, JSHandleId id, unsig
 
 JSBool
 XPC_WN_JSOp_Enumerate(JSContext *cx, JSHandleObject obj, JSIterateOp enum_op,
-                      jsval *statep, jsid *idp)
+                      JSMutableHandleValue statep, JSMutableHandleId idp)
 {
     js::Class *clazz = js::GetObjectClass(obj);
     if (!IS_WRAPPER_CLASS(clazz) || clazz == &XPC_WN_NoHelper_JSClass.base) {
@@ -1178,7 +1193,7 @@ XPC_WN_JSOp_Enumerate(JSContext *cx, JSHandleObject obj, JSIterateOp enum_op,
              enum_op == JSENUMERATE_INIT_ALL) &&
             wrapper->HasMutatedSet() &&
             !XPC_WN_Shared_Enumerate(cx, obj)) {
-            *statep = JSVAL_NULL;
+            statep.set(JSVAL_NULL);
             return false;
         }
 
@@ -1186,11 +1201,11 @@ XPC_WN_JSOp_Enumerate(JSContext *cx, JSHandleObject obj, JSIterateOp enum_op,
         // js_ObjectOps.enumerate ???
 
         rv = si->GetCallback()->
-            NewEnumerate(wrapper, cx, obj, enum_op, statep, idp, &retval);
+            NewEnumerate(wrapper, cx, obj, enum_op, statep.address(), idp.address(), &retval);
 
         if ((enum_op == JSENUMERATE_INIT || enum_op == JSENUMERATE_INIT_ALL) &&
             (NS_FAILED(rv) || !retval)) {
-            *statep = JSVAL_NULL;
+            statep.set(JSVAL_NULL);
         }
 
         if (NS_FAILED(rv))
@@ -1204,14 +1219,14 @@ XPC_WN_JSOp_Enumerate(JSContext *cx, JSHandleObject obj, JSIterateOp enum_op,
                  !si->GetFlags().DontEnumStaticProps()) &&
                 wrapper->HasMutatedSet() &&
                 !XPC_WN_Shared_Enumerate(cx, obj)) {
-                *statep = JSVAL_NULL;
+                statep.set(JSVAL_NULL);
                 return false;
             }
             rv = si->GetCallback()->
                 Enumerate(wrapper, cx, obj, &retval);
 
             if (NS_FAILED(rv) || !retval)
-                *statep = JSVAL_NULL;
+                statep.set(JSVAL_NULL);
 
             if (NS_FAILED(rv))
                 return Throw(rv, cx);
@@ -1236,12 +1251,6 @@ JSType
 XPC_WN_JSOp_TypeOf_Function(JSContext *cx, JSHandleObject obj)
 {
     return JSTYPE_FUNCTION;
-}
-
-void
-XPC_WN_JSOp_Clear(JSContext *cx, JSHandleObject obj)
-{
-    // XXX Clear XrayWrappers?
 }
 
 namespace {
@@ -1406,7 +1415,6 @@ XPCNativeScriptableShared::PopulateJSClass()
     // JSObject represents a wrapper.
     js::ObjectOps *ops = &mJSClass.base.ops;
     ops->enumerate = XPC_WN_JSOp_Enumerate;
-    ops->clear = XPC_WN_JSOp_Clear;
     ops->thisObject = XPC_WN_JSOp_ThisObject;
 
     if (mFlags.WantCall() || mFlags.WantConstruct()) {
@@ -1556,13 +1564,13 @@ XPC_WN_Shared_Proto_Enumerate(JSContext *cx, JSHandleObject obj)
         return false;
     ccx.SetScopeForNewJSObjects(obj);
 
-    PRUint16 interface_count = set->GetInterfaceCount();
+    uint16_t interface_count = set->GetInterfaceCount();
     XPCNativeInterface** interfaceArray = set->GetInterfaceArray();
-    for (PRUint16 i = 0; i < interface_count; i++) {
+    for (uint16_t i = 0; i < interface_count; i++) {
         XPCNativeInterface* iface = interfaceArray[i];
-        PRUint16 member_count = iface->GetMemberCount();
+        uint16_t member_count = iface->GetMemberCount();
 
-        for (PRUint16 k = 0; k < member_count; k++) {
+        for (uint16_t k = 0; k < member_count; k++) {
             if (!xpc_ForcePropertyResolve(cx, obj, iface->GetMemberAt(k)->GetName()))
                 return false;
         }
@@ -1800,8 +1808,8 @@ XPC_WN_TearOff_Enumerate(JSContext *cx, JSHandleObject obj)
     if (!to || nullptr == (iface = to->GetInterface()))
         return Throw(NS_ERROR_XPC_BAD_OP_ON_WN_PROTO, cx);
 
-    PRUint16 member_count = iface->GetMemberCount();
-    for (PRUint16 k = 0; k < member_count; k++) {
+    uint16_t member_count = iface->GetMemberCount();
+    for (uint16_t k = 0; k < member_count; k++) {
         if (!xpc_ForcePropertyResolve(cx, obj, iface->GetMemberAt(k)->GetName()))
             return false;
     }

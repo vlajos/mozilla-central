@@ -53,6 +53,8 @@ private:
     nsCString                       mSpec;
 #endif
 
+    bool                            mOpened;
+
     nsCOMPtr<nsIJARURI>             mJarURI;
     nsCOMPtr<nsIURI>                mOriginalURI;
     nsCOMPtr<nsIURI>                mAppURI;
@@ -68,9 +70,9 @@ private:
     nsCString                       mContentDispositionHeader;
     /* mContentDisposition is uninitialized if mContentDispositionHeader is
      * empty */
-    PRUint32                        mContentDisposition;
-    PRInt32                         mContentLength;
-    PRUint32                        mLoadFlags;
+    uint32_t                        mContentDisposition;
+    int32_t                         mContentLength;
+    uint32_t                        mLoadFlags;
     nsresult                        mStatus;
     bool                            mIsPending;
     bool                            mIsUnsafe;

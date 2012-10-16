@@ -13,7 +13,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=758258
 <a target="_blank" href="https://bugzilla.mozilla.org/show_bug.cgi?id=758258">Mozilla Bug 758258</a>
 <p id="display"></p>
 <div id="content">
-  
+
 </div>
 <pre id="test">
 <script type="application/javascript;version=1.7">
@@ -129,13 +129,13 @@ var gData = [
     app: "http://example.org/manifest.webapp",
     src: "file:///",
     isapp: true,
-    test: [ "eo-unique" ],
+    test: [ "eo-unique", "in-app-not-installed" ],
   },
   {
     app: "http://example.org/manifest.webapp",
     src: "file:///tmp/",
     isapp: true,
-    test: [ "eo-unique" ],
+    test: [ "eo-unique", "in-app-not-installed" ],
   },
   // iframe inside an app is part of the app.
   {
@@ -251,6 +251,7 @@ var gData = [
     child: {
       src: "http://example.org/chrome/",
       isapp: false,
+      inBrowser: true,
     },
     test: [ "child-has-same-eo" ],
   },
@@ -280,12 +281,11 @@ function checkIFrame(aFrame, data) {
   }
 
   if (data.isapp) {
-    is(principal.appStatus, Ci.nsIPrincipal.APP_STATUS_INSTALLED,
-       'this should be an installed app');
-    isnot(principal.appId, Ci.nsIScriptSecurityManager.NO_APP_ID,
-          "installed app should have a valid appId");
-    isnot(principal.appId, Ci.nsIScriptSecurityManager.UNKNOWN_APP_ID,
-          "installed app should have a valid appId");
+    if (data.test.indexOf("in-app-not-installed") != -1) {
+      is(principal.appStatus, Ci.nsIPrincipal.APP_STATUS_NOT_INSTALLED, 'this should not be an installed app');
+    } else {
+      is(principal.appStatus, Ci.nsIPrincipal.APP_STATUS_INSTALLED, 'this should be an installed app');
+    }
   } else {
     is(principal.appStatus, Ci.nsIPrincipal.APP_STATUS_NOT_INSTALLED,
        'this should not be an installed app');
@@ -310,6 +310,9 @@ function checkIFrame(aFrame, data) {
        "extendedOrigin should be the same as the last inserted one");
   }
 
+  is(principal.isInBrowserElement, !!data.browser,
+     "check principal.isInBrowserElement");
+
   if (data.child) {
     let childPrincipal = aFrame.contentWindow.frames[0].document.nodePrincipal;
 
@@ -317,6 +320,9 @@ function checkIFrame(aFrame, data) {
       is(childPrincipal.appStatus, Ci.nsIPrincipal.APP_STATUS_INSTALLED,
          "child should be an installed app");
     }
+
+    is(childPrincipal.isInBrowserElement, !!data.child.browser || !!data.child.inBrowser,
+       "check childPrincipal.isInBrowserElement");
 
     if (data.test.indexOf("child-has-same-eo") != -1) {
       is(childPrincipal.extendedOrigin, principal.extendedOrigin,
@@ -357,6 +363,8 @@ function checkIFrame(aFrame, data) {
 
   checkedCount++;
   if (checkedCount == checksTodo) {
+    SpecialPowers.removePermission("browser", "http://example.org");
+    SpecialPowers.removePermission("embed-apps", "http://example.org");
     SimpleTest.finish();
   } else {
     gTestRunner.next();
@@ -381,6 +389,9 @@ function runTest() {
       checkIFrame(this, data);
     };
     iframe.addChild = function() {
+      SpecialPowers.addPermission("browser", true, iframe.contentDocument);
+      SpecialPowers.addPermission("embed-apps", true, iframe.contentDocument);
+
       var childFrame = document.createElement('iframe');
 
       if (data.child.app) {
@@ -421,8 +432,7 @@ function runTest() {
 
 var gTestRunner = runTest();
 
-SpecialPowers.pushPrefEnv({'set': [["dom.mozBrowserFramesEnabled", true],
-                                   ["dom.mozBrowserFramesWhitelist", "http://example.org"]]},
+SpecialPowers.pushPrefEnv({'set':[["dom.mozBrowserFramesEnabled", true]]},
                            function() { gTestRunner.next(); });
 
 </script>

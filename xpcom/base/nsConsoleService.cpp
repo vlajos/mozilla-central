@@ -22,6 +22,9 @@
 #if defined(ANDROID)
 #include <android/log.h>
 #endif
+#ifdef XP_WIN
+#include <windows.h>
+#endif
 
 using namespace mozilla;
 
@@ -46,7 +49,7 @@ nsConsoleService::nsConsoleService()
 
 nsConsoleService::~nsConsoleService()
 {
-    PRUint32 i = 0;
+    uint32_t i = 0;
     while (i < mBufferSize && mMessages[i] != nullptr) {
         NS_RELEASE(mMessages[i]);
         i++;
@@ -101,7 +104,7 @@ LogMessageRunnable::Run()
 
     mService->SetIsDelivering();
 
-    for (PRInt32 i = 0; i < mListeners.Count(); ++i)
+    for (int32_t i = 0; i < mListeners.Count(); ++i)
         mListeners[i]->Observe(mMessage);
 
     mService->SetDoneDelivering();
@@ -132,7 +135,7 @@ nsConsoleService::LogMessage(nsIConsoleMessage *message)
         return NS_ERROR_FAILURE;
     }
 
-    nsRefPtr<LogMessageRunnable> r = new LogMessageRunnable(message, this);
+    nsRefPtr<LogMessageRunnable> r;
     nsIConsoleMessage *retiredMessage;
 
     NS_ADDREF(message); // early, in case it's same as replaced below.
@@ -153,6 +156,14 @@ nsConsoleService::LogMessage(nsIConsoleMessage *message)
                         NS_LossyConvertUTF16toASCII(msg).get());
         }
 #endif
+#ifdef XP_WIN
+        if (IsDebuggerPresent()) {
+            nsString msg;
+            message->GetMessageMoz(getter_Copies(msg));
+            msg.AppendLiteral("\n");
+            OutputDebugStringW(msg.get());
+        }
+#endif
 
         /*
          * If there's already a message in the slot we're about to replace,
@@ -169,14 +180,22 @@ nsConsoleService::LogMessage(nsIConsoleMessage *message)
 
         /*
          * Copy the listeners into the snapshot array - in case a listener
-         * is removed during an Observe(...) notification...
+         * is removed during an Observe(...) notification. If there are no
+         * listeners, don't bother to create the Runnable, since we don't
+         * need to run it and it will hold onto the memory for the message
+         * unnecessarily.
          */
-        mListeners.EnumerateRead(CollectCurrentListeners, r);
+        if (mListeners.Count() > 0) {
+            r = new LogMessageRunnable(message, this);
+            mListeners.EnumerateRead(CollectCurrentListeners, r);
+        }
     }
+
     if (retiredMessage != nullptr)
         NS_RELEASE(retiredMessage);
 
-    NS_DispatchToMainThread(r);
+    if (r)
+        NS_DispatchToMainThread(r);
 
     return NS_OK;
 }
@@ -189,7 +208,7 @@ nsConsoleService::LogStringMessage(const PRUnichar *message)
 }
 
 NS_IMETHODIMP
-nsConsoleService::GetMessageArray(nsIConsoleMessage ***messages, PRUint32 *count)
+nsConsoleService::GetMessageArray(nsIConsoleMessage ***messages, uint32_t *count)
 {
     nsIConsoleMessage **messageArray;
 
@@ -214,7 +233,7 @@ nsConsoleService::GetMessageArray(nsIConsoleMessage ***messages, PRUint32 *count
         return NS_OK;
     }
 
-    PRUint32 resultSize = mFull ? mBufferSize : mCurrent;
+    uint32_t resultSize = mFull ? mBufferSize : mCurrent;
     messageArray =
         (nsIConsoleMessage **)nsMemory::Alloc((sizeof (nsIConsoleMessage *))
                                               * resultSize);
@@ -225,7 +244,7 @@ nsConsoleService::GetMessageArray(nsIConsoleMessage ***messages, PRUint32 *count
         return NS_ERROR_FAILURE;
     }
 
-    PRUint32 i;
+    uint32_t i;
     if (mFull) {
         for (i = 0; i < mBufferSize; i++) {
             // if full, fill the buffer starting from mCurrent (which'll be
@@ -298,7 +317,7 @@ nsConsoleService::Reset()
     /*
      * Free all messages stored so far (cf. destructor)
      */
-    for (PRUint32 i = 0; i < mBufferSize && mMessages[i] != nullptr; i++)
+    for (uint32_t i = 0; i < mBufferSize && mMessages[i] != nullptr; i++)
         NS_RELEASE(mMessages[i]);
 
     return NS_OK;

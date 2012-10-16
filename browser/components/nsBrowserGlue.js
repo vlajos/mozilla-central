@@ -12,6 +12,7 @@ const XULNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource:///modules/SignInToWebsite.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "AddonManager",
                                   "resource://gre/modules/AddonManager.jsm");
@@ -19,20 +20,35 @@ XPCOMUtils.defineLazyModuleGetter(this, "AddonManager",
 XPCOMUtils.defineLazyModuleGetter(this, "NetUtil",
                                   "resource://gre/modules/NetUtil.jsm");
 
+XPCOMUtils.defineLazyModuleGetter(this, "UserAgentOverrides",
+                                  "resource://gre/modules/UserAgentOverrides.jsm");
+
 XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils",
                                   "resource://gre/modules/PlacesUtils.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "BookmarkHTMLUtils",
                                   "resource://gre/modules/BookmarkHTMLUtils.jsm");
 
-XPCOMUtils.defineLazyModuleGetter(this, "webappsUI", 
+XPCOMUtils.defineLazyModuleGetter(this, "webappsUI",
                                   "resource:///modules/webappsUI.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "PageThumbs",
                                   "resource:///modules/PageThumbs.jsm");
 
+XPCOMUtils.defineLazyModuleGetter(this, "NewTabUtils",
+                                  "resource:///modules/NewTabUtils.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "BrowserNewTabPreloader",
+                                  "resource:///modules/BrowserNewTabPreloader.jsm");
+
 XPCOMUtils.defineLazyModuleGetter(this, "PdfJs",
                                   "resource://pdf.js/PdfJs.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "webrtcUI",
+                                  "resource:///modules/webrtcUI.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "PrivateBrowsingUtils",
+                                  "resource://gre/modules/PrivateBrowsingUtils.jsm");
 
 const PREF_PLUGINS_NOTIFYUSER = "plugins.update.notifyUser";
 const PREF_PLUGINS_UPDATEURL  = "plugins.update.url";
@@ -307,7 +323,10 @@ BrowserGlue.prototype = {
       os.removeObserver(this, "places-database-locked");
     if (this._isPlacesShutdownObserver)
       os.removeObserver(this, "places-shutdown");
+    UserAgentOverrides.uninit();
     webappsUI.uninit();
+    SignInToWebsiteUX.uninit();
+    webrtcUI.uninit();
   },
 
   _onAppDefaults: function BG__onAppDefaults() {
@@ -332,14 +351,33 @@ BrowserGlue.prototype = {
     // handle any UI migration
     this._migrateUI();
 
-    // Initialize webapps UI
+    this._setUpUserAgentOverrides();
+
     webappsUI.init();
-
     PageThumbs.init();
-
+    NewTabUtils.init();
+    BrowserNewTabPreloader.init();
+    SignInToWebsiteUX.init();
     PdfJs.init();
+    webrtcUI.init();
 
     Services.obs.notifyObservers(null, "browser-ui-startup-complete", "");
+  },
+
+  _setUpUserAgentOverrides: function BG__setUpUserAgentOverrides() {
+    UserAgentOverrides.init();
+
+    if (Services.prefs.getBoolPref("general.useragent.complexOverride.moodle")) {
+      UserAgentOverrides.addComplexOverride(function (aHttpChannel, aOriginalUA) {
+        let cookies;
+        try {
+          cookies = aHttpChannel.getRequestHeader("Cookie");
+        } catch (e) { /* no cookie sent */ }
+        if (cookies && cookies.indexOf("MoodleSession") > -1)
+          return aOriginalUA.replace(/Gecko\/[^ ]*/, "Gecko/20100101");
+        return null;
+      });
+    }
   },
 
   // the first browser window has finished initializing
@@ -361,6 +399,7 @@ BrowserGlue.prototype = {
     this._shutdownPlaces();
     this._sanitizer.onShutdown();
     PageThumbs.uninit();
+    BrowserNewTabPreloader.uninit();
   },
 
   // All initial windows have opened.
@@ -429,7 +468,9 @@ BrowserGlue.prototype = {
           (ss.sessionType == Ci.nsISessionStartup.RECOVER_SESSION);
       }
       catch (ex) { /* never mind; suppose SessionStore is broken */ }
-      if (shouldCheck && !shell.isDefaultBrowser(true) && !willRecoverSession) {
+      if (shouldCheck &&
+          !shell.isDefaultBrowser(true, false) &&
+          !willRecoverSession) {
         Services.tm.mainThread.dispatch(function() {
           var win = this.getMostRecentBrowserWindow();
           var brandBundle = win.document.getElementById("bundle_brand");
@@ -446,8 +487,22 @@ BrowserGlue.prototype = {
           var rv = ps.confirmEx(win, promptTitle, promptMessage,
                                 ps.STD_YES_NO_BUTTONS,
                                 null, null, null, checkboxLabel, checkEveryTime);
-          if (rv == 0)
-            shell.setDefaultBrowser(true, false);
+          if (rv == 0) {
+            var claimAllTypes = true;
+#ifdef XP_WIN
+            try {
+              // In Windows 8, the UI for selecting default protocol is much
+              // nicer than the UI for setting file type associations. So we
+              // only show the protocol association screen on Windows 8.
+              // Windows 8 is version 6.2.
+              let version = Cc["@mozilla.org/system-info;1"]
+                              .getService(Ci.nsIPropertyBag2)
+                              .getProperty("version");
+              claimAllTypes = (parseFloat(version) < 6.2);
+            } catch (ex) { }
+#endif
+            shell.setDefaultBrowser(claimAllTypes, false);
+          }
           shell.shouldCheckDefaultBrowser = checkEveryTime.value;
         }.bind(this), Ci.nsIThread.DISPATCH_NORMAL);
       }
@@ -486,7 +541,7 @@ BrowserGlue.prototype = {
       windowcount++;
 
       var browser = browserEnum.getNext();
-      if (("gPrivateBrowsingUI" in browser) && !browser.gPrivateBrowsingUI.privateWindow)
+      if (!PrivateBrowsingUtils.isWindowPrivate(browser))
         allWindowsPrivate = false;
       var tabbrowser = browser.document.getElementById("content");
       if (tabbrowser)
@@ -1177,7 +1232,7 @@ BrowserGlue.prototype = {
   },
 
   _migrateUI: function BG__migrateUI() {
-    const UI_VERSION = 6;
+    const UI_VERSION = 8;
     const BROWSER_DOCURL = "chrome://browser/content/browser.xul#";
     let currentUIVersion = 0;
     try {
@@ -1273,6 +1328,52 @@ BrowserGlue.prototype = {
       let tabsOnTopAttribute = this._getPersist(toolboxResource, tabsOnTopResource);
       if (tabsOnTopAttribute)
         Services.prefs.setBoolPref("browser.tabs.onTop", tabsOnTopAttribute == "true");
+    }
+
+    // This migration step is executed only if the Downloads Panel feature is
+    // enabled.  By default, the feature is enabled only in the Nightly channel.
+    // This means that, unless the preference that enables the feature is
+    // changed manually, the Downloads button is added to the toolbar only if
+    // migration happens while running a build from the Nightly channel.  This
+    // migration code will be updated when the feature will be enabled on all
+    // channels, see bug 748381 for details.
+    if (currentUIVersion < 7 &&
+        !Services.prefs.getBoolPref("browser.download.useToolkitUI")) {
+      // This code adds the customizable downloads buttons.
+      let currentsetResource = this._rdf.GetResource("currentset");
+      let toolbarResource = this._rdf.GetResource(BROWSER_DOCURL + "nav-bar");
+      let currentset = this._getPersist(toolbarResource, currentsetResource);
+
+      // Since the Downloads button is located in the navigation bar by default,
+      // migration needs to happen only if the toolbar was customized using a
+      // previous UI version, and the button was not already placed on the
+      // toolbar manually.
+      if (currentset &&
+          currentset.indexOf("downloads-button") == -1) {
+        // The element is added either after the search bar or before the home
+        // button. As a last resort, the element is added just before the
+        // non-customizable window controls.
+        if (currentset.indexOf("search-container") != -1) {
+          currentset = currentset.replace(/(^|,)search-container($|,)/,
+                                          "$1search-container,downloads-button$2")
+        } else if (currentset.indexOf("home-button") != -1) {
+          currentset = currentset.replace(/(^|,)home-button($|,)/,
+                                          "$1downloads-button,home-button$2")
+        } else {
+          currentset = currentset.replace(/(^|,)window-controls($|,)/,
+                                          "$1downloads-button,window-controls$2")
+        }
+        this._setPersist(toolbarResource, currentsetResource, currentset);
+      }
+    }
+
+    if (currentUIVersion < 8) {
+      // Reset homepage pref for users who have it set to google.com/firefox
+      let uri = Services.prefs.getComplexValue("browser.startup.homepage",
+                                               Ci.nsIPrefLocalizedString).data;
+      if (uri && /^https?:\/\/(www\.)?google(\.\w{2,3}){1,2}\/firefox\/?$/.test(uri)) {
+        Services.prefs.clearUserPref("browser.startup.homepage");
+      }
     }
 
     if (this._dirty)
@@ -1560,13 +1661,14 @@ ContentPermissionPrompt.prototype = {
         return;
     }
 
-    var requestingURI = request.uri;
+    var requestingPrincipal = request.principal;
+    var requestingURI = requestingPrincipal.URI;
 
     // Ignore requests from non-nsIStandardURLs
     if (!(requestingURI instanceof Ci.nsIStandardURL))
       return;
 
-    var result = Services.perms.testExactPermission(requestingURI, "geo");
+    var result = Services.perms.testExactPermissionFromPrincipal(requestingPrincipal, "geo");
 
     if (result == Ci.nsIPermissionManager.ALLOW_ACTION) {
       request.allow();
@@ -1591,11 +1693,15 @@ ContentPermissionPrompt.prototype = {
     }
 
     var browserBundle = Services.strings.createBundle("chrome://browser/locale/browser.properties");
+    let secHistogram = Components.classes["@mozilla.org/base/telemetry;1"].
+                                  getService(Ci.nsITelemetry).
+                                  getHistogramById("SECURITY_UI");
 
     var mainAction = {
       label: browserBundle.GetStringFromName("geolocation.shareLocation"),
       accessKey: browserBundle.GetStringFromName("geolocation.shareLocation.accesskey"),
       callback: function() {
+        secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_GEOLOCATION_REQUEST_SHARE_LOCATION);
         request.allow();
       },
     };
@@ -1614,12 +1720,13 @@ ContentPermissionPrompt.prototype = {
                                                    [requestingURI.host], 1);
 
       // Don't offer to "always/never share" in PB mode
-      if (("gPrivateBrowsingUI" in chromeWin) && !chromeWin.gPrivateBrowsingUI.privateWindow) {
+      if (!PrivateBrowsingUtils.isWindowPrivate(chromeWin)) {
         secondaryActions.push({
           label: browserBundle.GetStringFromName("geolocation.alwaysShareLocation"),
           accessKey: browserBundle.GetStringFromName("geolocation.alwaysShareLocation.accesskey"),
           callback: function () {
-            Services.perms.add(requestingURI, "geo", Ci.nsIPermissionManager.ALLOW_ACTION);
+            Services.perms.addFromPrincipal(requestingPrincipal, "geo", Ci.nsIPermissionManager.ALLOW_ACTION);
+            secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_GEOLOCATION_REQUEST_ALWAYS_SHARE);
             request.allow();
           }
         });
@@ -1627,7 +1734,8 @@ ContentPermissionPrompt.prototype = {
           label: browserBundle.GetStringFromName("geolocation.neverShareLocation"),
           accessKey: browserBundle.GetStringFromName("geolocation.neverShareLocation.accesskey"),
           callback: function () {
-            Services.perms.add(requestingURI, "geo", Ci.nsIPermissionManager.DENY_ACTION);
+            Services.perms.addFromPrincipal(requestingPrincipal, "geo", Ci.nsIPermissionManager.DENY_ACTION);
+            secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_GEOLOCATION_REQUEST_NEVER_SHARE);
             request.cancel();
           }
         });
@@ -1636,6 +1744,7 @@ ContentPermissionPrompt.prototype = {
 
     var browser = chromeWin.gBrowser.getBrowserForDocument(requestingWindow.document);
 
+    secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_GEOLOCATION_REQUEST);
     chromeWin.PopupNotifications.show(browser, "geolocation", message, "geo-notification-icon",
                                       mainAction, secondaryActions);
   }

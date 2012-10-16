@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "base/basictypes.h"
-#include "IPC/IPCMessageUtils.h"
+#include "ipc/IPCMessageUtils.h"
 #include "nsCOMPtr.h"
 #include "nsDOMUIEvent.h"
 #include "nsIPresShell.h"
@@ -53,7 +53,7 @@ nsDOMUIEvent::nsDOMUIEvent(nsPresContext* aPresContext, nsGUIEvent* aEvent)
     case NS_SCROLLPORT_EVENT:
     {
       nsScrollPortEvent* scrollEvent = static_cast<nsScrollPortEvent*>(mEvent);
-      mDetail = (PRInt32)scrollEvent->orient;
+      mDetail = (int32_t)scrollEvent->orient;
       break;
     }
 
@@ -114,7 +114,7 @@ nsDOMUIEvent::GetMovementPoint()
        (mEvent->eventStructType != NS_MOUSE_EVENT &&
         mEvent->eventStructType != NS_POPUP_EVENT &&
         mEvent->eventStructType != NS_MOUSE_SCROLL_EVENT &&
-        mEvent->eventStructType != NS_MOZTOUCH_EVENT &&
+        mEvent->eventStructType != NS_WHEEL_EVENT &&
         mEvent->eventStructType != NS_DRAG_EVENT &&
         mEvent->eventStructType != NS_SIMPLE_GESTURE_EVENT)) {
     return nsIntPoint(0, 0);
@@ -145,7 +145,7 @@ nsDOMUIEvent::GetView(nsIDOMWindow** aView)
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetDetail(PRInt32* aDetail)
+nsDOMUIEvent::GetDetail(int32_t* aDetail)
 {
   *aDetail = mDetail;
   return NS_OK;
@@ -156,7 +156,7 @@ nsDOMUIEvent::InitUIEvent(const nsAString& typeArg,
                           bool canBubbleArg,
                           bool cancelableArg,
                           nsIDOMWindow* viewArg,
-                          PRInt32 detailArg)
+                          int32_t detailArg)
 {
   nsresult rv = nsDOMEvent::InitEvent(typeArg, canBubbleArg, cancelableArg);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -202,7 +202,7 @@ nsDOMUIEvent::GetPagePoint()
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetPageX(PRInt32* aPageX)
+nsDOMUIEvent::GetPageX(int32_t* aPageX)
 {
   NS_ENSURE_ARG_POINTER(aPageX);
   if (mPrivateDataDuplicated) {
@@ -217,7 +217,7 @@ nsDOMUIEvent::GetPageX(PRInt32* aPageX)
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetPageY(PRInt32* aPageY)
+nsDOMUIEvent::GetPageY(int32_t* aPageY)
 {
   NS_ENSURE_ARG_POINTER(aPageY);
   if (mPrivateDataDuplicated) {
@@ -232,7 +232,7 @@ nsDOMUIEvent::GetPageY(PRInt32* aPageY)
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetWhich(PRUint32* aWhich)
+nsDOMUIEvent::GetWhich(uint32_t* aWhich)
 {
   return Which(aWhich);
 }
@@ -254,7 +254,7 @@ nsDOMUIEvent::GetRangeParent(nsIDOMNode** aRangeParent)
                                                               targetFrame);
     nsCOMPtr<nsIContent> parent = targetFrame->GetContentOffsetsFromPoint(pt).content;
     if (parent) {
-      if (parent->IsInNativeAnonymousSubtree() &&
+      if (parent->ChromeOnlyAccess() &&
           !nsContentUtils::CanAccessNativeAnon()) {
         return NS_OK;
       }
@@ -266,7 +266,7 @@ nsDOMUIEvent::GetRangeParent(nsIDOMNode** aRangeParent)
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetRangeOffset(PRInt32* aRangeOffset)
+nsDOMUIEvent::GetRangeOffset(int32_t* aRangeOffset)
 {
   NS_ENSURE_ARG_POINTER(aRangeOffset);
   nsIFrame* targetFrame = nullptr;
@@ -312,7 +312,7 @@ nsDOMUIEvent::GetLayerPoint()
       (mEvent->eventStructType != NS_MOUSE_EVENT &&
        mEvent->eventStructType != NS_POPUP_EVENT &&
        mEvent->eventStructType != NS_MOUSE_SCROLL_EVENT &&
-       mEvent->eventStructType != NS_MOZTOUCH_EVENT &&
+       mEvent->eventStructType != NS_WHEEL_EVENT &&
        mEvent->eventStructType != NS_TOUCH_EVENT &&
        mEvent->eventStructType != NS_DRAG_EVENT &&
        mEvent->eventStructType != NS_SIMPLE_GESTURE_EVENT) ||
@@ -331,7 +331,7 @@ nsDOMUIEvent::GetLayerPoint()
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetLayerX(PRInt32* aLayerX)
+nsDOMUIEvent::GetLayerX(int32_t* aLayerX)
 {
   NS_ENSURE_ARG_POINTER(aLayerX);
   *aLayerX = GetLayerPoint().x;
@@ -339,7 +339,7 @@ nsDOMUIEvent::GetLayerX(PRInt32* aLayerX)
 }
 
 NS_IMETHODIMP
-nsDOMUIEvent::GetLayerY(PRInt32* aLayerY)
+nsDOMUIEvent::GetLayerY(int32_t* aLayerY)
 {
   NS_ENSURE_ARG_POINTER(aLayerY);
   *aLayerY = GetLayerPoint().y;
@@ -396,7 +396,7 @@ nsDOMUIEvent::Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType)
 
   nsDOMEvent::Serialize(aMsg, false);
 
-  PRInt32 detail = 0;
+  int32_t detail = 0;
   GetDetail(&detail);
   IPC::WriteParam(aMsg, detail);
 }
@@ -449,7 +449,7 @@ nsDOMUIEvent::ComputeModifierState(const nsAString& aModifiersList)
   aModifiersList.BeginReading(listStart);
   aModifiersList.EndReading(listEnd);
 
-  for (PRUint32 i = 0; i < mozilla::ArrayLength(kPairs); i++) {
+  for (uint32_t i = 0; i < mozilla::ArrayLength(kPairs); i++) {
     nsAString::const_iterator start(listStart), end(listEnd);
     if (!FindInReadable(NS_ConvertASCIItoUTF16(kPairs[i].name), start, end)) {
       continue;

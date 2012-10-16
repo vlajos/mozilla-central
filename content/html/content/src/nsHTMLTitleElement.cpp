@@ -8,6 +8,7 @@
 #include "nsStyleConsts.h"
 #include "nsIDocument.h"
 #include "nsContentUtils.h"
+#include "nsStubMutationObserver.h"
 
 class nsHTMLTitleElement : public nsGenericHTMLElement,
                            public nsIDOMHTMLTitleElement,
@@ -118,7 +119,7 @@ void
 nsHTMLTitleElement::ContentAppended(nsIDocument *aDocument,
                                     nsIContent *aContainer,
                                     nsIContent *aFirstNewContent,
-                                    PRInt32 aNewIndexInContainer)
+                                    int32_t aNewIndexInContainer)
 {
   SendTitleChangeEvent(false);
 }
@@ -127,7 +128,7 @@ void
 nsHTMLTitleElement::ContentInserted(nsIDocument *aDocument,
                                     nsIContent *aContainer,
                                     nsIContent *aChild,
-                                    PRInt32 aIndexInContainer)
+                                    int32_t aIndexInContainer)
 {
   SendTitleChangeEvent(false);
 }
@@ -136,7 +137,7 @@ void
 nsHTMLTitleElement::ContentRemoved(nsIDocument *aDocument,
                                    nsIContent *aContainer,
                                    nsIContent *aChild,
-                                   PRInt32 aIndexInContainer,
+                                   int32_t aIndexInContainer,
                                    nsIContent *aPreviousSibling)
 {
   SendTitleChangeEvent(false);

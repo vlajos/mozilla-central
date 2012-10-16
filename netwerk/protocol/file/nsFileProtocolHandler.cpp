@@ -127,7 +127,7 @@ nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
     if (NS_FAILED(rv))
         return NS_ERROR_NOT_AVAILABLE;
 
-    PRInt64 fileSize;
+    int64_t fileSize;
     os2File->GetFileSize(&fileSize);
     rv = NS_ERROR_NOT_AVAILABLE;
 
@@ -135,7 +135,7 @@ nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
     // an nsURI;  we assume the string is already escaped
     char * buffer = (char*)NS_Alloc(fileSize+1);
     if (buffer) {
-        PRInt32 cnt = PR_Read(file, buffer, fileSize);
+        int32_t cnt = PR_Read(file, buffer, fileSize);
         if (cnt > 0) {
             buffer[cnt] = '\0';
             if (NS_SUCCEEDED(NS_NewURI(aURI, nsDependentCString(buffer))))
@@ -154,7 +154,7 @@ nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
 {
     // We only support desktop files that end in ".desktop" like the spec says:
     // http://standards.freedesktop.org/desktop-entry-spec/latest/ar01s02.html
-    nsCAutoString leafName;
+    nsAutoCString leafName;
     nsresult rv = aFile->GetNativeLeafName(leafName);
     if (NS_FAILED(rv) ||
 	!StringEndsWith(leafName, NS_LITERAL_CSTRING(".desktop")))
@@ -165,12 +165,12 @@ nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
     if (NS_FAILED(rv))
         return rv;
 
-    nsCAutoString type;
+    nsAutoCString type;
     parser.GetString(DESKTOP_ENTRY_SECTION, "Type", type);
     if (!type.EqualsLiteral("Link"))
         return NS_ERROR_NOT_AVAILABLE;
 
-    nsCAutoString url;
+    nsAutoCString url;
     rv = parser.GetString(DESKTOP_ENTRY_SECTION, "URL", url);
     if (NS_FAILED(rv) || url.IsEmpty())
         return NS_ERROR_NOT_AVAILABLE;
@@ -194,14 +194,14 @@ nsFileProtocolHandler::GetScheme(nsACString &result)
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetDefaultPort(PRInt32 *result)
+nsFileProtocolHandler::GetDefaultPort(int32_t *result)
 {
     *result = -1;        // no port for file: URLs
     return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetProtocolFlags(PRUint32 *result)
+nsFileProtocolHandler::GetProtocolFlags(uint32_t *result)
 {
     *result = URI_NOAUTH | URI_IS_LOCAL_FILE | URI_IS_LOCAL_RESOURCE;
     return NS_OK;
@@ -220,7 +220,7 @@ nsFileProtocolHandler::NewURI(const nsACString &spec,
     const nsACString *specPtr = &spec;
 
 #if defined(XP_WIN) || defined(XP_OS2)
-    nsCAutoString buf;
+    nsAutoCString buf;
     if (net_NormalizeFileURL(spec, buf))
         specPtr = &buf;
 #endif
@@ -251,7 +251,7 @@ nsFileProtocolHandler::NewChannel(nsIURI *uri, nsIChannel **result)
 }
 
 NS_IMETHODIMP 
-nsFileProtocolHandler::AllowPort(PRInt32 port, const char *scheme, bool *result)
+nsFileProtocolHandler::AllowPort(int32_t port, const char *scheme, bool *result)
 {
     // don't override anything.  
     *result = false;

@@ -118,7 +118,7 @@ class AfterPaintListener : public nsIDOMEventListener {
     }
 
     virtual nsresult HandleEvent(nsIDOMEvent* aEvent) {
-        PRUint32 generation = nsFrameManager::GetGlobalGenerationNumber();
+        uint32_t generation = nsFrameManager::GetGlobalGenerationNumber();
         if (mLastGeneration == generation) {
             // the frame tree has not changed since our last AfterPaint
             // so we can drop this event.
@@ -149,7 +149,7 @@ class AfterPaintListener : public nsIDOMEventListener {
     }
 
   private:
-    PRUint32 mLastGeneration;
+    uint32_t mLastGeneration;
     nsCOMPtr<nsIDOMEventTarget> mEventTarget;
 };
 
@@ -181,6 +181,10 @@ nsAppShell::nsAppShell()
     gAppShell = this;
     sAfterPaintListener = new AfterPaintListener();
 
+    if (XRE_GetProcessType() != GeckoProcessType_Default) {
+        return;
+    }
+
     sPowerManagerService = do_GetService(POWERMANAGERSERVICE_CONTRACTID);
 
     if (sPowerManagerService) {
@@ -194,7 +198,7 @@ nsAppShell::nsAppShell()
 nsAppShell::~nsAppShell()
 {
     gAppShell = nullptr;
-    delete sAfterPaintListener;
+    sAfterPaintListener = nullptr;
 
     if (sPowerManagerService) {
         sPowerManagerService->RemoveWakeLockListener(sWakeLockListener);
@@ -213,9 +217,11 @@ nsAppShell::NotifyNativeEvent()
 
 #define PREFNAME_MATCH_OS  "intl.locale.matchOS"
 #define PREFNAME_UA_LOCALE "general.useragent.locale"
+#define PREFNAME_COALESCE_TOUCHES "dom.event.touch.coalescing.enabled"
 static const char* kObservedPrefs[] = {
   PREFNAME_MATCH_OS,
   PREFNAME_UA_LOCALE,
+  PREFNAME_COALESCE_TOUCHES,
   nullptr
 };
 
@@ -262,6 +268,7 @@ nsAppShell::Init()
     }
 
     bridge->SetSelectedLocale(locale);
+    mAllowCoalescingTouches = Preferences::GetBool(PREFNAME_COALESCE_TOUCHES, true);
     return rv;
 }
 
@@ -278,6 +285,8 @@ nsAppShell::Observe(nsISupports* aSubject,
     } else if (!strcmp(aTopic, NS_PREFBRANCH_PREFCHANGE_TOPIC_ID) && aData && (
                    nsDependentString(aData).Equals(
                        NS_LITERAL_STRING(PREFNAME_UA_LOCALE)) ||
+                   nsDependentString(aData).Equals(
+                       NS_LITERAL_STRING(PREFNAME_COALESCE_TOUCHES)) ||
                    nsDependentString(aData).Equals(
                        NS_LITERAL_STRING(PREFNAME_MATCH_OS)))) {
         AndroidBridge* bridge = AndroidBridge::Bridge();
@@ -301,6 +310,8 @@ nsAppShell::Observe(nsISupports* aSubject,
         }
 
         bridge->SetSelectedLocale(locale);
+
+        mAllowCoalescingTouches = Preferences::GetBool(PREFNAME_COALESCE_TOUCHES, true);
         return NS_OK;
     }
     return NS_OK;
@@ -492,8 +503,8 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
         if (!bridge)
             break;
 
-        PRInt32 token = curEvent->Flags();
-        PRInt32 tabId = curEvent->MetaState();
+        int32_t token = curEvent->Flags();
+        int32_t tabId = curEvent->MetaState();
         nsTArray<nsIntPoint> points = curEvent->Points();
         RefCountedJavaObject* buffer = curEvent->ByteBuffer();
         nsCOMPtr<ScreenshotRunnable> sr = 
@@ -598,7 +609,7 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
         }
 
         nsIntRect rect;
-        PRInt32 colorDepth, pixelDepth;
+        int32_t colorDepth, pixelDepth;
         dom::ScreenOrientation orientation;
         nsCOMPtr<nsIScreen> screen;
 
@@ -691,7 +702,7 @@ nsAppShell::PostEvent(AndroidGeckoEvent *ae)
         case AndroidGeckoEvent::COMPOSITOR_RESUME:
             // Give priority to these events, but maintain their order wrt each other.
             {
-                PRUint32 i = 0;
+                uint32_t i = 0;
                 while (i < mEventQueue.Length() &&
                        (mEventQueue[i]->Type() == AndroidGeckoEvent::COMPOSITOR_PAUSE ||
                         mEventQueue[i]->Type() == AndroidGeckoEvent::COMPOSITOR_RESUME)) {
@@ -761,7 +772,7 @@ nsAppShell::PostEvent(AndroidGeckoEvent *ae)
             break;
 
         case AndroidGeckoEvent::MOTION_EVENT:
-            if (ae->Action() == AndroidMotionEvent::ACTION_MOVE) {
+            if (ae->Action() == AndroidMotionEvent::ACTION_MOVE && mAllowCoalescingTouches) {
                 int len = mEventQueue.Length();
                 if (len > 0) {
                     AndroidGeckoEvent* event = mEventQueue[len - 1];

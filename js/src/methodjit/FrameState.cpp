@@ -29,11 +29,12 @@ FrameState::~FrameState()
 {
     while (a) {
         ActiveFrame *parent = a->parent;
-        a->script->analysis()->clearAllocations();
-        cx->free_(a);
+        if (a->script->hasAnalysis())
+            a->script->analysis()->clearAllocations();
+        js_free(a);
         a = parent;
     }
-    cx->free_(entries);
+    js_free(entries);
 }
 
 void
@@ -62,7 +63,7 @@ FrameState::pushActiveFrame(JSScript *script, uint32_t argc)
         size_t totalBytes = sizeof(FrameEntry) * nentries +       // entries[]
                             sizeof(FrameEntry *) * nentries +     // tracker.entries
                             sizeof(StackEntryExtra) * nentries;   // extraArray
-        uint8_t *cursor = (uint8_t *)OffTheBooks::calloc_(totalBytes);
+        uint8_t *cursor = (uint8_t *)js_calloc(totalBytes);
         if (!cursor)
             return false;
 
@@ -88,7 +89,7 @@ FrameState::pushActiveFrame(JSScript *script, uint32_t argc)
     /* We should have already checked that argc == nargs */
     JS_ASSERT_IF(a, argc == script->function()->nargs);
 
-    ActiveFrame *newa = OffTheBooks::new_<ActiveFrame>();
+    ActiveFrame *newa = js_new<ActiveFrame>();
     if (!newa)
         return false;
 
@@ -146,7 +147,7 @@ FrameState::popActiveFrame()
     }
 
     ActiveFrame *parent = a->parent;
-    cx->delete_(a);
+    js_delete(a);
     a = parent;
 }
 
@@ -473,7 +474,7 @@ FrameEntry *
 FrameState::snapshotState()
 {
     /* Everything can be recovered from a copy of the frame entries. */
-    FrameEntry *snapshot = cx->array_new<FrameEntry>(nentries);
+    FrameEntry *snapshot = js_pod_malloc<FrameEntry>(nentries);
     if (!snapshot)
         return NULL;
     PodCopy(snapshot, entries, nentries);
@@ -542,7 +543,7 @@ RegisterAllocation *
 FrameState::computeAllocation(jsbytecode *target)
 {
     JS_ASSERT(cx->typeInferenceEnabled());
-    RegisterAllocation *alloc = cx->typeLifoAlloc().new_<RegisterAllocation>(false);
+    RegisterAllocation *alloc = cx->analysisLifoAlloc().new_<RegisterAllocation>(false);
     if (!alloc) {
         js_ReportOutOfMemory(cx);
         return NULL;
@@ -592,8 +593,8 @@ FrameState::computeAllocation(jsbytecode *target)
                     if (newv->value.kind() == SSAValue::PHI &&
                         newv->value.phiOffset() == uint32_t(target - a->script->code) &&
                         newv->slot == entrySlot(fe)) {
-                        types::TypeSet *types = a->analysis->getValueTypes(newv->value);
-                        if (types->getKnownTypeTag(cx) != JSVAL_TYPE_DOUBLE)
+                        types::StackTypeSet *types = a->analysis->getValueTypes(newv->value);
+                        if (types->getKnownTypeTag() != JSVAL_TYPE_DOUBLE)
                             nonDoubleTarget = true;
                     }
                     newv++;
@@ -825,7 +826,7 @@ FrameState::discardForJoin(RegisterAllocation *&alloc, uint32_t stackDepth)
          * This shows up for loop entries which are not reachable from the
          * loop head, and for exception, switch target and trap safe points.
          */
-        alloc = cx->typeLifoAlloc().new_<RegisterAllocation>(false);
+        alloc = cx->analysisLifoAlloc().new_<RegisterAllocation>(false);
         if (!alloc) {
             js_ReportOutOfMemory(cx);
             return false;
@@ -2857,7 +2858,7 @@ FrameState::getTemporaryCopies(Uses uses)
                 FrameEntry *nfe = tracker[i];
                 if (!deadEntry(nfe, uses.nuses) && nfe->isCopy() && nfe->copyOf() == fe) {
                     if (!res)
-                        res = OffTheBooks::new_< Vector<TemporaryCopy> >(cx);
+                        res = js_new< Vector<TemporaryCopy> >(cx);
                     res->append(TemporaryCopy(addressOf(nfe), addressOf(fe)));
                 }
             }

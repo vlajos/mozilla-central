@@ -23,6 +23,7 @@
 #include "nsIXMLContentSink.h"
 #include "nsNetCID.h"
 #include "nsComponentManagerUtils.h"
+#include "nsSMILAnimationController.h"
 #include "nsServiceManagerUtils.h"
 #include "nsSize.h"
 #include "gfxRect.h"
@@ -68,7 +69,7 @@ SVGDocumentWrapper::DestroyViewer()
 
 bool
 SVGDocumentWrapper::GetWidthOrHeight(Dimension aDimension,
-                                     PRInt32& aResult)
+                                     int32_t& aResult)
 {
   nsSVGSVGElement* rootElem = GetRootSVGElem();
   NS_ABORT_IF_FALSE(rootElem, "root elem missing or of wrong type");
@@ -92,7 +93,7 @@ SVGDocumentWrapper::GetWidthOrHeight(Dimension aDimension,
   NS_ENSURE_TRUE(domLength, false);
 
   // Check if it's a percent value (and fail if so)
-  PRUint16 unitType;
+  uint16_t unitType;
   rv = domLength->GetUnitType(&unitType);
   NS_ENSURE_SUCCESS(rv, false);
   if (unitType == nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE) {
@@ -208,8 +209,8 @@ SVGDocumentWrapper::ResetAnimation()
 NS_IMETHODIMP
 SVGDocumentWrapper::OnDataAvailable(nsIRequest* aRequest, nsISupports* ctxt,
                                     nsIInputStream* inStr,
-                                    PRUint32 sourceOffset,
-                                    PRUint32 count)
+                                    uint64_t sourceOffset,
+                                    uint32_t count)
 {
   return mListener->OnDataAvailable(aRequest, ctxt, inStr,
                                     sourceOffset, count);

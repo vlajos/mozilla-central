@@ -279,7 +279,7 @@ XPCCallContext::SetResolvingWrapper(XPCWrappedNative* w)
     return XPCJSRuntime::Get()->SetResolvingWrapper(w);
 }
 
-inline PRUint16
+inline uint16_t
 XPCCallContext::GetMethodIndex() const
 {
     CHECK_STATE(HAVE_OBJECT);
@@ -287,7 +287,7 @@ XPCCallContext::GetMethodIndex() const
 }
 
 inline void
-XPCCallContext::SetMethodIndex(PRUint16 index)
+XPCCallContext::SetMethodIndex(uint16_t index)
 {
     CHECK_STATE(HAVE_OBJECT);
     mMethodIndex = index;
@@ -345,7 +345,7 @@ XPCNativeInterface::HasAncestor(const nsIID* iid) const
 
 inline JSBool
 XPCNativeSet::FindMember(jsid name, XPCNativeMember** pMember,
-                         PRUint16* pInterfaceIndex) const
+                         uint16_t* pInterfaceIndex) const
 {
     XPCNativeInterface* const * iface;
     int count = (int) mInterfaceCount;
@@ -358,7 +358,7 @@ XPCNativeSet::FindMember(jsid name, XPCNativeMember** pMember,
             if (pMember)
                 *pMember = nullptr;
             if (pInterfaceIndex)
-                *pInterfaceIndex = (PRUint16) i;
+                *pInterfaceIndex = (uint16_t) i;
             return true;
         }
     }
@@ -370,7 +370,7 @@ XPCNativeSet::FindMember(jsid name, XPCNativeMember** pMember,
             if (pMember)
                 *pMember = member;
             if (pInterfaceIndex)
-                *pInterfaceIndex = (PRUint16) i;
+                *pInterfaceIndex = (uint16_t) i;
             return true;
         }
     }
@@ -381,7 +381,7 @@ inline JSBool
 XPCNativeSet::FindMember(jsid name, XPCNativeMember** pMember,
                          XPCNativeInterface** pInterface) const
 {
-    PRUint16 index;
+    uint16_t index;
     if (!FindMember(name, pMember, &index))
         return false;
     *pInterface = mInterfaces[index];
@@ -410,7 +410,7 @@ XPCNativeSet::FindMember(jsid name,
         !protoSet ||
         (protoSet != this &&
          !protoSet->MatchesSetUpToInterface(this, Interface) &&
-         (!protoSet->FindMember(name, &protoMember, (PRUint16*)nullptr) ||
+         (!protoSet->FindMember(name, &protoMember, (uint16_t*)nullptr) ||
           protoMember != Member));
 
     return true;
@@ -482,7 +482,7 @@ inline JSBool
 XPCNativeSet::MatchesSetUpToInterface(const XPCNativeSet* other,
                                       XPCNativeInterface* iface) const
 {
-    int count = JS_MIN((int)mInterfaceCount, (int)other->mInterfaceCount);
+    int count = js::Min(int(mInterfaceCount), int(other->mInterfaceCount));
 
     XPCNativeInterface* const * pp1 = mInterfaces;
     XPCNativeInterface* const * pp2 = other->mInterfaces;
@@ -611,8 +611,6 @@ xpc_NewSystemInheritingJSObject(JSContext *cx, JSClass *clasp, JSObject *proto,
     } else {
         obj = JS_NewObject(cx, clasp, proto, parent);
     }
-    if (obj && JS_IsSystemObject(cx, parent) && !JS_MakeSystemObject(cx, obj))
-        obj = NULL;
     return obj;
 }
 

@@ -27,7 +27,6 @@
 #include "nsEventListenerManager.h"
 #include "nsIDOMEventTarget.h"
 #include "nsIDOMEventListener.h"
-#include "nsIDOMNSEvent.h"
 #include "nsPIDOMWindow.h"
 #include "nsPIWindowRoot.h"
 #include "nsIDOMWindow.h"
@@ -52,24 +51,24 @@ using namespace mozilla;
 static NS_DEFINE_CID(kDOMScriptObjectFactoryCID,
                      NS_DOM_SCRIPT_OBJECT_FACTORY_CID);
 
-PRUint32 nsXBLPrototypeHandler::gRefCnt = 0;
+uint32_t nsXBLPrototypeHandler::gRefCnt = 0;
 
-PRInt32 nsXBLPrototypeHandler::kMenuAccessKey = -1;
-PRInt32 nsXBLPrototypeHandler::kAccelKey = -1;
+int32_t nsXBLPrototypeHandler::kMenuAccessKey = -1;
+int32_t nsXBLPrototypeHandler::kAccelKey = -1;
 
-const PRInt32 nsXBLPrototypeHandler::cShift = (1<<0);
-const PRInt32 nsXBLPrototypeHandler::cAlt = (1<<1);
-const PRInt32 nsXBLPrototypeHandler::cControl = (1<<2);
-const PRInt32 nsXBLPrototypeHandler::cMeta = (1<<3);
-const PRInt32 nsXBLPrototypeHandler::cOS = (1<<4);
+const int32_t nsXBLPrototypeHandler::cShift = (1<<0);
+const int32_t nsXBLPrototypeHandler::cAlt = (1<<1);
+const int32_t nsXBLPrototypeHandler::cControl = (1<<2);
+const int32_t nsXBLPrototypeHandler::cMeta = (1<<3);
+const int32_t nsXBLPrototypeHandler::cOS = (1<<4);
 
-const PRInt32 nsXBLPrototypeHandler::cShiftMask = (1<<5);
-const PRInt32 nsXBLPrototypeHandler::cAltMask = (1<<6);
-const PRInt32 nsXBLPrototypeHandler::cControlMask = (1<<7);
-const PRInt32 nsXBLPrototypeHandler::cMetaMask = (1<<8);
-const PRInt32 nsXBLPrototypeHandler::cOSMask = (1<<9);
+const int32_t nsXBLPrototypeHandler::cShiftMask = (1<<5);
+const int32_t nsXBLPrototypeHandler::cAltMask = (1<<6);
+const int32_t nsXBLPrototypeHandler::cControlMask = (1<<7);
+const int32_t nsXBLPrototypeHandler::cMetaMask = (1<<8);
+const int32_t nsXBLPrototypeHandler::cOSMask = (1<<9);
 
-const PRInt32 nsXBLPrototypeHandler::cAllModifiers =
+const int32_t nsXBLPrototypeHandler::cAllModifiers =
   cShiftMask | cAltMask | cControlMask | cMetaMask | cOSMask;
 
 nsXBLPrototypeHandler::nsXBLPrototypeHandler(const PRUnichar* aEvent,
@@ -85,7 +84,7 @@ nsXBLPrototypeHandler::nsXBLPrototypeHandler(const PRUnichar* aEvent,
                                              const PRUnichar* aPreventDefault,
                                              const PRUnichar* aAllowUntrusted,
                                              nsXBLPrototypeBinding* aBinding,
-                                             PRUint32 aLineNumber)
+                                             uint32_t aLineNumber)
   : mHandlerText(nullptr),
     mLineNumber(aLineNumber),
     mNextHandler(nullptr),
@@ -210,11 +209,8 @@ nsXBLPrototypeHandler::ExecuteHandler(nsIDOMEventTarget* aTarget,
   // XUL handlers and commands shouldn't be triggered by non-trusted
   // events.
   if (isXULKey || isXBLCommand) {
-    nsCOMPtr<nsIDOMNSEvent> domNSEvent = do_QueryInterface(aEvent);
     bool trustedEvent = false;
-    if (domNSEvent) {
-      domNSEvent->GetIsTrusted(&trustedEvent);
-    }
+    aEvent->GetIsTrusted(&trustedEvent);
 
     if (!trustedEvent)
       return NS_OK;
@@ -333,10 +329,10 @@ nsXBLPrototypeHandler::EnsureEventHandler(nsIScriptGlobalObject* aGlobal,
   if (handlerText.IsEmpty())
     return NS_ERROR_FAILURE;
 
-  nsCAutoString bindingURI;
+  nsAutoCString bindingURI;
   mPrototypeBinding->DocURI()->GetSpec(bindingURI);
 
-  PRUint32 argCount;
+  uint32_t argCount;
   const char **argNames;
   nsContentUtils::GetEventArgNames(kNameSpaceID_XBL, aName, &argCount,
                                    &argNames);
@@ -344,7 +340,9 @@ nsXBLPrototypeHandler::EnsureEventHandler(nsIScriptGlobalObject* aGlobal,
                                                    handlerText,
                                                    bindingURI.get(), 
                                                    mLineNumber,
-                                                   JSVERSION_LATEST, aHandler);
+                                                   JSVERSION_LATEST,
+                                                   /* aIsXBL = */ true,
+                                                   aHandler);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (pWindow) {
@@ -360,20 +358,17 @@ nsXBLPrototypeHandler::DispatchXBLCommand(nsIDOMEventTarget* aTarget, nsIDOMEven
   // This is a special-case optimization to make command handling fast.
   // It isn't really a part of XBL, but it helps speed things up.
 
-  // See if preventDefault has been set.  If so, don't execute.
-  bool preventDefault = false;
-  nsCOMPtr<nsIDOMNSEvent> domNSEvent = do_QueryInterface(aEvent);
-  if (domNSEvent) {
-    domNSEvent->GetPreventDefault(&preventDefault);
-  }
-
-  if (preventDefault)
-    return NS_OK;
-
   if (aEvent) {
-    bool dispatchStopped = aEvent->IsDispatchStopped();
-    if (dispatchStopped)
+    // See if preventDefault has been set.  If so, don't execute.
+    bool preventDefault = false;
+    aEvent->GetPreventDefault(&preventDefault);
+    if (preventDefault) {
       return NS_OK;
+    }
+    bool dispatchStopped = aEvent->IsDispatchStopped();
+    if (dispatchStopped) {
+      return NS_OK;
+    }
   }
 
   // Instead of executing JS, let's get the controller for the bound
@@ -567,12 +562,12 @@ nsXBLPrototypeHandler::GetController(nsIDOMEventTarget* aTarget)
 
 bool
 nsXBLPrototypeHandler::KeyEventMatched(nsIDOMKeyEvent* aKeyEvent,
-                                       PRUint32 aCharCode,
+                                       uint32_t aCharCode,
                                        bool aIgnoreShiftKey)
 {
   if (mDetail != -1) {
     // Get the keycode or charcode of the key event.
-    PRUint32 code;
+    uint32_t code;
 
     if (mMisc) {
       if (aCharCode)
@@ -585,7 +580,7 @@ nsXBLPrototypeHandler::KeyEventMatched(nsIDOMKeyEvent* aKeyEvent,
     else
       aKeyEvent->GetKeyCode(&code);
 
-    if (code != PRUint32(mDetail))
+    if (code != uint32_t(mDetail))
       return false;
   }
 
@@ -598,12 +593,12 @@ nsXBLPrototypeHandler::MouseEventMatched(nsIDOMMouseEvent* aMouseEvent)
   if (mDetail == -1 && mMisc == 0 && (mKeyMask & cAllModifiers) == 0)
     return true; // No filters set up. It's generic.
 
-  PRUint16 button;
+  uint16_t button;
   aMouseEvent->GetButton(&button);
   if (mDetail != -1 && (button != mDetail))
     return false;
 
-  PRInt32 clickcount;
+  int32_t clickcount;
   aMouseEvent->GetDetail(&clickcount);
   if (mMisc != 0 && (clickcount != mMisc))
     return false;
@@ -614,7 +609,7 @@ nsXBLPrototypeHandler::MouseEventMatched(nsIDOMMouseEvent* aMouseEvent)
 struct keyCodeData {
   const char* str;
   size_t strlength;
-  PRUint32 keycode;
+  uint32_t keycode;
 };
 
 // All of these must be uppercase, since the function below does
@@ -628,16 +623,16 @@ static const keyCodeData gKeyCodes[] = {
 #undef NS_DEFINE_VK
 };
 
-PRInt32 nsXBLPrototypeHandler::GetMatchingKeyCode(const nsAString& aKeyName)
+int32_t nsXBLPrototypeHandler::GetMatchingKeyCode(const nsAString& aKeyName)
 {
-  nsCAutoString keyName;
+  nsAutoCString keyName;
   keyName.AssignWithConversion(aKeyName);
   ToUpperCase(keyName); // We want case-insensitive comparison with data
                         // stored as uppercase.
 
-  PRUint32 keyNameLength = keyName.Length();
+  uint32_t keyNameLength = keyName.Length();
   const char* keyNameStr = keyName.get();
-  for (PRUint16 i = 0; i < (sizeof(gKeyCodes) / sizeof(gKeyCodes[0])); ++i)
+  for (uint16_t i = 0; i < (sizeof(gKeyCodes) / sizeof(gKeyCodes[0])); ++i)
     if (keyNameLength == gKeyCodes[i].strlength &&
         !nsCRT::strcmp(gKeyCodes[i].str, keyNameStr))
       return gKeyCodes[i].keycode;
@@ -645,7 +640,7 @@ PRInt32 nsXBLPrototypeHandler::GetMatchingKeyCode(const nsAString& aKeyName)
   return 0;
 }
 
-PRInt32 nsXBLPrototypeHandler::KeyToMask(PRInt32 key)
+int32_t nsXBLPrototypeHandler::KeyToMask(int32_t key)
 {
   switch (key)
   {
@@ -792,18 +787,21 @@ nsXBLPrototypeHandler::ConstructPrototype(nsIContent* aKeyElement,
   if (!key.IsEmpty()) {
     if (mKeyMask == 0)
       mKeyMask = cAllModifiers;
-    nsContentUtils::ASCIIToLower(key);
+    ToLowerCase(key);
 
     // We have a charcode.
     mMisc = 1;
     mDetail = key[0];
-    const PRUint8 GTK2Modifiers = cShift | cControl | cShiftMask | cControlMask;
+    const uint8_t GTK2Modifiers = cShift | cControl | cShiftMask | cControlMask;
     if ((mKeyMask & GTK2Modifiers) == GTK2Modifiers &&
-        modifiers.First() != PRUnichar(',') && mDetail == 'u')
+        modifiers.First() != PRUnichar(',') &&
+        (mDetail == 'u' || mDetail == 'U'))
       ReportKeyConflict(key.get(), modifiers.get(), aKeyElement, "GTK2Conflict");
-    const PRUint8 WinModifiers = cControl | cAlt | cControlMask | cAltMask;
+    const uint8_t WinModifiers = cControl | cAlt | cControlMask | cAltMask;
     if ((mKeyMask & WinModifiers) == WinModifiers &&
-        modifiers.First() != PRUnichar(',') && ('a' <= mDetail && mDetail <= 'z'))
+        modifiers.First() != PRUnichar(',') &&
+        (('A' <= mDetail && mDetail <= 'Z') ||
+         ('a' <= mDetail && mDetail <= 'z')))
       ReportKeyConflict(key.get(), modifiers.get(), aKeyElement, "WinConflict");
   }
   else {
@@ -908,9 +906,9 @@ nsXBLPrototypeHandler::Read(nsIScriptContext* aContext, nsIObjectInputStream* aS
   rv = aStream->Read8(&mMisc);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = aStream->Read32(reinterpret_cast<PRUint32*>(&mKeyMask));
+  rv = aStream->Read32(reinterpret_cast<uint32_t*>(&mKeyMask));
   NS_ENSURE_SUCCESS(rv, rv);
-  PRUint32 detail; 
+  uint32_t detail; 
   rv = aStream->Read32(&detail);
   NS_ENSURE_SUCCESS(rv, rv);
   mDetail = detail;
@@ -949,7 +947,7 @@ nsXBLPrototypeHandler::Write(nsIScriptContext* aContext, nsIObjectOutputStream* 
   NS_ENSURE_SUCCESS(rv, rv);
   rv = aStream->Write8(mMisc);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = aStream->Write32(static_cast<PRUint32>(mKeyMask));
+  rv = aStream->Write32(static_cast<uint32_t>(mKeyMask));
   NS_ENSURE_SUCCESS(rv, rv);
   rv = aStream->Write32(mDetail);
   NS_ENSURE_SUCCESS(rv, rv);

@@ -6,6 +6,7 @@
 #include "nsIDOMHTMLProgressElement.h"
 #include "nsGenericHTMLElement.h"
 #include "nsAttrValue.h"
+#include "nsAttrValueInlines.h"
 #include "nsEventStateManager.h"
 
 
@@ -35,7 +36,7 @@ public:
 
   nsresult Clone(nsINodeInfo* aNodeInfo, nsINode** aResult) const;
 
-  bool ParseAttribute(PRInt32 aNamespaceID, nsIAtom* aAttribute,
+  bool ParseAttribute(int32_t aNamespaceID, nsIAtom* aAttribute,
                         const nsAString& aValue, nsAttrValue& aResult);
 
   virtual nsXPCClassInfo* GetClassInfo();
@@ -103,7 +104,7 @@ nsHTMLProgressElement::IntrinsicState() const
 }
 
 bool
-nsHTMLProgressElement::ParseAttribute(PRInt32 aNamespaceID, nsIAtom* aAttribute,
+nsHTMLProgressElement::ParseAttribute(int32_t aNamespaceID, nsIAtom* aAttribute,
                                       const nsAString& aValue, nsAttrValue& aResult)
 {
   if (aNamespaceID == kNameSpaceID_None) {

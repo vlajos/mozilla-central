@@ -4,6 +4,7 @@
 
 package org.mozilla.gecko.sync.setup.activities;
 
+import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 
 import org.json.simple.JSONObject;
@@ -11,6 +12,7 @@ import org.mozilla.gecko.R;
 import org.mozilla.gecko.sync.GlobalConstants;
 import org.mozilla.gecko.sync.Logger;
 import org.mozilla.gecko.sync.ThreadPool;
+import org.mozilla.gecko.sync.Utils;
 import org.mozilla.gecko.sync.jpake.JPakeClient;
 import org.mozilla.gecko.sync.jpake.JPakeNoActivePairingException;
 import org.mozilla.gecko.sync.setup.Constants;
@@ -68,7 +70,6 @@ public class SetupSyncActivity extends AccountAuthenticatorActivity {
   /** Called when the activity is first created. */
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    setTheme(R.style.SyncTheme);
     Logger.info(LOG_TAG, "Called SetupSyncActivity.onCreate.");
     super.onCreate(savedInstanceState);
 
@@ -91,7 +92,12 @@ public class SetupSyncActivity extends AccountAuthenticatorActivity {
     super.onResume();
 
     if (!hasInternet()) {
-      setContentView(R.layout.sync_setup_nointernet);
+      runOnUiThread(new Runnable() {
+        @Override
+        public void run() {
+          setContentView(R.layout.sync_setup_nointernet);
+        }
+      });
       return;
     }
 
@@ -222,7 +228,9 @@ public class SetupSyncActivity extends AccountAuthenticatorActivity {
     } else {
       uri = Uri.parse(Constants.LINK_FIND_ADD_DEVICE);
     }
-    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+    Intent intent = new Intent(this, WebViewActivity.class);
+    intent.setData(uri);
+    startActivity(intent);
   }
 
   /* Controller methods */
@@ -391,6 +399,13 @@ public class SetupSyncActivity extends AccountAuthenticatorActivity {
       String password     = (String) jCreds.get(Constants.JSON_KEY_PASSWORD);
       String syncKey      = (String) jCreds.get(Constants.JSON_KEY_SYNCKEY);
       String serverURL    = (String) jCreds.get(Constants.JSON_KEY_SERVER);
+
+      // The password we get is double-encoded.
+      try {
+        password = Utils.decodeUTF8(password);
+      } catch (UnsupportedEncodingException e) {
+        Logger.warn(LOG_TAG, "Unsupported encoding when decoding UTF-8 ASCII J-PAKE message. Ignoring.");
+      }
 
       final SyncAccountParameters syncAccount = new SyncAccountParameters(mContext, mAccountManager, accountName,
                                                                           syncKey, password, serverURL);

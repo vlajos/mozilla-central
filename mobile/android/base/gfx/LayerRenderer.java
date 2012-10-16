@@ -5,11 +5,13 @@
 
 package org.mozilla.gecko.gfx;
 
-import org.mozilla.gecko.gfx.Layer.RenderContext;
 import org.mozilla.gecko.GeckoAppShell;
+import org.mozilla.gecko.gfx.Layer.RenderContext;
+import org.mozilla.gecko.mozglue.DirectBufferAllocator;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -19,12 +21,13 @@ import android.opengl.GLES20;
 import android.os.SystemClock;
 import android.util.Log;
 
-import javax.microedition.khronos.egl.EGLConfig;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import javax.microedition.khronos.egl.EGLConfig;
 
 /**
  * The layer renderer implements the rendering logic for a layer view.
@@ -44,7 +47,7 @@ public class LayerRenderer {
 
     private final LayerView mView;
     private final SingleTileLayer mBackgroundLayer;
-    private final ScreenshotLayer mCheckerboardLayer;
+    private final ScreenshotLayer mScreenshotLayer;
     private final NinePatchTileLayer mShadowLayer;
     private TextLayer mFrameRateLayer;
     private final ScrollbarLayer mHorizScrollLayer;
@@ -123,34 +126,32 @@ public class LayerRenderer {
 
     public void setCheckerboardBitmap(ByteBuffer data, int width, int height, RectF pageRect, Rect copyRect) {
         try {
-            mCheckerboardLayer.setBitmap(data, width, height, copyRect);
+            mScreenshotLayer.setBitmap(data, width, height, copyRect);
         } catch (IllegalArgumentException ex) {
             Log.e(LOGTAG, "error setting bitmap: ", ex);
         }
-        mCheckerboardLayer.beginTransaction();
+        mScreenshotLayer.beginTransaction();
         try {
-            mCheckerboardLayer.setPosition(RectUtils.round(pageRect));
-            mCheckerboardLayer.invalidate();
+            mScreenshotLayer.setPosition(RectUtils.round(pageRect));
+            mScreenshotLayer.invalidate();
         } finally {
-            mCheckerboardLayer.endTransaction();
+            mScreenshotLayer.endTransaction();
         }
     }
 
     public void resetCheckerboard() {
-        mCheckerboardLayer.reset();
+        mScreenshotLayer.reset();
     }
 
     public LayerRenderer(LayerView view) {
         mView = view;
 
-        LayerController controller = view.getController();
-
-        CairoImage backgroundImage = new BufferedCairoImage(controller.getBackgroundPattern());
+        CairoImage backgroundImage = new BufferedCairoImage(view.getBackgroundPattern());
         mBackgroundLayer = new SingleTileLayer(true, backgroundImage);
 
-        mCheckerboardLayer = ScreenshotLayer.create();
+        mScreenshotLayer = ScreenshotLayer.create();
 
-        CairoImage shadowImage = new BufferedCairoImage(controller.getShadowPattern());
+        CairoImage shadowImage = new BufferedCairoImage(view.getShadowPattern());
         mShadowLayer = new NinePatchTileLayer(shadowImage);
 
         mHorizScrollLayer = ScrollbarLayer.create(this, false);
@@ -162,7 +163,7 @@ public class LayerRenderer {
 
         // Initialize the FloatBuffer that will be used to store all vertices and texture
         // coordinates in draw() commands.
-        mCoordByteBuffer = GeckoAppShell.allocateDirectBuffer(COORD_BUFFER_SIZE * 4);
+        mCoordByteBuffer = DirectBufferAllocator.allocate(COORD_BUFFER_SIZE * 4);
         mCoordByteBuffer.order(ByteOrder.nativeOrder());
         mCoordBuffer = mCoordByteBuffer.asFloatBuffer();
     }
@@ -170,11 +171,9 @@ public class LayerRenderer {
     @Override
     protected void finalize() throws Throwable {
         try {
-            if (mCoordByteBuffer != null) {
-                GeckoAppShell.freeDirectBuffer(mCoordByteBuffer);
-                mCoordByteBuffer = null;
-                mCoordBuffer = null;
-            }
+            DirectBufferAllocator.free(mCoordByteBuffer);
+            mCoordByteBuffer = null;
+            mCoordBuffer = null;
         } finally {
             super.finalize();
         }
@@ -447,7 +446,7 @@ public class LayerRenderer {
 
             mUpdated = true;
 
-            Layer rootLayer = mView.getController().getRoot();
+            Layer rootLayer = mView.getLayerClient().getRoot();
 
             if (!mPageContext.fuzzyEquals(mLastPageContext)) {
                 // the viewport or page changed, so show the scrollbars again
@@ -467,7 +466,7 @@ public class LayerRenderer {
             if (rootLayer != null) mUpdated &= rootLayer.update(mPageContext);  // called on compositor thread
             mUpdated &= mBackgroundLayer.update(mScreenContext);    // called on compositor thread
             mUpdated &= mShadowLayer.update(mPageContext);  // called on compositor thread
-            mUpdated &= mCheckerboardLayer.update(mPageContext);   // called on compositor thread
+            mUpdated &= mScreenshotLayer.update(mPageContext);   // called on compositor thread
             if (mFrameRateLayer != null) mUpdated &= mFrameRateLayer.update(mScreenContext); // called on compositor thread
             mUpdated &= mVertScrollLayer.update(mPageContext);  // called on compositor thread
             mUpdated &= mHorizScrollLayer.update(mPageContext); // called on compositor thread
@@ -520,7 +519,7 @@ public class LayerRenderer {
             GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
 
             /* Update background color. */
-            mBackgroundColor = mView.getController().getCheckerboardColor();
+            mBackgroundColor = mView.getCheckerboardColor();
 
             /* Clear to the page background colour. The bits set here need to
              * match up with those used in gfx/layers/opengl/LayerManagerOGL.cpp.
@@ -539,28 +538,28 @@ public class LayerRenderer {
             /* Draw the drop shadow, if we need to. */
             RectF untransformedPageRect = new RectF(0.0f, 0.0f, mPageRect.width(),
                                                     mPageRect.height());
-            if (!untransformedPageRect.contains(mView.getController().getViewport()))
+            if (!untransformedPageRect.contains(mFrameMetrics.getViewport()))
                 mShadowLayer.draw(mPageContext);
 
             /* Draw the 'checkerboard'. We use gfx.show_checkerboard_pattern to
              * determine whether to draw the screenshot layer.
              */
-            if (mView.getController().checkerboardShouldShowChecks()) {
+            if (mView.checkerboardShouldShowChecks()) {
                 /* Find the area the root layer will render into, to mask the checkerboard layer */
-                Rect rootMask = getMaskForLayer(mView.getController().getRoot());
-                mCheckerboardLayer.setMask(rootMask);
+                Rect rootMask = getMaskForLayer(mView.getLayerClient().getRoot());
+                mScreenshotLayer.setMask(rootMask);
 
                 /* Scissor around the page-rect, in case the page has shrunk
                  * since the screenshot layer was last updated.
                  */
                 setScissorRect(); // Calls glEnable(GL_SCISSOR_TEST))
-                mCheckerboardLayer.draw(mPageContext);
+                mScreenshotLayer.draw(mPageContext);
             }
         }
 
         // Draws the layer the client added to us.
         void drawRootLayer() {
-            Layer rootLayer = mView.getController().getRoot();
+            Layer rootLayer = mView.getLayerClient().getRoot();
             if (rootLayer == null) {
                 return;
             }
@@ -592,7 +591,7 @@ public class LayerRenderer {
                 mHorizScrollLayer.draw(mPageContext);
 
             /* Measure how much of the screen is checkerboarding */
-            Layer rootLayer = mView.getController().getRoot();
+            Layer rootLayer = mView.getLayerClient().getRoot();
             if ((rootLayer != null) &&
                 (mProfileRender || PanningPerfAPI.isRecordingCheckerboard())) {
                 // Find out how much of the viewport area is valid
@@ -672,9 +671,9 @@ public class LayerRenderer {
 
             // Remove white screen once we've painted
             if (mView.getPaintState() == LayerView.PAINT_BEFORE_FIRST) {
-                GeckoAppShell.getMainHandler().postAtFrontOfQueue(new Runnable() {
+                mView.post(new Runnable() {
                     public void run() {
-                        mView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                        mView.getChildAt(0).setBackgroundColor(Color.TRANSPARENT);
                     }
                 });
                 mView.setPaintState(LayerView.PAINT_AFTER_FIRST);

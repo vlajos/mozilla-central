@@ -868,9 +868,9 @@ FileSystemDataSource::GetVolumeList(nsISimpleEnumerator** aResult)
 
 #ifdef XP_WIN
 
-    PRInt32         driveType;
+    int32_t         driveType;
     PRUnichar       drive[32];
-    PRInt32         volNum;
+    int32_t         volNum;
     char            *url;
 
     for (volNum = 0; volNum < 26; volNum++)
@@ -1056,7 +1056,7 @@ FileSystemDataSource::GetFolderList(nsIRDFResource *source, bool allowHidden,
         if (leafStr.IsEmpty())
             continue;
   
-        nsCAutoString           fullURI;
+        nsAutoCString           fullURI;
         fullURI.Assign(parentURI);
         if (fullURI.Last() != '/')
         {
@@ -1069,16 +1069,16 @@ FileSystemDataSource::GetFolderList(nsIRDFResource *source, bool allowHidden,
         if (!escLeafStr)
             continue;
   
-        nsCAutoString           leaf(escLeafStr);
+        nsAutoCString           leaf(escLeafStr);
         NS_Free(escLeafStr);
         escLeafStr = nullptr;
 
         // using nsEscape() [above] doesn't escape slashes, so do that by hand
-        PRInt32         aOffset;
+        int32_t         aOffset;
         while ((aOffset = leaf.FindChar('/')) >= 0)
         {
-            leaf.Cut((PRUint32)aOffset, 1);
-            leaf.Insert("%2F", (PRUint32)aOffset);
+            leaf.Cut((uint32_t)aOffset, 1);
+            leaf.Insert("%2F", (uint32_t)aOffset);
         }
 
         // append the encoded name
@@ -1133,14 +1133,14 @@ FileSystemDataSource::GetLastMod(nsIRDFResource *source, nsIRDFDate **aResult)
     // ensure that we DO NOT resolve aliases
     aFile->SetFollowLinks(false);
 
-    PRInt64 lastModDate;
+    PRTime lastModDate;
     if (NS_FAILED(rv = aFile->GetLastModifiedTime(&lastModDate)))
         return(rv);
 
     // convert from milliseconds to seconds
     PRTime      temp64, thousand;
     LL_I2L(thousand, PR_MSEC_PER_SEC);
-    LL_MUL(temp64, lastModDate, thousand);
+    temp64 = lastModDate * thousand;
 
     mRDFService->GetDateLiteral(temp64, aResult);
 
@@ -1187,14 +1187,12 @@ FileSystemDataSource::GetFileSize(nsIRDFResource *source, nsIRDFInt **aResult)
     if (isDir)
         return(NS_RDF_NO_VALUE);
 
-    PRInt64     aFileSize64;
+    int64_t     aFileSize64;
     if (NS_FAILED(rv = aFile->GetFileSize(&aFileSize64)))
         return(rv);
 
     // convert 64bits to 32bits
-    PRInt32     aFileSize32 = 0;
-    LL_L2I(aFileSize32, aFileSize64);
-
+    int32_t aFileSize32 = int32_t(aFileSize64);
     mRDFService->GetIntLiteral(aFileSize32, aResult);
 
     return(NS_OK);
@@ -1240,7 +1238,7 @@ FileSystemDataSource::GetName(nsIRDFResource *source, nsIRDFLiteral **aResult)
 #ifdef  XP_WIN
     // special hack for IE favorites under Windows; strip off the
     // trailing ".url" or ".lnk" at the end of IE favorites names
-    PRInt32 nameLen = name.Length();
+    int32_t nameLen = name.Length();
     if ((strncmp(uri, ieFavoritesDir.get(), ieFavoritesDir.Length()) == 0) && (nameLen > 4))
     {
         nsAutoString extension;
@@ -1275,7 +1273,7 @@ FileSystemDataSource::GetExtension(nsIRDFResource *source, nsIRDFLiteral **aResu
         return rv;
 
     nsAutoString filename(unicodeLeafName);
-    PRInt32 lastDot = filename.RFindChar('.');
+    int32_t lastDot = filename.RFindChar('.');
     if (lastDot == -1)
     {
         mRDFService->GetLiteral(EmptyString().get(), aResult);
@@ -1326,7 +1324,7 @@ FileSystemDataSource::getIEFavoriteURL(nsIRDFResource *source, nsString aFileURL
     nsCOMPtr<nsILineInputStream> linereader = do_QueryInterface(strm, &rv);
 
     nsAutoString    line;
-    nsCAutoString   cLine;
+    nsAutoCString   cLine;
     while(NS_SUCCEEDED(rv))
     {
         bool    isEOF;

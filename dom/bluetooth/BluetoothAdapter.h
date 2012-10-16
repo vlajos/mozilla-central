@@ -1,5 +1,5 @@
 /* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
-/* vim: set ts=2 et sw=2 tw=40: */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,6 +8,7 @@
 #define mozilla_dom_bluetooth_bluetoothadapter_h__
 
 #include "BluetoothCommon.h"
+#include "BluetoothPropertyContainer.h"
 #include "nsCOMPtr.h"
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMBluetoothAdapter.h"
@@ -19,10 +20,12 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSignal;
 class BluetoothNamedValue;
+class BluetoothValue;
 
 class BluetoothAdapter : public nsDOMEventTargetHelper
                        , public nsIDOMBluetoothAdapter
                        , public BluetoothSignalObserver
+                       , public BluetoothPropertyContainer
 {
 public:
   NS_DECL_ISUPPORTS_INHERITED
@@ -30,10 +33,11 @@ public:
 
   NS_FORWARD_NSIDOMEVENTTARGET(nsDOMEventTargetHelper::)
 
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothAdapter,
-                                           nsDOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(BluetoothAdapter,
+                                                         nsDOMEventTargetHelper)
+
   static already_AddRefed<BluetoothAdapter>
-  Create(nsPIDOMWindow* aOwner, const nsAString& name);
+  Create(nsPIDOMWindow* aOwner, const BluetoothValue& aValue);
 
   void Notify(const BluetoothSignal& aParam);
 
@@ -50,37 +54,34 @@ public:
     return ToIDOMEventTarget();
   }
 
-  nsresult GetProperties();
-  void SetPropertyByValue(const BluetoothNamedValue& aValue);  
+  void Unroot();
+  virtual void SetPropertyByValue(const BluetoothNamedValue& aValue);  
 private:
   
-  BluetoothAdapter(const nsAString& aPath) : mPath(aPath)
-  {
-  }
-
+  BluetoothAdapter(nsPIDOMWindow* aOwner, const BluetoothValue& aValue);
   ~BluetoothAdapter();
 
-  nsresult SetProperty(const BluetoothNamedValue& aValue,
-                       nsIDOMDOMRequest** aRequest);
+  void Root();
   nsresult StartStopDiscovery(bool aStart, nsIDOMDOMRequest** aRequest);
+  nsresult PairUnpair(bool aPair,
+                      nsIDOMBluetoothDevice* aDevice,
+                      nsIDOMDOMRequest** aRequest);
   
   nsString mAddress;
   nsString mName;
-  nsString mPath;
   bool mEnabled;
   bool mDiscoverable;
   bool mDiscovering;
   bool mPairable;
   bool mPowered;
-  PRUint32 mPairableTimeout;
-  PRUint32 mDiscoverableTimeout;
-  PRUint32 mClass;
+  uint32_t mPairableTimeout;
+  uint32_t mDiscoverableTimeout;
+  uint32_t mClass;
   nsTArray<nsString> mDeviceAddresses;
   nsTArray<nsString> mUuids;
-
-  NS_DECL_EVENT_HANDLER(propertychanged)
-  NS_DECL_EVENT_HANDLER(devicefound)
-  NS_DECL_EVENT_HANDLER(devicedisappeared)
+  JSObject* mJsUuids;
+  JSObject* mJsDeviceAddresses;
+  bool mIsRooted;
 };
 
 END_BLUETOOTH_NAMESPACE

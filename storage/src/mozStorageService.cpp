@@ -33,7 +33,6 @@
 #include "nsIPromptService.h"
 #include "nsIMemoryReporter.h"
 
-#include "mozilla/FunctionTimer.h"
 #include "mozilla/Util.h"
 
 namespace {
@@ -71,7 +70,7 @@ public:
 
     nsDependentCString filename(zFilename);
 
-    PRInt64 newLimit;
+    int64_t newLimit;
     if (NS_SUCCEEDED(data->callback->QuotaExceeded(filename, *piLimit,
                                                    iSize, data->userData,
                                                    &newLimit))) {
@@ -103,7 +102,7 @@ namespace storage {
 ////////////////////////////////////////////////////////////////////////////////
 //// Memory Reporting
 
-static PRInt64
+static int64_t
 GetStorageSQLiteMemoryUsed()
 {
   return ::sqlite3_memory_used();
@@ -168,7 +167,7 @@ public:
       nsTArray<nsRefPtr<Connection> > connections;
       mService->getConnections(connections);
 
-      for (PRUint32 i = 0; i < connections.Length(); i++) {
+      for (uint32_t i = 0; i < connections.Length(); i++) {
         nsRefPtr<Connection> &conn = connections[i];
 
         // Someone may have closed the Connection, in which case we skip it.
@@ -201,7 +200,7 @@ public:
       }
     }
 
-    PRInt64 other = ::sqlite3_memory_used() - totalConnSize;
+    int64_t other = ::sqlite3_memory_used() - totalConnSize;
 
     rv = aCb->Callback(NS_LITERAL_CSTRING(""),
                        NS_LITERAL_CSTRING("explicit/storage/sqlite/other"),
@@ -214,7 +213,7 @@ public:
     return NS_OK;
   }
 
-  NS_IMETHOD GetExplicitNonHeap(PRInt64 *aAmount)
+  NS_IMETHOD GetExplicitNonHeap(int64_t *aAmount)
   {
     // This reporter doesn't do any non-heap measurements.
     *aAmount = 0;
@@ -264,7 +263,7 @@ private:
 
     rv = aCb->Callback(NS_LITERAL_CSTRING(""), path,
                        nsIMemoryReporter::KIND_HEAP,
-                       nsIMemoryReporter::UNITS_BYTES, PRInt64(curr),
+                       nsIMemoryReporter::UNITS_BYTES, int64_t(curr),
                        aDesc, aClosure);
     NS_ENSURE_SUCCESS(rv, rv);
     *aTotal += curr;
@@ -287,7 +286,7 @@ public:
   ServiceMainThreadInitializer(Service *aService,
                                nsIObserver *aObserver,
                                nsIXPConnect **aXPConnectPtr,
-                               PRInt32 *aSynchronousPrefValPtr)
+                               int32_t *aSynchronousPrefValPtr)
   : mService(aService)
   , mObserver(aObserver)
   , mXPConnectPtr(aXPConnectPtr)
@@ -322,7 +321,7 @@ public:
     // We need to obtain the toolkit.storage.synchronous preferences on the main
     // thread because the preference service can only be accessed there.  This
     // is cached in the service for all future Open[Unshared]Database calls.
-    PRInt32 synchronous =
+    int32_t synchronous =
       Preferences::GetInt(PREF_TS_SYNCHRONOUS, PREF_TS_SYNCHRONOUS_DEFAULT);
     ::PR_ATOMIC_SET(mSynchronousPrefValPtr, synchronous);
 
@@ -340,7 +339,7 @@ private:
   Service *mService;
   nsIObserver *mObserver;
   nsIXPConnect **mXPConnectPtr;
-  PRInt32 *mSynchronousPrefValPtr;
+  int32_t *mSynchronousPrefValPtr;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -409,10 +408,10 @@ Service::getXPConnect()
   return xpc.forget();
 }
 
-PRInt32 Service::sSynchronousPref;
+int32_t Service::sSynchronousPref;
 
 // static
-PRInt32
+int32_t
 Service::getSynchronousPref()
 {
   return sSynchronousPref;
@@ -571,8 +570,6 @@ const sqlite3_mem_methods memMethods = {
 nsresult
 Service::initialize()
 {
-  NS_TIME_FUNCTION;
-
   int rc;
 
 #ifdef MOZ_STORAGE_MEMORY
@@ -620,7 +617,7 @@ Service::initialize()
 int
 Service::localeCompareStrings(const nsAString &aStr1,
                               const nsAString &aStr2,
-                              PRInt32 aComparisonStrength)
+                              int32_t aComparisonStrength)
 {
   // The implementation of nsICollation.CompareString() is platform-dependent.
   // On Linux it's not thread-safe.  It may not be on Windows and OS X either,
@@ -633,7 +630,7 @@ Service::localeCompareStrings(const nsAString &aStr1,
     return 0;
   }
 
-  PRInt32 res;
+  int32_t res;
   nsresult rv = coll->CompareString(aComparisonStrength, aStr1, aStr2, &res);
   if (NS_FAILED(rv)) {
     NS_ERROR("Collation compare string failed");
@@ -729,12 +726,6 @@ Service::OpenDatabase(nsIFile *aDatabaseFile,
 {
   NS_ENSURE_ARG(aDatabaseFile);
 
-#ifdef NS_FUNCTION_TIMER
-  nsCString leafname;
-  (void)aDatabaseFile->GetNativeLeafName(leafname);
-  NS_TIME_FUNCTION_FMT("mozIStorageService::OpenDatabase(%s)", leafname.get());
-#endif
-
   // Always ensure that SQLITE_OPEN_CREATE is passed in for compatibility
   // reasons.
   int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_SHAREDCACHE |
@@ -754,13 +745,6 @@ Service::OpenUnsharedDatabase(nsIFile *aDatabaseFile,
                               mozIStorageConnection **_connection)
 {
   NS_ENSURE_ARG(aDatabaseFile);
-
-#ifdef NS_FUNCTION_TIMER
-  nsCString leafname;
-  (void)aDatabaseFile->GetNativeLeafName(leafname);
-  NS_TIME_FUNCTION_FMT("mozIStorageService::OpenUnsharedDatabase(%s)",
-                       leafname.get());
-#endif
 
   // Always ensure that SQLITE_OPEN_CREATE is passed in for compatibility
   // reasons.
@@ -830,7 +814,7 @@ Service::Observe(nsISupports *, const char *aTopic, const PRUnichar *)
       nsTArray<nsRefPtr<Connection> > connections;
       getConnections(connections);
       anyOpen = false;
-      for (PRUint32 i = 0; i < connections.Length(); i++) {
+      for (uint32_t i = 0; i < connections.Length(); i++) {
         nsRefPtr<Connection> &conn = connections[i];
 
         // While it would be nice to close all connections, we only
@@ -849,7 +833,7 @@ Service::Observe(nsISupports *, const char *aTopic, const PRUnichar *)
 #ifdef DEBUG
     nsTArray<nsRefPtr<Connection> > connections;
     getConnections(connections);
-    for (PRUint32 i = 0, n = connections.Length(); i < n; i++) {
+    for (uint32_t i = 0, n = connections.Length(); i < n; i++) {
       MOZ_ASSERT(!connections[i]->ConnectionReady());
     }
 #endif
@@ -868,13 +852,6 @@ Service::OpenDatabaseWithVFS(nsIFile *aDatabaseFile,
 {
   NS_ENSURE_ARG(aDatabaseFile);
 
-#ifdef NS_FUNCTION_TIMER
-  nsCString leafname;
-  (void)aDatabaseFile->GetNativeLeafName(leafname);
-  NS_TIME_FUNCTION_FMT("mozIStorageService::OpenDatabaseWithVFS(%s)",
-                       leafname.get());
-#endif
-
   // Always ensure that SQLITE_OPEN_CREATE is passed in for compatibility
   // reasons.
   int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_SHAREDCACHE |
@@ -892,7 +869,7 @@ Service::OpenDatabaseWithVFS(nsIFile *aDatabaseFile,
 
 NS_IMETHODIMP
 Service::SetQuotaForFilenamePattern(const nsACString &aPattern,
-                                    PRInt64 aSizeLimit,
+                                    int64_t aSizeLimit,
                                     mozIStorageQuotaCallback *aCallback,
                                     nsISupports *aUserData)
 {
@@ -917,11 +894,11 @@ Service::UpdateQuotaInformationForFile(nsIFile *aFile)
 {
   NS_ENSURE_ARG_POINTER(aFile);
 
-  nsCString path;
-  nsresult rv = aFile->GetNativePath(path);
+  nsString path;
+  nsresult rv = aFile->GetPath(path);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  int rc = ::sqlite3_quota_file(PromiseFlatCString(path).get());
+  int rc = ::sqlite3_quota_file(NS_ConvertUTF16toUTF8(path).get());
   NS_ENSURE_TRUE(rc == SQLITE_OK, convertResultCode(rc));
 
   return NS_OK;

@@ -18,7 +18,6 @@
 #include "nsITransactionListener.h"     // for nsITransactionListener
 #include "nsIWeakReferenceUtils.h"      // for nsWeakPtr
 #include "nscore.h"                     // for NS_IMETHOD, nsresult, etc
-#include "prtypes.h"                    // for PRInt8
 
 class nsIDOMWindow;
 class nsITransaction;
@@ -89,8 +88,8 @@ protected:
 
   nsWeakPtr     mDOMWindow;
   nsWeakPtr     mDocShell;
-  PRInt8        mDirtyState;  
-  PRInt8        mSelectionCollapsed;  
+  int8_t        mDirtyState;  
+  int8_t        mSelectionCollapsed;  
   bool          mFirstDoOfFirstUndo;
     
 

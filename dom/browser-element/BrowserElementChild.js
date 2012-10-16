@@ -70,6 +70,12 @@ BrowserElementChild.prototype = {
     debug("Starting up.");
     sendAsyncMsg("hello");
 
+    // Set the docshell's name according to our <iframe>'s name attribute.
+    docShell.QueryInterface(Ci.nsIDocShellTreeItem).name =
+      sendSyncMsg('get-name')[0];
+
+    docShell.setFullscreenAllowed(sendSyncMsg('get-fullscreen-allowed')[0]);
+
     BrowserElementPromptService.mapWindowToBrowserElementChild(content, this);
 
     docShell.QueryInterface(Ci.nsIWebProgress)
@@ -87,26 +93,6 @@ BrowserElementChild.prototype = {
                        .createInstance(Ci.nsISecureBrowserUI);
     securityUI.init(content);
 
-    // A mozbrowser iframe contained inside a mozapp iframe should return false
-    // for nsWindowUtils::IsPartOfApp (unless the mozbrowser iframe is itself
-    // also mozapp).  That is, mozapp is transitive down to its children, but
-    // mozbrowser serves as a barrier.
-    //
-    // This is because mozapp iframes have some privileges which we don't want
-    // to extend to untrusted mozbrowser content.
-    //
-    // Get the app manifest from the parent, if our frame has one.
-    let appManifestURL = sendSyncMsg('get-mozapp-manifest-url')[0];
-    let windowUtils = content.QueryInterface(Ci.nsIInterfaceRequestor)
-                             .getInterface(Ci.nsIDOMWindowUtils);
-
-    if (!!appManifestURL) {
-      windowUtils.setIsApp(true);
-      windowUtils.setApp(appManifestURL);
-    } else {
-      windowUtils.setIsApp(false);
-    }
-
     // A cache of the menuitem dom objects keyed by the id we generate
     // and pass to the embedder
     this._ctxHandlers = {};
@@ -120,6 +106,12 @@ BrowserElementChild.prototype = {
 
     addEventListener('DOMLinkAdded',
                      this._iconChangedHandler.bind(this),
+                     /* useCapture = */ true,
+                     /* wantsUntrusted = */ false);
+
+    this._afterPaintHandlerClosure = this._afterPaintHandler.bind(this);
+    addEventListener('MozAfterPaint',
+                     this._afterPaintHandlerClosure,
                      /* useCapture = */ true,
                      /* wantsUntrusted = */ false);
 
@@ -364,6 +356,19 @@ BrowserElementChild.prototype = {
       else {
         debug("Not top level!");
       }
+    }
+  },
+
+  _afterPaintHandler: function(e) {
+    let uri = docShell.QueryInterface(Ci.nsIWebNavigation).currentURI;
+    debug("Got afterpaint event: " + uri.spec);
+    if (uri.spec != "about:blank") {
+      /* this._afterPaintHandlerClosure == arguments.callee, except we're in
+       * strict mode so we don't have arguments.callee. */
+      removeEventListener('MozAfterPaint', this._afterPaintHandlerClosure,
+                          /* useCapture */ true);
+
+      sendAsyncMsg('firstpaint');
     }
   },
 
@@ -672,6 +677,18 @@ BrowserElementChild.prototype = {
     onProgressChange: function(webProgress, request, curSelfProgress,
                                maxSelfProgress, curTotalProgress, maxTotalProgress) {},
   },
+
+  // Expose the message manager for WebApps and others.
+  _messageManagerPublic: {
+    sendAsyncMessage: global.sendAsyncMessage.bind(global),
+    sendSyncMessage: global.sendSyncMessage.bind(global),
+    addMessageListener: global.addMessageListener.bind(global),
+    removeMessageListener: global.removeMessageListener.bind(global)
+  },
+
+  get messageManager() {
+    return this._messageManagerPublic;
+  }
 };
 
 var api = new BrowserElementChild();

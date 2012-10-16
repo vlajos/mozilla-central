@@ -15,7 +15,6 @@
 #include "nsISupportsImpl.h"
 #include "nsRange.h"
 #include "nscore.h"
-#include "prtypes.h"
 
 class nsEditor;
 class nsINode;
@@ -47,13 +46,13 @@ public:
 protected:
 
   nsresult CreateTxnsToDeleteBetween(nsINode* aNode,
-                                     PRInt32 aStartOffset,
-                                     PRInt32 aEndOffset);
+                                     int32_t aStartOffset,
+                                     int32_t aEndOffset);
 
   nsresult CreateTxnsToDeleteNodesBetween();
 
   nsresult CreateTxnsToDeleteContent(nsINode* aParent,
-                                     PRInt32 aOffset,
+                                     int32_t aOffset,
                                      nsIEditor::EDirection aAction);
 
 protected:

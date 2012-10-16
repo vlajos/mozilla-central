@@ -5,7 +5,7 @@
 // whitelisted key events.
 "use strict";
 
-let Ci = Components.interfaces;
+let Ci = SpecialPowers.Ci;
 
 let whitelistedEvents = [
   Ci.nsIDOMKeyEvent.DOM_VK_ESCAPE,   // Back button.
@@ -19,7 +19,7 @@ let whitelistedEvents = [
 SimpleTest.waitForExplicitFinish();
 
 browserElementTestHelpers.setEnabledPref(true);
-browserElementTestHelpers.addToWhitelist();
+browserElementTestHelpers.addPermission();
 browserElementTestHelpers.setOOPDisabledPref(true); // this is breaking the autofocus.
 
 var iframe = document.createElement('iframe');

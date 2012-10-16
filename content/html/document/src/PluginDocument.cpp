@@ -120,8 +120,7 @@ PluginStreamListener::SetupPlugin()
     return NS_ERROR_UNEXPECTED;
   }
   nsObjectLoadingContent* olcc = static_cast<nsObjectLoadingContent*>(olc.get());
-  nsresult rv = olcc->InstantiatePluginInstance(mPluginDoc->GetType().get(),
-                                                mDocument->nsIDocument::GetDocumentURI());
+  nsresult rv = olcc->InstantiatePluginInstance();
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -240,7 +239,7 @@ PluginDocument::StartDocumentLoad(const char*         aCommand,
 nsresult
 PluginDocument::CreateSyntheticPluginDocument()
 {
-  NS_ASSERTION(!GetShell() || !GetShell()->DidInitialReflow(),
+  NS_ASSERTION(!GetShell() || !GetShell()->DidInitialize(),
                "Creating synthetic plugin document content too late");
 
   // make our generic document
@@ -282,7 +281,7 @@ PluginDocument::CreateSyntheticPluginDocument()
                           false);
 
   // set URL
-  nsCAutoString src;
+  nsAutoCString src;
   mDocumentURI->GetSpec(src);
   mPluginContent->SetAttr(kNameSpaceID_None, nsGkAtoms::src,
                           NS_ConvertUTF8toUTF16(src), false);

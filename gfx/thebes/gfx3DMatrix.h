@@ -56,6 +56,7 @@ public:
    * Return true if this matrix and |aMatrix| are the same matrix.
    */
   bool operator==(const gfx3DMatrix& aMatrix) const;
+  bool operator!=(const gfx3DMatrix& aMatrix) const;
   
   /**
    * Divide all values in the matrix by a scalar value
@@ -213,13 +214,15 @@ public:
    * a single transformation and post-multiply it onto the current
    * matrix.
    */
-  
+
   /**
    * Add a translation by aPoint after the matrix.
    * This is functionally equivalent to:
    * matrix * gfx3DMatrix::Translation(aPoint)
    */
   void TranslatePost(const gfxPoint3D& aPoint);
+
+  void ScalePost(float aX, float aY, float aZ);
 
   /**
    * Transforms a point according to this matrix.
@@ -317,6 +320,8 @@ public:
   static gfx3DMatrix ScalingMatrix(float aX, float aY, float aZ);
 
   gfxFloat Determinant() const;
+
+  void NudgeToIntegers(void);
 
 private:
 

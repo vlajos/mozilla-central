@@ -20,6 +20,7 @@
 #include "nsPluginSafety.h"
 #include "nsPluginLogging.h"
 #include "nsContentUtils.h"
+#include "nsPluginInstanceOwner.h"
 
 #include "nsIDocument.h"
 #include "nsIScriptGlobalObject.h"
@@ -32,6 +33,7 @@
 #include "nsIContent.h"
 
 #include "mozilla/Preferences.h"
+#include "nsVersionComparator.h"
 
 #ifdef MOZ_WIDGET_ANDROID
 #include "ANPBase.h"
@@ -88,15 +90,12 @@ class SharedPluginTexture {
 public:
   NS_INLINE_DECL_REFCOUNTING(SharedPluginTexture)
 
-  SharedPluginTexture() :
-    mCurrentHandle(0), mNeedNewImage(false), mLock("SharedPluginTexture.mLock")
+  SharedPluginTexture() : mLock("SharedPluginTexture.mLock")
   {
   }
 
   ~SharedPluginTexture()
   {
-    // This will be destroyed in the compositor (as it normally is)
-    mCurrentHandle = nullptr;
   }
 
   TextureInfo Lock()
@@ -115,9 +114,7 @@ public:
   }
 
   void Release(TextureInfo& aTextureInfo)
-  {
-    mNeedNewImage = true;
- 
+  { 
     mTextureInfo = aTextureInfo;
     mLock.Unlock();
   } 
@@ -126,33 +123,25 @@ public:
   {
     MutexAutoLock lock(mLock);
 
-    if (!mNeedNewImage)
-      return mCurrentHandle;
-
     if (!EnsureGLContext())
-      return nullptr;
-
-    mNeedNewImage = false;
+      return 0;
 
     if (mTextureInfo.mWidth == 0 || mTextureInfo.mHeight == 0)
-      return nullptr;
+      return 0;
 
-    mCurrentHandle = sPluginContext->CreateSharedHandle(TextureImage::ThreadShared, (void*)mTextureInfo.mTexture, GLContext::TextureID);
+    SharedTextureHandle handle = sPluginContext->CreateSharedHandle(TextureImage::ThreadShared, (void*)mTextureInfo.mTexture, GLContext::TextureID);
 
     // We want forget about this now, so delete the texture. Assigning it to zero
     // ensures that we create a new one in Lock()
     sPluginContext->fDeleteTextures(1, &mTextureInfo.mTexture);
     mTextureInfo.mTexture = 0;
     
-    return mCurrentHandle;
+    return handle;
   }
 
 private:
   TextureInfo mTextureInfo;
-  SharedTextureHandle mCurrentHandle;
  
-  bool mNeedNewImage;
-
   Mutex mLock;
 };
 
@@ -170,7 +159,6 @@ nsNPAPIPluginInstance::nsNPAPIPluginInstance()
     mDrawingModel(kDefaultDrawingModel),
 #ifdef MOZ_WIDGET_ANDROID
     mANPDrawingModel(0),
-    mOnScreen(true),
     mFullScreenOrientation(dom::eScreenOrientation_LandscapePrimary),
     mWakeLocked(false),
     mFullScreen(false),
@@ -185,18 +173,14 @@ nsNPAPIPluginInstance::nsNPAPIPluginInstance()
     mPlugin(nullptr),
     mMIMEType(nullptr),
     mOwner(nullptr),
-    mCurrentPluginEvent(nullptr),
-#if defined(MOZ_X11) || defined(XP_WIN) || defined(XP_MACOSX)
-    mUsePluginLayersPref(true)
-#else
-    mUsePluginLayersPref(false)
+    mCurrentPluginEvent(nullptr)
+#ifdef MOZ_WIDGET_ANDROID
+  , mOnScreen(true)
 #endif
+  , mHaveJavaC2PJSObjectQuirk(false)
 {
   mNPP.pdata = NULL;
   mNPP.ndata = this;
-
-  mUsePluginLayersPref =
-    Preferences::GetBool("plugins.use_layers", mUsePluginLayersPref);
 
   PLUGIN_LOG(PLUGIN_LOG_BASIC, ("nsNPAPIPluginInstance ctor: this=%p\n",this));
 }
@@ -240,7 +224,7 @@ nsNPAPIPluginInstance::StopTime()
   return mStopTime;
 }
 
-nsresult nsNPAPIPluginInstance::Initialize(nsNPAPIPlugin *aPlugin, nsIPluginInstanceOwner* aOwner, const char* aMIMEType)
+nsresult nsNPAPIPluginInstance::Initialize(nsNPAPIPlugin *aPlugin, nsPluginInstanceOwner* aOwner, const char* aMIMEType)
 {
   PLUGIN_LOG(PLUGIN_LOG_NORMAL, ("nsNPAPIPluginInstance::Initialize this=%p\n",this));
 
@@ -278,7 +262,7 @@ nsresult nsNPAPIPluginInstance::Stop()
   }
 
   // clean up all outstanding timers
-  for (PRUint32 i = mTimers.Length(); i > 0; i--)
+  for (uint32_t i = mTimers.Length(); i > 0; i--)
     UnscheduleTimer(mTimers[i - 1]->id);
 
   // If there's code from this plugin instance on the stack, delay the
@@ -321,7 +305,7 @@ nsresult nsNPAPIPluginInstance::Stop()
   mRunning = DESTROYED;
 
 #if MOZ_WIDGET_ANDROID
-  for (PRUint32 i = 0; i < mPostedEvents.Length(); i++) {
+  for (uint32_t i = 0; i < mPostedEvents.Length(); i++) {
     mPostedEvents[i]->Cancel();
   }
 
@@ -339,13 +323,13 @@ nsresult nsNPAPIPluginInstance::Stop()
 already_AddRefed<nsPIDOMWindow>
 nsNPAPIPluginInstance::GetDOMWindow()
 {
-  nsCOMPtr<nsIPluginInstanceOwner> owner;
-  GetOwner(getter_AddRefs(owner));
-  if (!owner)
+  if (!mOwner)
     return nullptr;
 
+  nsRefPtr<nsPluginInstanceOwner> deathGrip(mOwner);
+
   nsCOMPtr<nsIDocument> doc;
-  owner->GetDocument(getter_AddRefs(doc));
+  mOwner->GetDocument(getter_AddRefs(doc));
   if (!doc)
     return nullptr;
 
@@ -358,43 +342,37 @@ nsNPAPIPluginInstance::GetDOMWindow()
 nsresult
 nsNPAPIPluginInstance::GetTagType(nsPluginTagType *result)
 {
-  if (mOwner) {
-    nsCOMPtr<nsIPluginTagInfo> tinfo(do_QueryInterface(mOwner));
-    if (tinfo)
-      return tinfo->GetTagType(result);
+  if (!mOwner) {
+    return NS_ERROR_FAILURE;
   }
 
-  return NS_ERROR_FAILURE;
+  return mOwner->GetTagType(result);
 }
 
 nsresult
-nsNPAPIPluginInstance::GetAttributes(PRUint16& n, const char*const*& names,
+nsNPAPIPluginInstance::GetAttributes(uint16_t& n, const char*const*& names,
                                      const char*const*& values)
 {
-  if (mOwner) {
-    nsCOMPtr<nsIPluginTagInfo> tinfo(do_QueryInterface(mOwner));
-    if (tinfo)
-      return tinfo->GetAttributes(n, names, values);
+  if (!mOwner) {
+    return NS_ERROR_FAILURE;
   }
 
-  return NS_ERROR_FAILURE;
+  return mOwner->GetAttributes(n, names, values);
 }
 
 nsresult
-nsNPAPIPluginInstance::GetParameters(PRUint16& n, const char*const*& names,
+nsNPAPIPluginInstance::GetParameters(uint16_t& n, const char*const*& names,
                                      const char*const*& values)
 {
-  if (mOwner) {
-    nsCOMPtr<nsIPluginTagInfo> tinfo(do_QueryInterface(mOwner));
-    if (tinfo)
-      return tinfo->GetParameters(n, names, values);
+  if (!mOwner) {
+    return NS_ERROR_FAILURE;
   }
 
-  return NS_ERROR_FAILURE;
+  return mOwner->GetParameters(n, names, values);
 }
 
 nsresult
-nsNPAPIPluginInstance::GetMode(PRInt32 *result)
+nsNPAPIPluginInstance::GetMode(int32_t *result)
 {
   if (mOwner)
     return mOwner->GetMode(result);
@@ -423,7 +401,7 @@ nsNPAPIPluginInstance::Start()
 
   PluginDestructionGuard guard(this);
 
-  PRUint16 count = 0;
+  uint16_t count = 0;
   const char* const* names = nullptr;
   const char* const* values = nullptr;
   nsPluginTagType tagtype;
@@ -439,7 +417,7 @@ nsNPAPIPluginInstance::Start()
     // with a null entry as a separator. This is for 4.x backwards compatibility!
     // see bug 111008 for details
     if (tagtype != nsPluginTagType_Embed) {
-      PRUint16 pcount = 0;
+      uint16_t pcount = 0;
       const char* const* pnames = nullptr;
       const char* const* pvalues = nullptr;    
       if (NS_SUCCEEDED(GetParameters(pcount, pnames, pvalues))) {
@@ -456,12 +434,14 @@ nsNPAPIPluginInstance::Start()
     }
   }
 
-  PRInt32       mode;
+  int32_t       mode;
   const char*   mimetype;
   NPError       error = NPERR_GENERIC_ERROR;
 
   GetMode(&mode);
   GetMIMEType(&mimetype);
+
+  CheckJavaC2PJSObjectQuirk(count, names, values);
 
   // Some older versions of Flash have a bug in them
   // that causes the stack to become currupt if we
@@ -494,7 +474,7 @@ nsNPAPIPluginInstance::Start()
          cachedDisableHack = 1;
     }
     if (cachedDisableHack > 0) {
-      for (PRUint16 i=0; i<count; i++) {
+      for (uint16_t i=0; i<count; i++) {
         if (!PL_strcasecmp(names[i], blockedParam)) {
           // BIG FAT WARNIG:
           // I'm ugly casting |const char*| to |char*| and altering it
@@ -545,7 +525,7 @@ nsNPAPIPluginInstance::Start()
   mozilla::AutoLocalJNIFrame frame(env);
 #endif
 
-  nsresult newResult = library->NPP_New((char*)mimetype, &mNPP, (PRUint16)mode, count, (char**)names, (char**)values, NULL, &error);
+  nsresult newResult = library->NPP_New((char*)mimetype, &mNPP, (uint16_t)mode, count, (char**)names, (char**)values, NULL, &error);
   mInPluginInitCall = oldVal;
 
   NPP_PLUGIN_LOG(PLUGIN_LOG_NORMAL,
@@ -647,8 +627,8 @@ nsresult nsNPAPIPluginInstance::Print(NPPrint* platformPrint)
   // to be compatible with the older SDK versions and to match what
   // NPAPI and other browsers do, overwrite |window.type| field with one
   // more copy of |platformPrint|. See bug 113264
-  PRUint16 sdkmajorversion = (pluginFunctions->version & 0xff00)>>8;
-  PRUint16 sdkminorversion = pluginFunctions->version & 0x00ff;
+  uint16_t sdkmajorversion = (pluginFunctions->version & 0xff00)>>8;
+  uint16_t sdkminorversion = pluginFunctions->version & 0x00ff;
   if ((sdkmajorversion == 0) && (sdkminorversion < 11)) {
     // Let's copy platformPrint bytes over to where it was supposed to be
     // in older versions -- four bytes towards the beginning of the struct
@@ -681,7 +661,7 @@ nsresult nsNPAPIPluginInstance::Print(NPPrint* platformPrint)
   return NS_OK;
 }
 
-nsresult nsNPAPIPluginInstance::HandleEvent(void* event, PRInt16* result)
+nsresult nsNPAPIPluginInstance::HandleEvent(void* event, int16_t* result)
 {
   if (RUNNING != mRunning)
     return NS_OK;
@@ -696,7 +676,7 @@ nsresult nsNPAPIPluginInstance::HandleEvent(void* event, PRInt16* result)
 
   NPPluginFuncs* pluginFunctions = mPlugin->PluginFuncs();
 
-  PRInt16 tmpResult = kNPEventNotHandled;
+  int16_t tmpResult = kNPEventNotHandled;
 
   if (pluginFunctions->event) {
     mCurrentPluginEvent = event;
@@ -810,20 +790,18 @@ void nsNPAPIPluginInstance::RedrawPlugin()
 void nsNPAPIPluginInstance::SetEventModel(NPEventModel aModel)
 {
   // the event model needs to be set for the object frame immediately
-  nsCOMPtr<nsIPluginInstanceOwner> owner;
-  GetOwner(getter_AddRefs(owner));
-  if (!owner) {
+  if (!mOwner) {
     NS_WARNING("Trying to set event model without a plugin instance owner!");
     return;
   }
 
-  owner->SetEventModel(aModel);
+  mOwner->SetEventModel(aModel);
 }
 #endif
 
 #if defined(MOZ_WIDGET_ANDROID)
 
-static void SendLifecycleEvent(nsNPAPIPluginInstance* aInstance, PRUint32 aAction)
+static void SendLifecycleEvent(nsNPAPIPluginInstance* aInstance, uint32_t aAction)
 {
   ANPEvent event;
   event.inSize = sizeof(ANPEvent);
@@ -893,7 +871,7 @@ void nsNPAPIPluginInstance::NotifySize(nsIntSize size)
   HandleEvent(&event, nullptr);
 }
 
-void nsNPAPIPluginInstance::SetANPDrawingModel(PRUint32 aModel)
+void nsNPAPIPluginInstance::SetANPDrawingModel(uint32_t aModel)
 {
   mANPDrawingModel = aModel;
 }
@@ -916,12 +894,12 @@ void nsNPAPIPluginInstance::PostEvent(void* event)
   NS_DispatchToMainThread(r);
 }
 
-void nsNPAPIPluginInstance::SetFullScreenOrientation(PRUint32 orientation)
+void nsNPAPIPluginInstance::SetFullScreenOrientation(uint32_t orientation)
 {
   if (mFullScreenOrientation == orientation)
     return;
 
-  PRUint32 oldOrientation = mFullScreenOrientation;
+  uint32_t oldOrientation = mFullScreenOrientation;
   mFullScreenOrientation = orientation;
 
   if (mFullScreen) {
@@ -1000,7 +978,7 @@ nsSurfaceTexture* nsNPAPIPluginInstance::CreateSurfaceTexture()
 void nsNPAPIPluginInstance::OnSurfaceTextureFrameAvailable()
 {
   if (mRunning == RUNNING && mOwner)
-    RedrawPlugin();
+    AndroidBridge::Bridge()->ScheduleComposite();
 }
 
 void* nsNPAPIPluginInstance::AcquireContentWindow()
@@ -1022,7 +1000,7 @@ SharedTextureHandle nsNPAPIPluginInstance::CreateSharedHandle()
   } else if (mContentSurface) {
     EnsureGLContext();
     return sPluginContext->CreateSharedHandle(TextureImage::ThreadShared, mContentSurface, GLContext::SurfaceTexture);
-  } else return nullptr;
+  } else return 0;
 }
 
 void* nsNPAPIPluginInstance::AcquireVideoWindow()
@@ -1077,10 +1055,10 @@ void nsNPAPIPluginInstance::SetInverted(bool aInverted)
 
 #endif
 
-nsresult nsNPAPIPluginInstance::GetDrawingModel(PRInt32* aModel)
+nsresult nsNPAPIPluginInstance::GetDrawingModel(int32_t* aModel)
 {
 #if defined(XP_MACOSX)
-  *aModel = (PRInt32)mDrawingModel;
+  *aModel = (int32_t)mDrawingModel;
   return NS_OK;
 #else
   return NS_ERROR_FAILURE;
@@ -1106,6 +1084,10 @@ nsresult nsNPAPIPluginInstance::IsRemoteDrawingCoreAnimation(bool* aDrawing)
 nsresult
 nsNPAPIPluginInstance::GetJSObject(JSContext *cx, JSObject** outObject)
 {
+  if (mHaveJavaC2PJSObjectQuirk) {
+    return NS_ERROR_FAILURE;
+  }
+
   NPObject *npobj = nullptr;
   nsresult rv = GetValueFromPlugin(NPPVpluginScriptableNPObject, &npobj);
   if (NS_FAILED(rv) || !npobj)
@@ -1118,11 +1100,10 @@ nsNPAPIPluginInstance::GetJSObject(JSContext *cx, JSObject** outObject)
   return NS_OK;
 }
 
-nsresult
+void
 nsNPAPIPluginInstance::SetCached(bool aCache)
 {
   mCached = aCache;
-  return NS_OK;
 }
 
 bool
@@ -1224,18 +1205,13 @@ nsNPAPIPluginInstance::NotifyPainted(void)
 }
 
 nsresult
-nsNPAPIPluginInstance::UseAsyncPainting(bool* aIsAsync)
+nsNPAPIPluginInstance::GetIsOOP(bool* aIsAsync)
 {
-  if (!mUsePluginLayersPref) {
-    *aIsAsync = mUsePluginLayersPref;
-    return NS_OK;
-  }
-
   AutoPluginLibraryCall library(this);
   if (!library)
     return NS_ERROR_FAILURE;
 
-  *aIsAsync = library->UseAsyncPainting();
+  *aIsAsync = library->IsOOP();
   return NS_OK;
 }
 
@@ -1329,7 +1305,7 @@ nsNPAPIPluginInstance::PushPopupsEnabledState(bool aEnabled)
 nsresult
 nsNPAPIPluginInstance::PopPopupsEnabledState()
 {
-  PRInt32 last = mPopupStates.Length() - 1;
+  int32_t last = mPopupStates.Length() - 1;
 
   if (last < 0) {
     // Nothing to pop.
@@ -1350,7 +1326,7 @@ nsNPAPIPluginInstance::PopPopupsEnabledState()
 }
 
 nsresult
-nsNPAPIPluginInstance::GetPluginAPIVersion(PRUint16* version)
+nsNPAPIPluginInstance::GetPluginAPIVersion(uint16_t* version)
 {
   NS_ENSURE_ARG_POINTER(version);
 
@@ -1433,17 +1409,17 @@ PluginTimerCallback(nsITimer *aTimer, void *aClosure)
     return;
 
   // use UnscheduleTimer to clean up if this is a one-shot timer
-  PRUint32 timerType;
+  uint32_t timerType;
   t->timer->GetType(&timerType);
   if (timerType == nsITimer::TYPE_ONE_SHOT)
       inst->UnscheduleTimer(id);
 }
 
 nsNPAPITimer*
-nsNPAPIPluginInstance::TimerWithID(uint32_t id, PRUint32* index)
+nsNPAPIPluginInstance::TimerWithID(uint32_t id, uint32_t* index)
 {
-  PRUint32 len = mTimers.Length();
-  for (PRUint32 i = 0; i < len; i++) {
+  uint32_t len = mTimers.Length();
+  for (uint32_t i = 0; i < len; i++) {
     if (mTimers[i]->id == id) {
       if (index)
         *index = i;
@@ -1456,6 +1432,9 @@ nsNPAPIPluginInstance::TimerWithID(uint32_t id, PRUint32* index)
 uint32_t
 nsNPAPIPluginInstance::ScheduleTimer(uint32_t interval, NPBool repeat, void (*timerFunc)(NPP npp, uint32_t timerID))
 {
+  if (RUNNING != mRunning)
+    return 0;
+
   nsNPAPITimer *newTimer = new nsNPAPITimer();
 
   newTimer->inCallback = false;
@@ -1491,7 +1470,7 @@ void
 nsNPAPIPluginInstance::UnscheduleTimer(uint32_t timerID)
 {
   // find the timer struct by ID
-  PRUint32 index;
+  uint32_t index;
   nsNPAPITimer* t = TimerWithID(timerID, &index);
   if (!t)
     return;
@@ -1541,11 +1520,7 @@ nsNPAPIPluginInstance::GetDOMElement(nsIDOMElement* *result)
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIPluginTagInfo> tinfo(do_QueryInterface(mOwner));
-  if (tinfo)
-    return tinfo->GetDOMElement(result);
-
-  return NS_ERROR_FAILURE;
+  return mOwner->GetDOMElement(result);
 }
 
 nsresult
@@ -1554,12 +1529,10 @@ nsNPAPIPluginInstance::InvalidateRect(NPRect *invalidRect)
   if (RUNNING != mRunning)
     return NS_OK;
 
-  nsCOMPtr<nsIPluginInstanceOwner> owner;
-  GetOwner(getter_AddRefs(owner));
-  if (!owner)
+  if (!mOwner)
     return NS_ERROR_FAILURE;
 
-  return owner->InvalidateRect(invalidRect);
+  return mOwner->InvalidateRect(invalidRect);
 }
 
 nsresult
@@ -1568,12 +1541,10 @@ nsNPAPIPluginInstance::InvalidateRegion(NPRegion invalidRegion)
   if (RUNNING != mRunning)
     return NS_OK;
 
-  nsCOMPtr<nsIPluginInstanceOwner> owner;
-  GetOwner(getter_AddRefs(owner));
-  if (!owner)
+  if (!mOwner)
     return NS_ERROR_FAILURE;
 
-  return owner->InvalidateRegion(invalidRegion);
+  return mOwner->InvalidateRegion(invalidRegion);
 }
 
 nsresult
@@ -1590,15 +1561,15 @@ nsNPAPIPluginInstance::GetMIMEType(const char* *result)
 nsresult
 nsNPAPIPluginInstance::GetJSContext(JSContext* *outContext)
 {
-  nsCOMPtr<nsIPluginInstanceOwner> owner;
-  GetOwner(getter_AddRefs(owner));
-  if (!owner)
+  if (!mOwner)
     return NS_ERROR_FAILURE;
+
+  nsRefPtr<nsPluginInstanceOwner> deathGrip(mOwner);
 
   *outContext = NULL;
   nsCOMPtr<nsIDocument> document;
 
-  nsresult rv = owner->GetDocument(getter_AddRefs(document));
+  nsresult rv = mOwner->GetDocument(getter_AddRefs(document));
 
   if (NS_SUCCEEDED(rv) && document) {
     nsIScriptGlobalObject *global = document->GetScriptGlobalObject();
@@ -1615,20 +1586,16 @@ nsNPAPIPluginInstance::GetJSContext(JSContext* *outContext)
   return rv;
 }
 
-nsresult
-nsNPAPIPluginInstance::GetOwner(nsIPluginInstanceOwner **aOwner)
+nsPluginInstanceOwner*
+nsNPAPIPluginInstance::GetOwner()
 {
-  NS_ENSURE_ARG_POINTER(aOwner);
-  *aOwner = mOwner;
-  NS_IF_ADDREF(mOwner);
-  return (mOwner ? NS_OK : NS_ERROR_FAILURE);
+  return mOwner;
 }
 
-nsresult
-nsNPAPIPluginInstance::SetOwner(nsIPluginInstanceOwner *aOwner)
+void
+nsNPAPIPluginInstance::SetOwner(nsPluginInstanceOwner *aOwner)
 {
   mOwner = aOwner;
-  return NS_OK;
 }
 
 nsresult
@@ -1638,14 +1605,6 @@ nsNPAPIPluginInstance::ShowStatus(const char* message)
     return mOwner->ShowStatus(message);
 
   return NS_ERROR_FAILURE;
-}
-
-nsresult
-nsNPAPIPluginInstance::InvalidateOwner()
-{
-  mOwner = nullptr;
-
-  return NS_OK;
 }
 
 nsresult
@@ -1661,8 +1620,8 @@ nsNPAPIPluginInstance::URLRedirectResponse(void* notifyData, NPBool allow)
     return;
   }
 
-  PRUint32 listenerCount = mStreamListeners.Length();
-  for (PRUint32 i = 0; i < listenerCount; i++) {
+  uint32_t listenerCount = mStreamListeners.Length();
+  for (uint32_t i = 0; i < listenerCount; i++) {
     nsNPAPIPluginStreamListener* currentListener = mStreamListeners[i];
     if (currentListener->GetNotifyData() == notifyData) {
       currentListener->URLRedirectResponse(allow);
@@ -1737,4 +1696,106 @@ nsNPAPIPluginInstance::CarbonNPAPIFailure()
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch CarbonEventModelFailureEvent.");
   }
+}
+
+static bool
+GetJavaVersionFromMimetype(nsPluginTag* pluginTag, nsCString& version)
+{
+  for (uint32_t i = 0; i < pluginTag->mMimeTypes.Length(); ++i) {
+    nsCString type = pluginTag->mMimeTypes[i];
+    nsAutoCString jpi("application/x-java-applet;jpi-version=");
+
+    int32_t idx = type.Find(jpi, false, 0, -1);
+    if (idx != 0) {
+      continue;
+    }
+
+    type.Cut(0, jpi.Length());
+    if (type.IsEmpty()) {
+      continue;
+    }
+
+    type.ReplaceChar('_', '.');
+    version = type;
+    return true;
+  }
+
+  return false;
+}
+
+void
+nsNPAPIPluginInstance::CheckJavaC2PJSObjectQuirk(uint16_t paramCount,
+                                                 const char* const* paramNames,
+                                                 const char* const* paramValues)
+{
+  if (!mMIMEType || !mPlugin) {
+    return;
+  }
+
+  nsPluginTagType tagtype;
+  nsresult rv = GetTagType(&tagtype);
+  if (NS_FAILED(rv) ||
+      (tagtype != nsPluginTagType_Applet)) {
+    return;
+  }
+
+  nsRefPtr<nsPluginHost> pluginHost =
+    already_AddRefed<nsPluginHost>(nsPluginHost::GetInst());
+  if (!pluginHost ||
+      !pluginHost->IsPluginClickToPlayForType(mMIMEType)) {
+    return;
+  }
+
+  nsPluginTag* pluginTag = pluginHost->TagForPlugin(mPlugin);
+  if (!pluginTag ||
+      !pluginTag->mIsJavaPlugin) {
+    return;
+  }
+
+  // check the params for "code" being present and non-empty
+  bool haveCodeParam = false;
+  bool isCodeParamEmpty = true;
+
+  for (uint16_t i = 0; i < paramCount; ++i) {
+    if (PL_strcasecmp(paramNames[i], "code") == 0) {
+      haveCodeParam = true;
+      if (PL_strlen(paramValues[i]) > 0) {
+        isCodeParamEmpty = false;
+      }
+      break;
+    }
+  }
+
+  // Due to the Java version being specified inconsistently across platforms
+  // check the version via the mimetype for choosing specific Java versions
+  nsCString javaVersion;
+  if (!GetJavaVersionFromMimetype(pluginTag, javaVersion)) {
+    return;
+  }
+
+  mozilla::Version version = javaVersion.get();
+
+  if (version >= "1.7.0.4") {
+    return;
+  }
+
+  if (!haveCodeParam && version >= "1.6.0.34" && version < "1.7") {
+    return;
+  }
+
+  if (haveCodeParam && !isCodeParamEmpty) {
+    return;
+  }
+
+  mHaveJavaC2PJSObjectQuirk = true;
+}
+
+double
+nsNPAPIPluginInstance::GetContentsScaleFactor()
+{
+  double scaleFactor = 1.0;
+  if (mOwner) {
+    mOwner->GetContentsScaleFactor(&scaleFactor);
+  }
+  return scaleFactor;
 }

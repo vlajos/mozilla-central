@@ -30,12 +30,31 @@ public:
    * Get the index of the given node in the list.  Will return -1 if the node
    * is not in the list.
    */
-  virtual PRInt32 IndexOf(nsIContent* aContent) = 0;
+  virtual int32_t IndexOf(nsIContent* aContent) = 0;
 
   /**
    * Get the root node for this nodelist.
    */
   virtual nsINode* GetParentObject() = 0;
+
+  using nsIDOMNodeList::Item;
+
+  uint32_t Length()
+  {
+    uint32_t length;
+    GetLength(&length);
+    return length;
+  }
+  nsIContent* Item(uint32_t aIndex)
+  {
+    return GetNodeAt(aIndex);
+  }
+  nsIContent* IndexedGetter(uint32_t aIndex, bool& aFound)
+  {
+    nsIContent* item = Item(aIndex);
+    aFound = !!item;
+    return item;
+  }
 };
 
 #define NS_NODELIST_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                  \

@@ -9,18 +9,20 @@
 #include "SVGAnimatedTransformList.h"
 #include "nsSVGElement.h"
 #include "nsContentUtils.h"
+#include "mozilla/dom/SVGTransformListBinding.h"
 #include "dombindings.h"
+#include "nsError.h"
 
 // local helper functions
 namespace {
 
 void UpdateListIndicesFromIndex(
   nsTArray<mozilla::DOMSVGTransform*>& aItemsArray,
-  PRUint32 aStartingIndex)
+  uint32_t aStartingIndex)
 {
-  PRUint32 length = aItemsArray.Length();
+  uint32_t length = aItemsArray.Length();
 
-  for (PRUint32 i = aStartingIndex; i < length; ++i) {
+  for (uint32_t i = aStartingIndex; i < length; ++i) {
     if (aItemsArray[i]) {
       aItemsArray[i]->UpdateListIndex(i);
     }
@@ -76,27 +78,28 @@ JSObject*
 DOMSVGTransformList::WrapObject(JSContext *cx, JSObject *scope,
                                 bool *triedToWrap)
 {
-  return mozilla::dom::binding::SVGTransformList::create(cx, scope, this,
-                                                         triedToWrap);
+  JSObject* obj = mozilla::dom::SVGTransformListBinding::Wrap(cx, scope, this,
+                                                              triedToWrap);
+  if (obj || *triedToWrap) {
+    return obj;
+  }
+
+  *triedToWrap = true;
+  return mozilla::dom::oldproxybindings::SVGTransformList::create(cx, scope,
+                                                                  this);
 }
 
 nsIDOMSVGTransform*
-DOMSVGTransformList::GetItemAt(PRUint32 aIndex)
+DOMSVGTransformList::GetItemAt(uint32_t aIndex)
 {
-  if (IsAnimValList()) {
-    Element()->FlushAnimations();
-  }
-  if (aIndex < Length()) {
-    EnsureItemAt(aIndex);
-    return mItems[aIndex];
-  }
-  return nullptr;
+  ErrorResult rv;
+  return GetItem(aIndex, rv);
 }
 
 void
-DOMSVGTransformList::InternalListLengthWillChange(PRUint32 aNewLength)
+DOMSVGTransformList::InternalListLengthWillChange(uint32_t aNewLength)
 {
-  PRUint32 oldLength = mItems.Length();
+  uint32_t oldLength = mItems.Length();
 
   if (aNewLength > DOMSVGTransform::MaxListIndex()) {
     // It's safe to get out of sync with our internal list as long as we have
@@ -112,7 +115,7 @@ DOMSVGTransformList::InternalListLengthWillChange(PRUint32 aNewLength)
   }
 
   // If our length will decrease, notify the items that will be removed:
-  for (PRUint32 i = aNewLength; i < oldLength; ++i) {
+  for (uint32_t i = aNewLength; i < oldLength; ++i) {
     if (mItems[i]) {
       mItems[i]->RemovingFromList();
     }
@@ -126,7 +129,7 @@ DOMSVGTransformList::InternalListLengthWillChange(PRUint32 aNewLength)
   }
 
   // If our length has increased, null out the new pointers:
-  for (PRUint32 i = oldLength; i < aNewLength; ++i) {
+  for (uint32_t i = oldLength; i < aNewLength; ++i) {
     mItems[i] = nullptr;
   }
 }
@@ -145,31 +148,29 @@ DOMSVGTransformList::InternalList() const
 
 /* readonly attribute unsigned long numberOfItems; */
 NS_IMETHODIMP
-DOMSVGTransformList::GetNumberOfItems(PRUint32 *aNumberOfItems)
+DOMSVGTransformList::GetNumberOfItems(uint32_t *aNumberOfItems)
 {
-  if (IsAnimValList()) {
-    Element()->FlushAnimations();
-  }
-  *aNumberOfItems = Length();
+  *aNumberOfItems = NumberOfItems();
   return NS_OK;
 }
 
 /* readonly attribute unsigned long length; */
 NS_IMETHODIMP
-DOMSVGTransformList::GetLength(PRUint32 *aLength)
+DOMSVGTransformList::GetLength(uint32_t *aLength)
 {
-  return GetNumberOfItems(aLength);
+  *aLength = Length();
+  return NS_OK;
 }
 
-/* void clear (); */
-NS_IMETHODIMP
-DOMSVGTransformList::Clear()
+void
+DOMSVGTransformList::Clear(ErrorResult& error)
 {
   if (IsAnimValList()) {
-    return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR;
+    error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    return;
   }
 
-  if (Length() > 0) {
+  if (LengthNoFlush() > 0) {
     nsAttrValue emptyOrOldValue = Element()->WillChangeTransformList();
     // Notify any existing DOM items of removal *before* truncating the lists
     // so that they can find their SVGTransform internal counterparts and copy
@@ -183,17 +184,23 @@ DOMSVGTransformList::Clear()
       Element()->AnimationNeedsResample();
     }
   }
-  return NS_OK;
 }
 
-/* nsIDOMSVGTransform initialize (in nsIDOMSVGTransform newItem); */
+/* void clear (); */
 NS_IMETHODIMP
-DOMSVGTransformList::Initialize(nsIDOMSVGTransform *newItem,
-                                nsIDOMSVGTransform **_retval)
+DOMSVGTransformList::Clear()
 {
-  *_retval = nullptr;
+  ErrorResult rv;
+  Clear(rv);
+  return rv.ErrorCode();
+}
+
+already_AddRefed<nsIDOMSVGTransform>
+DOMSVGTransformList::Initialize(nsIDOMSVGTransform *newItem, ErrorResult& error)
+{
   if (IsAnimValList()) {
-    return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR;
+    error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    return nullptr;
   }
 
   // If newItem is already in a list we should insert a clone of newItem, and
@@ -206,48 +213,71 @@ DOMSVGTransformList::Initialize(nsIDOMSVGTransform *newItem,
 
   nsCOMPtr<DOMSVGTransform> domItem = do_QueryInterface(newItem);
   if (!domItem) {
-    return NS_ERROR_DOM_SVG_WRONG_TYPE_ERR;
+    error.Throw(NS_ERROR_DOM_SVG_WRONG_TYPE_ERR);
+    return nullptr;
   }
   if (domItem->HasOwner()) {
     newItem = domItem->Clone();
   }
 
-  Clear();
-  return InsertItemBefore(newItem, 0, _retval);
+  Clear(error);
+  MOZ_ASSERT(!error.Failed(), "How could this fail?");
+  return InsertItemBefore(newItem, 0, error);
+}
+
+/* nsIDOMSVGTransform initialize (in nsIDOMSVGTransform newItem); */
+NS_IMETHODIMP
+DOMSVGTransformList::Initialize(nsIDOMSVGTransform *newItem,
+                                nsIDOMSVGTransform **_retval)
+{
+  ErrorResult rv;
+  *_retval = Initialize(newItem, rv).get();
+  return rv.ErrorCode();
+}
+
+nsIDOMSVGTransform*
+DOMSVGTransformList::IndexedGetter(uint32_t index, bool& found,
+                                   ErrorResult& error)
+{
+  if (IsAnimValList()) {
+    Element()->FlushAnimations();
+  }
+  found = index < LengthNoFlush();
+  if (found) {
+    EnsureItemAt(index);
+    return mItems[index];
+  }
+  return nullptr;
 }
 
 /* nsIDOMSVGTransform getItem (in unsigned long index); */
 NS_IMETHODIMP
-DOMSVGTransformList::GetItem(PRUint32 index, nsIDOMSVGTransform **_retval)
+DOMSVGTransformList::GetItem(uint32_t index, nsIDOMSVGTransform **_retval)
 {
-  *_retval = GetItemAt(index);
-  if (!*_retval) {
-    return NS_ERROR_DOM_INDEX_SIZE_ERR;
-  }
-  NS_ADDREF(*_retval);
-  return NS_OK;
+  ErrorResult rv;
+  NS_IF_ADDREF(*_retval = GetItem(index, rv));
+  return rv.ErrorCode();
 }
 
-/* nsIDOMSVGTransform insertItemBefore (in nsIDOMSVGTransform newItem,
- *                                      in unsigned long index); */
-NS_IMETHODIMP
+already_AddRefed<nsIDOMSVGTransform>
 DOMSVGTransformList::InsertItemBefore(nsIDOMSVGTransform *newItem,
-                                      PRUint32 index,
-                                      nsIDOMSVGTransform **_retval)
+                                      uint32_t index, ErrorResult& error)
 {
-  *_retval = nullptr;
   if (IsAnimValList()) {
-    return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR;
+    error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    return nullptr;
   }
 
-  index = NS_MIN(index, Length());
+  index = NS_MIN(index, LengthNoFlush());
   if (index >= DOMSVGTransform::MaxListIndex()) {
-    return NS_ERROR_DOM_INDEX_SIZE_ERR;
+    error.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    return nullptr;
   }
 
   nsCOMPtr<DOMSVGTransform> domItem = do_QueryInterface(newItem);
   if (!domItem) {
-    return NS_ERROR_DOM_SVG_WRONG_TYPE_ERR;
+    error.Throw(NS_ERROR_DOM_SVG_WRONG_TYPE_ERR);
+    return nullptr;
   }
   if (domItem->HasOwner()) {
     domItem = domItem->Clone(); // must do this before changing anything!
@@ -256,7 +286,8 @@ DOMSVGTransformList::InsertItemBefore(nsIDOMSVGTransform *newItem,
   // Ensure we have enough memory so we can avoid complex error handling below:
   if (!mItems.SetCapacity(mItems.Length() + 1) ||
       !InternalList().SetCapacity(InternalList().Length() + 1)) {
-    return NS_ERROR_OUT_OF_MEMORY;
+    error.Throw(NS_ERROR_OUT_OF_MEMORY);
+    return nullptr;
   }
 
   nsAttrValue emptyOrOldValue = Element()->WillChangeTransformList();
@@ -277,28 +308,38 @@ DOMSVGTransformList::InsertItemBefore(nsIDOMSVGTransform *newItem,
   if (mAList->IsAnimating()) {
     Element()->AnimationNeedsResample();
   }
-  domItem.forget(_retval);
-  return NS_OK;
+  return domItem.forget();
 }
 
-/* nsIDOMSVGTransform replaceItem (in nsIDOMSVGTransform newItem,
- *                                 in unsigned long index); */
+/* nsIDOMSVGTransform insertItemBefore (in nsIDOMSVGTransform newItem,
+ *                                      in unsigned long index); */
 NS_IMETHODIMP
-DOMSVGTransformList::ReplaceItem(nsIDOMSVGTransform *newItem,
-                                 PRUint32 index,
-                                 nsIDOMSVGTransform **_retval)
+DOMSVGTransformList::InsertItemBefore(nsIDOMSVGTransform *newItem,
+                                      uint32_t index,
+                                      nsIDOMSVGTransform **_retval)
 {
-  *_retval = nullptr;
+  ErrorResult rv;
+  *_retval = InsertItemBefore(newItem, index, rv).get();
+  return rv.ErrorCode();
+}
+
+already_AddRefed<nsIDOMSVGTransform>
+DOMSVGTransformList::ReplaceItem(nsIDOMSVGTransform *newItem,
+                                 uint32_t index, ErrorResult& error)
+{
   if (IsAnimValList()) {
-    return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR;
+    error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    return nullptr;
   }
 
   nsCOMPtr<DOMSVGTransform> domItem = do_QueryInterface(newItem);
   if (!domItem) {
-    return NS_ERROR_DOM_SVG_WRONG_TYPE_ERR;
+    error.Throw(NS_ERROR_DOM_SVG_WRONG_TYPE_ERR);
+    return nullptr;
   }
-  if (index >= Length()) {
-    return NS_ERROR_DOM_INDEX_SIZE_ERR;
+  if (index >= LengthNoFlush()) {
+    error.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    return nullptr;
   }
   if (domItem->HasOwner()) {
     domItem = domItem->Clone(); // must do this before changing anything!
@@ -322,21 +363,32 @@ DOMSVGTransformList::ReplaceItem(nsIDOMSVGTransform *newItem,
   if (mAList->IsAnimating()) {
     Element()->AnimationNeedsResample();
   }
-  NS_ADDREF(*_retval = domItem.get());
-  return NS_OK;
+  return domItem.forget();
 }
 
-/* nsIDOMSVGTransform removeItem (in unsigned long index); */
+/* nsIDOMSVGTransform replaceItem (in nsIDOMSVGTransform newItem,
+ *                                 in unsigned long index); */
 NS_IMETHODIMP
-DOMSVGTransformList::RemoveItem(PRUint32 index, nsIDOMSVGTransform **_retval)
+DOMSVGTransformList::ReplaceItem(nsIDOMSVGTransform *newItem,
+                                 uint32_t index,
+                                 nsIDOMSVGTransform **_retval)
 {
-  *_retval = nullptr;
+  ErrorResult rv;
+  *_retval = ReplaceItem(newItem, index, rv).get();
+  return rv.ErrorCode();
+}
+
+already_AddRefed<nsIDOMSVGTransform>
+DOMSVGTransformList::RemoveItem(uint32_t index, ErrorResult& error)
+{
   if (IsAnimValList()) {
-    return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR;
+    error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    return nullptr;
   }
 
-  if (index >= Length()) {
-    return NS_ERROR_DOM_INDEX_SIZE_ERR;
+  if (index >= LengthNoFlush()) {
+    error.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    return nullptr;
   }
 
   nsAttrValue emptyOrOldValue = Element()->WillChangeTransformList();
@@ -351,7 +403,7 @@ DOMSVGTransformList::RemoveItem(PRUint32 index, nsIDOMSVGTransform **_retval)
   // Notify the DOM item of removal *before* modifying the lists so that the
   // DOM item can copy its *old* value:
   mItems[index]->RemovingFromList();
-  NS_ADDREF(*_retval = mItems[index]);
+  nsCOMPtr<nsIDOMSVGTransform> result = mItems[index];
 
   InternalList().RemoveItem(index);
   mItems.RemoveElementAt(index);
@@ -362,7 +414,16 @@ DOMSVGTransformList::RemoveItem(PRUint32 index, nsIDOMSVGTransform **_retval)
   if (mAList->IsAnimating()) {
     Element()->AnimationNeedsResample();
   }
-  return NS_OK;
+  return result.forget();
+}
+
+/* nsIDOMSVGTransform removeItem (in unsigned long index); */
+NS_IMETHODIMP
+DOMSVGTransformList::RemoveItem(uint32_t index, nsIDOMSVGTransform **_retval)
+{
+  ErrorResult rv;
+  *_retval = RemoveItem(index, rv).get();
+  return rv.ErrorCode();
 }
 
 /* nsIDOMSVGTransform appendItem (in nsIDOMSVGTransform newItem); */
@@ -370,7 +431,23 @@ NS_IMETHODIMP
 DOMSVGTransformList::AppendItem(nsIDOMSVGTransform *newItem,
                                 nsIDOMSVGTransform **_retval)
 {
-  return InsertItemBefore(newItem, Length(), _retval);
+  ErrorResult rv;
+  *_retval = AppendItem(newItem, rv).get();
+  return rv.ErrorCode();
+}
+
+already_AddRefed<nsIDOMSVGTransform>
+DOMSVGTransformList::CreateSVGTransformFromMatrix(nsIDOMSVGMatrix *matrix,
+                                                  ErrorResult& error)
+{
+  nsCOMPtr<DOMSVGMatrix> domItem = do_QueryInterface(matrix);
+  if (!domItem) {
+    error.Throw(NS_ERROR_DOM_SVG_WRONG_TYPE_ERR);
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIDOMSVGTransform> result = new DOMSVGTransform(domItem->Matrix());
+  return result.forget();
 }
 
 /* nsIDOMSVGTransform createSVGTransformFromMatrix (in nsIDOMSVGMatrix matrix);
@@ -379,48 +456,53 @@ NS_IMETHODIMP
 DOMSVGTransformList::CreateSVGTransformFromMatrix(nsIDOMSVGMatrix *matrix,
                                                   nsIDOMSVGTransform **_retval)
 {
-  nsCOMPtr<DOMSVGMatrix> domItem = do_QueryInterface(matrix);
-  if (!domItem) {
-    return NS_ERROR_DOM_SVG_WRONG_TYPE_ERR;
+  ErrorResult rv;
+  *_retval = CreateSVGTransformFromMatrix(matrix, rv).get();
+  return rv.ErrorCode();
+}
+
+already_AddRefed<nsIDOMSVGTransform>
+DOMSVGTransformList::Consolidate(ErrorResult& error)
+{
+  if (IsAnimValList()) {
+    error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    return nullptr;
   }
 
-  NS_ADDREF(*_retval = new DOMSVGTransform(domItem->Matrix()));
-  return NS_OK;
+  if (LengthNoFlush() == 0)
+    return nullptr;
+
+  // Note that SVG 1.1 says, "The consolidation operation creates new
+  // SVGTransform object as the first and only item in the list" hence, even if
+  // LengthNoFlush() == 1 we can't return that one item (after making it a
+  // matrix type). We must orphan the existing item and then make a new one.
+
+  // First calculate our matrix
+  gfxMatrix mx = InternalList().GetConsolidationMatrix();
+
+  // Then orphan the existing items
+  Clear(error);
+  MOZ_ASSERT(!error.Failed(), "How could this fail?");
+
+  // And append the new transform
+  nsRefPtr<DOMSVGTransform> transform = new DOMSVGTransform(mx);
+  return InsertItemBefore(transform, LengthNoFlush(), error);
 }
 
 /* nsIDOMSVGTransform consolidate (); */
 NS_IMETHODIMP
 DOMSVGTransformList::Consolidate(nsIDOMSVGTransform **_retval)
 {
-  *_retval = nullptr;
-  if (IsAnimValList()) {
-    return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR;
-  }
-
-  if (Length() == 0)
-    return NS_OK;
-
-  // Note that SVG 1.1 says, "The consolidation operation creates new
-  // SVGTransform object as the first and only item in the list" hence, even if
-  // Length() == 1 we can't return that one item (after making it a matrix
-  // type). We must orphan the existing item and then make a new one.
-
-  // First calculate our matrix
-  gfxMatrix mx = InternalList().GetConsolidationMatrix();
-
-  // Then orphan the existing items
-  Clear();
-
-  // And append the new transform
-  nsRefPtr<DOMSVGTransform> transform = new DOMSVGTransform(mx);
-  return InsertItemBefore(transform, Length(), _retval);
+  ErrorResult rv;
+  *_retval = Consolidate(rv).get();
+  return rv.ErrorCode();
 }
 
 //----------------------------------------------------------------------
 // Implementation helpers:
 
 void
-DOMSVGTransformList::EnsureItemAt(PRUint32 aIndex)
+DOMSVGTransformList::EnsureItemAt(uint32_t aIndex)
 {
   if (!mItems[aIndex]) {
     mItems[aIndex] = new DOMSVGTransform(this, aIndex, IsAnimValList());
@@ -428,7 +510,7 @@ DOMSVGTransformList::EnsureItemAt(PRUint32 aIndex)
 }
 
 void
-DOMSVGTransformList::MaybeInsertNullInAnimValListAt(PRUint32 aIndex)
+DOMSVGTransformList::MaybeInsertNullInAnimValListAt(uint32_t aIndex)
 {
   NS_ABORT_IF_FALSE(!IsAnimValList(), "call from baseVal to animVal");
 
@@ -449,7 +531,7 @@ DOMSVGTransformList::MaybeInsertNullInAnimValListAt(PRUint32 aIndex)
 }
 
 void
-DOMSVGTransformList::MaybeRemoveItemFromAnimValListAt(PRUint32 aIndex)
+DOMSVGTransformList::MaybeRemoveItemFromAnimValListAt(uint32_t aIndex)
 {
   NS_ABORT_IF_FALSE(!IsAnimValList(), "call from baseVal to animVal");
 

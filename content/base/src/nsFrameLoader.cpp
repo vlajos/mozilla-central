@@ -13,6 +13,7 @@
 
 #include "prenv.h"
 
+#include "mozIApplication.h"
 #include "nsIDOMHTMLIFrameElement.h"
 #include "nsIDOMHTMLFrameElement.h"
 #include "nsIDOMMozBrowserFrame.h"
@@ -22,6 +23,7 @@
 #include "nsIContentViewer.h"
 #include "nsIDocument.h"
 #include "nsIDOMDocument.h"
+#include "nsIDOMFile.h"
 #include "nsPIDOMWindow.h"
 #include "nsIWebNavigation.h"
 #include "nsIWebProgress.h"
@@ -30,6 +32,7 @@
 #include "nsIDocShellTreeNode.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIDocShellLoadInfo.h"
+#include "nsIDOMApplicationRegistry.h"
 #include "nsIBaseWindow.h"
 #include "nsContentUtils.h"
 #include "nsIXPConnect.h"
@@ -43,7 +46,7 @@
 #include "nsIFrame.h"
 #include "nsIScrollableFrame.h"
 #include "nsSubDocumentFrame.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 #include "nsGUIEvent.h"
 #include "nsEventDispatcher.h"
 #include "nsISHistory.h"
@@ -73,6 +76,7 @@
 
 #include "Layers.h"
 
+#include "AppProcessPermissions.h"
 #include "ContentParent.h"
 #include "TabParent.h"
 #include "mozilla/GuardObjects.h"
@@ -83,9 +87,18 @@
 #include "nsIAppsService.h"
 
 #include "jsapi.h"
+#include "nsHTMLIFrameElement.h"
+#include "nsSandboxFlags.h"
+
+#include "mozilla/dom/StructuredCloneUtils.h"
+
+#ifdef MOZ_XUL
+#include "nsXULPopupManager.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::dom;
+using namespace mozilla::dom::ipc;
 using namespace mozilla::layers;
 using namespace mozilla::layout;
 typedef FrameMetrics::ViewID ViewID;
@@ -108,14 +121,6 @@ public:
   }
   nsRefPtr<nsIDocShell> mDocShell;
 };
-
-static void InvalidateFrame(nsIFrame* aFrame, PRUint32 aFlags)
-{
-  if (!aFrame)
-    return;
-  nsRect rect = nsRect(nsPoint(0, 0), aFrame->GetRect().Size());
-  aFrame->InvalidateWithFlags(rect, aFlags);
-}
 
 NS_IMPL_ISUPPORTS1(nsContentView, nsIContentView)
 
@@ -151,13 +156,6 @@ nsContentView::Update(const ViewConfig& aConfig)
     rfp->ContentViewScaleChanged(this);
   }
 
-  // XXX could be clever here and compute a smaller invalidation
-  // rect
-  // NB: we pass INVALIDATE_NO_THEBES_LAYERS here to keep view
-  // semantics the same for both in-process and out-of-process
-  // <browser>.  This is just a transform of the layer subtree in
-  // both.
-  InvalidateFrame(mFrameLoader->GetPrimaryFrameOfOwningContent(), nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
   return NS_OK;
 }
 
@@ -284,6 +282,7 @@ NS_INTERFACE_MAP_END
 
 nsFrameLoader::nsFrameLoader(Element* aOwner, bool aNetworkCreated)
   : mOwnerContent(aOwner)
+  , mDetachedSubdocViews(nullptr)
   , mDepthTooGreat(false)
   , mIsTopLevelContent(false)
   , mDestroyCalled(false)
@@ -298,6 +297,7 @@ nsFrameLoader::nsFrameLoader(Element* aOwner, bool aNetworkCreated)
   , mClipSubdocument(true)
   , mClampScrollPosition(true)
   , mRemoteBrowserInitialized(false)
+  , mObservingOwnerContent(false)
   , mCurrentRemoteFrame(nullptr)
   , mRemoteBrowser(nullptr)
   , mRenderMode(RENDER_MODE_DEFAULT)
@@ -446,6 +446,30 @@ nsFrameLoader::ReallyStartLoadingInternal()
   mDocShell->CreateLoadInfo(getter_AddRefs(loadInfo));
   NS_ENSURE_TRUE(loadInfo, NS_ERROR_FAILURE);
 
+  // Is this an <iframe> with a sandbox attribute or a parent which is
+  // sandboxed ?
+  nsHTMLIFrameElement* iframe =
+    nsHTMLIFrameElement::FromContent(mOwnerContent);
+
+  uint32_t sandboxFlags = 0;
+
+  if (iframe) {
+    sandboxFlags = iframe->GetSandboxFlags();
+
+    uint32_t parentSandboxFlags = iframe->OwnerDoc()->GetSandboxFlags();
+
+    if (sandboxFlags || parentSandboxFlags) {
+      // The child can only add restrictions, not remove them.
+      sandboxFlags |= parentSandboxFlags;
+
+      mDocShell->SetSandboxFlags(sandboxFlags);
+    }
+  }
+
+  // If this is an <iframe> and it's sandboxed with respect to origin
+  // we will set it up with a null principal later in nsDocShell::DoURILoad.
+  // We do it there to correctly sandbox content that was loaded into
+  // the iframe via other methods than the src attribute.
   // We'll use our principal, not that of the document loaded inside us.  This
   // is very important; needed to prevent XSS attacks on documents loaded in
   // subframes!
@@ -556,15 +580,15 @@ FirePageHideEvent(nsIDocShellTreeItem* aItem,
   NS_ASSERTION(internalDoc, "What happened here?");
   internalDoc->OnPageHide(true, aChromeEventHandler);
 
-  PRInt32 childCount = 0;
+  int32_t childCount = 0;
   aItem->GetChildCount(&childCount);
   nsAutoTArray<nsCOMPtr<nsIDocShellTreeItem>, 8> kids;
   kids.AppendElements(childCount);
-  for (PRInt32 i = 0; i < childCount; ++i) {
+  for (int32_t i = 0; i < childCount; ++i) {
     aItem->GetChildAt(i, getter_AddRefs(kids[i]));
   }
 
-  for (PRUint32 i = 0; i < kids.Length(); ++i) {
+  for (uint32_t i = 0; i < kids.Length(); ++i) {
     if (kids[i]) {
       FirePageHideEvent(kids[i], aChromeEventHandler);
     }
@@ -580,15 +604,15 @@ FirePageShowEvent(nsIDocShellTreeItem* aItem,
                   nsIDOMEventTarget* aChromeEventHandler,
                   bool aFireIfShowing)
 {
-  PRInt32 childCount = 0;
+  int32_t childCount = 0;
   aItem->GetChildCount(&childCount);
   nsAutoTArray<nsCOMPtr<nsIDocShellTreeItem>, 8> kids;
   kids.AppendElements(childCount);
-  for (PRInt32 i = 0; i < childCount; ++i) {
+  for (int32_t i = 0; i < childCount; ++i) {
     aItem->GetChildAt(i, getter_AddRefs(kids[i]));
   }
 
-  for (PRUint32 i = 0; i < kids.Length(); ++i) {
+  for (uint32_t i = 0; i < kids.Length(); ++i) {
     if (kids[i]) {
       FirePageShowEvent(kids[i], aChromeEventHandler, aFireIfShowing);
     }
@@ -613,9 +637,9 @@ SetTreeOwnerAndChromeEventHandlerOnDocshellTree(nsIDocShellTreeItem* aItem,
   nsCOMPtr<nsIDocShell> shell(do_QueryInterface(aItem));
   shell->SetChromeEventHandler(aHandler);
 
-  PRInt32 childCount = 0;
+  int32_t childCount = 0;
   aItem->GetChildCount(&childCount);
-  for (PRInt32 i = 0; i < childCount; ++i) {
+  for (int32_t i = 0; i < childCount; ++i) {
     nsCOMPtr<nsIDocShellTreeItem> item;
     aItem->GetChildAt(i, getter_AddRefs(item));
     SetTreeOwnerAndChromeEventHandlerOnDocshellTree(item, aOwner, aHandler);
@@ -625,29 +649,24 @@ SetTreeOwnerAndChromeEventHandlerOnDocshellTree(nsIDocShellTreeItem* aItem,
 /**
  * Set the type of the treeitem and hook it up to the treeowner.
  * @param aItem the treeitem we're working with
- * @param aOwningContent the content node that owns aItem
  * @param aTreeOwner the relevant treeowner; might be null
  * @param aParentType the nsIDocShellTreeItem::GetType of our parent docshell
  * @param aParentNode if non-null, the docshell we should be added as a child to
  *
  * @return whether aItem is top-level content
  */
-static bool
-AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem, nsIContent* aOwningContent,
-                       nsIDocShellTreeOwner* aOwner, PRInt32 aParentType,
-                       nsIDocShellTreeNode* aParentNode)
+bool
+nsFrameLoader::AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem,
+                                      nsIDocShellTreeOwner* aOwner,
+                                      int32_t aParentType,
+                                      nsIDocShellTreeNode* aParentNode)
 {
   NS_PRECONDITION(aItem, "Must have docshell treeitem");
-  NS_PRECONDITION(aOwningContent, "Must have owning content");
+  NS_PRECONDITION(mOwnerContent, "Must have owning content");
   
   nsAutoString value;
   bool isContent = false;
-
-  if (aOwningContent->IsXUL()) {
-      aOwningContent->GetAttr(kNameSpaceID_None, nsGkAtoms::type, value);
-  } else {
-      aOwningContent->GetAttr(kNameSpaceID_None, nsGkAtoms::mozframetype, value);
-  }
+  mOwnerContent->GetAttr(kNameSpaceID_None, TypeAttrName(), value);
 
   // we accept "content" and "content-xxx" values.
   // at time of writing, we expect "xxx" to be "primary" or "targetable", but
@@ -660,7 +679,7 @@ AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem, nsIContent* aOwningContent,
   // Force mozbrowser frames to always be typeContent, even if the
   // mozbrowser interfaces are disabled.
   nsCOMPtr<nsIDOMMozBrowserFrame> mozbrowser =
-    do_QueryInterface(aOwningContent);
+    do_QueryInterface(mOwnerContent);
   if (mozbrowser) {
     bool isMozbrowser = false;
     mozbrowser->GetMozbrowser(&isMozbrowser);
@@ -693,6 +712,8 @@ AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem, nsIContent* aOwningContent,
     if (aOwner) {
       bool is_targetable = is_primary ||
         value.LowerCaseEqualsLiteral("content-targetable");
+      mOwnerContent->AddMutationObserver(this);
+      mObservingOwnerContent = true;
       aOwner->ContentShellAdded(aItem, is_primary, is_targetable, value);
     }
   }
@@ -701,16 +722,16 @@ AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem, nsIContent* aOwningContent,
 }
 
 static bool
-AllDescendantsOfType(nsIDocShellTreeItem* aParentItem, PRInt32 aType)
+AllDescendantsOfType(nsIDocShellTreeItem* aParentItem, int32_t aType)
 {
-  PRInt32 childCount = 0;
+  int32_t childCount = 0;
   aParentItem->GetChildCount(&childCount);
 
-  for (PRInt32 i = 0; i < childCount; ++i) {
+  for (int32_t i = 0; i < childCount; ++i) {
     nsCOMPtr<nsIDocShellTreeItem> kid;
     aParentItem->GetChildAt(i, getter_AddRefs(kid));
 
-    PRInt32 kidType;
+    int32_t kidType;
     kid->GetItemType(&kidType);
     if (kidType != aType || !AllDescendantsOfType(kid, aType)) {
       return false;
@@ -739,8 +760,8 @@ class NS_STACK_CLASS AutoResetInShow {
 
 
 bool
-nsFrameLoader::Show(PRInt32 marginWidth, PRInt32 marginHeight,
-                    PRInt32 scrollbarPrefX, PRInt32 scrollbarPrefY,
+nsFrameLoader::Show(int32_t marginWidth, int32_t marginHeight,
+                    int32_t scrollbarPrefX, int32_t scrollbarPrefY,
                     nsSubDocumentFrame* frame)
 {
   if (mInShow) {
@@ -855,8 +876,8 @@ nsFrameLoader::Show(PRInt32 marginWidth, PRInt32 marginHeight,
 }
 
 void
-nsFrameLoader::MarginsChanged(PRUint32 aMarginWidth,
-                              PRUint32 aMarginHeight)
+nsFrameLoader::MarginsChanged(uint32_t aMarginWidth,
+                              uint32_t aMarginHeight)
 {
   // We assume that the margins are always zero for remote frames.
   if (mRemoteFrame)
@@ -1019,8 +1040,8 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
 
   // Also make sure that the two docshells are the same type. Otherwise
   // swapping is certainly not safe.
-  PRInt32 ourType = nsIDocShellTreeItem::typeChrome;
-  PRInt32 otherType = nsIDocShellTreeItem::typeChrome;
+  int32_t ourType = nsIDocShellTreeItem::typeChrome;
+  int32_t otherType = nsIDocShellTreeItem::typeChrome;
   ourTreeItem->GetItemType(&ourType);
   otherTreeItem->GetItemType(&otherType);
   if (ourType != otherType) {
@@ -1052,8 +1073,8 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
   }
 
   // Make sure our parents are the same type too
-  PRInt32 ourParentType = nsIDocShellTreeItem::typeContent;
-  PRInt32 otherParentType = nsIDocShellTreeItem::typeContent;
+  int32_t ourParentType = nsIDocShellTreeItem::typeContent;
+  int32_t otherParentType = nsIDocShellTreeItem::typeContent;
   ourParentItem->GetItemType(&ourParentType);
   otherParentItem->GetItemType(&otherParentType);
   if (ourParentType != otherParentType) {
@@ -1110,27 +1131,10 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
-  bool ourContentBoundary, otherContentBoundary;
-  ourDocshell->GetIsContentBoundary(&ourContentBoundary);
-  otherDocshell->GetIsContentBoundary(&otherContentBoundary);
-  if (ourContentBoundary != otherContentBoundary) {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
-
-  if (ourContentBoundary) {
-    bool ourIsBrowser, otherIsBrowser;
-    ourDocshell->GetIsBrowserElement(&ourIsBrowser);
-    otherDocshell->GetIsBrowserElement(&otherIsBrowser);
-    if (ourIsBrowser != otherIsBrowser) {
+  if (ourDocshell->GetIsBrowserElement() !=
+      otherDocshell->GetIsBrowserElement() ||
+      ourDocshell->GetIsApp() != otherDocshell->GetIsApp()) {
       return NS_ERROR_NOT_IMPLEMENTED;
-    }
-
-    bool ourIsApp, otherIsApp;
-    ourDocshell->GetIsApp(&ourIsApp);
-    otherDocshell->GetIsApp(&otherIsApp);
-    if (ourIsApp != otherIsApp) {
-      return NS_ERROR_NOT_IMPLEMENTED;
-    }
   }
 
   if (mInSwap || aOther->mInSwap) {
@@ -1190,10 +1194,15 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
   SetTreeOwnerAndChromeEventHandlerOnDocshellTree(otherTreeItem, ourOwner,
                                                   ourChromeEventHandler);
 
-  AddTreeItemToTreeOwner(ourTreeItem, otherContent, otherOwner,
-                         otherParentType, nullptr);
-  AddTreeItemToTreeOwner(otherTreeItem, ourContent, ourOwner, ourParentType,
-                         nullptr);
+  // Switch the owner content before we start calling AddTreeItemToTreeOwner.
+  // Note that we rely on this to deal with setting mObservingOwnerContent to
+  // false and calling RemoveMutationObserver as needed.
+  SetOwnerContent(otherContent);
+  aOther->SetOwnerContent(ourContent);
+
+  AddTreeItemToTreeOwner(ourTreeItem, otherOwner, otherParentType, nullptr);
+  aOther->AddTreeItemToTreeOwner(otherTreeItem, ourOwner, ourParentType,
+                                 nullptr);
 
   // SetSubDocumentFor nulls out parent documents on the old child doc if a
   // new non-null document is passed in, so just go ahead and remove both
@@ -1206,9 +1215,6 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
 
   ourWindow->SetFrameElementInternal(otherFrameElement);
   otherWindow->SetFrameElementInternal(ourFrameElement);
-
-  SetOwnerContent(otherContent);
-  aOther->SetOwnerContent(ourContent);
 
   nsRefPtr<nsFrameMessageManager> ourMessageManager = mMessageManager;
   nsRefPtr<nsFrameMessageManager> otherMessageManager = aOther->mMessageManager;
@@ -1238,13 +1244,13 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
     mMessageManager->RemoveFromParent();
     mMessageManager->SetJSContext(otherCx);
     mMessageManager->SetParentManager(otherParentManager);
-    mMessageManager->SetCallbackData(aOther, false);
+    mMessageManager->SetCallback(aOther, false);
   }
   if (aOther->mMessageManager) {
     aOther->mMessageManager->RemoveFromParent();
     aOther->mMessageManager->SetJSContext(thisCx);
     aOther->mMessageManager->SetParentManager(ourParentManager);
-    aOther->mMessageManager->SetCallbackData(this, false);
+    aOther->mMessageManager->SetCallback(this, false);
   }
   mMessageManager.swap(aOther->mMessageManager);
 
@@ -1368,6 +1374,10 @@ nsFrameLoader::GetDepthTooGreat(bool* aDepthTooGreat)
 void
 nsFrameLoader::SetOwnerContent(Element* aContent)
 {
+  if (mObservingOwnerContent) {
+    mObservingOwnerContent = false;
+    mOwnerContent->RemoveMutationObserver(this);
+  }
   mOwnerContent = aContent;
   if (RenderFrameParent* rfp = GetCurrentRemoteFrame()) {
     rfp->OwnerContentChanged(aContent);
@@ -1477,22 +1487,22 @@ nsFrameLoader::MaybeCreateDocShell()
   mDocShell = do_CreateInstance("@mozilla.org/docshell;1");
   NS_ENSURE_TRUE(mDocShell, NS_ERROR_FAILURE);
 
-  if (OwnerIsBrowserFrame() &&
-      mOwnerContent->HasAttr(kNameSpaceID_None, nsGkAtoms::mozapp)) {
-    nsCOMPtr<nsIAppsService> appsService =
-      do_GetService(APPS_SERVICE_CONTRACTID);
-    if (!appsService) {
-      NS_ERROR("Apps Service is not available!");
-      return NS_ERROR_FAILURE;
-    }
-
+  if (OwnerIsBrowserFrame()) {
     nsAutoString manifest;
-    mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::mozapp, manifest);
+    GetOwnerAppManifestURL(manifest);
+    if (!manifest.IsEmpty()) {
+      nsCOMPtr<nsIAppsService> appsService =
+        do_GetService(APPS_SERVICE_CONTRACTID);
+      if (!appsService) {
+        NS_ERROR("Apps Service is not available!");
+        return NS_ERROR_FAILURE;
+      }
 
-    PRUint32 appId;
-    appsService->GetAppLocalIdByManifestURL(manifest, &appId);
+      uint32_t appId;
+      appsService->GetAppLocalIdByManifestURL(manifest, &appId);
 
-    mDocShell->SetAppId(appId);
+      mDocShell->SetAppId(appId);
+    }
   }
 
   if (!mNetworkCreated) {
@@ -1507,7 +1517,7 @@ nsFrameLoader::MaybeCreateDocShell()
   NS_ENSURE_TRUE(docShellAsItem, NS_ERROR_FAILURE);
   nsAutoString frameName;
 
-  PRInt32 namespaceID = mOwnerContent->GetNameSpaceID();
+  int32_t namespaceID = mOwnerContent->GetNameSpaceID();
   if (namespaceID == kNameSpaceID_XHTML && !mOwnerContent->IsInHTMLDocument()) {
     mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::id, frameName);
   } else {
@@ -1535,7 +1545,7 @@ nsFrameLoader::MaybeCreateDocShell()
     nsCOMPtr<nsIDocShellTreeItem> parentAsItem =
       do_QueryInterface(parentAsNode);
 
-    PRInt32 parentType;
+    int32_t parentType;
     parentAsItem->GetItemType(&parentType);
 
     // XXXbz why is this in content code, exactly?  We should handle
@@ -1544,8 +1554,8 @@ nsFrameLoader::MaybeCreateDocShell()
     parentAsItem->GetTreeOwner(getter_AddRefs(parentTreeOwner));
     NS_ENSURE_STATE(parentTreeOwner);
     mIsTopLevelContent =
-      AddTreeItemToTreeOwner(docShellAsItem, mOwnerContent, parentTreeOwner,
-                             parentType, parentAsNode);
+      AddTreeItemToTreeOwner(docShellAsItem, parentTreeOwner, parentType,
+                             parentAsNode);
 
     // Make sure all shells have links back to the content element
     // in the nearest enclosing chrome shell.
@@ -1654,7 +1664,7 @@ nsFrameLoader::CheckForRecursiveLoad(nsIURI* aURI)
   NS_ENSURE_STATE(treeOwner);
   
   
-  PRInt32 ourType;
+  int32_t ourType;
   rv = treeItem->GetItemType(&ourType);
   if (NS_SUCCEEDED(rv) && ourType != nsIDocShellTreeItem::typeContent) {
     // No need to do recursion-protection here XXXbz why not??  Do we really
@@ -1666,7 +1676,7 @@ nsFrameLoader::CheckForRecursiveLoad(nsIURI* aURI)
   // (MAX_DEPTH_CONTENT_FRAMES)
   nsCOMPtr<nsIDocShellTreeItem> parentAsItem;
   treeItem->GetSameTypeParent(getter_AddRefs(parentAsItem));
-  PRInt32 depth = 0;
+  int32_t depth = 0;
   while (parentAsItem) {
     ++depth;
     
@@ -1683,7 +1693,7 @@ nsFrameLoader::CheckForRecursiveLoad(nsIURI* aURI)
   }
   
   // Bug 136580: Check for recursive frame loading
-  PRInt32 matchCount = 0;
+  int32_t matchCount = 0;
   treeItem->GetSameTypeParent(getter_AddRefs(parentAsItem));
   while (parentAsItem) {
     // Check the parent URI with the URI we're loading
@@ -1773,8 +1783,8 @@ nsFrameLoader::UpdateBaseWindowPositionAndSize(nsIFrame *aIFrame)
 
   // resize the sub document
   if (baseWindow) {
-    PRInt32 x = 0;
-    PRInt32 y = 0;
+    int32_t x = 0;
+    int32_t y = 0;
 
     nsWeakFrame weakFrame(aIFrame);
 
@@ -1794,37 +1804,32 @@ nsFrameLoader::UpdateBaseWindowPositionAndSize(nsIFrame *aIFrame)
 }
 
 NS_IMETHODIMP
-nsFrameLoader::GetRenderMode(PRUint32* aRenderMode)
+nsFrameLoader::GetRenderMode(uint32_t* aRenderMode)
 {
   *aRenderMode = mRenderMode;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFrameLoader::SetRenderMode(PRUint32 aRenderMode)
+nsFrameLoader::SetRenderMode(uint32_t aRenderMode)
 {
   if (aRenderMode == mRenderMode) {
     return NS_OK;
   }
 
   mRenderMode = aRenderMode;
-  // NB: we pass INVALIDATE_NO_THEBES_LAYERS here to keep view
-  // semantics the same for both in-process and out-of-process
-  // <browser>.  This is just a transform of the layer subtree in
-  // both.
-  InvalidateFrame(GetPrimaryFrameOfOwningContent(), nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFrameLoader::GetEventMode(PRUint32* aEventMode)
+nsFrameLoader::GetEventMode(uint32_t* aEventMode)
 {
   *aEventMode = mEventMode;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFrameLoader::SetEventMode(PRUint32 aEventMode)
+nsFrameLoader::SetEventMode(uint32_t aEventMode)
 {
   mEventMode = aEventMode;
   return NS_OK;
@@ -1843,7 +1848,7 @@ nsFrameLoader::SetClipSubdocument(bool aClip)
   mClipSubdocument = aClip;
   nsIFrame* frame = GetPrimaryFrameOfOwningContent();
   if (frame) {
-    InvalidateFrame(frame, 0);
+    frame->InvalidateFrame();
     frame->PresContext()->PresShell()->
       FrameNeedsReflow(frame, nsIPresShell::eResize, NS_FRAME_IS_DIRTY);
     nsSubDocumentFrame* subdocFrame = do_QueryFrame(frame);
@@ -1936,7 +1941,7 @@ nsFrameLoader::TryRemoteBrowser()
 
   // <iframe mozbrowser> gets to skip these checks.
   if (!OwnerIsBrowserFrame()) {
-    PRInt32 parentType;
+    int32_t parentType;
     parentAsItem->GetItemType(&parentType);
 
     if (parentType != nsIDocShellTreeItem::typeChrome) {
@@ -1957,7 +1962,7 @@ nsFrameLoader::TryRemoteBrowser()
     }
   }
 
-  PRUint32 chromeFlags = 0;
+  uint32_t chromeFlags = 0;
   nsCOMPtr<nsIDocShellTreeOwner> parentOwner;
   if (NS_FAILED(parentAsItem->GetTreeOwner(getter_AddRefs(parentOwner))) ||
       !parentOwner) {
@@ -1971,40 +1976,35 @@ nsFrameLoader::TryRemoteBrowser()
     return false;
   }
 
-  PRUint32 appId = 0;
   bool isBrowserElement = false;
-
+  nsCOMPtr<mozIApplication> app;
   if (OwnerIsBrowserFrame()) {
     isBrowserElement = true;
 
-    if (mOwnerContent->HasAttr(kNameSpaceID_None, nsGkAtoms::mozapp)) {
-      nsAutoString manifest;
-      mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::mozapp, manifest);
-
+    nsAutoString manifest;
+    GetOwnerAppManifestURL(manifest);
+    if (!manifest.IsEmpty()) {
       nsCOMPtr<nsIAppsService> appsService = do_GetService(APPS_SERVICE_CONTRACTID);
       if (!appsService) {
         NS_ERROR("Apps Service is not available!");
         return false;
       }
 
-      appsService->GetAppLocalIdByManifestURL(manifest, &appId);
-
-      // If the frame is actually an app, we should not mark it as a browser.
-      if (appId != nsIScriptSecurityManager::NO_APP_ID) {
+      nsCOMPtr<mozIDOMApplication> domApp;
+      appsService->GetAppByManifestURL(manifest, getter_AddRefs(domApp));
+      // If the frame is actually an app, we should not mark it as a
+      // browser.  This is to identify the data store: since <app>s
+      // and <browser>s-within-<app>s have different stores, we want
+      // to ensure the <app> uses its store, not the one for its
+      // <browser>s.
+      app = do_QueryInterface(domApp);
+      if (app) {
         isBrowserElement = false;
       }
     }
   }
 
-  // If our owner has no app manifest URL, then this is equivalent to
-  // ContentParent::GetNewOrUsed().
-  nsAutoString appManifest;
-  GetOwnerAppManifestURL(appManifest);
-  ContentParent* parent = ContentParent::GetForApp(appManifest);
-
-  NS_ASSERTION(parent->IsAlive(), "Process parent should be alive; something is very wrong!");
-  mRemoteBrowser = parent->CreateTab(chromeFlags, isBrowserElement, appId);
-  if (mRemoteBrowser) {
+  if ((mRemoteBrowser = ContentParent::CreateBrowser(app, isBrowserElement))) {
     nsCOMPtr<nsIDOMElement> element = do_QueryInterface(mOwnerContent);
     mRemoteBrowser->SetOwnerElement(element);
 
@@ -2017,8 +2017,8 @@ nsFrameLoader::TryRemoteBrowser()
     nsCOMPtr<nsIBrowserDOMWindow> browserDOMWin;
     rootChromeWin->GetBrowserDOMWindow(getter_AddRefs(browserDOMWin));
     mRemoteBrowser->SetBrowserDOMWindow(browserDOMWin);
-    
-    mChildHost = parent;
+
+    mChildHost = static_cast<ContentParent*>(mRemoteBrowser->Manager());
   }
   return true;
 }
@@ -2051,9 +2051,9 @@ NS_IMETHODIMP
 nsFrameLoader::SendCrossProcessMouseEvent(const nsAString& aType,
                                           float aX,
                                           float aY,
-                                          PRInt32 aButton,
-                                          PRInt32 aClickCount,
-                                          PRInt32 aModifiers,
+                                          int32_t aButton,
+                                          int32_t aClickCount,
+                                          int32_t aModifiers,
                                           bool aIgnoreRootScrollFrame)
 {
   if (mRemoteBrowser) {
@@ -2078,9 +2078,9 @@ nsFrameLoader::ActivateFrameEvent(const nsAString& aType,
 
 NS_IMETHODIMP
 nsFrameLoader::SendCrossProcessKeyEvent(const nsAString& aType,
-                                        PRInt32 aKeyCode,
-                                        PRInt32 aCharCode,
-                                        PRInt32 aModifiers,
+                                        int32_t aKeyCode,
+                                        int32_t aCharCode,
+                                        int32_t aModifiers,
                                         bool aPreventDefault)
 {
   if (mRemoteBrowser) {
@@ -2136,16 +2136,15 @@ nsFrameLoader::CreateStaticClone(nsIFrameLoader* aDest)
   return NS_OK;
 }
 
-bool LoadScript(void* aCallbackData, const nsAString& aURL)
+bool
+nsFrameLoader::DoLoadFrameScript(const nsAString& aURL)
 {
-  mozilla::dom::PBrowserParent* tabParent =
-    static_cast<nsFrameLoader*>(aCallbackData)->GetRemoteBrowser();
+  mozilla::dom::PBrowserParent* tabParent = GetRemoteBrowser();
   if (tabParent) {
     return tabParent->SendLoadRemoteScript(nsString(aURL));
   }
-  nsFrameLoader* fl = static_cast<nsFrameLoader*>(aCallbackData);
   nsRefPtr<nsInProcessTabChildGlobal> tabChild =
-    static_cast<nsInProcessTabChildGlobal*>(fl->GetTabChildGlobalAsEventTarget());
+    static_cast<nsInProcessTabChildGlobal*>(GetTabChildGlobalAsEventTarget());
   if (tabChild) {
     tabChild->LoadFrameScript(aURL);
   }
@@ -2156,8 +2155,15 @@ class nsAsyncMessageToChild : public nsRunnable
 {
 public:
   nsAsyncMessageToChild(nsFrameLoader* aFrameLoader,
-                        const nsAString& aMessage, const nsAString& aJSON)
-    : mFrameLoader(aFrameLoader), mMessage(aMessage), mJSON(aJSON) {}
+                        const nsAString& aMessage,
+                        const StructuredCloneData& aData)
+    : mFrameLoader(aFrameLoader), mMessage(aMessage)
+  {
+    if (aData.mDataLength && !mData.copy(aData.mData, aData.mDataLength)) {
+      NS_RUNTIMEABORT("OOM");
+    }
+    mClosure = aData.mClosure;
+  }
 
   NS_IMETHOD Run()
   {
@@ -2165,35 +2171,77 @@ public:
       static_cast<nsInProcessTabChildGlobal*>(mFrameLoader->mChildMessageManager.get());
     if (tabChild && tabChild->GetInnerManager()) {
       nsFrameScriptCx cx(static_cast<nsIDOMEventTarget*>(tabChild), tabChild);
+
+      StructuredCloneData data;
+      data.mData = mData.data();
+      data.mDataLength = mData.nbytes();
+      data.mClosure = mClosure;
+
       nsRefPtr<nsFrameMessageManager> mm = tabChild->GetInnerManager();
       mm->ReceiveMessage(static_cast<nsIDOMEventTarget*>(tabChild), mMessage,
-                         false, mJSON, nullptr, nullptr);
+                         false, &data, nullptr, nullptr, nullptr);
     }
     return NS_OK;
   }
   nsRefPtr<nsFrameLoader> mFrameLoader;
   nsString mMessage;
-  nsString mJSON;
+  JSAutoStructuredCloneBuffer mData;
+  StructuredCloneClosure mClosure;
 };
 
-bool SendAsyncMessageToChild(void* aCallbackData,
-                             const nsAString& aMessage,
-                             const nsAString& aJSON)
+bool
+nsFrameLoader::DoSendAsyncMessage(const nsAString& aMessage,
+                                  const StructuredCloneData& aData)
 {
-  mozilla::dom::PBrowserParent* tabParent =
-    static_cast<nsFrameLoader*>(aCallbackData)->GetRemoteBrowser();
+  PBrowserParent* tabParent = GetRemoteBrowser();
   if (tabParent) {
-    return tabParent->SendAsyncMessage(nsString(aMessage), nsString(aJSON));
+    ClonedMessageData data;
+
+    SerializedStructuredCloneBuffer& buffer = data.data();
+    buffer.data = aData.mData;
+    buffer.dataLength = aData.mDataLength;
+
+    const nsTArray<nsCOMPtr<nsIDOMBlob> >& blobs = aData.mClosure.mBlobs;
+    if (!blobs.IsEmpty()) {
+      InfallibleTArray<PBlobParent*>& blobParents = data.blobsParent();
+
+      uint32_t length = blobs.Length();
+      blobParents.SetCapacity(length);
+
+      ContentParent* cp = static_cast<ContentParent*>(tabParent->Manager());
+
+      for (uint32_t i = 0; i < length; ++i) {
+        BlobParent* blobParent = cp->GetOrCreateActorForBlob(blobs[i]);
+        if (!blobParent) {
+          return false;
+        }
+
+        blobParents.AppendElement(blobParent);
+      }
+    }
+
+    return tabParent->SendAsyncMessage(nsString(aMessage), data);
   }
-  nsRefPtr<nsIRunnable> ev =
-    new nsAsyncMessageToChild(static_cast<nsFrameLoader*>(aCallbackData),
-                              aMessage, aJSON);
-  NS_DispatchToCurrentThread(ev);
-  return true;
+
+  if (mChildMessageManager) {
+    nsRefPtr<nsIRunnable> ev = new nsAsyncMessageToChild(this, aMessage, aData);
+    NS_DispatchToCurrentThread(ev);
+    return true;
+  }
+
+  // We don't have any targets to send our asynchronous message to.
+  return false;
+}
+
+bool
+nsFrameLoader::CheckPermission(const nsAString& aPermission)
+{
+  return AssertAppProcessPermission(GetRemoteBrowser(),
+                                    NS_ConvertUTF16toUTF8(aPermission).get());
 }
 
 NS_IMETHODIMP
-nsFrameLoader::GetMessageManager(nsIChromeFrameMessageManager** aManager)
+nsFrameLoader::GetMessageManager(nsIMessageSender** aManager)
 {
   EnsureMessageManager();
   if (mMessageManager) {
@@ -2206,7 +2254,7 @@ NS_IMETHODIMP
 nsFrameLoader::GetContentViewsIn(float aXPx, float aYPx,
                                  float aTopSize, float aRightSize,
                                  float aBottomSize, float aLeftSize,
-                                 PRUint32* aLength,
+                                 uint32_t* aLength,
                                  nsIContentView*** aResult)
 {
   nscoord x = nsPresContext::CSSPixelsToAppUnits(aXPx - aLeftSize);
@@ -2228,7 +2276,7 @@ nsFrameLoader::GetContentViewsIn(float aXPx, float aYPx,
   nsIContentView** result = reinterpret_cast<nsIContentView**>(
     NS_Alloc(ids.Length() * sizeof(nsIContentView*)));
 
-  for (PRUint32 i = 0; i < ids.Length(); i++) {
+  for (uint32_t i = 0; i < ids.Length(); i++) {
     nsIContentView* view = GetCurrentRemoteFrame()->GetContentView(ids[i]);
     NS_ABORT_IF_FALSE(view, "Retrieved ID from RenderFrameParent, it should be valid!");
     nsRefPtr<nsIContentView>(view).forget(&result[i]);
@@ -2272,7 +2320,7 @@ nsFrameLoader::EnsureMessageManager()
 
   if (mMessageManager) {
     if (ShouldUseRemoteProcess()) {
-      mMessageManager->SetCallbackData(mRemoteBrowserShown ? this : nullptr);
+      mMessageManager->SetCallback(mRemoteBrowserShown ? this : nullptr);
     }
     return NS_OK;
   }
@@ -2285,30 +2333,26 @@ nsFrameLoader::EnsureMessageManager()
 
   nsCOMPtr<nsIDOMChromeWindow> chromeWindow =
     do_QueryInterface(GetOwnerDoc()->GetWindow());
-  nsCOMPtr<nsIChromeFrameMessageManager> parentManager;
+  nsCOMPtr<nsIMessageBroadcaster> parentManager;
   if (chromeWindow) {
     chromeWindow->GetMessageManager(getter_AddRefs(parentManager));
   }
 
   if (ShouldUseRemoteProcess()) {
-    mMessageManager = new nsFrameMessageManager(true,
-                                                nullptr,
-                                                SendAsyncMessageToChild,
-                                                LoadScript,
-                                                mRemoteBrowserShown ? this : nullptr,
+    mMessageManager = new nsFrameMessageManager(mRemoteBrowserShown ? this : nullptr,
                                                 static_cast<nsFrameMessageManager*>(parentManager.get()),
-                                                cx);
+                                                cx,
+                                                MM_CHROME);
   } else {
-    mMessageManager = new nsFrameMessageManager(true,
-                                                nullptr,
-                                                SendAsyncMessageToChild,
-                                                LoadScript,
-                                                nullptr,
+    mMessageManager = new nsFrameMessageManager(nullptr,
                                                 static_cast<nsFrameMessageManager*>(parentManager.get()),
-                                                cx);
+                                                cx,
+                                                MM_CHROME);
+
     mChildMessageManager =
       new nsInProcessTabChildGlobal(mDocShell, mOwnerContent, mMessageManager);
-    mMessageManager->SetCallbackData(this);
+    // Force pending frame scripts to be loaded.
+    mMessageManager->SetCallback(this);
   }
   return NS_OK;
 }
@@ -2332,14 +2376,99 @@ nsFrameLoader::SetRemoteBrowser(nsITabParent* aTabParent)
 {
   MOZ_ASSERT(!mRemoteBrowser);
   MOZ_ASSERT(!mCurrentRemoteFrame);
+  mRemoteFrame = true;
   mRemoteBrowser = static_cast<TabParent*>(aTabParent);
 
-  EnsureMessageManager();
-  nsCOMPtr<nsIObserverService> os = services::GetObserverService();
-  if (OwnerIsBrowserFrame() && os) {
-    mRemoteBrowserInitialized = true;
-    os->NotifyObservers(NS_ISUPPORTS_CAST(nsIFrameLoader*, this),
-                        "remote-browser-frame-shown", NULL);
-  }
+  ShowRemoteFrame(nsIntSize(0, 0));
 }
 
+void
+nsFrameLoader::SetDetachedSubdocView(nsIView* aDetachedViews,
+                                     nsIDocument* aContainerDoc)
+{
+  mDetachedSubdocViews = aDetachedViews;
+  mContainerDocWhileDetached = aContainerDoc;
+}
+
+nsIView*
+nsFrameLoader::GetDetachedSubdocView(nsIDocument** aContainerDoc) const
+{
+  NS_IF_ADDREF(*aContainerDoc = mContainerDocWhileDetached);
+  return mDetachedSubdocViews;
+}
+
+/* virtual */ void
+nsFrameLoader::AttributeChanged(nsIDocument* aDocument,
+                                mozilla::dom::Element* aElement,
+                                int32_t      aNameSpaceID,
+                                nsIAtom*     aAttribute,
+                                int32_t      aModType)
+{
+  MOZ_ASSERT(mObservingOwnerContent);
+  // TODO: Implement ContentShellAdded for remote browsers (bug 658304)
+  MOZ_ASSERT(!mRemoteBrowser);
+
+  if (aNameSpaceID != kNameSpaceID_None || aAttribute != TypeAttrName()) {
+    return;
+  }
+
+  if (aElement != mOwnerContent) {
+    return;
+  }
+
+  // Note: This logic duplicates a lot of logic in
+  // MaybeCreateDocshell.  We should fix that.
+
+  // Notify our enclosing chrome that our type has changed.  We only do this
+  // if our parent is chrome, since in all other cases we're random content
+  // subframes and the treeowner shouldn't worry about us.
+
+  nsCOMPtr<nsIDocShellTreeItem> docShellAsItem(do_QueryInterface(mDocShell));
+  if (!docShellAsItem) {
+    return;
+  }
+
+  nsCOMPtr<nsIDocShellTreeItem> parentItem;
+  docShellAsItem->GetParent(getter_AddRefs(parentItem));
+  if (!parentItem) {
+    return;
+  }
+
+  int32_t parentType;
+  parentItem->GetItemType(&parentType);
+
+  if (parentType != nsIDocShellTreeItem::typeChrome) {
+    return;
+  }
+
+  nsCOMPtr<nsIDocShellTreeOwner> parentTreeOwner;
+  parentItem->GetTreeOwner(getter_AddRefs(parentTreeOwner));
+  if (!parentTreeOwner) {
+    return;
+  }
+
+  nsAutoString value;
+  aElement->GetAttr(kNameSpaceID_None, TypeAttrName(), value);
+
+  bool is_primary = value.LowerCaseEqualsLiteral("content-primary");
+
+#ifdef MOZ_XUL
+  // when a content panel is no longer primary, hide any open popups it may have
+  if (!is_primary) {
+    nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
+    if (pm)
+      pm->HidePopupsInDocShell(docShellAsItem);
+  }
+#endif
+
+  parentTreeOwner->ContentShellRemoved(docShellAsItem);
+  if (value.LowerCaseEqualsLiteral("content") ||
+      StringBeginsWith(value, NS_LITERAL_STRING("content-"),
+                       nsCaseInsensitiveStringComparator())) {
+    bool is_targetable = is_primary ||
+      value.LowerCaseEqualsLiteral("content-targetable");
+
+    parentTreeOwner->ContentShellAdded(docShellAsItem, is_primary,
+                                       is_targetable, value);
+  }
+}

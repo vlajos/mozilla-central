@@ -11,6 +11,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "getFrameWorkerHandle", "resource://gre/modules/FrameWorker.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "openChatWindow", "resource://gre/modules/MozSocialAPI.jsm");
 
 const EXPORTED_SYMBOLS = ["WorkerAPI"];
 
@@ -22,18 +23,17 @@ function WorkerAPI(provider, port) {
   this._port = port;
   this._port.onmessage = this._handleMessage.bind(this);
 
-  this.initialized = false;
-
   // Send an "intro" message so the worker knows this is the port
   // used for the api.
   // later we might even include an API version - version 0 for now!
   this._port.postMessage({topic: "social.initialize"});
-  
-  // backwards compat, remove after Aug 1.
-  this._port.postMessage({topic: "social.cookie-changed"});
 }
 
 WorkerAPI.prototype = {
+  terminate: function terminate() {
+    this._port.close();
+  },
+
   _handleMessage: function _handleMessage(event) {
     let {topic, data} = event.data;
     let handler = this.handlers[topic];
@@ -49,8 +49,12 @@ WorkerAPI.prototype = {
   },
 
   handlers: {
-    "social.initialize-response": function (data) {
-      this.initialized = true;
+    "social.reload-worker": function(data) {
+      getFrameWorkerHandle(this._provider.workerURL, null)._worker.reload();
+      // the frameworker is going to be reloaded, send the initialization
+      // so it can have the same startup sequence as if it were loaded
+      // the first time.  This will be queued until the frameworker is ready.
+      this._port.postMessage({topic: "social.initialize"});
     },
     "social.user-profile": function (data) {
       this._provider.updateUserProfile(data);
@@ -59,7 +63,8 @@ WorkerAPI.prototype = {
       this._provider.setAmbientNotification(data);
     },
     "social.cookies-get": function(data) {
-      let document = getFrameWorkerHandle(this._provider.workerURL, null).document;
+      let document = getFrameWorkerHandle(this._provider.workerURL, null).
+                        _worker.frame.contentDocument;
       let cookies = document.cookie.split(";");
       let results = [];
       cookies.forEach(function(aCookie) {
@@ -70,34 +75,59 @@ WorkerAPI.prototype = {
       this._port.postMessage({topic: "social.cookies-get-response",
                               data: results});
     },
-    
-    // XXX backwards compat for existing providers, remove these eventually
-    "social.ambient-notification-area": function (data) {
-      // replaced with social.user-profile
-      // handle the provider icon and user profile for the primary provider menu
-      if (data.background) {
-        // backwards compat
-        try {
-          data.iconURL = /url\((['"]?)(.*)(\1)\)/.exec(data.background)[2];
-        } catch(e) {
-          data.iconURL = data.background;
-        }
-      }
-
-      this._provider.updateUserProfile(data);
+    'social.request-chat': function(data) {
+      let xulWindow = Services.wm.getMostRecentWindow("navigator:browser").getTopWin();
+      openChatWindow(xulWindow, this._provider, data, null, "minimized");
     },
-    "social.ambient-notification-update": function (data) {
-      // replaced with social.ambient-notification
-      // handle the provider icon and user profile for the primary provider menu
-      if (data.background) {
-        // backwards compat
-        try {
-          data.iconURL = /url\((['"]?)(.*)(\1)\)/.exec(data.background)[2];
-        } catch(e) {
-          data.iconURL = data.background;
+    'social.notification-create': function(data) {
+      if (!Services.prefs.getBoolPref("social.toast-notifications.enabled"))
+        return;
+
+      let port = this._port;
+      let provider = this._provider;
+      let {id, type, icon, body, action, actionArgs} = data;
+      let alertsService = Cc["@mozilla.org/alerts-service;1"]
+                              .getService(Ci.nsIAlertsService);
+      function listener(subject, topic, data) {
+        if (topic === "alertclickcallback") {
+          // we always post back the click
+          port.postMessage({topic: "social.notification-action",
+                            data: {id: id,
+                                   action: action,
+                                   actionArgs: actionArgs}});
+          switch (action) {
+            case "link":
+              // if there is a url, make it open a tab
+              if (actionArgs.toURL) {
+                try {
+                  let pUri = Services.io.newURI(provider.origin, null, null);
+                  let nUri = Services.io.newURI(pUri.resolve(actionArgs.toURL),
+                                                null, null);
+                  // fixup
+                  if (nUri.scheme != pUri.scheme)
+                    nUri.scheme = pUri.scheme;
+                  if (nUri.prePath == provider.origin) {
+                    let xulWindow = Services.wm.getMostRecentWindow("navigator:browser");
+                    xulWindow.openUILink(nUri.spec);
+                  }
+                } catch(e) {
+                  Cu.reportError("social.notification-create error: "+e);
+                }
+              }
+              break;
+            default:
+              break;
+          }
         }
       }
-      this._provider.setAmbientNotification(data);
-    }
+      alertsService.showAlertNotification(icon,
+                                          this._provider.name, // title
+                                          body,
+                                          !!action, // text clickable if an
+                                                    // action was provided.
+                                          null,
+                                          listener,
+                                          type); 
+    },
   }
 }

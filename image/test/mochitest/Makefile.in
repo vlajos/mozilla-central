@@ -3,11 +3,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH		= ../../..
+DEPTH		= @DEPTH@
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
-relativesrcdir  = image/test/mochitest
+relativesrcdir  = @relativesrcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
@@ -55,9 +55,12 @@ MOCHITEST_FILES =   imgutils.js \
                 bug671906.sjs \
                 test_bug671906.html \
                 test_bug733553.html \
-                bug733553-iframe.html \
                 bug733553.sjs \
+                bug733553-informant.sjs \
                 animated-gif2.gif \
+                invalid.jpg \
+                bad.jpg \
+                rillybad.jpg \
                 test_bug767779.html \
                 bug767779.sjs \
                 animated-gif_trailing-garbage.gif \

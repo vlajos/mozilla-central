@@ -6,7 +6,6 @@
 #define mozilla_BinaryPath_h
 
 #include "nsXPCOMPrivate.h" // for MAXPATHLEN
-#include "prtypes.h"
 #ifdef XP_WIN
 #include <windows.h>
 #elif defined(XP_MACOSX)
@@ -76,7 +75,7 @@ private:
       return NS_ERROR_FAILURE;
 
     snprintf(aResult, MAXPATHLEN, "%s/%s", greHome, "dummy");
-    aResult[MAXPATHLEN] = '\0';
+    aResult[MAXPATHLEN-1] = '\0';
     return NS_OK;
   }
 

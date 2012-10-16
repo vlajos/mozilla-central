@@ -68,7 +68,7 @@ private:
   /**
    * Set the object in an error state with the error type being aError.
    */
-  void SetError(PRInt32 aError);
+  void SetError(int32_t aError);
 
   /**
    * Set the object in a success state with the result being the nsISupports
@@ -89,9 +89,6 @@ private:
   bool      mDone;
   nsCOMPtr<nsIDOMDOMError> mError;
   nsCOMPtr<nsIDOMMozSmsCursor> mCursor;
-
-  NS_DECL_EVENT_HANDLER(success)
-  NS_DECL_EVENT_HANDLER(error)
 };
 
 inline nsIDOMMozSmsCursor*

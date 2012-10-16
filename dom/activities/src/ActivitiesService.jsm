@@ -4,7 +4,7 @@
 
 "use strict"
 
-const Cu = Components.utils; 
+const Cu = Components.utils;
 const Cc = Components.classes;
 const Ci = Components.interfaces;
 
@@ -12,16 +12,15 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/IndexedDBHelper.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
-  return Cc["@mozilla.org/parentprocessmessagemanager;1"]
-           .getService(Ci.nsIFrameMessageManager);
-});
+XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
+                                   "@mozilla.org/parentprocessmessagemanager;1",
+                                   "nsIMessageBroadcaster");
 
 const EXPORTED_SYMBOLS = [];
 
 let idbGlobal = this;
 
-function debug(aMsg) { 
+function debug(aMsg) {
   //dump("-- ActivitiesService.jsm " + Date.now() + " " + aMsg + "\n");
 }
 
@@ -83,7 +82,7 @@ ActivitiesDb.prototype = {
       let data = converter.convertToByteArray(aObject[aProp], {});
       hasher.update(data, data.length);
     });
-    
+
     return hasher.finish(true);
   },
 
@@ -98,7 +97,7 @@ ActivitiesDb.prototype = {
       };
       object.id = this.createId(object);
       debug("Going to add " + JSON.stringify(object));
-      
+
       store.put(object);
     }.bind(this), aSuccess, aError);
   },
@@ -119,7 +118,7 @@ ActivitiesDb.prototype = {
     debug("Looking for " + aObject.options.name);
 
     this.newTxn("readonly", function (txn, store) {
-      let index = store.index("name"); 
+      let index = store.index("name");
       let request = index.mozGetAll(aObject.options.name);
       request.onsuccess = function findSuccess(aEvent) {
         debug("Request successful. Record count: " + aEvent.target.result.length);
@@ -168,6 +167,7 @@ let Activities = {
 
     this.db = new ActivitiesDb();
     this.db.init();
+    this.mm = {};
   },
 
   observe: function activities_observe(aSubject, aTopic, aData) {
@@ -183,7 +183,7 @@ let Activities = {
     * Starts an activity by doing:
     * - finds a list of matching activities.
     * - calls the UI glue to get the user choice.
-    * - fire an system message of type "activity" to this app, sending the 
+    * - fire an system message of type "activity" to this app, sending the
     *   activity data as a payload.
     */
   startActivity: function activities_startActivity(aMsg) {
@@ -193,11 +193,12 @@ let Activities = {
       debug(JSON.stringify(aResults));
 
       // We have no matching activity registered, let's fire an error.
-      if (aResults.length === 0) {
-        ppmm.sendAsyncMessage("Activity:FireError", {
-          "id": aMsg.id, 
+      if (aResults.options.length === 0) {
+        Activities.mm[aMsg.id].sendAsyncMessage("Activity:FireError", {
+          "id": aMsg.id,
           "error": "NO_PROVIDER"
         });
+        delete Activities.mm[aMsg.id];
         return;
       }
 
@@ -206,10 +207,11 @@ let Activities = {
 
         // The user has cancelled the choice, fire an error.
         if (aChoice === -1) {
-          ppmm.sendAsyncMessage("Activity:FireError", {
-            "id": aMsg.id, 
+          Activities.mm[aMsg.id].sendAsyncMessage("Activity:FireError", {
+            "id": aMsg.id,
             "error": "USER_ABORT"
           });
+          delete Activities.mm[aMsg.id];
           return;
         }
 
@@ -223,15 +225,19 @@ let Activities = {
         debug("Sending system message...");
         let result = aResults.options[aChoice];
         sysmm.sendMessage("activity", {
-          "id": aMsg.id,
-          "payload": aMsg.options
-        }, Services.io.newURI(result.manifest, null, null));
+            "id": aMsg.id,
+            "payload": aMsg.options,
+            "target": result.description
+          },
+          Services.io.newURI(result.description.href, null, null),
+          Services.io.newURI(result.manifest, null, null));
 
         if (!result.description.returnValue) {
-          ppmm.sendAsyncMessage("Activity:FireSuccess", {
+          Activities.mm[aMsg.id].sendAsyncMessage("Activity:FireSuccess", {
             "id": aMsg.id,
             "result": null
           });
+          delete Activities.mm[aMsg.id];
         }
       };
 
@@ -248,7 +254,11 @@ let Activities = {
     let matchFunc = function matchFunc(aResult) {
       // Bug 773383: arrays of strings / regexp.
       for (let prop in aResult.description.filters) {
-        if (aMsg.options.data[prop] !== aResult.description.filters[prop]) {
+        if (Array.isArray(aResult.description.filters[prop])) {
+          if (aResult.description.filters[prop].indexOf(aMsg.options.data[prop]) == -1) {
+            return false;
+          }
+        } else if (aResult.description.filters[prop] !== aMsg.options.data[prop] ) {
           return false;
         }
       }
@@ -259,18 +269,21 @@ let Activities = {
   },
 
   receiveMessage: function activities_receiveMessage(aMessage) {
-    let mm = aMessage.target.QueryInterface(Ci.nsIFrameMessageManager);
+    let mm = aMessage.target;
     let msg = aMessage.json;
     switch(aMessage.name) {
       case "Activity:Start":
+        this.mm[msg.id] = aMessage.target;
         this.startActivity(msg);
         break;
 
       case "Activity:PostResult":
-        ppmm.sendAsyncMessage("Activity:FireSuccess", msg);
+        this.mm[msg.id].sendAsyncMessage("Activity:FireSuccess", msg);
+        delete this.mm[msg.id];
         break;
       case "Activity:PostError":
-        ppmm.sendAsyncMessage("Activity:FireError", msg);
+        this.mm[msg.id].sendAsyncMessage("Activity:FireError", msg);
+        delete this.mm[msg.id];
         break;
 
       case "Activities:Register":

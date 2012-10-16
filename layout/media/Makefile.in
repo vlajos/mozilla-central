@@ -3,7 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH		= ../..
+DEPTH		= @DEPTH@
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
@@ -114,12 +114,16 @@ SHARED_LIBRARY_LIBS 	+= \
 	$(DEPTH)/gfx/2d/$(LIB_PREFIX)gfx2d.$(LIB_SUFFIX) \
 	$(NULL)
 
-ifdef MOZ_WEBRTC
-include $(topsrcdir)/media/webrtc/shared_libs.mk
-endif
-
 ifdef MOZ_ENABLE_SKIA
 SHARED_LIBRARY_LIBS += $(MOZ_SKIA_LIBS)
+endif
+
+ifdef MOZ_WEBRTC
+ifndef MOZ_WEBRTC_IN_LIBXUL
+DEFINES += -DMOZ_WEBRTC_GKMEDIA=1
+include $(topsrcdir)/media/webrtc/shared_libs.mk
+SHARED_LIBRARY_LIBS += $(WEBRTC_LIBS)
+endif
 endif
 
 ifeq (WINNT,$(OS_TARGET))
@@ -131,8 +135,20 @@ EXTRA_DSO_LDOPTS += \
   -LIBPATH:"$(MOZ_DIRECTX_SDK_PATH)/lib/$(MOZ_DIRECTX_SDK_CPU_SUFFIX)" \
   $(NULL)
 OS_LIBS += $(call EXPAND_LIBNAME,secur32 crypt32 iphlpapi strmiids dmoguids wmcodecdspuuid amstrmid msdmo wininet)
+ifdef _MSC_VER
+OS_LIBS += $(call EXPAND_LIBNAME,delayimp)
+EXTRA_DSO_LDOPTS += \
+  -DELAYLOAD:msdmo.dll \
+  $(NULL)
+endif
 endif
 
+ifdef MOZ_WEBRTC
+EXTRA_DSO_LDOPTS += \
+  -LIBPATH:"$(MOZ_DIRECTX_SDK_PATH)/lib/$(MOZ_DIRECTX_SDK_CPU_SUFFIX)" \
+  $(NULL)
+OS_LIBS += $(call EXPAND_LIBNAME,secur32 crypt32 iphlpapi strmiids dmoguids wmcodecdspuuid amstrmid msdmo wininet)
+endif
 DEFFILE = symbols.def
 endif
 

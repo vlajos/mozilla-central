@@ -16,12 +16,12 @@
 #include "prinit.h"
 #include "prlog.h"
 #include "nsArenaMemoryStats.h"
-
-#ifdef MOZ_CRASHREPORTER
-#include "nsICrashReporter.h"
 #include "nsCOMPtr.h"
 #include "nsServiceManagerUtils.h"
 #include "nsPrintfCString.h"
+
+#ifdef MOZ_CRASHREPORTER
+#include "nsICrashReporter.h"
 #endif
 
 #include "mozilla/StandardInteger.h"
@@ -231,9 +231,9 @@ ARENA_POISON_init()
   bool enabled;
   if (cr && NS_SUCCEEDED(cr->GetEnabled(&enabled)) && enabled) {
     cr->AnnotateCrashReport(NS_LITERAL_CSTRING("FramePoisonBase"),
-                            nsPrintfCString("%.16llx", PRUint64(rgnbase)));
+                            nsPrintfCString("%.16llx", uint64_t(rgnbase)));
     cr->AnnotateCrashReport(NS_LITERAL_CSTRING("FramePoisonSize"),
-                            nsPrintfCString("%lu", PRUint32(rgnsize)));
+                            nsPrintfCString("%lu", uint32_t(rgnsize)));
   }
 #endif
   return PR_SUCCESS;
@@ -249,7 +249,7 @@ namespace {
 class FreeList : public PLDHashEntryHdr
 {
 public:
-  typedef PRUint32 KeyType;
+  typedef uint32_t KeyType;
   nsTArray<void *> mEntries;
   size_t mEntrySize;
   size_t mEntriesEverAllocated;
@@ -291,7 +291,7 @@ struct nsPresArena::State {
     PL_FinishArenaPool(&mPool);
   }
 
-  void* Allocate(PRUint32 aCode, size_t aSize)
+  void* Allocate(uint32_t aCode, size_t aSize)
   {
     NS_ABORT_IF_FALSE(aSize > 0, "PresArena cannot allocate zero bytes");
 
@@ -321,8 +321,16 @@ struct nsPresArena::State {
         char* p = reinterpret_cast<char*>(result);
         char* limit = p + list->mEntrySize;
         for (; p < limit; p += sizeof(uintptr_t)) {
-          NS_ABORT_IF_FALSE(*reinterpret_cast<uintptr_t*>(p) == ARENA_POISON,
-                            "PresArena: poison overwritten");
+          uintptr_t val = *reinterpret_cast<uintptr_t*>(p);
+          NS_ABORT_IF_FALSE(val == ARENA_POISON,
+                            nsPrintfCString("PresArena: poison overwritten; "
+                                            "wanted %.16llx "
+                                            "found %.16llx "
+                                            "errors in bits %.16llx",
+                                            uint64_t(ARENA_POISON),
+                                            uint64_t(val),
+                                            uint64_t(ARENA_POISON ^ val)
+                                            ).get());
         }
       }
 #endif
@@ -335,7 +343,7 @@ struct nsPresArena::State {
     return result;
   }
 
-  void Free(PRUint32 aCode, void* aPtr)
+  void Free(uint32_t aCode, void* aPtr)
   {
     // Try to recycle this entry.
     FreeList* list = mFreeLists.GetEntry(aCode);
@@ -458,12 +466,12 @@ struct nsPresArena::State
     PR_CallOnce(&ARENA_POISON_guard, ARENA_POISON_init);
   }
 
-  void* Allocate(PRUint32 /* unused */, size_t aSize)
+  void* Allocate(uint32_t /* unused */, size_t aSize)
   {
     return PR_Malloc(aSize);
   }
 
-  void Free(PRUint32 /* unused */, void* aPtr)
+  void Free(uint32_t /* unused */, void* aPtr)
   {
     PR_Free(aPtr);
   }
@@ -488,14 +496,14 @@ nsPresArena::~nsPresArena()
 void*
 nsPresArena::AllocateBySize(size_t aSize)
 {
-  return mState->Allocate(PRUint32(aSize) | PRUint32(NON_OBJECT_MARKER),
+  return mState->Allocate(uint32_t(aSize) | uint32_t(NON_OBJECT_MARKER),
                           aSize);
 }
 
 void
 nsPresArena::FreeBySize(size_t aSize, void* aPtr)
 {
-  mState->Free(PRUint32(aSize) | PRUint32(NON_OBJECT_MARKER), aPtr);
+  mState->Free(uint32_t(aSize) | uint32_t(NON_OBJECT_MARKER), aPtr);
 }
 
 void*

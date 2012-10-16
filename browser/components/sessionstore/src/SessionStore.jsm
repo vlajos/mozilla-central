@@ -2825,7 +2825,8 @@ let SessionStoreInternal = {
 
   /**
    * Sets the tabs restoring order with the following priority:
-   * Selected tab, pinned tabs, visible tabs, unhidden tabs and hidden tabs.
+   * Selected tab, pinned tabs, optimized visible tabs, other visible tabs and
+   * hidden tabs.
    * @param aTabBrowser
    *        Tab browser object
    * @param aTabs
@@ -2833,95 +2834,72 @@ let SessionStoreInternal = {
    * @param aTabData
    *        Array of tab data
    * @param aSelectedTab
-   *        Index of selected tab
+   *        Index of selected tab (1 is first tab, 0 no selected tab)
    */
   _setTabsRestoringOrder : function ssi__setTabsRestoringOrder(
     aTabBrowser, aTabs, aTabData, aSelectedTab) {
-    // Temporally store the pinned tabs before moving the hidden tabs and
-    // optimizing the visible tabs. In case the selected tab is a pinned tab,
-    // the index is also stored.
-    let pinnedTabs = aTabData.filter(function (aData) aData.pinned).length;
-    let pinnedTabsArray = [];
-    let pinnedTabsDataArray = [];
-    let pinnedSelectedTab = null;
-    if (pinnedTabs && aTabs.length > 1) {
+
+    // Store the selected tab. Need to substract one to get the index in aTabs.
+    let selectedTab;
+    if (aSelectedTab > 0 && aTabs[aSelectedTab - 1]) {
+      selectedTab = aTabs[aSelectedTab - 1];
+    }
+
+    // Store the pinned tabs and hidden tabs.
+    let pinnedTabs = [];
+    let pinnedTabsData = [];
+    let hiddenTabs = [];
+    let hiddenTabsData = [];
+    if (aTabs.length > 1) {
       for (let t = aTabs.length - 1; t >= 0; t--) {
         if (aTabData[t].pinned) {
-          pinnedTabsArray.unshift(aTabs.splice(t, 1)[0]);
-          pinnedTabsDataArray.unshift(aTabData.splice(t, 1)[0]);
-          if (aSelectedTab) {
-            if (aSelectedTab > (t + 1))
-              --aSelectedTab;
-            else if (aSelectedTab == (t + 1)) {
-              aSelectedTab = null;
-              pinnedSelectedTab = 1;
-            }
-          } else if (pinnedSelectedTab) 
-            ++pinnedSelectedTab;
+          pinnedTabs.unshift(aTabs.splice(t, 1)[0]);
+          pinnedTabsData.unshift(aTabData.splice(t, 1)[0]);
+        } else if (aTabData[t].hidden) {
+          hiddenTabs.unshift(aTabs.splice(t, 1)[0]);
+          hiddenTabsData.unshift(aTabData.splice(t, 1)[0]);
         }
       }
     }
 
-    // Without the pinned tabs, we move the hidden tabs to the end of the list
-    // and optimize the visible tabs. 
-    let unhiddenTabs = aTabData.filter(function (aData) !aData.hidden).length;
-    if (unhiddenTabs && aTabs.length > 1) {
-      // Load hidden tabs last, by pushing them to the end of the list.
-      for (let t = 0, tabsToReorder = aTabs.length - unhiddenTabs; tabsToReorder > 0; ) {
-        if (aTabData[t].hidden) {
-          aTabs = aTabs.concat(aTabs.splice(t, 1));
-          aTabData = aTabData.concat(aTabData.splice(t, 1));
-          if (aSelectedTab && aSelectedTab > t)
-            --aSelectedTab;
-          --tabsToReorder;
-          continue;
+    // Optimize the visible tabs only if there is a selected tab.
+    if (selectedTab) {
+      let selectedTabIndex = aTabs.indexOf(selectedTab);
+      if (selectedTabIndex > 0) {
+        let scrollSize = aTabBrowser.tabContainer.mTabstrip.scrollClientSize;
+        let tabWidth = aTabs[0].getBoundingClientRect().width;
+        let maxVisibleTabs = Math.ceil(scrollSize / tabWidth);
+        if (maxVisibleTabs < aTabs.length) {
+          let firstVisibleTab = 0;
+          let nonVisibleTabsCount = aTabs.length - maxVisibleTabs;
+          if (nonVisibleTabsCount >= selectedTabIndex) {
+            // Selected tab is leftmost since we scroll to it when possible.
+            firstVisibleTab = selectedTabIndex;
+          } else {
+            // Selected tab is rightmost or no more room to scroll right.
+            firstVisibleTab = nonVisibleTabsCount;
+          }
+          aTabs = aTabs.splice(firstVisibleTab, maxVisibleTabs).concat(aTabs);
+          aTabData =
+            aTabData.splice(firstVisibleTab, maxVisibleTabs).concat(aTabData);
         }
-        ++t;
-      }
-
-      // Determine if we can optimize & load visible tabs first
-      let maxVisibleTabs = Math.ceil(aTabBrowser.tabContainer.mTabstrip.scrollClientSize /
-                                     aTabs[unhiddenTabs - 1].getBoundingClientRect().width);
-
-      // Make sure we restore visible tabs first, if there are enough
-      if (aSelectedTab && maxVisibleTabs < unhiddenTabs && aSelectedTab > 1) {
-        let firstVisibleTab = 0;
-        if (unhiddenTabs - maxVisibleTabs > aSelectedTab) {
-          // aSelectedTab is leftmost since we scroll to it when possible
-          firstVisibleTab = aSelectedTab - 1;
-        } else {
-          // aSelectedTab is rightmost or no more room to scroll right
-          firstVisibleTab = unhiddenTabs - maxVisibleTabs;
-        }
-        aTabs = aTabs.splice(firstVisibleTab, maxVisibleTabs).concat(aTabs);
-        aTabData = aTabData.splice(firstVisibleTab, maxVisibleTabs).concat(aTabData);
-        aSelectedTab -= firstVisibleTab;
       }
     }
 
-    // Load the pinned tabs at the beginning of the list and restore the
-    // selected tab index.
-    if (pinnedTabsArray) {
-      // Restore the selected tab index.
-      if (pinnedSelectedTab) {
-        aSelectedTab = pinnedSelectedTab;
-      } else {
-        aSelectedTab += pinnedTabsArray.length;
+    // Merge the stored tabs in order.
+    aTabs = pinnedTabs.concat(aTabs, hiddenTabs);
+    aTabData = pinnedTabsData.concat(aTabData, hiddenTabsData);
+
+    // Load the selected tab to the first position and select it.
+    if (selectedTab) {
+      let selectedTabIndex = aTabs.indexOf(selectedTab);
+      if (selectedTabIndex > 0) {
+        aTabs = aTabs.splice(selectedTabIndex, 1).concat(aTabs);
+        aTabData = aTabData.splice(selectedTabIndex, 1).concat(aTabData);
       }
-      // Load the pinned tabs at the beginning of the list.
-      for (let t = pinnedTabsArray.length - 1; t >= 0; t--) {
-        aTabs.unshift(pinnedTabsArray.splice(t, 1)[0]);
-        aTabData.unshift(pinnedTabsDataArray.splice(t, 1)[0]);
-      }
+      aTabBrowser.selectedTab = selectedTab;
     }
 
-    // Load the selected tab to the first position.
-    if (aSelectedTab-- && aTabs[aSelectedTab]) {
-      aTabs.unshift(aTabs.splice(aSelectedTab, 1)[0]);
-      aTabData.unshift(aTabData.splice(aSelectedTab, 1)[0]);
-      aTabBrowser.selectedTab = aTabs[0];
-    }
-    
     return [aTabs, aTabData];
   },
   
@@ -3009,6 +2987,7 @@ let SessionStoreInternal = {
       // a tab gets closed before it's been properly restored
       browser.__SS_data = tabData;
       browser.__SS_restoreState = TAB_STATE_NEEDS_RESTORE;
+      browser.setAttribute("pending", "true");
       tab.setAttribute("pending", "true");
 
       // Make sure that set/getTabValue will set/read the correct data by
@@ -3057,7 +3036,7 @@ let SessionStoreInternal = {
   },
 
   /**
-   * Restory history for a window
+   * Restore history for a window
    * @param aWindow
    *        Window reference
    * @param aTabs
@@ -3193,6 +3172,7 @@ let SessionStoreInternal = {
 
     // Set this tab's state to restoring
     browser.__SS_restoreState = TAB_STATE_RESTORING;
+    browser.removeAttribute("pending");
     aTab.removeAttribute("pending");
 
     // Remove the history listener, since we no longer need it once we start restoring
@@ -3599,8 +3579,8 @@ let SessionStoreInternal = {
     }
     // since resizing/moving a window brings it to the foreground,
     // we might want to re-focus the last focused window
-    if (this.windowToFocus && this.windowToFocus.content) {
-      this.windowToFocus.content.focus();
+    if (this.windowToFocus) {
+      this.windowToFocus.focus();
     }
   },
 
@@ -3671,8 +3651,10 @@ let SessionStoreInternal = {
     TelemetryStopwatch.start("FX_SESSION_RESTORE_COLLECT_DATA_MS");
 
     var oState = this._getCurrentState(aUpdateAll, pinnedOnly);
-    if (!oState)
+    if (!oState) {
+      TelemetryStopwatch.cancel("FX_SESSION_RESTORE_COLLECT_DATA_MS");
       return;
+    }
 
 #ifndef XP_MACOSX
     // We want to restore closed windows that are marked with _shouldRestore.
@@ -3887,16 +3869,17 @@ let SessionStoreInternal = {
                      aState.windows.every(function (win)
                        win.tabs.every(function (tab) tab.pinned));
 
+    let hasFirstArgument = aWindow.arguments && aWindow.arguments[0];
     if (!pinnedOnly) {
       let defaultArgs = Cc["@mozilla.org/browser/clh;1"].
                         getService(Ci.nsIBrowserHandler).defaultArgs;
       if (aWindow.arguments &&
           aWindow.arguments[0] &&
           aWindow.arguments[0] == defaultArgs)
-        aWindow.arguments[0] = null;
+        hasFirstArgument = false;
     }
 
-    return !aWindow.arguments || !aWindow.arguments[0];
+    return !hasFirstArgument;
   },
 
   /**
@@ -4356,6 +4339,9 @@ let SessionStoreInternal = {
     // The browser is no longer in any sort of restoring state.
     delete browser.__SS_restoreState;
 
+    aTab.removeAttribute("pending");
+    browser.removeAttribute("pending");
+
     // We want to decrement window.__SS_tabsToRestore here so that we always
     // decrement it AFTER a tab is done restoring or when a tab gets "reset".
     window.__SS_tabsToRestore--;
@@ -4445,7 +4431,8 @@ let SessionStoreInternal = {
    *        String data
    */
   _writeFile: function ssi_writeFile(aFile, aData) {
-    TelemetryStopwatch.start("FX_SESSION_RESTORE_WRITE_FILE_MS");
+    let refObj = {};
+    TelemetryStopwatch.start("FX_SESSION_RESTORE_WRITE_FILE_MS", refObj);
     // Initialize the file output stream.
     var ostream = Cc["@mozilla.org/network/safe-file-output-stream;1"].
                   createInstance(Ci.nsIFileOutputStream);
@@ -4461,7 +4448,7 @@ let SessionStoreInternal = {
     var self = this;
     NetUtil.asyncCopy(istream, ostream, function(rc) {
       if (Components.isSuccessCode(rc)) {
-        TelemetryStopwatch.finish("FX_SESSION_RESTORE_WRITE_FILE_MS");
+        TelemetryStopwatch.finish("FX_SESSION_RESTORE_WRITE_FILE_MS", refObj);
         Services.obs.notifyObservers(null,
                                      "sessionstore-state-write-complete",
                                      "");

@@ -108,6 +108,7 @@
 #include "nsXPCOMCIDInternal.h"
 #include "nsComponentManagerUtils.h"
 #include "nsServiceManagerUtils.h"
+#include "nsIConsoleService.h"
 #include "PSMRunnable.h"
 
 #include "ssl.h"
@@ -181,6 +182,27 @@ void StopSSLServerCertVerificationThreads()
 
 namespace {
 
+void
+LogInvalidCertError(TransportSecurityInfo *socketInfo, 
+                    const nsACString &host, 
+                    const nsACString &hostWithPort,
+                    int32_t port,
+                    PRErrorCode errorCode,
+                    ::mozilla::psm::SSLErrorMessageType errorMessageType,
+                    nsIX509Cert* ix509)
+{
+  nsString message;
+  socketInfo->GetErrorLogMessage(errorCode, errorMessageType, message);
+  
+  if (!message.IsEmpty()) {
+    nsCOMPtr<nsIConsoleService> console;
+    console = do_GetService(NS_CONSOLESERVICE_CONTRACTID);
+    if (console) {
+      console->LogStringMessage(message.get());
+    }
+  }
+}
+
 // Dispatched to the STS thread to notify the infoObject of the verification
 // result.
 //
@@ -212,7 +234,7 @@ class CertErrorRunnable : public SyncRunnableBase
                     nsIX509Cert * cert,
                     TransportSecurityInfo * infoObject,
                     PRErrorCode defaultErrorCodeToReport,
-                    PRUint32 collectedErrors,
+                    uint32_t collectedErrors,
                     PRErrorCode errorCodeTrust,
                     PRErrorCode errorCodeMismatch,
                     PRErrorCode errorCodeExpired)
@@ -228,13 +250,13 @@ class CertErrorRunnable : public SyncRunnableBase
   virtual void RunOnTargetThread();
   nsRefPtr<SSLServerCertVerificationResult> mResult; // out
 private:
-  SSLServerCertVerificationResult* CheckCertOverrides();
+  SSLServerCertVerificationResult *CheckCertOverrides();
   
   const void * const mFdForLogging; // may become an invalid pointer; do not dereference
   const nsCOMPtr<nsIX509Cert> mCert;
   const nsRefPtr<TransportSecurityInfo> mInfoObject;
   const PRErrorCode mDefaultErrorCodeToReport;
-  const PRUint32 mCollectedErrors;
+  const uint32_t mCollectedErrors;
   const PRErrorCode mErrorCodeTrust;
   const PRErrorCode mErrorCodeMismatch;
   const PRErrorCode mErrorCodeExpired;
@@ -252,7 +274,7 @@ CertErrorRunnable::CheckCertOverrides()
                                                mDefaultErrorCodeToReport);
   }
 
-  PRInt32 port;
+  int32_t port;
   mInfoObject->GetPort(&port);
 
   nsCString hostWithPortString;
@@ -260,7 +282,7 @@ CertErrorRunnable::CheckCertOverrides()
   hostWithPortString.AppendLiteral(":");
   hostWithPortString.AppendInt(port);
 
-  PRUint32 remaining_display_errors = mCollectedErrors;
+  uint32_t remaining_display_errors = mCollectedErrors;
 
   nsresult nsrv;
 
@@ -284,7 +306,7 @@ CertErrorRunnable::CheckCertOverrides()
       do_GetService(NS_CERTOVERRIDE_CONTRACTID);
     // it is fine to continue without the nsICertOverrideService
 
-    PRUint32 overrideBits = 0;
+    uint32_t overrideBits = 0;
 
     if (overrideService)
     {
@@ -299,7 +321,7 @@ CertErrorRunnable::CheckCertOverrides()
       if (NS_SUCCEEDED(nsrv) && haveOverride) 
       {
        // remove the errors that are already overriden
-        remaining_display_errors -= overrideBits;
+        remaining_display_errors &= ~overrideBits;
       }
     }
 
@@ -355,9 +377,21 @@ CertErrorRunnable::CheckCertOverrides()
                                 : mErrorCodeMismatch ? mErrorCodeMismatch
                                 : mErrorCodeExpired  ? mErrorCodeExpired
                                 : mDefaultErrorCodeToReport;
+                                
+  SSLServerCertVerificationResult *result = 
+    new SSLServerCertVerificationResult(mInfoObject, 
+                                        errorCodeToReport,
+                                        OverridableCertErrorMessage);
 
-  return new SSLServerCertVerificationResult(mInfoObject, errorCodeToReport,
-                                             OverridableCertErrorMessage);
+  LogInvalidCertError(mInfoObject,
+                      nsDependentCString(mInfoObject->GetHostName()),
+                      hostWithPortString,
+                      port,
+                      result->mErrorCode,
+                      result->mErrorMessageType,
+                      mCert);
+
+  return result;
 }
 
 void 
@@ -461,7 +495,7 @@ CreateCertErrorRunnable(PRErrorCode defaultErrorCodeToReport,
   PRErrorCode errorCodeTrust = 0;
   PRErrorCode errorCodeExpired = 0;
 
-  PRUint32 collected_errors = 0;
+  uint32_t collected_errors = 0;
 
   if (infoObject->IsCertIssuerBlacklisted()) {
     collected_errors |= nsICertOverrideService::ERROR_UNTRUSTED;
@@ -761,7 +795,7 @@ BlockServerCertChangeForSpdy(nsNSSSocketInfo *infoObject,
   }
 
   // Filter out sockets that did not neogtiate SPDY via NPN
-  nsCAutoString negotiatedNPN;
+  nsAutoCString negotiatedNPN;
   nsresult rv = infoObject->GetNegotiatedNPN(negotiatedNPN);
   NS_ASSERTION(NS_SUCCEEDED(rv),
                "GetNegotiatedNPN() failed during renegotiation");

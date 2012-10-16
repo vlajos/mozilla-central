@@ -9,29 +9,35 @@
   <link rel="stylesheet" href="chrome://browser/skin/aboutReader.css" type="text/css"/>
 </head>
 
-<body onload="AboutReader.init();" onunload="AboutReader.uninit();">
+<body>
   <div id="reader-header" class="header">
+    <div id="reader-domain" class="domain"></div>
+    <h1 id="reader-title"></h1>
+    <div id="reader-credits" class="credits"></div>
   </div>
 
   <div id="reader-content" class="content">
   </div>
 
+  <div id="reader-message" class="message">
+  </div>
+
   <ul id="reader-toolbar" class="toolbar toolbar-hidden">
-    <a id="share-button" class="button share-button" href="#"></a>
-    <li class="dropdown">
-      <a class="dropdown-toggle button style-button" href="#"></a>
-      <div class="dropdown-popup">
+    <li><a id="share-button" class="button share-button" href="#"></a></li>
+    <ul class="dropdown">
+      <li><a class="dropdown-toggle button style-button" href="#"></a></li>
+      <li class="dropdown-popup">
         <ul id="color-scheme-buttons" class="segmented-button"></ul>
         <hr></hr>
         <div id="font-size-control" class="step-control"></div>
         <hr></hr>
         <div id="margin-size-control" class="step-control"></div>
-      </div>
-    </li>
+      </li>
+    </ul>
+    <li><a id="list-button" class="button list-button" href="#"></a></li>
+    <li><a id="toggle-button" class="button toggle-button" href="#"></a></li>
   </ul>
 
-  <script type="application/javascript;version=1.8" src="chrome://browser/content/aboutReader.js">
-  </script>
 </body>
 
 </html>

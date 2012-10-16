@@ -5,7 +5,7 @@
 
 package org.mozilla.gecko.gfx;
 
-import org.mozilla.gecko.GeckoAppShell;
+import org.mozilla.gecko.mozglue.DirectBufferAllocator;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -68,7 +68,7 @@ public class ScreenshotLayer extends SingleTileLayer {
     public static ScreenshotLayer create(Bitmap bitmap) {
         IntSize size = new IntSize(bitmap.getWidth(), bitmap.getHeight());
         // allocate a buffer that can hold our max screenshot size
-        ByteBuffer buffer = GeckoAppShell.allocateDirectBuffer(SCREENSHOT_SIZE_LIMIT * BYTES_FOR_16BPP);
+        ByteBuffer buffer = DirectBufferAllocator.allocate(SCREENSHOT_SIZE_LIMIT * BYTES_FOR_16BPP);
         // construct the screenshot layer
         ScreenshotLayer sl =  new ScreenshotLayer(new ScreenshotImage(buffer, size.width, size.height, CairoImage.FORMAT_RGB16_565), size);
         // paint the passed in bitmap into the buffer
@@ -108,10 +108,8 @@ public class ScreenshotLayer extends SingleTileLayer {
         @Override
         protected void finalize() throws Throwable {
             try {
-                if (mBuffer != null) {
-                    GeckoAppShell.freeDirectBuffer(mBuffer);
-                    mBuffer = null;
-                }
+                DirectBufferAllocator.free(mBuffer);
+                mBuffer = null;
             } finally {
                 super.finalize();
             }
@@ -125,7 +123,11 @@ public class ScreenshotLayer extends SingleTileLayer {
             end = Math.max(start, Math.min(dst.limit(), Math.min(src.capacity(), end)));
             dst.position(start);
             src.position(start).limit(end);
-            dst.put(src);
+            // This allocates a lot of memory and can fail sometimes. Handling the
+            // exception is better than crashing.
+            try {
+              dst.put(src);
+            } catch (java.lang.OutOfMemoryError e) {}
         }
 
         synchronized void setBitmap(ByteBuffer data, int width, int height, int format, Rect rect) {

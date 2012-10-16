@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH = ../../../..
+DEPTH = @DEPTH@
 topsrcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
@@ -15,10 +15,9 @@ IS_COMPONENT = 1
 FORCE_SHARED_LIB = 1
 
 CMMSRCS = \
-  nsAlertsService.mm \
-  mozGrowlDelegate.mm \
-  nsAlertsImageLoadListener.mm \
-  nsNotificationsList.mm \
+  nsMacAlertsService.mm \
+  mozNotificationCenterDelegate.mm \
+  ObserverPair.mm \
   $(NULL)
 
 CPPSRCS = \
@@ -26,16 +25,11 @@ CPPSRCS = \
   $(NULL)
 
 LOCAL_INCLUDES += \
-  -I$(srcdir)/growl/ \
   -I$(topsrcdir)/toolkit/components/build/ \
   $(NULL)
 
 EXPORTS = \
-  nsAlertsService.h \
-  $(NULL)
-
-SHARED_LIBRARY_LIBS = \
-  growl/$(LIB_PREFIX)growl_s.$(LIB_SUFFIX) \
+  nsMacAlertsService.h \
   $(NULL)
 
 ifdef JS_SHARED_LIBRARY

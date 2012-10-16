@@ -69,6 +69,8 @@ public:
   virtual bool RecvStop() MOZ_OVERRIDE;
   virtual bool RecvPause() MOZ_OVERRIDE;
   virtual bool RecvResume() MOZ_OVERRIDE;
+  virtual bool RecvMakeSnapshot(const SurfaceDescriptor& aInSnapshot,
+                                SurfaceDescriptor* aOutSnapshot);
 
   virtual void ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
                                    const TargetConfig& aTargetConfig,
@@ -86,11 +88,12 @@ public:
   void ScheduleResumeOnCompositorThread(int width, int height);
 
   virtual void ScheduleComposition();
-  
+  void NotifyShadowTreeTransaction();
+
   /**
    * Returns a pointer to the compositor corresponding to the given ID. 
    */
-  static CompositorParent* GetCompositor(PRUint64 id);
+  static CompositorParent* GetCompositor(uint64_t id);
 
   /**
    * Returns the compositor thread's message loop.
@@ -156,6 +159,7 @@ protected:
   virtual bool DeallocPLayers(PLayersParent* aLayers);
   virtual void ScheduleTask(CancelableTask*, int);
   virtual void Composite();
+  virtual void ComposeToTarget(gfxContext* aTarget);
   virtual void SetFirstPaintViewport(const nsIntPoint& aOffset, float aZoom, const nsIntRect& aPageRect, const gfx::Rect& aCssPageRect);
   virtual void SetPageRect(const gfx::Rect& aCssPageRect);
   virtual void SyncViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
@@ -211,20 +215,19 @@ private:
   /**
    * Add a compositor to the global compositor map.
    */
-  static void AddCompositor(CompositorParent* compositor, PRUint64* id);
+  static void AddCompositor(CompositorParent* compositor, uint64_t* id);
   /**
    * Remove a compositor from the global compositor map.
    */
-  static CompositorParent* RemoveCompositor(PRUint64 id);
+  static CompositorParent* RemoveCompositor(uint64_t id);
 
+   /**
+   * Return true if current state allows compositing, that is
+   * finishing a layers transaction.
+   */
+  bool CanComposite();
 
   // Platform specific functions
-  /**
-   * Does a breadth-first search to find the first layer in the tree with a
-   * displayport set.
-   */
-  Layer* GetPrimaryScrollableLayer();
-
   /**
    * Recursively applies the given translation to all top-level fixed position
    * layers that are descendants of the given layer.
@@ -235,6 +238,13 @@ private:
   void TransformFixedLayers(Layer* aLayer,
                             const gfxPoint& aTranslation,
                             const gfxPoint& aScaleDiff);
+
+  virtual PGrallocBufferParent* AllocPGrallocBuffer(
+    const gfxIntSize&, const uint32_t&, const uint32_t&,
+    MaybeMagicGrallocBufferHandle*) MOZ_OVERRIDE
+  { return nullptr; }
+  virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
+  { return false; }
 
   nsRefPtr<LayerManager> mLayerManager;
   nsIWidget* mWidget;
@@ -269,7 +279,7 @@ private:
   mozilla::Monitor mPauseCompositionMonitor;
   mozilla::Monitor mResumeCompositionMonitor;
 
-  PRUint64 mCompositorID;
+  uint64_t mCompositorID;
 
   DISALLOW_EVIL_CONSTRUCTORS(CompositorParent);
 };

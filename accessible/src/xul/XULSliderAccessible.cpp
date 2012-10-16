@@ -21,6 +21,7 @@ XULSliderAccessible::
   XULSliderAccessible(nsIContent* aContent, DocAccessible* aDoc) :
   AccessibleWrap(aContent, aDoc)
 {
+  mFlags = mFlags | eHasNumericValue;
 }
 
 // nsISupports
@@ -37,7 +38,7 @@ XULSliderAccessible::NativeRole()
   return roles::SLIDER;
 }
 
-PRUint64
+uint64_t
 XULSliderAccessible::NativeInteractiveState() const
  {
   if (NativelyUnavailable())
@@ -68,14 +69,14 @@ XULSliderAccessible::Value(nsString& aValue)
   GetSliderAttr(nsGkAtoms::curpos, aValue);
 }
 
-PRUint8
+uint8_t
 XULSliderAccessible::ActionCount()
 {
   return 1;
 }
 
 NS_IMETHODIMP
-XULSliderAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
+XULSliderAccessible::GetActionName(uint8_t aIndex, nsAString& aName)
 {
   aName.Truncate();
 
@@ -86,7 +87,7 @@ XULSliderAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
 }
 
 NS_IMETHODIMP
-XULSliderAccessible::DoAction(PRUint8 aIndex)
+XULSliderAccessible::DoAction(uint8_t aIndex)
 {
   NS_ENSURE_ARG(aIndex == 0);
 

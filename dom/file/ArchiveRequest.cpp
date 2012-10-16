@@ -51,6 +51,7 @@ ArchiveRequest::ArchiveRequest(nsIDOMWindow* aWindow,
 : DOMRequest(aWindow),
   mArchiveReader(aReader)
 {
+  MOZ_COUNT_CTOR(ArchiveRequest);
   nsLayoutStatics::AddRef();
 
   /* An event to make this request asynchronous: */
@@ -60,6 +61,7 @@ ArchiveRequest::ArchiveRequest(nsIDOMWindow* aWindow,
 
 ArchiveRequest::~ArchiveRequest()
 {
+  MOZ_COUNT_DTOR(ArchiveRequest);
   nsLayoutStatics::Release();
 }
 
@@ -109,7 +111,7 @@ nsresult
 ArchiveRequest::ReaderReady(nsTArray<nsCOMPtr<nsIDOMFile> >& aFileList,
                             nsresult aStatus)
 {
-  if (aStatus != NS_OK) {
+  if (NS_FAILED(aStatus)) {
     FireError(aStatus);
     return NS_OK;
   }
@@ -127,24 +129,20 @@ ArchiveRequest::ReaderReady(nsTArray<nsCOMPtr<nsIDOMFile> >& aFileList,
   NS_ASSERTION(global, "Failed to get global object!");
 
   JSAutoRequest ar(cx);
-  JSAutoEnterCompartment ac;
-  if (ac.enter(cx, global)) {
-    switch (mOperation) {
-      case GetFilenames:
-        rv = GetFilenamesResult(cx, &result, aFileList);
-        break;
+  JSAutoCompartment ac(cx, global);
 
-      case GetFile:
-        rv = GetFileResult(cx, &result, aFileList);
-        break;
-    }
+  switch (mOperation) {
+    case GetFilenames:
+      rv = GetFilenamesResult(cx, &result, aFileList);
+      break;
 
-    if (NS_FAILED(rv)) {
-      NS_WARNING("Get*Result failed!");
-    }
-  } else {
-    NS_WARNING("Failed to enter correct compartment!");
-    rv = NS_ERROR_FAILURE;
+    case GetFile:
+      rv = GetFileResult(cx, &result, aFileList);
+      break;
+  }
+
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Get*Result failed!");
   }
 
   if (NS_SUCCEEDED(rv)) {
@@ -169,7 +167,7 @@ ArchiveRequest::GetFilenamesResult(JSContext* aCx,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  for (PRUint32 i = 0; i < aFileList.Length(); ++i) {
+  for (uint32_t i = 0; i < aFileList.Length(); ++i) {
     nsCOMPtr<nsIDOMFile> file = aFileList[i];
 
     nsString filename;
@@ -181,7 +179,7 @@ ArchiveRequest::GetFilenamesResult(JSContext* aCx,
 
     jsval item = STRING_TO_JSVAL(str);
 
-    if (rv != NS_OK || !JS_SetElement(aCx, array, i, &item)) {
+    if (NS_FAILED(rv) || !JS_SetElement(aCx, array, i, &item)) {
       return NS_ERROR_FAILURE;
     }
   }
@@ -199,7 +197,7 @@ ArchiveRequest::GetFileResult(JSContext* aCx,
                               jsval* aValue,
                               nsTArray<nsCOMPtr<nsIDOMFile> >& aFileList)
 {
-  for (PRUint32 i = 0; i < aFileList.Length(); ++i) {
+  for (uint32_t i = 0; i < aFileList.Length(); ++i) {
     nsCOMPtr<nsIDOMFile> file = aFileList[i];
 
     nsString filename;

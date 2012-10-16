@@ -22,6 +22,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/Attributes.h"
 #include "FrameMetrics.h"
+#include "nsStubMutationObserver.h"
 
 class nsIURI;
 class nsSubDocumentFrame;
@@ -29,11 +30,15 @@ class nsIView;
 class nsIInProcessContentFrameMessageManager;
 class AutoResetInShow;
 class nsITabParent;
+class nsIDocShellTreeItem;
+class nsIDocShellTreeOwner;
+class nsIDocShellTreeNode;
 
 namespace mozilla {
 namespace dom {
 class PBrowserParent;
 class TabParent;
+struct StructuredCloneData;
 }
 
 namespace layout {
@@ -135,7 +140,9 @@ private:
 
 
 class nsFrameLoader MOZ_FINAL : public nsIFrameLoader,
-                                public nsIContentViewManager
+                                public nsIContentViewManager,
+                                public nsStubMutationObserver,
+                                public mozilla::dom::ipc::MessageManagerCallback
 {
   friend class AutoResetInShow;
   typedef mozilla::dom::PBrowserParent PBrowserParent;
@@ -166,6 +173,7 @@ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsFrameLoader, nsIFrameLoader)
   NS_DECL_NSIFRAMELOADER
   NS_DECL_NSICONTENTVIEWMANAGER
+  NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
   NS_HIDDEN_(nsresult) CheckForRecursiveLoad(nsIURI* aURI);
   nsresult ReallyStartLoading();
   void Finalize();
@@ -174,17 +182,26 @@ public:
   nsresult CreateStaticClone(nsIFrameLoader* aDest);
 
   /**
+   * MessageManagerCallback methods that we override.
+   */
+  virtual bool DoLoadFrameScript(const nsAString& aURL);
+  virtual bool DoSendAsyncMessage(const nsAString& aMessage,
+                                  const mozilla::dom::StructuredCloneData& aData);
+  virtual bool CheckPermission(const nsAString& aPermission);
+
+
+  /**
    * Called from the layout frame associated with this frame loader;
    * this notifies us to hook up with the widget and view.
    */
-  bool Show(PRInt32 marginWidth, PRInt32 marginHeight,
-              PRInt32 scrollbarPrefX, PRInt32 scrollbarPrefY,
+  bool Show(int32_t marginWidth, int32_t marginHeight,
+              int32_t scrollbarPrefX, int32_t scrollbarPrefY,
               nsSubDocumentFrame* frame);
 
   /**
    * Called when the margin properties of the containing frame are changed.
    */
-  void MarginsChanged(PRUint32 aMarginWidth, PRUint32 aMarginHeight);
+  void MarginsChanged(uint32_t aMarginWidth, uint32_t aMarginHeight);
 
   /**
    * Called from the layout frame associated with this frame loader, when
@@ -268,6 +285,25 @@ public:
    */
   void SetRemoteBrowser(nsITabParent* aTabParent);
 
+  /**
+   * Stashes a detached view on the frame loader. We do this when we're
+   * destroying the nsSubDocumentFrame. If the nsSubdocumentFrame is
+   * being reframed we'll restore the detached view when it's recreated,
+   * otherwise we'll discard the old presentation and set the detached
+   * subdoc view to null. aContainerDoc is the document containing the
+   * the subdoc frame. This enables us to detect when the containing
+   * document has changed during reframe, so we can discard the presentation 
+   * in that case.
+   */
+  void SetDetachedSubdocView(nsIView* aDetachedView,
+                             nsIDocument* aContainerDoc);
+
+  /**
+   * Retrieves the detached view and the document containing the view,
+   * as set by SetDetachedSubdocView().
+   */
+  nsIView* GetDetachedSubdocView(nsIDocument** aContainerDoc) const;
+
 private:
 
   void SetOwnerContent(mozilla::dom::Element* aContent);
@@ -318,14 +354,34 @@ private:
   // Tell the remote browser that it's now "virtually visible"
   bool ShowRemoteFrame(const nsIntSize& size);
 
+  bool AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem,
+                              nsIDocShellTreeOwner* aOwner,
+                              int32_t aParentType,
+                              nsIDocShellTreeNode* aParentNode);
+
+  nsIAtom* TypeAttrName() const {
+    return mOwnerContent->IsXUL() ? nsGkAtoms::type : nsGkAtoms::mozframetype;
+  }
+
   nsCOMPtr<nsIDocShell> mDocShell;
   nsCOMPtr<nsIURI> mURIToLoad;
   mozilla::dom::Element* mOwnerContent; // WEAK
+
 public:
   // public because a callback needs these.
   nsRefPtr<nsFrameMessageManager> mMessageManager;
   nsCOMPtr<nsIInProcessContentFrameMessageManager> mChildMessageManager;
 private:
+  // Stores the root view of the subdocument while the subdocument is being
+  // reframed. Used to restore the presentation after reframing.
+  nsIView* mDetachedSubdocViews;
+  // Stores the containing document of the frame corresponding to this
+  // frame loader. This is reference is kept valid while the subframe's
+  // presentation is detached and stored in mDetachedSubdocViews. This
+  // enables us to detect whether the frame has moved documents during
+  // a reframe, so that we know not to restore the presentation.
+  nsCOMPtr<nsIDocument> mContainerDocWhileDetached;
+
   bool mDepthTooGreat : 1;
   bool mIsTopLevelContent : 1;
   bool mDestroyCalled : 1;
@@ -344,6 +400,7 @@ private:
   bool mClipSubdocument : 1;
   bool mClampScrollPosition : 1;
   bool mRemoteBrowserInitialized : 1;
+  bool mObservingOwnerContent : 1;
 
   // XXX leaking
   nsCOMPtr<nsIObserver> mChildHost;
@@ -353,11 +410,11 @@ private:
   // See nsIFrameLoader.idl.  Short story, if !(mRenderMode &
   // RENDER_MODE_ASYNC_SCROLL), all the fields below are ignored in
   // favor of what content tells.
-  PRUint32 mRenderMode;
+  uint32_t mRenderMode;
 
   // See nsIFrameLoader.idl. EVENT_MODE_NORMAL_DISPATCH automatically
   // forwards some input events to out-of-process content.
-  PRUint32 mEventMode;
+  uint32_t mEventMode;
 };
 
 #endif

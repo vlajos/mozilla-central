@@ -5,41 +5,41 @@
 
 package org.mozilla.gecko;
 
-import android.app.Activity;
-import android.content.res.Resources;
-import android.os.AsyncTask;
-import android.text.TextUtils;
-import android.database.ContentObserver;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.view.View;
-import android.widget.ListView;
-import android.database.Cursor;
-import android.view.MenuInflater;
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.ViewGroup;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.widget.TabHost.TabContentFactory;
-import android.util.Pair;
-import android.widget.ExpandableListView;
-import android.widget.SimpleExpandableListAdapter;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
-
-import java.util.LinkedList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.Date;
-
 import org.mozilla.gecko.AwesomeBar.ContextMenuSubject;
 import org.mozilla.gecko.db.BrowserContract.Combined;
 import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.db.BrowserDB.URLColumns;
+
+import android.app.Activity;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.res.Resources;
+import android.database.ContentObserver;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
+import android.text.TextUtils;
+import android.util.Log;
+import android.util.Pair;
+import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
+import android.view.LayoutInflater;
+import android.view.MenuInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ExpandableListView;
+import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.SimpleExpandableListAdapter;
+import android.widget.TabHost.TabContentFactory;
+import android.widget.TextView;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 public class HistoryTab extends AwesomeBarTab {
     public static final String LOGTAG = "HISTORY_TAB";
@@ -205,7 +205,6 @@ public class HistoryTab extends AwesomeBarTab {
         private static final long MS_PER_WEEK = MS_PER_DAY * 7;
 
         protected Pair<GroupList,List<ChildrenList>> doInBackground(Void... arg0) {
-            Pair<GroupList, List<ChildrenList>> result = null;
             Cursor cursor = BrowserDB.getRecentHistory(getContentResolver(), MAX_RESULTS);
 
             Date now = new Date();
@@ -217,9 +216,9 @@ public class HistoryTab extends AwesomeBarTab {
 
             // Split the list of urls into separate date range groups
             // and show it in an expandable list view.
-            List<ChildrenList> childrenLists = null;
+            List<ChildrenList> childrenLists = new LinkedList<ChildrenList>();
             ChildrenList children = null;
-            GroupList groups = null;
+            GroupList groups = new GroupList();
             HistorySection section = null;
 
             // Move cursor before the first row in preparation
@@ -233,12 +232,6 @@ public class HistoryTab extends AwesomeBarTab {
             while (cursor.moveToNext()) {
                 long time = cursor.getLong(cursor.getColumnIndexOrThrow(URLColumns.DATE_LAST_VISITED));
                 HistorySection itemSection = getSectionForTime(time, today);
-
-                if (groups == null)
-                    groups = new GroupList();
-
-                if (childrenLists == null)
-                    childrenLists = new LinkedList<ChildrenList>();
 
                 if (section != itemSection) {
                     if (section != null) {
@@ -263,11 +256,8 @@ public class HistoryTab extends AwesomeBarTab {
             // Close the query cursor as we won't use it anymore
             cursor.close();
 
-            if (groups != null && childrenLists != null) {
-                result = Pair.<GroupList,List<ChildrenList>>create(groups, childrenLists);
-            }
-
-            return result;
+            // groups and childrenLists will be empty lists if there's no history
+            return Pair.<GroupList,List<ChildrenList>>create(groups, childrenLists);
         }
 
         public Map<String,Object> createHistoryItem(Cursor cursor) {
@@ -350,10 +340,6 @@ public class HistoryTab extends AwesomeBarTab {
         }
 
         protected void onPostExecute(Pair<GroupList,List<ChildrenList>> result) {
-            // FIXME: display some sort of message when there's no history
-            if (result == null)
-                return;
-
             mCursorAdapter = new HistoryListAdapter(
                 mContext,
                 result.first,
@@ -436,6 +422,7 @@ public class HistoryTab extends AwesomeBarTab {
         
         menu.findItem(R.id.remove_bookmark).setVisible(false);
         menu.findItem(R.id.edit_bookmark).setVisible(false);
+        menu.findItem(R.id.open_in_reader).setVisible(false);
 
         // Hide "Remove" item if there isn't a valid history ID
         if (subject.id < 0)

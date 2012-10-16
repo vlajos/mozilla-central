@@ -8,8 +8,7 @@
 #ifndef IPC_ShadowLayerUtils_h
 #define IPC_ShadowLayerUtils_h
 
-#include "IPC/IPCMessageUtils.h"
-#include "FrameMetrics.h"
+#include "ipc/IPCMessageUtils.h"
 #include "GLContext.h"
 #include "mozilla/WidgetUtils.h"
 
@@ -39,34 +38,6 @@ struct MagicGrallocBufferHandle {
 
 namespace IPC {
 
-template <>
-struct ParamTraits<mozilla::layers::FrameMetrics>
-{
-  typedef mozilla::layers::FrameMetrics paramType;
-
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
-    WriteParam(aMsg, aParam.mCSSContentRect);
-    WriteParam(aMsg, aParam.mViewport);
-    WriteParam(aMsg, aParam.mContentRect);
-    WriteParam(aMsg, aParam.mViewportScrollOffset);
-    WriteParam(aMsg, aParam.mDisplayPort);
-    WriteParam(aMsg, aParam.mScrollId);
-    WriteParam(aMsg, aParam.mResolution);
-  }
-
-  static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
-  {
-    return (ReadParam(aMsg, aIter, &aResult->mCSSContentRect) &&
-            ReadParam(aMsg, aIter, &aResult->mViewport) &&
-            ReadParam(aMsg, aIter, &aResult->mContentRect) &&
-            ReadParam(aMsg, aIter, &aResult->mViewportScrollOffset) &&
-            ReadParam(aMsg, aIter, &aResult->mDisplayPort) &&
-            ReadParam(aMsg, aIter, &aResult->mScrollId) &&
-            ReadParam(aMsg, aIter, &aResult->mResolution));
-  }
-};
-
 #if !defined(MOZ_HAVE_SURFACEDESCRIPTORX11)
 template <>
 struct ParamTraits<mozilla::layers::SurfaceDescriptorX11> {
@@ -83,14 +54,14 @@ struct ParamTraits<mozilla::gl::TextureImage::TextureShareType>
 
   static void Write(Message* msg, const paramType& param)
   {
-    MOZ_STATIC_ASSERT(sizeof(paramType) <= sizeof(int32),
-                      "TextureShareType assumes to be int32");
-    WriteParam(msg, int32(param));
+    MOZ_STATIC_ASSERT(sizeof(paramType) <= sizeof(int32_t),
+                      "TextureShareType assumes to be int32_t");
+    WriteParam(msg, int32_t(param));
   }
 
   static bool Read(const Message* msg, void** iter, paramType* result)
   {
-    int32 type;
+    int32_t type;
     if (!ReadParam(msg, iter, &type))
       return false;
 

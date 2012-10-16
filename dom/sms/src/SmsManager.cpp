@@ -8,6 +8,7 @@
 #include "nsIDOMClassInfo.h"
 #include "nsISmsService.h"
 #include "nsIObserverService.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "Constants.h"
 #include "SmsEvent.h"
@@ -18,6 +19,7 @@
 #include "nsContentUtils.h"
 #include "nsISmsDatabaseService.h"
 #include "nsIXPConnect.h"
+#include "nsIPermissionManager.h"
 
 /**
  * We have to use macros here because our leak analysis tool things we are
@@ -37,16 +39,10 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(SmsManager)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(SmsManager,
                                                   nsDOMEventTargetHelper)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(received)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(sent)
-  NS_CYCLE_COLLECTION_TRAVERSE_EVENT_HANDLER(delivered)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(SmsManager,
                                                 nsDOMEventTargetHelper)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(received)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(sent)
-  NS_CYCLE_COLLECTION_UNLINK_EVENT_HANDLER(delivered)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(SmsManager)
@@ -58,6 +54,51 @@ NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(SmsManager, nsDOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(SmsManager, nsDOMEventTargetHelper)
+
+NS_IMPL_EVENT_HANDLER(SmsManager, received)
+NS_IMPL_EVENT_HANDLER(SmsManager, sent)
+NS_IMPL_EVENT_HANDLER(SmsManager, delivered)
+
+/* static */already_AddRefed<SmsManager>
+SmsManager::CreateInstanceIfAllowed(nsPIDOMWindow* aWindow)
+{
+  NS_ASSERTION(aWindow, "Null pointer!");
+
+#ifndef MOZ_WEBSMS_BACKEND
+  return nullptr;
+#endif
+
+  // First of all, the general pref has to be turned on.
+  bool enabled = false;
+  Preferences::GetBool("dom.sms.enabled", &enabled);
+  NS_ENSURE_TRUE(enabled, nullptr);
+
+  nsCOMPtr<nsIPermissionManager> permMgr =
+    do_GetService(NS_PERMISSIONMANAGER_CONTRACTID);
+  NS_ENSURE_TRUE(permMgr, nullptr);
+
+  uint32_t permission = nsIPermissionManager::DENY_ACTION;
+  permMgr->TestPermissionFromWindow(aWindow, "sms", &permission);
+
+  if (permission != nsIPermissionManager::ALLOW_ACTION) {
+    return nullptr;
+  }
+
+  // Check the Sms Service:
+  nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
+  NS_ENSURE_TRUE(smsService, nullptr);
+
+  bool result = false;
+  smsService->HasSupport(&result);
+  if (!result) {
+    return nullptr;
+  }
+
+  nsRefPtr<SmsManager> smsMgr = new SmsManager();
+  smsMgr->Init(aWindow);
+
+  return smsMgr.forget();
+}
 
 void
 SmsManager::Init(nsPIDOMWindow *aWindow)
@@ -90,7 +131,7 @@ SmsManager::Shutdown()
 }
 
 NS_IMETHODIMP
-SmsManager::GetNumberOfMessagesForText(const nsAString& aText, PRUint16* aResult)
+SmsManager::GetNumberOfMessagesForText(const nsAString& aText, uint16_t* aResult)
 {
   nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(smsService, NS_OK);
@@ -114,7 +155,7 @@ SmsManager::Send(JSContext* aCx, JSObject* aGlobal, JSString* aNumber,
 
   nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
 
-  PRInt32 requestId;
+  int32_t requestId;
   nsresult rv = requestManager->CreateRequest(this, getter_AddRefs(request),
                                               &requestId);
   if (NS_FAILED(rv)) {
@@ -154,11 +195,7 @@ SmsManager::Send(const jsval& aNumber, const nsAString& aMessage, jsval* aReturn
   NS_ASSERTION(global, "Failed to get global object!");
 
   JSAutoRequest ar(cx);
-  JSAutoEnterCompartment ac;
-  if (!ac.enter(cx, global)) {
-    NS_ERROR("Failed to enter the js compartment!");
-    return NS_ERROR_FAILURE;
-  }
+  JSAutoCompartment ac(cx, global);
 
   if (aNumber.isString()) {
     return Send(cx, global, aNumber.toString(), aMessage, aReturn);
@@ -189,11 +226,11 @@ SmsManager::Send(const jsval& aNumber, const nsAString& aMessage, jsval* aReturn
 }
 
 NS_IMETHODIMP
-SmsManager::GetMessageMoz(PRInt32 aId, nsIDOMMozSmsRequest** aRequest)
+SmsManager::GetMessageMoz(int32_t aId, nsIDOMMozSmsRequest** aRequest)
 {
   nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
 
-  PRInt32 requestId;
+  int32_t requestId;
   nsresult rv = requestManager->CreateRequest(this, aRequest, &requestId);
   if (NS_FAILED(rv)) {
     NS_ERROR("Failed to create the request!");
@@ -210,11 +247,11 @@ SmsManager::GetMessageMoz(PRInt32 aId, nsIDOMMozSmsRequest** aRequest)
 }
 
 nsresult
-SmsManager::Delete(PRInt32 aId, nsIDOMMozSmsRequest** aRequest)
+SmsManager::Delete(int32_t aId, nsIDOMMozSmsRequest** aRequest)
 {
   nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
 
-  PRInt32 requestId;
+  int32_t requestId;
   nsresult rv = requestManager->CreateRequest(this, aRequest, &requestId);
   if (NS_FAILED(rv)) {
     NS_ERROR("Failed to create the request!");
@@ -249,7 +286,7 @@ SmsManager::Delete(const jsval& aParam, nsIDOMMozSmsRequest** aRequest)
           sc->GetNativeContext(), &aParam.toObject()));
   NS_ENSURE_TRUE(message, NS_ERROR_INVALID_ARG);
 
-  PRInt32 id;
+  int32_t id;
   message->GetId(&id);
 
   return Delete(id, aRequest);
@@ -267,7 +304,7 @@ SmsManager::GetMessages(nsIDOMMozSmsFilter* aFilter, bool aReverse,
 
   nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
 
-  PRInt32 requestId;
+  int32_t requestId;
   nsresult rv = requestManager->CreateRequest(this, aRequest,
                                               &requestId);
   if (NS_FAILED(rv)) {
@@ -285,13 +322,13 @@ SmsManager::GetMessages(nsIDOMMozSmsFilter* aFilter, bool aReverse,
 }
 
 NS_IMETHODIMP
-SmsManager::MarkMessageRead(PRInt32 aId, bool aValue,
+SmsManager::MarkMessageRead(int32_t aId, bool aValue,
                             nsIDOMMozSmsRequest** aRequest)
 {
   nsCOMPtr<nsISmsRequestManager> requestManager =
     do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
 
-  PRInt32 requestId;
+  int32_t requestId;
   nsresult rv = requestManager->CreateRequest(this, aRequest, &requestId);
   if (NS_FAILED(rv)) {
     NS_ERROR("Failed to create the request!");
@@ -307,10 +344,6 @@ SmsManager::MarkMessageRead(PRInt32 aId, bool aValue,
   return NS_OK;
 }
 
-NS_IMPL_EVENT_HANDLER(SmsManager, received)
-NS_IMPL_EVENT_HANDLER(SmsManager, sent)
-NS_IMPL_EVENT_HANDLER(SmsManager, delivered)
-
 nsresult
 SmsManager::DispatchTrustedSmsEventToSelf(const nsAString& aEventName, nsIDOMMozSmsMessage* aMessage)
 {
@@ -319,14 +352,7 @@ SmsManager::DispatchTrustedSmsEventToSelf(const nsAString& aEventName, nsIDOMMoz
                                                           false, aMessage);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = event->SetTrusted(true);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  bool dummy;
-  rv = DispatchEvent(event, &dummy);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  return NS_OK;
+  return DispatchTrustedEvent(event);
 }
 
 NS_IMETHODIMP

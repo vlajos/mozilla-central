@@ -1,5 +1,5 @@
 /* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
-/* vim: set ts=2 et sw=2 tw=40: */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -22,31 +22,20 @@ class BluetoothReplyRunnable : public nsRunnable
 public:
   NS_DECL_NSIRUNNABLE
 
-  BluetoothReplyRunnable(nsIDOMDOMRequest* aReq) :
-    mDOMRequest(aReq)
-  {
-  }
+  BluetoothReplyRunnable(nsIDOMDOMRequest* aReq);
 
-  void SetReply(BluetoothReply* aReply)
-  {
-    mReply = aReply;
-  }
+  void SetReply(BluetoothReply* aReply);
 
   void SetError(const nsAString& aError)
   {
     mErrorString = aError;
   }
 
-  virtual void ReleaseMembers()
-  {
-    mDOMRequest = nullptr;
-  }
+  virtual void ReleaseMembers();
 
 protected:
-  virtual ~BluetoothReplyRunnable()
-  {
-  }
-  
+  virtual ~BluetoothReplyRunnable();
+
   virtual bool ParseSuccessfulReply(jsval* aValue) = 0;
 
   // This is an autoptr so we don't have to bring the ipdl include into the
@@ -57,7 +46,7 @@ protected:
 private:
   nsresult FireReply(const jsval& aVal);
   nsresult FireErrorString();
-  
+
   nsCOMPtr<nsIDOMDOMRequest> mDOMRequest;
   nsString mErrorString;
 };
@@ -65,15 +54,9 @@ private:
 class BluetoothVoidReplyRunnable : public BluetoothReplyRunnable
 {
 public:
-  BluetoothVoidReplyRunnable(nsIDOMDOMRequest* aReq) :
-    BluetoothReplyRunnable(aReq)
-  {
-  }
+  BluetoothVoidReplyRunnable(nsIDOMDOMRequest* aReq);
+ ~BluetoothVoidReplyRunnable();
 
-  virtual void ReleaseMembers()
-  {
-    BluetoothReplyRunnable::ReleaseMembers();
-  }
 protected:
   virtual bool ParseSuccessfulReply(jsval* aValue)
   {

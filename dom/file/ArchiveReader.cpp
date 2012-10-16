@@ -23,11 +23,13 @@ ArchiveReader::ArchiveReader()
   mWindow(nullptr),
   mStatus(NOT_STARTED)
 {
+  MOZ_COUNT_CTOR(ArchiveReader);
   nsLayoutStatics::AddRef();
 }
 
 ArchiveReader::~ArchiveReader()
 {
+  MOZ_COUNT_DTOR(ArchiveReader);
   nsLayoutStatics::Release();
 }
 
@@ -35,7 +37,7 @@ NS_IMETHODIMP
 ArchiveReader::Initialize(nsISupports* aOwner,
                           JSContext* aCx,
                           JSObject* aObj,
-                          PRUint32 aArgc,
+                          uint32_t aArgc,
                           JS::Value* aArgv)
 {
   NS_ENSURE_TRUE(aArgc > 0, NS_ERROR_UNEXPECTED);
@@ -98,7 +100,7 @@ ArchiveReader::GetInputStream(nsIInputStream** aInputStream)
 }
 
 nsresult
-ArchiveReader::GetSize(PRUint64* aSize)
+ArchiveReader::GetSize(uint64_t* aSize)
 {
   nsresult rv = mBlob->GetSize(aSize);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -143,7 +145,7 @@ ArchiveReader::Ready(nsTArray<nsCOMPtr<nsIDOMFile> >& aFileList,
   mData.status = aStatus;
 
   // Propagate the results:
-  for (PRUint32 index = 0; index < mRequests.Length(); ++index) {
+  for (uint32_t index = 0; index < mRequests.Length(); ++index) {
     nsRefPtr<ArchiveRequest> request = mRequests[index];
     RequestReady(request);
   }
@@ -199,7 +201,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(ArchiveReader)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mWindow)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSTARRAY_OF_NSCOMPTR(mData.fileList)
 
-  for (PRUint32 i = 0; i < tmp->mRequests.Length(); i++) {
+  for (uint32_t i = 0; i < tmp->mRequests.Length(); i++) {
     NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mRequests[i]");
     cb.NoteXPCOMChild(static_cast<nsIDOMArchiveRequest*>(tmp->mRequests[i].get()));
   }

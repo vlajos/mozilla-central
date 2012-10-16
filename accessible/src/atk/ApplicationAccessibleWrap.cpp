@@ -435,16 +435,17 @@ mai_util_remove_key_event_listener (guint remove_listener)
 AtkObject*
 mai_util_get_root(void)
 {
-  if (nsAccessibilityService::IsShutdown()) {
-    // We've shutdown, try to use gail instead
-    // (to avoid assert in spi_atk_tidy_windows())
-    if (gail_get_root)
-      return gail_get_root();
+  ApplicationAccessible* app = ApplicationAcc();
+  if (app)
+    return app->GetAtkObject();
 
-    return nullptr;
-  }
+  // We've shutdown, try to use gail instead
+  // (to avoid assert in spi_atk_tidy_windows())
+  // XXX tbsaunde then why didn't we replace the gail atk_util impl?
+  if (gail_get_root)
+    return gail_get_root();
 
-  return nsAccessNode::GetApplicationAccessible()->GetAtkObject();
+  return nullptr;
 }
 
 G_CONST_RETURN gchar *
@@ -572,7 +573,7 @@ toplevel_event_watcher(GSignalInvocationHint* ihint,
   return TRUE;
 }
 
-bool
+void
 ApplicationAccessibleWrap::Init()
 {
     if (ShouldA11yBeEnabled()) {
@@ -615,7 +616,7 @@ ApplicationAccessibleWrap::Init()
         }
     }
 
-    return ApplicationAccessible::Init();
+    ApplicationAccessible::Init();
 }
 
 void
@@ -690,7 +691,7 @@ ApplicationAccessibleWrap::GetNativeInterface(void** aOutAccessible)
 struct AtkRootAccessibleAddedEvent {
   AtkObject *app_accessible;
   AtkObject *root_accessible;
-  PRUint32 index;
+  uint32_t index;
 };
 
 gboolean fireRootAccessibleAddedCB(gpointer data)
@@ -714,7 +715,7 @@ ApplicationAccessibleWrap::AppendChild(Accessible* aChild)
   AtkObject* atkAccessible = AccessibleWrap::GetAtkObject(aChild);
   atk_object_set_parent(atkAccessible, mAtkObject);
 
-    PRUint32 count = mChildren.Length();
+    uint32_t count = mChildren.Length();
 
     // Emit children_changed::add in a timeout
     // to make sure aRootAccWrap is fully initialized.
@@ -735,7 +736,7 @@ ApplicationAccessibleWrap::AppendChild(Accessible* aChild)
 bool
 ApplicationAccessibleWrap::RemoveChild(Accessible* aChild)
 {
-  PRInt32 index = aChild->IndexInParent();
+  int32_t index = aChild->IndexInParent();
 
   AtkObject* atkAccessible = AccessibleWrap::GetAtkObject(aChild);
   atk_object_set_parent(atkAccessible, NULL);
@@ -786,7 +787,7 @@ LoadGtkModule(GnomeAccessibilityModule& aModule)
 
         //try to load the module with "gtk-2.0/modules" appended
         char *curLibPath = PR_GetLibraryPath();
-        nsCAutoString libPath(curLibPath);
+        nsAutoCString libPath(curLibPath);
 #if defined(LINUX) && defined(__x86_64__)
         libPath.Append(":/usr/lib64:/usr/lib");
 #else
@@ -795,15 +796,15 @@ LoadGtkModule(GnomeAccessibilityModule& aModule)
         MAI_LOG_DEBUG(("Current Lib path=%s\n", libPath.get()));
         PR_FreeLibraryName(curLibPath);
 
-        PRInt16 loc1 = 0, loc2 = 0;
-        PRInt16 subLen = 0;
+        int16_t loc1 = 0, loc2 = 0;
+        int16_t subLen = 0;
         while (loc2 >= 0) {
             loc2 = libPath.FindChar(':', loc1);
             if (loc2 < 0)
                 subLen = libPath.Length() - loc1;
             else
                 subLen = loc2 - loc1;
-            nsCAutoString sub(Substring(libPath, loc1, subLen));
+            nsAutoCString sub(Substring(libPath, loc1, subLen));
             sub.Append("/gtk-2.0/modules/");
             sub.Append(aModule.libName);
             aModule.lib = PR_LoadLibrary(sub.get());

@@ -60,6 +60,11 @@ endif
 # MacOS X 10.4 sends "no autoconf*" errors to stdout, discard those via grep
 AUTOCONF ?= $(shell which autoconf-2.13 autoconf2.13 autoconf213 2>/dev/null | grep -v '^no autoconf' | head -1)
 
+# See if the autoconf package was installed through fink
+ifeq (,$(strip $(AUTOCONF)))
+AUTOCONF = $(shell which fink >/dev/null 2>&1 && echo `which fink`/../../lib/autoconf2.13/bin/autoconf)
+endif
+
 ifeq (,$(strip $(AUTOCONF)))
 AUTOCONF=$(error Could not find autoconf 2.13)
 endif
@@ -70,7 +75,7 @@ PYTHON ?= python
 
 CONFIG_GUESS_SCRIPT := $(wildcard $(TOPSRCDIR)/build/autoconf/config.guess)
 ifdef CONFIG_GUESS_SCRIPT
-  CONFIG_GUESS = $(shell $(CONFIG_GUESS_SCRIPT))
+  CONFIG_GUESS := $(shell $(CONFIG_GUESS_SCRIPT))
 endif
 
 
@@ -92,8 +97,6 @@ endif
 # See build pages, http://www.mozilla.org/build/ for how to set up mozconfig.
 
 MOZCONFIG_LOADER := build/autoconf/mozconfig2client-mk
-MOZCONFIG_FINDER := build/autoconf/mozconfig-find 
-MOZCONFIG_MODULES := build/unix/uniq.pl
 
 define CR
 
@@ -103,7 +106,7 @@ endef
 # As $(shell) doesn't preserve newlines, use sed to replace them with an
 # unlikely sequence (||), which is then replaced back to newlines by make
 # before evaluation.
-$(eval $(subst ||,$(CR),$(shell $(TOPSRCDIR)/$(MOZCONFIG_LOADER) $(TOPSRCDIR) 2> $(TOPSRCDIR)/.mozconfig.out | sed 's/$$/||/')))
+$(eval $(subst ||,$(CR),$(shell _PYMAKE=$(.PYMAKE) $(TOPSRCDIR)/$(MOZCONFIG_LOADER) $(TOPSRCDIR) 2> $(TOPSRCDIR)/.mozconfig.out | sed 's/$$/||/')))
 
 ifndef MOZ_OBJDIR
   MOZ_OBJDIR = obj-$(CONFIG_GUESS)
@@ -320,8 +323,7 @@ endif
 
 ifneq (,$(CONFIG_STATUS))
 $(OBJDIR)/config/autoconf.mk: $(TOPSRCDIR)/config/autoconf.mk.in
-	cd $(OBJDIR); \
-	  CONFIG_FILES=config/autoconf.mk ./config.status
+	$(PYTHON) $(OBJDIR)/config.status -n --file=$(OBJDIR)/config/autoconf.mk
 endif
 
 
@@ -403,7 +405,20 @@ cleansrcdir:
 	   build/autoconf/clean-config.sh; \
 	fi;
 
-## Sanity check $X and js/src/$X are in sync
+# Because SpiderMonkey can be distributed and built independently
+# of the Mozilla source tree, it contains its own copies of many of
+# the files used by the top-level Mozilla build process, from the
+# 'config' and 'build' subtrees.
+#
+# To make it simpler to keep the copies in sync, we follow the policy
+# that the SpiderMonkey copies must always be exact copies of those in
+# the containing Mozilla tree.  If you've made a change in one, it
+# belongs in the other as well.  If the change isn't right for both
+# places, then that's something to bring up with the other developers.
+#
+# Some files are reasonable to diverge; for  example,
+# js/src/config/autoconf.mk.in doesn't need most of the stuff in
+# config/autoconf.mk.in.
 .PHONY: check-sync-dirs
 check-sync-dirs: check-sync-dirs-build check-sync-dirs-config
 check-sync-dirs-%:

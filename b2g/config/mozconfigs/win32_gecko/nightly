@@ -1,3 +1,5 @@
+. "$topsrcdir/b2g/config/mozconfigs/common"
+
 # for pgo
 mk_add_options PROFILE_GEN_SCRIPT='$(PYTHON) $(MOZ_OBJDIR)/_profile/pgo/profileserver.py'
 
@@ -8,6 +10,9 @@ ac_add_options --enable-signmar
 
 # Nightlies only since this has a cost in performance
 ac_add_options --enable-js-diagnostics
+
+# IonMonkey disabled in bug 789373
+ac_add_options --disable-ion
 
 # Needed to enable breakpad in application.ini
 export MOZILLA_OFFICIAL=1
@@ -22,14 +27,12 @@ else
   . $topsrcdir/build/win32/mozconfig.vs2010
 fi
 
-# For known full-clobber builds on Windows (like nightlies/try), 
-# this speeds things up. IS_NIGHTLY is set by the build automation.
-if test "$IS_NIGHTLY" != ""; then 
-  ac_add_options --disable-auto-deps
-fi
-
 # B2G Options
 ac_add_options --enable-application=b2g
-ac_add_options --enable-marionette
+ENABLE_MARIONETTE=1
 
 export CXXFLAGS=-DMOZ_ENABLE_JS_DUMP
+
+GAIADIR=$topsrcdir/gaia
+
+. "$topsrcdir/b2g/config/mozconfigs/common.override"

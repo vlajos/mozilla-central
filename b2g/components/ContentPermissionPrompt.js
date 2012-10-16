@@ -9,13 +9,15 @@ const Cc = Components.classes;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/Webapps.jsm");
+Cu.import("resource://gre/modules/AppsUtils.jsm");
 
 function ContentPermissionPrompt() {}
 
 ContentPermissionPrompt.prototype = {
 
   handleExistingPermission: function handleExistingPermission(request) {
-    let result = Services.perms.testExactPermission(request.uri, request.type);
+    let result = Services.perms.testExactPermissionFromPrincipal(request.principal, request.type);
     if (result == Ci.nsIPermissionManager.ALLOW_ACTION) {
       request.allow();
       return true;
@@ -52,15 +54,29 @@ ContentPermissionPrompt.prototype = {
       request.cancel();
     });
 
+    let principal = request.principal;
+    let isApp = principal.appStatus != Ci.nsIPrincipal.APP_STATUS_NOT_INSTALLED;
+
     let details = {
-      "type": "permission-prompt",
-      "permission": request.type,
-      "id": requestId,
-      "url": request.uri.spec
+      type: "permission-prompt",
+      permission: request.type,
+      id: requestId,
+      origin: principal.origin,
+      isApp: isApp
     };
-    let event = content.document.createEvent("CustomEvent");
-    event.initCustomEvent("mozChromeEvent", true, true, details);
-    content.dispatchEvent(event);
+
+    if (!isApp) {
+      browser.shell.sendChromeEvent(details);
+      return;
+    }
+
+    // When it's an app, get the manifest to add the l10n application name.
+    let app = DOMApplicationRegistry.getAppByLocalId(principal.appId);
+    DOMApplicationRegistry.getManifestFor(app.origin, function getManifest(aManifest) {
+      let helper = new ManifestHelper(aManifest, app.origin);
+      details.appName = helper.name;
+      browser.shell.sendChromeEvent(details);
+    });
   },
 
   classID: Components.ID("{8c719f03-afe0-4aac-91ff-6c215895d467}"),

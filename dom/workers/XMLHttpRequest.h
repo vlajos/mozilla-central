@@ -59,6 +59,9 @@ private:
   bool mWithCredentials;
   bool mCanceled;
 
+  bool mMozAnon;
+  bool mMozSystem;
+
 protected:
   XMLHttpRequest(JSContext* aCx, WorkerPrivate* aWorkerPrivate);
   virtual ~XMLHttpRequest();
@@ -74,6 +77,21 @@ public:
   Constructor(JSContext* aCx, JSObject* aGlobal,
               const MozXMLHttpRequestParametersWorkers& aParams,
               ErrorResult& aRv);
+
+  static XMLHttpRequest*
+  Constructor(JSContext* aCx, JSObject* aGlobal,
+              const nsAString& ignored, ErrorResult& aRv)
+  {
+    // Pretend like someone passed null, so we can pick up the default values
+    MozXMLHttpRequestParametersWorkers params;
+    if (!params.Init(aCx, JS::NullValue())) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    return Constructor(aCx, aGlobal, params, aRv);
+  }
+
   void
   Unpin();
 
@@ -98,7 +116,7 @@ public:
 #undef IMPL_GETTER_AND_SETTER
 
   uint16_t
-  GetReadyState() const
+  ReadyState() const
   {
     return mStateData.mReadyState;
   }
@@ -113,7 +131,7 @@ public:
                    ErrorResult& aRv);
 
   uint32_t
-  GetTimeout() const
+  Timeout() const
   {
     return mTimeout;
   }
@@ -122,7 +140,7 @@ public:
   SetTimeout(uint32_t aTimeout, ErrorResult& aRv);
 
   bool
-  GetWithCredentials() const
+  WithCredentials() const
   {
     return mWithCredentials;
   }
@@ -131,7 +149,7 @@ public:
   SetWithCredentials(bool aWithCredentials, ErrorResult& aRv);
 
   bool
-  GetMultipart() const
+  Multipart() const
   {
     return mMultipart;
   }
@@ -140,7 +158,7 @@ public:
   SetMultipart(bool aMultipart, ErrorResult& aRv);
 
   bool
-  GetMozBackgroundRequest() const
+  MozBackgroundRequest() const
   {
     return mBackgroundRequest;
   }
@@ -162,7 +180,7 @@ public:
 
   void
   Send(ArrayBuffer& aBody, ErrorResult& aRv) {
-    return Send(aBody.mObj, aRv);
+    return Send(aBody.Obj(), aRv);
   }
 
   void
@@ -195,7 +213,7 @@ public:
   OverrideMimeType(const nsAString& aMimeType, ErrorResult& aRv);
 
   XMLHttpRequestResponseType
-  GetResponseType() const
+  ResponseType() const
   {
     return mResponseType;
   }
@@ -247,14 +265,14 @@ public:
     mStateData.mResponse = JSVAL_NULL;
   }
 
-  bool GetMozAnon() {
-    // TODO: bug 761227
-    return false;
+  bool MozAnon() const
+  {
+    return mMozAnon;
   }
 
-  bool GetMozSystem() {
-    // TODO: bug 761227
-    return false;
+  bool MozSystem() const
+  {
+    return mMozSystem;
   }
 
 private:

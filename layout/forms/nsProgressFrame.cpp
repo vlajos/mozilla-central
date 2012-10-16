@@ -7,7 +7,6 @@
 
 #include "nsIDOMHTMLProgressElement.h"
 #include "nsIContent.h"
-#include "prtypes.h"
 #include "nsPresContext.h"
 #include "nsGkAtoms.h"
 #include "nsINameSpaceManager.h"
@@ -21,6 +20,7 @@
 #include "nsContentList.h"
 #include "nsFontMetrics.h"
 #include "mozilla/dom/Element.h"
+#include "nsContentList.h"
 
 
 nsIFrame*
@@ -84,7 +84,7 @@ nsProgressFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
 
 void
 nsProgressFrame::AppendAnonymousContentTo(nsBaseContentList& aElements,
-                                          PRUint32 aFilter)
+                                          uint32_t aFilter)
 {
   aElements.MaybeAppendElement(mBarDiv);
 }
@@ -129,9 +129,6 @@ NS_IMETHODIMP nsProgressFrame::Reflow(nsPresContext*           aPresContext,
                        aReflowState.mComputedBorderPadding.LeftRight();
   aDesiredSize.height = aReflowState.ComputedHeight() +
                         aReflowState.mComputedBorderPadding.TopBottom();
-  aDesiredSize.height = NS_CSS_MINMAX(aDesiredSize.height,
-                                      aReflowState.mComputedMinHeight,
-                                      aReflowState.mComputedMaxHeight);
 
   aDesiredSize.SetOverflowAreasToDesiredBounds();
   ConsiderChildOverflow(aDesiredSize.mOverflowAreas, barFrame);
@@ -214,9 +211,9 @@ nsProgressFrame::ReflowBarFrame(nsIFrame*                aBarFrame,
 }
 
 NS_IMETHODIMP
-nsProgressFrame::AttributeChanged(PRInt32  aNameSpaceID,
+nsProgressFrame::AttributeChanged(int32_t  aNameSpaceID,
                                   nsIAtom* aAttribute,
-                                  PRInt32  aModType)
+                                  int32_t  aModType)
 {
   NS_ASSERTION(mBarDiv, "Progress bar div must exist!");
 
@@ -226,7 +223,7 @@ nsProgressFrame::AttributeChanged(PRInt32  aNameSpaceID,
     NS_ASSERTION(barFrame, "The progress frame should have a child with a frame!");
     PresContext()->PresShell()->FrameNeedsReflow(barFrame, nsIPresShell::eResize,
                                                  NS_FRAME_IS_DIRTY);
-    Invalidate(GetVisualOverflowRectRelativeToSelf());
+    InvalidateFrame();
   }
 
   return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);

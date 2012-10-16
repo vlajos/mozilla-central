@@ -5,6 +5,7 @@
 import socket
 
 from client import MarionetteClient
+from keys import Keys
 from errors import *
 from emulator import Emulator
 from geckoinstance import GeckoInstance
@@ -28,8 +29,8 @@ class HTMLElement(object):
     def __str__(self):
         return self.id
 
-    def equals(self, other_element):
-        return self.marionette._send_message('elementsEqual', 'value', elements=[self.id, other_element.id])
+    def __eq__(self, other_element):
+        return self.id == other_element.id
 
     def find_element(self, method, target):
         return self.marionette.find_element(method, target, self.id)
@@ -47,23 +48,35 @@ class HTMLElement(object):
     def text(self):
         return self.marionette._send_message('getElementText', 'value', element=self.id)
 
-    def send_keys(self, string):
-        return self.marionette._send_message('sendKeysToElement', 'ok', element=self.id, value=string)
-
-    def value(self):
-        return self.marionette._send_message('getElementValue', 'value', element=self.id)
+    def send_keys(self, *string):
+        typing = []
+        for val in string:
+            if isinstance(val, Keys):
+                typing.append(val)
+            elif isinstance(val, int):
+                val = str(val)
+                for i in range(len(val)):
+                    typing.append(val[i])
+            else:
+                for i in range(len(val)):
+                    typing.append(val[i])
+        return self.marionette._send_message('sendKeysToElement', 'ok', element=self.id, value=typing)
 
     def clear(self):
         return self.marionette._send_message('clearElement', 'ok', element=self.id)
 
-    def selected(self):
+    def is_selected(self):
         return self.marionette._send_message('isElementSelected', 'value', element=self.id)
 
-    def enabled(self):
+    def is_enabled(self):
         return self.marionette._send_message('isElementEnabled', 'value', element=self.id)
 
     def is_displayed(self):
         return self.marionette._send_message('isElementDisplayed', 'value', element=self.id)
+
+    @property
+    def tag_name(self):
+        return self.marionette._send_message('getElementTagName', 'value', element=self.id)
 
 
 class Marionette(object):
@@ -72,12 +85,14 @@ class Marionette(object):
     CONTEXT_CONTENT = 'content'
 
     def __init__(self, host='localhost', port=2828, bin=None, profile=None,
-                 emulator=None, emulatorBinary=None, emulatorImg=None,
-                 emulator_res='480x800', connectToRunningEmulator=False,
-                 homedir=None, baseurl=None, noWindow=False, logcat_dir=None):
+                 emulator=None, sdcard=None, emulatorBinary=None,
+                 emulatorImg=None, emulator_res='480x800', gecko_path=None,
+                 connectToRunningEmulator=False, homedir=None, baseurl=None,
+                 noWindow=False, logcat_dir=None):
         self.host = host
         self.port = self.local_port = port
         self.bin = bin
+        self.instance = None
         self.profile = profile
         self.session = None
         self.window = None
@@ -87,6 +102,7 @@ class Marionette(object):
         self.baseurl = baseurl
         self.noWindow = noWindow
         self.logcat_dir = logcat_dir
+        self.gecko_path = gecko_path
 
         if bin:
             self.instance = GeckoInstance(host=self.host, port=self.port,
@@ -98,15 +114,19 @@ class Marionette(object):
                                      noWindow=self.noWindow,
                                      logcat_dir=self.logcat_dir,
                                      arch=emulator,
+                                     sdcard=sdcard,
                                      emulatorBinary=emulatorBinary,
                                      userdata=emulatorImg,
-                                     res=emulator_res)
+                                     res=emulator_res,
+                                     gecko_path=self.gecko_path)
             self.emulator.start()
             self.port = self.emulator.setup_port_forwarding(self.port)
             assert(self.emulator.wait_for_port())
 
         if connectToRunningEmulator:
-            self.emulator = Emulator(homedir=homedir, logcat_dir=self.logcat_dir)
+            self.emulator = Emulator(homedir=homedir,
+                                     logcat_dir=self.logcat_dir,
+                                     gecko_path=self.gecko_path)
             self.emulator.connect()
             self.port = self.emulator.setup_port_forwarding(self.port)
             assert(self.emulator.wait_for_port())
@@ -116,7 +136,7 @@ class Marionette(object):
     def __del__(self):
         if self.emulator:
             self.emulator.close()
-        if self.bin:
+        if self.instance:
             self.instance.close()
         for qemu in self.extra_emulators:
             qemu.emulator.close()
@@ -230,7 +250,8 @@ class Marionette(object):
         self.client.close()
         return response
 
-    def get_session_capabilities(self):
+    @property
+    def session_capabilities(self):
         response = self._send_message('getSessionCapabilities', 'value')
         return response
 
@@ -246,7 +267,7 @@ class Marionette(object):
     def current_window_handle(self):
         self.window = self._send_message('getWindow', 'value')
         return self.window
-    
+
     @property
     def title(self):
         response = self._send_message('getTitle', 'value') 
@@ -255,6 +276,11 @@ class Marionette(object):
     @property
     def window_handles(self):
         response = self._send_message('getWindows', 'value')
+        return response
+
+    @property
+    def page_source(self):
+        response = self._send_message('getPageSource', 'value')
         return response
 
     def close(self, window_id=None):

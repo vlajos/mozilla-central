@@ -41,29 +41,11 @@ public:
   NS_DECL_NSIDOMHTMLLABELELEMENT
 
   // nsIDOMHTMLElement
-  NS_FORWARD_NSIDOMHTMLELEMENT_BASIC(nsGenericHTMLFormElement::)
-  NS_IMETHOD Click() {
-    return nsGenericHTMLFormElement::Click();
-  }
-  NS_IMETHOD GetTabIndex(PRInt32* aTabIndex) {
-    return nsGenericHTMLFormElement::GetTabIndex(aTabIndex);
-  }
-  NS_IMETHOD SetTabIndex(PRInt32 aTabIndex) {
-    return nsGenericHTMLFormElement::SetTabIndex(aTabIndex);
-  }
-  NS_IMETHOD Focus();
-  NS_IMETHOD GetDraggable(bool* aDraggable) {
-    return nsGenericHTMLFormElement::GetDraggable(aDraggable);
-  }
-  NS_IMETHOD GetInnerHTML(nsAString& aInnerHTML) {
-    return nsGenericHTMLFormElement::GetInnerHTML(aInnerHTML);
-  }
-  NS_IMETHOD SetInnerHTML(const nsAString& aInnerHTML) {
-    return nsGenericHTMLFormElement::SetInnerHTML(aInnerHTML);
-  }
+  NS_FORWARD_NSIDOMHTMLELEMENT(nsGenericHTMLFormElement::)
+  virtual void Focus(mozilla::ErrorResult& aError) MOZ_OVERRIDE;
 
   // nsIFormControl
-  NS_IMETHOD_(PRUint32) GetType() const { return NS_FORM_LABEL; }
+  NS_IMETHOD_(uint32_t) GetType() const { return NS_FORM_LABEL; }
   NS_IMETHOD Reset();
   NS_IMETHOD SubmitNamesValues(nsFormSubmission* aFormSubmission);
 
@@ -78,15 +60,15 @@ public:
 
   virtual nsresult PostHandleEvent(nsEventChainPostVisitor& aVisitor);
 
-  nsresult SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+  nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                    const nsAString& aValue, bool aNotify)
   {
     return SetAttr(aNameSpaceID, aName, nullptr, aValue, aNotify);
   }
-  virtual nsresult SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+  virtual nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                            nsIAtom* aPrefix, const nsAString& aValue,
                            bool aNotify);
-  virtual nsresult UnsetAttr(PRInt32 aNameSpaceID, nsIAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
                              bool aNotify);
   virtual void PerformAccesskey(bool aKeyCausesActivation,
                                 bool aIsTrustedEvent);

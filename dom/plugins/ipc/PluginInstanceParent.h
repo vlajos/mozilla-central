@@ -14,7 +14,7 @@
 #include <d3d10_1.h>
 #include "nsRefPtrHashtable.h"
 #elif defined(MOZ_WIDGET_COCOA)
-#include "nsCoreAnimationSupport.h"
+#include "mozilla/gfx/QuartzSupport.h"
 #endif
 
 #include "npfunctions.h"
@@ -23,13 +23,18 @@
 #include "nsHashKeys.h"
 #include "nsRect.h"
 #include "gfxASurface.h"
-#include "ImageLayers.h"
+
 #ifdef MOZ_X11
 class gfxXlibSurface;
 #endif
 #include "nsGUIEvent.h"
+#include "mozilla/unused.h"
 
 namespace mozilla {
+namespace layers {
+class ImageContainer;
+class CompositionNotifySink;
+}
 namespace plugins {
 
 class PBrowserStreamParent;
@@ -83,10 +88,6 @@ public:
     virtual bool
     DeallocPPluginStream(PPluginStreamParent* stream);
 
-    virtual bool
-    AnswerNPN_GetValue_NPNVjavascriptEnabledBool(bool* value, NPError* result);
-    virtual bool
-    AnswerNPN_GetValue_NPNVisOfflineBool(bool* value, NPError* result);
     virtual bool
     AnswerNPN_GetValue_NPNVnetscapeWindow(NativeWindowHandle* value,
                                           NPError* result);
@@ -280,7 +281,7 @@ public:
     nsresult HandleGUIEvent(const nsGUIEvent& anEvent, bool* handled);
 #endif
 
-    void DidComposite() { SendNPP_DidComposite(); }
+    void DidComposite() { unused << SendNPP_DidComposite(); }
 
 private:
     // Create an appropriate platform surface for a background of size
@@ -346,8 +347,8 @@ private:
     uint16_t               mShWidth;
     uint16_t               mShHeight;
     CGColorSpaceRef        mShColorSpace;
-    nsRefPtr<nsIOSurface> mIOSurface;
-    nsRefPtr<nsIOSurface> mFrontIOSurface;
+    RefPtr<MacIOSurface> mIOSurface;
+    RefPtr<MacIOSurface> mFrontIOSurface;
 #endif // definied(MOZ_WIDGET_COCOA)
 
     // ObjectFrame layer wrapper
@@ -362,7 +363,7 @@ private:
     // the consistency of the pixels in |mBackground|.  A plugin may
     // be able to observe partial updates to the background.
     nsRefPtr<gfxASurface>    mBackground;
-    
+
     nsRefPtr<ImageContainer> mImageContainer;
 };
 

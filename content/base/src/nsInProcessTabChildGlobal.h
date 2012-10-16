@@ -24,7 +24,8 @@ class nsInProcessTabChildGlobal : public nsDOMEventTargetHelper,
                                   public nsFrameScriptExecutor,
                                   public nsIInProcessContentFrameMessageManager,
                                   public nsIScriptObjectPrincipal,
-                                  public nsIScriptContextPrincipal
+                                  public nsIScriptContextPrincipal,
+                                  public mozilla::dom::ipc::MessageManagerCallback
 {
 public:
   nsInProcessTabChildGlobal(nsIDocShell* aShell, nsIContent* aOwner,
@@ -33,11 +34,12 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsInProcessTabChildGlobal,
                                            nsDOMEventTargetHelper)
-  NS_FORWARD_SAFE_NSIFRAMEMESSAGEMANAGER(mMessageManager)
+  NS_FORWARD_SAFE_NSIMESSAGELISTENERMANAGER(mMessageManager)
+  NS_FORWARD_SAFE_NSIMESSAGESENDER(mMessageManager)
   NS_IMETHOD SendSyncMessage(const nsAString& aMessageName,
                              const jsval& aObject,
                              JSContext* aCx,
-                             PRUint8 aArgc,
+                             uint8_t aArgc,
                              jsval* aRetval)
   {
     return mMessageManager
@@ -58,6 +60,15 @@ public:
 
   NS_DECL_NSIINPROCESSCONTENTFRAMEMESSAGEMANAGER
 
+  /**
+   * MessageManagerCallback methods that we override.
+   */
+  virtual bool DoSendSyncMessage(const nsAString& aMessage,
+                                 const mozilla::dom::StructuredCloneData& aData,
+                                 InfallibleTArray<nsString>* aJSONRetVal);
+  virtual bool DoSendAsyncMessage(const nsAString& aMessage,
+                                  const mozilla::dom::StructuredCloneData& aData);
+
   virtual nsresult PreHandleEvent(nsEventChainPreVisitor& aVisitor);
   NS_IMETHOD AddEventListener(const nsAString& aType,
                               nsIDOMEventListener* aListener,
@@ -70,7 +81,7 @@ public:
   NS_IMETHOD AddEventListener(const nsAString& aType,
                               nsIDOMEventListener* aListener,
                               bool aUseCapture, bool aWantsUntrusted,
-                              PRUint8 optional_argc)
+                              uint8_t optional_argc)
   {
     return nsDOMEventTargetHelper::AddEventListener(aType, aListener,
                                                     aUseCapture,

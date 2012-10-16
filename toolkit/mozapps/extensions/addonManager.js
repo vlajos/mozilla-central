@@ -1,8 +1,6 @@
-/*
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-*/
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
  * This component serves as integration between the platform and AddonManager.
@@ -42,7 +40,7 @@ function amManager() {
   Components.utils.import("resource://gre/modules/AddonManager.jsm");
 
   var messageManager = Cc["@mozilla.org/globalmessagemanager;1"].
-                       getService(Ci.nsIChromeFrameMessageManager);
+                       getService(Ci.nsIMessageListenerManager);
 
   messageManager.addMessageListener(MSG_INSTALL_ENABLED, this);
   messageManager.addMessageListener(MSG_INSTALL_ADDONS, this);
@@ -51,19 +49,8 @@ function amManager() {
 
 amManager.prototype = {
   observe: function AMC_observe(aSubject, aTopic, aData) {
-    let os = Cc["@mozilla.org/observer-service;1"].
-             getService(Ci.nsIObserverService);
-
-    switch (aTopic) {
-    case "addons-startup":
-      os.addObserver(this, "xpcom-shutdown", false);
+    if (aTopic == "addons-startup")
       AddonManagerPrivate.startup();
-      break;
-    case "xpcom-shutdown":
-      os.removeObserver(this, "xpcom-shutdown");
-      AddonManagerPrivate.shutdown();
-      break;
-    }
   },
 
   /**

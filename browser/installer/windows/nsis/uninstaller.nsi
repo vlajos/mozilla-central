@@ -76,6 +76,9 @@ VIAddVersionKey "OriginalFilename" "helper.exe"
 !insertmacro RegCleanAppHandler
 !insertmacro RegCleanMain
 !insertmacro RegCleanUninstall
+!ifdef MOZ_METRO
+!insertmacro RemoveDEHRegistrationIfMatching
+!endif
 !insertmacro SetAppLSPCategories
 !insertmacro SetBrandNameVars
 !insertmacro UpdateShortcutAppModelIDs
@@ -100,6 +103,9 @@ VIAddVersionKey "OriginalFilename" "helper.exe"
 !insertmacro un.RegCleanMain
 !insertmacro un.RegCleanUninstall
 !insertmacro un.RegCleanProtocolHandler
+!ifdef MOZ_METRO
+!insertmacro un.RemoveDEHRegistrationIfMatching
+!endif
 !insertmacro un.RemoveQuotesFromPath
 !insertmacro un.SetAppLSPCategories
 !insertmacro un.SetBrandNameVars
@@ -282,6 +288,12 @@ Section "Uninstall"
     ${un.SetAppLSPCategories}
   ${EndIf}
 
+!ifdef MOZ_METRO
+  ${If} ${AtLeastWin8}
+    ${un.CleanupMetroBrowserHandlerValues} ${DELEGATE_EXECUTE_HANDLER_ID}
+  ${EndIf}
+!endif
+
   ${un.RegCleanAppHandler} "FirefoxURL"
   ${un.RegCleanAppHandler} "FirefoxHTML"
   ${un.RegCleanProtocolHandler} "ftp"
@@ -325,6 +337,22 @@ Section "Uninstall"
     DeleteRegValue HKLM "Software\RegisteredApplications" "${AppRegName}"
   ${EndIf}
 
+  ReadRegStr $R1 HKCU "$0" ""
+  ${un.RemoveQuotesFromPath} "$R1" $R1
+  ${un.GetParent} "$R1" $R1
+
+  ; Only remove the StartMenuInternet key if it refers to this install location.
+  ; The StartMenuInternet registry key is independent of the default browser
+  ; settings. The XPInstall base un-installer always removes this key if it is
+  ; uninstalling the default browser and it will always replace the keys when
+  ; installing even if there is another install of Firefox that is set as the
+  ; default browser. Now the key is always updated on install but it is only
+  ; removed if it refers to this install location.
+  ${If} "$INSTDIR" == "$R1"
+    DeleteRegKey HKCU "Software\Clients\StartMenuInternet\${FileMainEXE}"
+    DeleteRegValue HKCU "Software\RegisteredApplications" "${AppRegName}"
+  ${EndIf}
+
   StrCpy $0 "Software\Microsoft\Windows\CurrentVersion\App Paths\${FileMainEXE}"
   ${If} $R9 == "false"
     DeleteRegKey HKLM "$0"
@@ -354,6 +382,9 @@ Section "Uninstall"
   ${If} ${FileExists} "$INSTDIR\updates"
     RmDir /r /REBOOTOK "$INSTDIR\updates"
   ${EndIf}
+  ${If} ${FileExists} "$INSTDIR\updated"
+    RmDir /r /REBOOTOK "$INSTDIR\updated"
+  ${EndIf}
   ${If} ${FileExists} "$INSTDIR\defaults\shortcuts"
     RmDir /r /REBOOTOK "$INSTDIR\defaults\shortcuts"
   ${EndIf}
@@ -377,6 +408,13 @@ Section "Uninstall"
 
   ; Remove the uninstall directory that we control
   RmDir /r /REBOOTOK "$INSTDIR\uninstall"
+
+  ; Explictly remove empty webapprt dir in case it exists
+  ; See bug 757978
+  RmDir "$INSTDIR\webapprt\components"
+  RmDir "$INSTDIR\webapprt"
+
+  RmDir /r /REBOOTOK "$INSTDIR\${TO_BE_DELETED}"
 
   ; Remove the installation directory if it is empty
   ${RemoveDir} "$INSTDIR"

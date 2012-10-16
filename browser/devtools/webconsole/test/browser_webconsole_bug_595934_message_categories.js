@@ -116,16 +116,16 @@ let TestObserver = {
       return;
     }
 
-    is(aSubject.category, TESTS[pos].category,
-      "test #" + pos + ": error category '" + TESTS[pos].category + "'");
+    var expectedCategory = TESTS[pos].category;
 
-    if (aSubject.category == TESTS[pos].category) {
+    info("test #" + pos + " console observer got " + aSubject.category + ", is expecting " + expectedCategory);
+
+    if (aSubject.category == expectedCategory) {
       foundCategory = true;
     }
     else {
-      ok(false, aSubject.sourceName + ':' + aSubject.lineNumber + '; ' +
+      info("unexpected message was: " + aSubject.sourceName + ':' + aSubject.lineNumber + '; ' +
                 aSubject.errorMessage);
-      testEnded = true;
     }
   }
 };
@@ -152,7 +152,7 @@ function testNext() {
   pos++;
   if (pos < TESTS.length) {
     waitForSuccess({
-      name: "test #" + pos + " succesful finish",
+      name: "test #" + pos + " successful finish",
       validatorFn: function()
       {
         return foundCategory && foundText && pageLoaded && pageError;

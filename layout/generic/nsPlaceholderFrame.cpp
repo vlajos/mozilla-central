@@ -82,8 +82,14 @@ nsPlaceholderFrame::AddInlineMinWidth(nsRenderingContext *aRenderingContext,
   // false.
 
   // ...but push floats onto the list
-  if (mOutOfFlowFrame->GetStyleDisplay()->IsFloating())
-    aData->floats.AppendElement(mOutOfFlowFrame);
+  if (mOutOfFlowFrame->IsFloating()) {
+    nscoord floatWidth =
+      nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
+                                           mOutOfFlowFrame,
+                                           nsLayoutUtils::MIN_WIDTH);
+    aData->floats.AppendElement(
+      InlineIntrinsicWidthData::FloatInfo(mOutOfFlowFrame, floatWidth));
+  }
 }
 
 /* virtual */ void
@@ -97,8 +103,14 @@ nsPlaceholderFrame::AddInlinePrefWidth(nsRenderingContext *aRenderingContext,
   // false.
 
   // ...but push floats onto the list
-  if (mOutOfFlowFrame->GetStyleDisplay()->IsFloating())
-    aData->floats.AppendElement(mOutOfFlowFrame);
+  if (mOutOfFlowFrame->IsFloating()) {
+    nscoord floatWidth =
+      nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
+                                           mOutOfFlowFrame,
+                                           nsLayoutUtils::PREF_WIDTH);
+    aData->floats.AppendElement(
+      InlineIntrinsicWidthData::FloatInfo(mOutOfFlowFrame, floatWidth));
+  }
 }
 
 NS_IMETHODIMP
@@ -123,7 +135,6 @@ nsPlaceholderFrame::DestroyFrom(nsIFrame* aDestructRoot)
   nsIPresShell* shell = PresContext()->GetPresShell();
   nsIFrame* oof = mOutOfFlowFrame;
   if (oof) {
-    oof->InvalidateFrameSubtree();
     // Unregister out-of-flow frame
     shell->FrameManager()->UnregisterPlaceholderFrame(this);
     mOutOfFlowFrame = nullptr;
@@ -134,7 +145,7 @@ nsPlaceholderFrame::DestroyFrom(nsIFrame* aDestructRoot)
         ((GetStateBits() & PLACEHOLDER_FOR_POPUP) ||
          !nsLayoutUtils::IsProperAncestorFrame(aDestructRoot, oof))) {
       ChildListID listId = nsLayoutUtils::GetChildListNameFor(oof);
-      shell->FrameManager()->RemoveFrame(listId, oof, false);
+      shell->FrameManager()->RemoveFrame(listId, oof);
     }
     // else oof will be destroyed by its parent
   }
@@ -216,7 +227,7 @@ nsPlaceholderFrame::GetFrameName(nsAString& aResult) const
 }
 
 NS_IMETHODIMP
-nsPlaceholderFrame::List(FILE* out, PRInt32 aIndent) const
+nsPlaceholderFrame::List(FILE* out, int32_t aIndent, uint32_t aFlags) const
 {
   IndentBy(out, aIndent);
   ListTag(out);

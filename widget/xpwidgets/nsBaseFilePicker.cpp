@@ -20,6 +20,7 @@
 #include "nsEnumeratorUtils.h"
 #include "mozilla/Services.h"
 #include "WidgetUtils.h"
+#include "nsThreadUtils.h"
 
 #include "nsBaseFilePicker.h"
 
@@ -27,6 +28,45 @@ using namespace mozilla::widget;
 
 #define FILEPICKER_TITLES "chrome://global/locale/filepicker.properties"
 #define FILEPICKER_FILTERS "chrome://global/content/filepicker.properties"
+
+/**
+ * A runnable to dispatch from the main thread to the main thread to display
+ * the file picker while letting the showAsync method return right away.
+*/
+class AsyncShowFilePicker : public nsRunnable
+{
+public:
+  AsyncShowFilePicker(nsIFilePicker *aFilePicker,
+                      nsIFilePickerShownCallback *aCallback) :
+    mFilePicker(aFilePicker),
+    mCallback(aCallback)
+  {
+  }
+
+  NS_IMETHOD Run()
+  {
+    NS_ASSERTION(NS_IsMainThread(),
+                 "AsyncShowFilePicker should be on the main thread!");
+
+    // It's possible that some widget implementations require GUI operations
+    // to be on the main thread, so that's why we're not dispatching to another
+    // thread and calling back to the main after it's done.
+    int16_t result = nsIFilePicker::returnCancel;
+    nsresult rv = mFilePicker->Show(&result);
+    if (NS_FAILED(rv)) {
+      NS_ERROR("FilePicker's Show() implementation failed!");
+    }
+
+    if (mCallback) {
+      mCallback->Done(result);
+    }
+    return NS_OK;
+  }
+
+private:
+  nsRefPtr<nsIFilePicker> mFilePicker;
+  nsRefPtr<nsIFilePickerShownCallback> mCallback;
+};
 
 nsBaseFilePicker::nsBaseFilePicker() :
   mAddToRecentDocs(true)
@@ -41,7 +81,7 @@ nsBaseFilePicker::~nsBaseFilePicker()
 
 NS_IMETHODIMP nsBaseFilePicker::Init(nsIDOMWindow *aParent,
                                      const nsAString& aTitle,
-                                     PRInt16 aMode)
+                                     int16_t aMode)
 {
   NS_PRECONDITION(aParent, "Null parent passed to filepicker, no file "
                   "picker for you!");
@@ -53,9 +93,16 @@ NS_IMETHODIMP nsBaseFilePicker::Init(nsIDOMWindow *aParent,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsBaseFilePicker::Open(nsIFilePickerShownCallback *aCallback)
+{
+  nsCOMPtr<nsIRunnable> filePickerEvent =
+    new AsyncShowFilePicker(this, aCallback);
+  return NS_DispatchToMainThread(filePickerEvent);
+}
 
 NS_IMETHODIMP
-nsBaseFilePicker::AppendFilters(PRInt32 aFilterMask)
+nsBaseFilePicker::AppendFilters(int32_t aFilterMask)
 {
   nsCOMPtr<nsIStringBundleService> stringService =
     mozilla::services::GetStringBundleService();
@@ -126,13 +173,13 @@ nsBaseFilePicker::AppendFilters(PRInt32 aFilterMask)
 }
 
 // Set the filter index
-NS_IMETHODIMP nsBaseFilePicker::GetFilterIndex(PRInt32 *aFilterIndex)
+NS_IMETHODIMP nsBaseFilePicker::GetFilterIndex(int32_t *aFilterIndex)
 {
   *aFilterIndex = 0;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsBaseFilePicker::SetFilterIndex(PRInt32 aFilterIndex)
+NS_IMETHODIMP nsBaseFilePicker::SetFilterIndex(int32_t aFilterIndex)
 {
   return NS_OK;
 }

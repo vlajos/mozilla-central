@@ -11,6 +11,7 @@
 #include "jsapi.h"
 
 #include "gc/Heap.h"
+#include "gc/Root.h"
 #include "js/HashTable.h"
 
 /*
@@ -129,7 +130,7 @@ class EncapsulatedPtr
 
   public:
     EncapsulatedPtr() : value(NULL) {}
-    explicit EncapsulatedPtr(T *v) : value(v) {}
+    EncapsulatedPtr(T *v) : value(v) {}
     explicit EncapsulatedPtr(const EncapsulatedPtr<T> &v) : value(v.value) {}
 
     ~EncapsulatedPtr() { pre(); }
@@ -172,7 +173,7 @@ class EncapsulatedPtr
     operator T*() const { return value; }
 
   protected:
-    void pre() { T::writeBarrierPre(value); }
+    void pre();
 };
 
 template <class T, class Unioned = uintptr_t>
@@ -217,39 +218,86 @@ class HeapPtr : public EncapsulatedPtr<T, Unioned>
                      HeapPtr<T2> &v2, T2 *val2);
 };
 
+/*
+ * FixedHeapPtr is designed for one very narrow case: replacing immutable raw
+ * pointers to GC-managed things, implicitly converting to a handle type for
+ * ease of use.  Pointers encapsulated by this type must:
+ *
+ *   be immutable (no incremental write barriers),
+ *   never point into the nursery (no generational write barriers), and
+ *   be traced via MarkRuntime (we use fromMarkedLocation).
+ *
+ * In short: you *really* need to know what you're doing before you use this
+ * class!
+ */
+template <class T>
+class FixedHeapPtr
+{
+    T *value;
+
+  public:
+    operator T*() const { return value; }
+    T * operator->() const { return value; }
+
+    operator Handle<T*>() const {
+        return Handle<T*>::fromMarkedLocation(&value);
+    }
+
+    void init(T *ptr) {
+        value = ptr;
+    }
+};
+
 template <class T>
 class RelocatablePtr : public EncapsulatedPtr<T>
 {
   public:
     RelocatablePtr() : EncapsulatedPtr<T>(NULL) {}
-    explicit RelocatablePtr(T *v) : EncapsulatedPtr<T>(v) { post(); }
-    explicit RelocatablePtr(const RelocatablePtr<T> &v)
-      : EncapsulatedPtr<T>(v) { post(); }
+    explicit RelocatablePtr(T *v) : EncapsulatedPtr<T>(v) {
+        if (v)
+            post();
+    }
+    explicit RelocatablePtr(const RelocatablePtr<T> &v) : EncapsulatedPtr<T>(v) {
+        if (this->value)
+            post();
+    }
 
     ~RelocatablePtr() {
-        this->pre();
-        relocate();
+        if (this->value)
+            relocate(this->value->compartment());
     }
 
     RelocatablePtr<T> &operator=(T *v) {
         this->pre();
         JS_ASSERT(!IsPoisonedPtr<T>(v));
-        this->value = v;
-        post();
+        if (v) {
+            this->value = v;
+            post();
+        } else if (this->value) {
+            JSCompartment *comp = this->value->compartment();
+            this->value = v;
+            relocate(comp);
+        }
         return *this;
     }
 
     RelocatablePtr<T> &operator=(const RelocatablePtr<T> &v) {
         this->pre();
         JS_ASSERT(!IsPoisonedPtr<T>(v.value));
-        this->value = v.value;
-        post();
+        if (v.value) {
+            this->value = v.value;
+            post();
+        } else if (this->value) {
+            JSCompartment *comp = this->value->compartment();
+            this->value = v;
+            relocate(comp);
+        }
         return *this;
     }
 
   protected:
-    void post() { T::writeBarrierRelocPost(this->value, (void *)&this->value); }
-    void relocate() { T::writeBarrierRelocated(this->value, (void *)&this->value); }
+    inline void post();
+    inline void relocate(JSCompartment *comp);
 };
 
 /*
@@ -275,6 +323,9 @@ BarrieredSetPair(JSCompartment *comp,
 struct Shape;
 class BaseShape;
 namespace types { struct TypeObject; }
+
+typedef EncapsulatedPtr<JSObject> EncapsulatedPtrObject;
+typedef EncapsulatedPtr<JSScript> EncapsulatedPtrScript;
 
 typedef RelocatablePtr<JSObject> RelocatablePtrObject;
 typedef RelocatablePtr<JSScript> RelocatablePtrScript;
@@ -302,6 +353,19 @@ struct HeapPtrHasher
 /* Specialized hashing policy for HeapPtrs. */
 template <class T>
 struct DefaultHasher< HeapPtr<T> > : HeapPtrHasher<T> { };
+
+template<class T>
+struct EncapsulatedPtrHasher
+{
+    typedef EncapsulatedPtr<T> Key;
+    typedef T *Lookup;
+
+    static HashNumber hash(Lookup obj) { return DefaultHasher<T *>::hash(obj); }
+    static bool match(const Key &k, Lookup l) { return k.get() == l; }
+};
+
+template <class T>
+struct DefaultHasher< EncapsulatedPtr<T> > : EncapsulatedPtrHasher<T> { };
 
 class EncapsulatedValue : public ValueOperations<EncapsulatedValue>
 {
@@ -428,8 +492,19 @@ class HeapSlot : public EncapsulatedValue
  * single step.
  */
 inline void
-SlotRangeWriteBarrierPost(JSCompartment *comp, JSObject *obj, uint32_t start, uint32_t count)
+SlotRangeWriteBarrierPost(JSCompartment *comp, JSObject *obj, uint32_t start, uint32_t count);
+
+/*
+ * This is a post barrier for HashTables whose key can be moved during a GC.
+ */
+template <class Map, class Key>
+inline void
+HashTableWriteBarrierPost(JSCompartment *comp, const Map *map, const Key &key)
 {
+#ifdef JS_GCGENERATIONAL
+    if (key && comp->gcNursery.isInside(key))
+        comp->gcStoreBuffer.putGeneric(HashKeyRef(map, key));
+#endif
 }
 
 static inline const Value *
@@ -467,15 +542,16 @@ class EncapsulatedId
   protected:
     jsid value;
 
-    explicit EncapsulatedId() : value(JSID_VOID) {}
-    explicit inline EncapsulatedId(jsid id) : value(id) {}
-    ~EncapsulatedId() {}
-
   private:
     EncapsulatedId(const EncapsulatedId &v) MOZ_DELETE;
-    EncapsulatedId &operator=(const EncapsulatedId &v) MOZ_DELETE;
 
   public:
+    explicit EncapsulatedId() : value(JSID_VOID) {}
+    explicit EncapsulatedId(jsid id) : value(id) {}
+    ~EncapsulatedId();
+
+    inline EncapsulatedId &operator=(const EncapsulatedId &v);
+
     bool operator==(jsid id) const { return value == id; }
     bool operator!=(jsid id) const { return value != id; }
 

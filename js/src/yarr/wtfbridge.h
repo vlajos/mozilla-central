@@ -80,7 +80,7 @@ class OwnPtr {
 
     ~OwnPtr() {
         if (ptr)
-            js::Foreground::delete_(ptr);
+            js_delete(ptr);
     }
 
     OwnPtr<T> &operator=(PassOwnPtr<T> p) {
@@ -192,7 +192,7 @@ class Vector {
 
     void deleteAllValues() {
         for (T *p = impl.begin(); p != impl.end(); ++p)
-            js::Foreground::delete_(*p);
+            js_delete(*p);
     }
 };
 
@@ -218,7 +218,7 @@ class Vector<OwnPtr<T> > {
 
     void clear() {
         for (T **p = impl.begin(); p != impl.end(); ++p)
-            js::Foreground::delete_(*p);
+            delete_(*p);
         return impl.clear();
     }
 };
@@ -277,14 +277,14 @@ template<typename T>
 inline T
 min(T t1, T t2)
 {
-    return JS_MIN(t1, t2);
+    return js::Min(t1, t2);
 }
 
 template<typename T>
 inline T
 max(T t1, T t2)
 {
-    return JS_MAX(t1, t2);
+    return js::Max(t1, t2);
 }
 
 template<typename T>

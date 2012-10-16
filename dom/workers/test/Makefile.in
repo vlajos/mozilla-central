@@ -2,12 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH            = ../../..
+DEPTH            = @DEPTH@
 topsrcdir        = @top_srcdir@
 srcdir           = @srcdir@
 VPATH            = @srcdir@
 
-relativesrcdir   = dom/workers/test
+relativesrcdir   = @relativesrcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
@@ -39,6 +39,8 @@ MOCHITEST_FILES = \
   importScripts_worker_imported2.js \
   importScripts_worker_imported3.js \
   importScripts_worker_imported4.js \
+  test_instanceof.html \
+  instanceof_worker.js \
   test_json.html \
   json_worker.js \
   test_location.html \
@@ -89,7 +91,17 @@ MOCHITEST_FILES = \
   test_xhr_implicit_cancel.html \
   xhr_implicit_cancel_worker.js \
   test_xhr_timeout.html \
+  test_xhr_parameters.html \
+  test_xhr_parameters.js \
+  test_xhr_system.html \
+  test_xhr_system.js \
   test_blobConstructor.html \
+  test_csp.html \
+  test_csp.js \
+  test_csp.html^headers^ \
+  csp_worker.js \
+  test_transferable.html \
+  transferable_worker.js \
   $(NULL)
 
 _SUBDIRMOCHITEST_FILES = \

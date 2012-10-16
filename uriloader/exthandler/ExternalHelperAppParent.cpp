@@ -11,9 +11,12 @@
 #include "mozilla/dom/ContentParent.h"
 #include "nsIBrowserDOMWindow.h"
 #include "nsStringStream.h"
+#include "mozilla/ipc/URIUtils.h"
 
 #include "mozilla/unused.h"
 #include "mozilla/Util.h" // for DebugOnly
+
+using namespace mozilla::ipc;
 
 namespace mozilla {
 namespace dom {
@@ -26,9 +29,9 @@ NS_IMPL_ISUPPORTS_INHERITED4(ExternalHelperAppParent,
                              nsIResumableChannel)
 
 ExternalHelperAppParent::ExternalHelperAppParent(
-    const IPC::URI& uri,
-    const PRInt64& aContentLength)
-  : mURI(uri)
+    const OptionalURIParams& uri,
+    const int64_t& aContentLength)
+  : mURI(DeserializeURI(uri))
   , mPending(false)
   , mLoadFlags(0)
   , mStatus(NS_OK)
@@ -41,7 +44,7 @@ ExternalHelperAppParent::Init(ContentParent *parent,
                               const nsCString& aMimeContentType,
                               const nsCString& aContentDispositionHeader,
                               const bool& aForceSave,
-                              const IPC::URI& aReferrer)
+                              const OptionalURIParams& aReferrer)
 {
   nsHashPropertyBag::Init();
 
@@ -50,8 +53,11 @@ ExternalHelperAppParent::Init(ContentParent *parent,
   NS_ASSERTION(helperAppService, "No Helper App Service!");
 
   SetPropertyAsInt64(NS_CHANNEL_PROP_CONTENT_LENGTH, mContentLength);
-  if (aReferrer)
-    SetPropertyAsInterface(NS_LITERAL_STRING("docshell.internalReferrer"), aReferrer);
+
+  nsCOMPtr<nsIURI> referrer = DeserializeURI(aReferrer);
+  if (referrer)
+    SetPropertyAsInterface(NS_LITERAL_STRING("docshell.internalReferrer"), referrer);
+
   mContentDispositionHeader = aContentDispositionHeader;
   NS_GetFilenameFromDisposition(mContentDispositionFilename, mContentDispositionHeader, mURI);
   mContentDisposition = NS_GetContentDispositionFromHeader(mContentDispositionHeader, this);
@@ -70,8 +76,8 @@ ExternalHelperAppParent::RecvOnStartRequest(const nsCString& entityID)
 
 bool
 ExternalHelperAppParent::RecvOnDataAvailable(const nsCString& data,
-                                             const PRUint32& offset,
-                                             const PRUint32& count)
+                                             const uint64_t& offset,
+                                             const uint32_t& count)
 {
   if (NS_FAILED(mStatus))
     return true;
@@ -269,13 +275,19 @@ ExternalHelperAppParent::SetContentCharset(const nsACString& aContentCharset)
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::GetContentDisposition(PRUint32 *aContentDisposition)
+ExternalHelperAppParent::GetContentDisposition(uint32_t *aContentDisposition)
 {
   if (mContentDispositionHeader.IsEmpty())
     return NS_ERROR_NOT_AVAILABLE;
 
   *aContentDisposition = mContentDisposition;
   return NS_OK;
+}
+
+NS_IMETHODIMP
+ExternalHelperAppParent::SetContentDisposition(uint32_t aContentDisposition)
+{
+  return NS_ERROR_NOT_AVAILABLE;
 }
 
 NS_IMETHODIMP
@@ -289,6 +301,12 @@ ExternalHelperAppParent::GetContentDispositionFilename(nsAString& aContentDispos
 }
 
 NS_IMETHODIMP
+ExternalHelperAppParent::SetContentDispositionFilename(const nsAString& aContentDispositionFilename)
+{
+  return NS_ERROR_NOT_AVAILABLE;
+}
+
+NS_IMETHODIMP
 ExternalHelperAppParent::GetContentDispositionHeader(nsACString& aContentDispositionHeader)
 {
   if (mContentDispositionHeader.IsEmpty())
@@ -299,17 +317,17 @@ ExternalHelperAppParent::GetContentDispositionHeader(nsACString& aContentDisposi
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::GetContentLength(PRInt32 *aContentLength)
+ExternalHelperAppParent::GetContentLength(int32_t *aContentLength)
 {
-  if (mContentLength > PR_INT32_MAX || mContentLength < 0)
+  if (mContentLength > INT32_MAX || mContentLength < 0)
     *aContentLength = -1;
   else
-    *aContentLength = (PRInt32)mContentLength;
+    *aContentLength = (int32_t)mContentLength;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::SetContentLength(PRInt32 aContentLength)
+ExternalHelperAppParent::SetContentLength(int32_t aContentLength)
 {
   mContentLength = aContentLength;
   return NS_OK;
@@ -320,7 +338,7 @@ ExternalHelperAppParent::SetContentLength(PRInt32 aContentLength)
 //
 
 NS_IMETHODIMP
-ExternalHelperAppParent::ResumeAt(PRUint64 startPos, const nsACString& entityID)
+ExternalHelperAppParent::ResumeAt(uint64_t startPos, const nsACString& entityID)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -343,7 +361,7 @@ ExternalHelperAppParent::GetBaseChannel(nsIChannel* *aChannel)
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::GetPartID(PRUint32* aPartID)
+ExternalHelperAppParent::GetPartID(uint32_t* aPartID)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }

@@ -200,7 +200,7 @@ LayerManagerD3D10::Initialize(bool force)
     mInputLayout = attachments->mInputLayout;
   }
 
-  if (HasShadowManager()) {
+  if (ShadowLayerForwarder::HasShadowManager()) {
     reporter.SetSuccessful();
     return true;
   }
@@ -244,7 +244,7 @@ LayerManagerD3D10::Initialize(bool force)
     */
     nsRefPtr<IDXGISwapChain1> swapChain1;
     hr = dxgiFactory->CreateSwapChainForCoreWindow(
-           dxgiDevice, (IUnknown *)mWidget->GetNativeData(NS_NATIVE_WINDOW),
+           dxgiDevice, (IUnknown *)mWidget->GetNativeData(NS_NATIVE_ICOREWINDOW),
            &swapDesc, nullptr, getter_AddRefs(swapChain1));
     if (FAILED(hr)) {
         return false;
@@ -322,6 +322,8 @@ LayerManagerD3D10::SetRoot(Layer *aRoot)
 void
 LayerManagerD3D10::BeginTransaction()
 {
+  mInTransaction = true;
+
 #ifdef MOZ_LAYERS_HAVE_LOG
   MOZ_LAYERS_LOG(("[----- BeginTransaction"));
   Log();
@@ -331,16 +333,19 @@ LayerManagerD3D10::BeginTransaction()
 void
 LayerManagerD3D10::BeginTransactionWithTarget(gfxContext* aTarget)
 {
+  mInTransaction = true;
   mTarget = aTarget;
 }
 
 bool
-LayerManagerD3D10::EndEmptyTransaction()
+LayerManagerD3D10::EndEmptyTransaction(EndTransactionFlags aFlags)
 {
+  mInTransaction = false;
+
   if (!mRoot)
     return false;
 
-  EndTransaction(nullptr, nullptr);
+  EndTransaction(nullptr, nullptr, aFlags);
   return true;
 }
 
@@ -349,9 +354,17 @@ LayerManagerD3D10::EndTransaction(DrawThebesLayerCallback aCallback,
                                   void* aCallbackData,
                                   EndTransactionFlags aFlags)
 {
+  mInTransaction = false;
+
   if (mRoot && !(aFlags & END_NO_IMMEDIATE_REDRAW)) {
     mCurrentCallbackInfo.Callback = aCallback;
     mCurrentCallbackInfo.CallbackData = aCallbackData;
+
+    if (aFlags & END_NO_COMPOSITE) {
+      // Apply pending tree updates before recomputing effective
+      // properties.
+      mRoot->ApplyPendingUpdatesToSubtree();
+    }
 
     // The results of our drawing always go directly into a pixel buffer,
     // so we don't need to pass any global transform here.
@@ -362,7 +375,7 @@ LayerManagerD3D10::EndTransaction(DrawThebesLayerCallback aCallback,
     Log();
 #endif
 
-    Render();
+    Render(aFlags);
     mCurrentCallbackInfo.Callback = nullptr;
     mCurrentCallbackInfo.CallbackData = nullptr;
   }
@@ -484,11 +497,9 @@ TemporaryRef<DrawTarget>
 LayerManagerD3D10::CreateDrawTarget(const IntSize &aSize,
                                     SurfaceFormat aFormat)
 {
-  BackendType backend;
   if ((aFormat != FORMAT_B8G8R8A8 &&
        aFormat != FORMAT_B8G8R8X8) ||
-       !gfxPlatform::GetPlatform()->SupportsAzureCanvas(backend) ||
-       backend != BACKEND_DIRECT2D) {
+       gfxPlatform::GetPlatform()->GetPreferredCanvasBackend() != BACKEND_DIRECT2D) {
     return LayerManager::CreateDrawTarget(aSize, aFormat);
   }
 
@@ -704,9 +715,13 @@ LayerManagerD3D10::EnsureReadbackManager()
 }
 
 void
-LayerManagerD3D10::Render()
+LayerManagerD3D10::Render(EndTransactionFlags aFlags)
 {
   static_cast<LayerD3D10*>(mRoot->ImplData())->Validate();
+
+  if (aFlags & END_NO_COMPOSITE) {
+    return;
+  }
 
   SetupPipeline();
 
@@ -855,7 +870,7 @@ LayerManagerD3D10::ReportFailure(const nsACString &aMsg, HRESULT aCode)
   nsCString msg;
   msg.Append(aMsg);
   msg.AppendLiteral(" Error code: ");
-  msg.AppendInt(PRUint32(aCode));
+  msg.AppendInt(uint32_t(aCode));
   NS_WARNING(msg.BeginReading());
 
   gfx::LogFailure(msg);
@@ -867,7 +882,7 @@ LayerD3D10::LayerD3D10(LayerManagerD3D10 *aManager)
 }
 
 ID3D10EffectTechnique*
-LayerD3D10::SelectShader(PRUint8 aFlags)
+LayerD3D10::SelectShader(uint8_t aFlags)
 {
   switch (aFlags) {
   case (SHADER_RGBA | SHADER_NON_PREMUL | SHADER_LINEAR | SHADER_MASK):
@@ -914,7 +929,7 @@ LayerD3D10::SelectShader(PRUint8 aFlags)
   }
 }
 
-PRUint8
+uint8_t
 LayerD3D10::LoadMaskTexture()
 {
   if (Layer* maskLayer = GetLayer()->GetMaskLayer()) {
@@ -981,6 +996,11 @@ DummyRoot::RemoveChild(Layer* aNull)
 {
   NS_ABORT_IF_FALSE(!aNull, "Unused argument should be null");
   NS_IF_RELEASE(mFirstChild);
+}
+
+void
+DummyRoot::RepositionChild(Layer* aUnused1, Layer* aUnused2)
+{
 }
 
 

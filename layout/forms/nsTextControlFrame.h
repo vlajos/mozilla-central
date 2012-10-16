@@ -6,6 +6,7 @@
 #ifndef nsTextControlFrame_h___
 #define nsTextControlFrame_h___
 
+#include "mozilla/Attributes.h"
 #include "nsContainerFrame.h"
 #include "nsBlockFrame.h"
 #include "nsIFormControlFrame.h"
@@ -45,7 +46,7 @@ public:
   nsTextControlFrame(nsIPresShell* aShell, nsStyleContext* aContext);
   virtual ~nsTextControlFrame();
 
-  virtual void DestroyFrom(nsIFrame* aDestructRoot);
+  virtual void DestroyFrom(nsIFrame* aDestructRoot) MOZ_OVERRIDE;
 
   virtual nsIScrollableFrame* GetScrollTargetFrame() {
     if (!IsScrollable())
@@ -59,7 +60,7 @@ public:
   virtual nsSize ComputeAutoSize(nsRenderingContext *aRenderingContext,
                                  nsSize aCBSize, nscoord aAvailableWidth,
                                  nsSize aMargin, nsSize aBorder,
-                                 nsSize aPadding, bool aShrinkWrap);
+                                 nsSize aPadding, bool aShrinkWrap) MOZ_OVERRIDE;
 
   NS_IMETHOD Reflow(nsPresContext*          aPresContext,
                     nsHTMLReflowMetrics&     aDesiredSize,
@@ -85,7 +86,7 @@ public:
   }
 #endif
 
-  virtual bool IsFrameOfType(PRUint32 aFlags) const
+  virtual bool IsFrameOfType(uint32_t aFlags) const
   {
     // nsStackFrame is already both of these, but that's somewhat bogus,
     // and we really mean it.
@@ -94,14 +95,14 @@ public:
   }
 
   // nsIAnonymousContentCreator
-  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements);
+  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements) MOZ_OVERRIDE;
   virtual void AppendAnonymousContentTo(nsBaseContentList& aElements,
-                                        PRUint32 aFilter);
+                                        uint32_t aFilter) MOZ_OVERRIDE;
 
   // Utility methods to set current widget state
 
   NS_IMETHOD SetInitialChildList(ChildListID     aListID,
-                                 nsFrameList&    aChildList);
+                                 nsFrameList&    aChildList) MOZ_OVERRIDE;
 
 //==== BEGIN NSIFORMCONTROLFRAME
   virtual void SetFocus(bool aOn , bool aRepaint); 
@@ -113,34 +114,34 @@ public:
 
 //==== NSITEXTCONTROLFRAME
 
-  NS_IMETHOD    GetEditor(nsIEditor **aEditor);
-  NS_IMETHOD    GetTextLength(PRInt32* aTextLength);
-  NS_IMETHOD    SetSelectionStart(PRInt32 aSelectionStart);
-  NS_IMETHOD    SetSelectionEnd(PRInt32 aSelectionEnd);
-  NS_IMETHOD    SetSelectionRange(PRInt32 aSelectionStart,
-                                  PRInt32 aSelectionEnd,
-                                  SelectionDirection aDirection = eNone);
-  NS_IMETHOD    GetSelectionRange(PRInt32* aSelectionStart,
-                                  PRInt32* aSelectionEnd,
-                                  SelectionDirection* aDirection = nullptr);
-  NS_IMETHOD    GetOwnedSelectionController(nsISelectionController** aSelCon);
-  virtual nsFrameSelection* GetOwnedFrameSelection();
+  NS_IMETHOD    GetEditor(nsIEditor **aEditor) MOZ_OVERRIDE;
+  NS_IMETHOD    GetTextLength(int32_t* aTextLength) MOZ_OVERRIDE;
+  NS_IMETHOD    SetSelectionStart(int32_t aSelectionStart) MOZ_OVERRIDE;
+  NS_IMETHOD    SetSelectionEnd(int32_t aSelectionEnd) MOZ_OVERRIDE;
+  NS_IMETHOD    SetSelectionRange(int32_t aSelectionStart,
+                                  int32_t aSelectionEnd,
+                                  SelectionDirection aDirection = eNone) MOZ_OVERRIDE;
+  NS_IMETHOD    GetSelectionRange(int32_t* aSelectionStart,
+                                  int32_t* aSelectionEnd,
+                                  SelectionDirection* aDirection = nullptr) MOZ_OVERRIDE;
+  NS_IMETHOD    GetOwnedSelectionController(nsISelectionController** aSelCon) MOZ_OVERRIDE;
+  virtual nsFrameSelection* GetOwnedFrameSelection() MOZ_OVERRIDE;
 
-  nsresult GetPhonetic(nsAString& aPhonetic);
+  nsresult GetPhonetic(nsAString& aPhonetic) MOZ_OVERRIDE;
 
   /**
    * Ensure mEditor is initialized with the proper flags and the default value.
    * @throws NS_ERROR_NOT_INITIALIZED if mEditor has not been created
    * @throws various and sundry other things
    */
-  virtual nsresult EnsureEditorInitialized();
+  virtual nsresult EnsureEditorInitialized() MOZ_OVERRIDE;
 
 //==== END NSITEXTCONTROLFRAME
 
 //==== NSISTATEFULFRAME
 
-  NS_IMETHOD SaveState(SpecialStateID aStateID, nsPresState** aState);
-  NS_IMETHOD RestoreState(nsPresState* aState);
+  NS_IMETHOD SaveState(SpecialStateID aStateID, nsPresState** aState) MOZ_OVERRIDE;
+  NS_IMETHOD RestoreState(nsPresState* aState) MOZ_OVERRIDE;
 
 //=== END NSISTATEFULFRAME
 
@@ -148,9 +149,9 @@ public:
   virtual nsIAtom* GetType() const;
 
   /** handler for attribute changes to mContent */
-  NS_IMETHOD AttributeChanged(PRInt32         aNameSpaceID,
+  NS_IMETHOD AttributeChanged(int32_t         aNameSpaceID,
                               nsIAtom*        aAttribute,
-                              PRInt32         aModType);
+                              int32_t         aModType);
 
   nsresult GetText(nsString& aText);
 
@@ -230,9 +231,9 @@ public: //for methods who access nsTextControlFrame directly
   DEFINE_TEXTCTRL_CONST_FORWARDER(bool, IsTextArea)
   DEFINE_TEXTCTRL_CONST_FORWARDER(bool, IsPlainTextControl)
   DEFINE_TEXTCTRL_CONST_FORWARDER(bool, IsPasswordTextControl)
-  DEFINE_TEXTCTRL_FORWARDER(PRInt32, GetCols)
-  DEFINE_TEXTCTRL_FORWARDER(PRInt32, GetWrapCols)
-  DEFINE_TEXTCTRL_FORWARDER(PRInt32, GetRows)
+  DEFINE_TEXTCTRL_FORWARDER(int32_t, GetCols)
+  DEFINE_TEXTCTRL_FORWARDER(int32_t, GetWrapCols)
+  DEFINE_TEXTCTRL_FORWARDER(int32_t, GetRows)
 
 #undef DEFINE_TEXTCTRL_CONST_FORWARDER
 #undef DEFINE_TEXTCTRL_FORWARDER
@@ -297,7 +298,7 @@ protected:
     nsTextControlFrame* mFrame;
   };
 
-  nsresult OffsetToDOMPoint(PRInt32 aOffset, nsIDOMNode** aResult, PRInt32* aPosition);
+  nsresult OffsetToDOMPoint(int32_t aOffset, nsIDOMNode** aResult, int32_t* aPosition);
 
   /**
    * Find out whether this control is scrollable (i.e. if it is not a single
@@ -320,7 +321,7 @@ protected:
    * @param aMaxLength the value of the max length attr
    * @returns false if attr not defined
    */
-  bool GetMaxLength(PRInt32* aMaxLength);
+  bool GetMaxLength(int32_t* aMaxLength);
 
   /**
    * Find out whether an attribute exists on the content or not.
@@ -343,15 +344,15 @@ protected:
                              nsSize&             aIntrinsicSize,
                              float               aFontSizeInflation);
 
-  nsresult ScrollSelectionIntoView();
+  nsresult ScrollSelectionIntoView() MOZ_OVERRIDE;
 
 private:
   //helper methods
-  nsresult SetSelectionInternal(nsIDOMNode *aStartNode, PRInt32 aStartOffset,
-                                nsIDOMNode *aEndNode, PRInt32 aEndOffset,
+  nsresult SetSelectionInternal(nsIDOMNode *aStartNode, int32_t aStartOffset,
+                                nsIDOMNode *aEndNode, int32_t aEndOffset,
                                 SelectionDirection aDirection = eNone);
   nsresult SelectAllOrCollapseToEndOfText(bool aSelect);
-  nsresult SetSelectionEndPoints(PRInt32 aSelStart, PRInt32 aSelEnd,
+  nsresult SetSelectionEndPoints(int32_t aSelStart, int32_t aSelEnd,
                                  SelectionDirection aDirection = eNone);
 
   /**

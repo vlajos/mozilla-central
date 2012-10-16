@@ -13,7 +13,7 @@ ReusableTileStoreOGL::~ReusableTileStoreOGL()
     return;
 
   mContext->MakeCurrent();
-  for (PRUint32 i = 0; i < mTiles.Length(); i++)
+  for (uint32_t i = 0; i < mTiles.Length(); i++)
     mContext->fDeleteTextures(1, &mTiles[i]->mTexture.mTextureHandle);
   mTiles.Clear();
 }
@@ -37,7 +37,9 @@ ReusableTileStoreOGL::InvalidateTiles(TiledThebesLayerOGL* aLayer,
           // This will be incorrect when the transform involves rotation, but
           // it'd be quite hard to retain invalid tiles correctly in this
           // situation anyway.
-          renderBounds = parent->GetEffectiveTransform().TransformBounds(gfxRect(metrics.mDisplayPort));
+          renderBounds = parent->GetEffectiveTransform().TransformBounds(
+              gfxRect(metrics.mDisplayPort.x, metrics.mDisplayPort.y,
+                      metrics.mDisplayPort.width, metrics.mDisplayPort.height));
           break;
       }
   }
@@ -55,7 +57,7 @@ ReusableTileStoreOGL::InvalidateTiles(TiledThebesLayerOGL* aLayer,
   // assumption is that anything within this area should be valid, so there's
   // no need to keep invalid tiles there.
   mContext->MakeCurrent();
-  for (PRUint32 i = 0; i < mTiles.Length();) {
+  for (uint32_t i = 0; i < mTiles.Length();) {
     ReusableTiledTextureOGL* tile = mTiles[i];
 
     // Check if the tile region is contained within the new valid region.
@@ -217,10 +219,16 @@ ReusableTileStoreOGL::DrawTiles(TiledThebesLayerOGL* aLayer,
         scrollableLayer = parent;
       if (!parentMetrics.mDisplayPort.IsEmpty() && scrollableLayer) {
           displayPort = parent->GetEffectiveTransform().
-            TransformBounds(gfxRect(parentMetrics.mDisplayPort));
+            TransformBounds(gfxRect(
+              parentMetrics.mDisplayPort.x, parentMetrics.mDisplayPort.y,
+              parentMetrics.mDisplayPort.width, parentMetrics.mDisplayPort.height));
           const FrameMetrics& metrics = scrollableLayer->GetFrameMetrics();
           const nsIntSize& contentSize = metrics.mContentRect.Size();
-          const nsIntPoint& contentOrigin = metrics.mContentRect.TopLeft() - metrics.mViewportScrollOffset;
+          gfx::Point scrollOffset =
+            gfx::Point(metrics.mScrollOffset.x * metrics.LayersPixelsPerCSSPixel().width,
+                       metrics.mScrollOffset.y * metrics.LayersPixelsPerCSSPixel().height);
+          const nsIntPoint& contentOrigin = metrics.mContentRect.TopLeft() -
+            nsIntPoint(NS_lround(scrollOffset.x), NS_lround(scrollOffset.y));
           gfxRect contentRect = gfxRect(contentOrigin.x, contentOrigin.y,
                                         contentSize.width, contentSize.height);
           contentBounds = scrollableLayer->GetEffectiveTransform().TransformBounds(contentRect);
@@ -229,7 +237,7 @@ ReusableTileStoreOGL::DrawTiles(TiledThebesLayerOGL* aLayer,
   }
 
   // Render old tiles to fill in gaps we haven't had the time to render yet.
-  for (PRUint32 i = 0; i < mTiles.Length(); i++) {
+  for (uint32_t i = 0; i < mTiles.Length(); i++) {
     ReusableTiledTextureOGL* tile = mTiles[i];
 
     // Work out the scaling factor in case of resolution differences.

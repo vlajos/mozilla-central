@@ -39,8 +39,8 @@ MySocketListener::OnSocketAccepted(nsIServerSocket *serv,
 {
     LOG(("MySocketListener::OnSocketAccepted [serv=%p trans=%p]\n", serv, trans));
 
-    nsCAutoString host;
-    PRInt32 port;
+    nsAutoCString host;
+    int32_t port;
 
     trans->GetHost(host);
     trans->GetPort(&port);
@@ -60,7 +60,7 @@ MySocketListener::OnSocketAccepted(nsIServerSocket *serv,
         return rv;
 
     char buf[256];
-    PRUint32 n;
+    uint32_t n;
 
     rv = input->Read(buf, sizeof(buf), &n);
     if (NS_FAILED(rv))
@@ -85,7 +85,7 @@ MySocketListener::OnStopListening(nsIServerSocket *serv, nsresult status)
 }
 
 static nsresult
-MakeServer(PRInt32 port)
+MakeServer(int32_t port)
 {
     nsresult rv;
     nsCOMPtr<nsIServerSocket> serv = do_CreateInstance(NS_SERVERSOCKET_CONTRACTID, &rv);
@@ -127,7 +127,7 @@ main(int argc, char* argv[])
      */
 
     rv = NS_InitXPCOM2(nullptr, nullptr, nullptr);
-    if (NS_FAILED(rv)) return rv;
+    if (NS_FAILED(rv)) return -1;
 
     {
         rv = MakeServer(atoi(argv[1]));
@@ -141,5 +141,5 @@ main(int argc, char* argv[])
     } // this scopes the nsCOMPtrs
     // no nsCOMPtrs are allowed to be alive when you call NS_ShutdownXPCOM
     NS_ShutdownXPCOM(nullptr);
-    return rv;
+    return 0;
 }

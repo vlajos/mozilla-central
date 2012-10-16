@@ -15,6 +15,15 @@
 namespace js {
 namespace gc {
 
+/* Unused memory decommiting requires the arena size match the page size. */
+extern const size_t PageSize;
+extern const size_t ArenaSize;
+static bool
+DecommitEnabled()
+{
+    return PageSize == ArenaSize;
+}
+
 #if defined(XP_WIN)
 #include "jswin.h"
 #include <psapi.h>
@@ -83,6 +92,9 @@ UnmapPages(void *p, size_t size)
 bool
 MarkPagesUnused(void *p, size_t size)
 {
+    if (!DecommitEnabled())
+        return false;
+
     JS_ASSERT(uintptr_t(p) % PageSize == 0);
     LPVOID p2 = VirtualAlloc(p, size, MEM_RESET, PAGE_READWRITE);
     return p2 == p;
@@ -323,7 +335,7 @@ MapAlignedPages(size_t size, size_t alignment)
     }
 
     /* Overallocate and unmap the region's edges. */
-    size_t reqSize = JS_MIN(size + 2 * alignment, 2 * size);
+    size_t reqSize = Min(size + 2 * alignment, 2 * size);
     void *region = mmap(NULL, reqSize, prot, flags, -1, 0);
     if (region == MAP_FAILED)
         return NULL;
@@ -352,6 +364,9 @@ UnmapPages(void *p, size_t size)
 bool
 MarkPagesUnused(void *p, size_t size)
 {
+    if (!DecommitEnabled())
+        return false;
+
     JS_ASSERT(uintptr_t(p) % PageSize == 0);
     int result = madvise(p, size, MADV_DONTNEED);
     return result != -1;

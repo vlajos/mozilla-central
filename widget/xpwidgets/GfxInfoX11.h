@@ -53,8 +53,8 @@ public:
 
 protected:
 
-  virtual nsresult GetFeatureStatusImpl(PRInt32 aFeature, 
-                                        PRInt32 *aStatus, 
+  virtual nsresult GetFeatureStatusImpl(int32_t aFeature, 
+                                        int32_t *aStatus, 
                                         nsAString & aSuggestedDriverVersion, 
                                         const nsTArray<GfxDriverInfo>& aDriverInfo, 
                                         OperatingSystem* aOS = nullptr);
@@ -67,7 +67,7 @@ private:
   nsCString mAdapterDescription;
   nsCString mOS;
   nsCString mOSRelease;
-  bool mIsMesa, mIsNVIDIA, mIsFGLRX, mIsNouveau;
+  bool mIsMesa, mIsNVIDIA, mIsFGLRX, mIsNouveau, mIsIntel;
   bool mHasTextureFromPixmap;
   int mGLMajorVersion, mMajorVersion, mMinorVersion, mRevisionVersion;
 

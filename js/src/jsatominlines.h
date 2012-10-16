@@ -7,12 +7,14 @@
 #ifndef jsatominlines_h___
 #define jsatominlines_h___
 
+#include "mozilla/RangedPtr.h"
+
 #include "jsatom.h"
 #include "jsnum.h"
 #include "jsobj.h"
 #include "jsstr.h"
 
-#include "mozilla/RangedPtr.h"
+#include "gc/Barrier.h"
 #include "vm/String.h"
 
 inline JSAtom *
@@ -34,7 +36,7 @@ ToAtom(JSContext *cx, const js::Value &v)
         if (!str)
             return NULL;
         JS::Anchor<JSString *> anchor(str);
-        return js_AtomizeString(cx, str);
+        return AtomizeString(cx, str);
     }
 
     JSString *str = v.toString();
@@ -42,7 +44,7 @@ ToAtom(JSContext *cx, const js::Value &v)
         return &str->asAtom();
 
     JS::Anchor<JSString *> anchor(str);
-    return js_AtomizeString(cx, str);
+    return AtomizeString(cx, str);
 }
 
 inline bool
@@ -148,6 +150,34 @@ AtomHasher::match(const AtomStateEntry &entry, const Lookup &lookup)
     if (key->length() != lookup.length)
         return false;
     return PodEqual(key->chars(), lookup.chars, lookup.length);
+}
+
+inline Handle<PropertyName*>
+TypeName(JSType type, JSRuntime *rt)
+{
+    JS_ASSERT(type < JSTYPE_LIMIT);
+    JS_STATIC_ASSERT(offsetof(JSAtomState, undefined) +
+                     JSTYPE_LIMIT * sizeof(FixedHeapPtr<PropertyName>) <=
+                     sizeof(JSAtomState));
+    JS_STATIC_ASSERT(JSTYPE_VOID == 0);
+    return (&rt->atomState.undefined)[type];
+}
+
+inline Handle<PropertyName*>
+TypeName(JSType type, JSContext *cx)
+{
+    return TypeName(type, cx->runtime);
+}
+
+inline Handle<PropertyName*>
+ClassName(JSProtoKey key, JSContext *cx)
+{
+    JS_ASSERT(key < JSProto_LIMIT);
+    JS_STATIC_ASSERT(offsetof(JSAtomState, Null) +
+                     JSProto_LIMIT * sizeof(FixedHeapPtr<PropertyName>) <=
+                     sizeof(JSAtomState));
+    JS_STATIC_ASSERT(JSProto_Null == 0);
+    return (&cx->runtime->atomState.Null)[key];
 }
 
 } // namespace js

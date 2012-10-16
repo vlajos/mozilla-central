@@ -7,7 +7,7 @@
 #include "nsCRTGlue.h"
 #include "nsContentUtils.h"
 #include "nsDOMClassInfoID.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 #include "nsDOMException.h"
 #include "nsIDOMDOMException.h"
 #include "nsIDocument.h"
@@ -39,6 +39,7 @@ enum DOM4ErrorTypeCodeMap {
   TimeoutError               = nsIDOMDOMException::TIMEOUT_ERR,
   InvalidNodeTypeError       = nsIDOMDOMException::INVALID_NODE_TYPE_ERR,
   DataCloneError             = nsIDOMDOMException::DATA_CLONE_ERR,
+  EncodingError              = 0,
 
   /* XXX Should be JavaScript native errors */
   TypeError                  = 0,
@@ -65,7 +66,7 @@ enum DOM4ErrorTypeCodeMap {
 static struct ResultStruct
 {
   nsresult mNSResult;
-  PRUint16 mCode;
+  uint16_t mCode;
   const char* mName;
   const char* mMessage;
 } gDOMErrorMsgMap[] = {
@@ -80,7 +81,7 @@ static void
 NSResultToNameAndMessage(nsresult aNSResult,
                          const char** aName,
                          const char** aMessage,
-                         PRUint16* aCode)
+                         uint16_t* aCode)
 {
   *aName = nullptr;
   *aMessage = nullptr;
@@ -105,11 +106,11 @@ NSResultToNameAndMessage(nsresult aNSResult,
 
 nsresult
 NS_GetNameAndMessageForDOMNSResult(nsresult aNSResult, const char** aName,
-                                   const char** aMessage, PRUint16* aCode)
+                                   const char** aMessage, uint16_t* aCode)
 {
   const char* name = nullptr;
   const char* message = nullptr;
-  PRUint16 code = 0;
+  uint16_t code = 0;
   NSResultToNameAndMessage(aNSResult, &name, &message, &code);
 
   if (name && message) {
@@ -135,7 +136,7 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEXCEPTION
   NS_IMETHOD Init(nsresult aNSResult, const char* aName,
-                  const char* aMessage, PRUint16 aCode,
+                  const char* aMessage, uint16_t aCode,
                   nsIException* aDefaultException);
   NS_DECL_NSIDOMDOMEXCEPTION
 
@@ -144,7 +145,7 @@ protected:
   const char* mMessage;
   nsCOMPtr<nsIException> mInner;
   nsresult mResult;
-  PRUint16 mCode;
+  uint16_t mCode;
 };
 
 DOMCI_DATA(DOMException, nsDOMException) 
@@ -164,7 +165,7 @@ NS_NewDOMException(nsresult aNSResult, nsIException* aDefaultException,
 {
   const char* name;
   const char* message;
-  PRUint16 code;
+  uint16_t code;
   NSResultToNameAndMessage(aNSResult, &name, &message, &code);
   nsDOMException* inst = new nsDOMException();
   inst->Init(aNSResult, name, message, code, aDefaultException);
@@ -174,7 +175,7 @@ NS_NewDOMException(nsresult aNSResult, nsIException* aDefaultException,
 }
 
 NS_IMETHODIMP
-nsDOMException::GetCode(PRUint16* aCode)
+nsDOMException::GetCode(uint16_t* aCode)
 {
   NS_ENSURE_ARG_POINTER(aCode);
   *aCode = mCode;
@@ -243,7 +244,7 @@ nsDOMException::GetFilename(char **aFilename)
 }
 
 NS_IMETHODIMP
-nsDOMException::GetLineNumber(PRUint32 *aLineNumber)
+nsDOMException::GetLineNumber(uint32_t *aLineNumber)
 {
   if (mInner) {
     return mInner->GetLineNumber(aLineNumber);
@@ -257,7 +258,7 @@ nsDOMException::GetLineNumber(PRUint32 *aLineNumber)
 }
 
 NS_IMETHODIMP
-nsDOMException::GetColumnNumber(PRUint32 *aColumnNumber)
+nsDOMException::GetColumnNumber(uint32_t *aColumnNumber)
 {
   if (mInner) {
     return mInner->GetColumnNumber(aColumnNumber);
@@ -319,7 +320,7 @@ nsDOMException::ToString(char **aReturn)
   static const char format[] =
     "[Exception... \"%s\"  code: \"%d\" nsresult: \"0x%x (%s)\"  location: \"%s\"]";
 
-  nsCAutoString location;
+  nsAutoCString location;
 
   if (mInner) {
     nsXPIDLCString filename;
@@ -327,7 +328,7 @@ nsDOMException::ToString(char **aReturn)
     mInner->GetFilename(getter_Copies(filename));
 
     if (!filename.IsEmpty()) {
-      PRUint32 line_nr = 0;
+      uint32_t line_nr = 0;
 
       mInner->GetLineNumber(&line_nr);
 
@@ -354,7 +355,7 @@ nsDOMException::ToString(char **aReturn)
 
 NS_IMETHODIMP
 nsDOMException::Init(nsresult aNSResult, const char* aName,
-                     const char* aMessage, PRUint16 aCode,
+                     const char* aMessage, uint16_t aCode,
                      nsIException* aDefaultException)
 {
   mResult = aNSResult;

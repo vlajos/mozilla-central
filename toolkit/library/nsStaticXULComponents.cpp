@@ -67,12 +67,7 @@
 #endif
 
 #ifdef MOZ_PREF_EXTENSIONS
-#ifdef MOZ_ENABLE_GTK
-#define SYSTEMPREF_MODULES \
-    MODULE(nsAutoConfigModule)
-#else
 #define SYSTEMPREF_MODULES MODULE(nsAutoConfigModule)
-#endif
 #else
 #define SYSTEMPREF_MODULES
 #endif
@@ -125,7 +120,7 @@
 #endif
 
 #ifdef MOZ_XUL
-#ifdef MOZ_ENABLE_GTK
+#ifdef MOZ_WIDGET_GTK
 #define UNIXPROXY_MODULE MODULE(nsUnixProxyModule)
 #endif
 #if defined(MOZ_WIDGET_QT)
@@ -169,6 +164,12 @@
 #define PROFILER_MODULE
 #endif
 
+#if defined(MOZ_WEBRTC)
+#define PEERCONNECTION_MODULE MODULE(peerconnection)
+#else
+#define PEERCONNECTION_MODULE
+#endif
+
 #define XUL_MODULES                          \
     MODULE(nsUConvModule)                    \
     MODULE(nsI18nModule)                     \
@@ -185,6 +186,7 @@
     MODULE(nsWindowDataSourceModule)         \
     MODULE(nsParserModule)                   \
     MODULE(nsImageLib2Module)                \
+    MODULE(nsMediaSnifferModule)             \
     MODULE(nsGfxModule)                      \
     PROFILER_MODULE                          \
     WIDGET_MODULES                           \
@@ -225,6 +227,7 @@
     MODULE(nsTelemetryModule)                \
     MODULE(jsinspector)                      \
     MODULE(jsdebugger)                       \
+    PEERCONNECTION_MODULE                    \
     /* end of list */
 
 #define MODULE(_name) \

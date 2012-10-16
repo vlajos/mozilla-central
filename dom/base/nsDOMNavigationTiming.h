@@ -39,7 +39,7 @@ public:
   nsDOMPerformanceNavigationType GetType() const {
     return mNavigationType;
   }
-  PRUint16 GetRedirectCount();
+  uint16_t GetRedirectCount();
 
   DOMTimeMilliSec GetRedirectStart();
   DOMTimeMilliSec GetRedirectEnd();
@@ -115,7 +115,7 @@ private:
                  NO_REDIRECTS,
                  CHECK_FAILED} RedirectCheckState;
   RedirectCheckState mRedirectCheck;
-  PRInt16 mRedirectCount;
+  int16_t mRedirectCount;
 
   nsDOMPerformanceNavigationType mNavigationType;
   DOMTimeMilliSec mNavigationStart;
@@ -128,7 +128,6 @@ private:
   DOMTimeMilliSec mBeforeUnloadStart;
   DOMTimeMilliSec mUnloadStart;
   DOMTimeMilliSec mUnloadEnd;
-  DOMTimeMilliSec mNavigationEnd;
   DOMTimeMilliSec mLoadEventStart;
   DOMTimeMilliSec mLoadEventEnd;
 
@@ -137,6 +136,17 @@ private:
   DOMTimeMilliSec mDOMContentLoadedEventStart;
   DOMTimeMilliSec mDOMContentLoadedEventEnd;
   DOMTimeMilliSec mDOMComplete;
+
+  // Booleans to keep track of what things we've already been notified
+  // about.  We don't update those once we've been notified about them
+  // once.
+  bool mLoadEventStartSet : 1;
+  bool mLoadEventEndSet : 1;
+  bool mDOMLoadingSet : 1;
+  bool mDOMInteractiveSet : 1;
+  bool mDOMContentLoadedEventStartSet : 1;
+  bool mDOMContentLoadedEventEndSet : 1;
+  bool mDOMCompleteSet : 1;
 };
 
 #endif /* nsDOMNavigationTiming_h___ */

@@ -136,7 +136,11 @@ $VERTEX_MASK_STUFF<mask>$
 @define FRAGMENT_SHADER_HEADER
 /* Fragment Shader */
 #ifdef GL_ES
+#ifdef MEDIUMP_SHADER
+precision mediump float;
+#else
 precision lowp float;
+#endif
 #endif
 @end
 
@@ -213,8 +217,11 @@ $FRAGMENT_CALC_MASK<mask>$
 
 // Single texture in RGBA format for use with GL_TEXTURE_EXTERNAL_OES
 @shader sRGBATextureLayerExternal<mask:,Mask,Mask3D>FS
-$LAYER_FRAGMENT<mask>$
 #extension GL_OES_EGL_image_external : require
+
+#define MEDIUMP_SHADER 1
+$LAYER_FRAGMENT<mask>$
+
 uniform samplerExternalOES uTexture;
 uniform mat4 uTextureTransform;
 

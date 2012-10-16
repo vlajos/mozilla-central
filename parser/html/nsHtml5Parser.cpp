@@ -92,12 +92,12 @@ nsHtml5Parser::SetCommand(eParserCommands aParserCommand)
 
 NS_IMETHODIMP_(void)
 nsHtml5Parser::SetDocumentCharset(const nsACString& aCharset,
-                                  PRInt32 aCharsetSource)
+                                  int32_t aCharsetSource)
 {
   NS_PRECONDITION(!mExecutor->HasStarted(),
                   "Document charset set too late.");
   NS_PRECONDITION(mStreamParser, "Setting charset on a script-only parser.");
-  nsCAutoString trimmed;
+  nsAutoCString trimmed;
   trimmed.Assign(aCharset);
   trimmed.Trim(" \t\r\n\f");
   mStreamParser->SetDocumentCharset(trimmed, aCharsetSource);
@@ -198,7 +198,7 @@ nsHtml5Parser::Parse(const nsAString& aSourceBuffer,
   if (NS_FAILED(rv = mExecutor->IsBroken())) {
     return rv;
   }
-  if (aSourceBuffer.Length() > PR_INT32_MAX) {
+  if (aSourceBuffer.Length() > INT32_MAX) {
     return mExecutor->MarkAsBroken(NS_ERROR_OUT_OF_MEMORY);
   }
 
@@ -349,7 +349,7 @@ nsHtml5Parser::Parse(const nsAString& aSourceBuffer,
     stackBuffer.adjust(mLastWasCR);
     mLastWasCR = false;
     if (stackBuffer.hasMore()) {
-      PRInt32 lineNumberSave;
+      int32_t lineNumberSave;
       bool inRootContext = (!mStreamParser && !aKey);
       if (inRootContext) {
         mTokenizer->setLineNumber(mRootContextLineNumber);
@@ -587,7 +587,7 @@ nsHtml5Parser::IsScriptCreated()
 void
 nsHtml5Parser::ParseUntilBlocked()
 {
-  if (mBlocked || mExecutor->IsComplete() || mExecutor->IsBroken()) {
+  if (mBlocked || mExecutor->IsComplete() || NS_FAILED(mExecutor->IsBroken())) {
     return;
   }
   NS_ASSERTION(mExecutor->HasStarted(), "Bad life cycle.");
@@ -685,7 +685,7 @@ nsHtml5Parser::StartTokenizer(bool aScriptingEnabled) {
 
 void
 nsHtml5Parser::InitializeDocWriteParserState(nsAHtml5TreeBuilderState* aState,
-                                             PRInt32 aLine)
+                                             int32_t aLine)
 {
   mTokenizer->resetToDataState();
   mTokenizer->setLineNumber(aLine);

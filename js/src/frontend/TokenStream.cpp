@@ -32,7 +32,7 @@
 
 #include "frontend/Parser.h"
 #include "frontend/TokenStream.h"
-#include "frontend/TreeContext.h"
+#include "vm/Keywords.h"
 #include "vm/RegExpObject.h"
 #include "vm/StringBuffer.h"
 
@@ -46,16 +46,11 @@ using namespace js;
 using namespace js::frontend;
 using namespace js::unicode;
 
-#define JS_KEYWORD(keyword, type, op, version) \
-    const char js_##keyword##_str[] = #keyword;
-#include "jskeyword.tbl"
-#undef JS_KEYWORD
-
 static const KeywordInfo keywords[] = {
-#define JS_KEYWORD(keyword, type, op, version) \
+#define KEYWORD_INFO(keyword, name, type, op, version) \
     {js_##keyword##_str, type, op, version},
-#include "jskeyword.tbl"
-#undef JS_KEYWORD
+    FOR_EACH_JAVASCRIPT_KEYWORD(KEYWORD_INFO)
+#undef KEYWORD_INFO
 };
 
 const KeywordInfo *
@@ -122,19 +117,18 @@ frontend::IsIdentifier(JSLinearString *str)
 
 /* Initialize members that aren't initialized in |init|. */
 TokenStream::TokenStream(JSContext *cx, const CompileOptions &options,
-                         const jschar *base, size_t length, StrictModeGetter *smg)
+                         StableCharPtr base, size_t length, StrictModeGetter *smg)
   : tokens(),
     tokensRoot(cx, &tokens),
     cursor(),
     lookahead(),
     lineno(options.lineno),
     flags(),
-    linebase(base),
+    linebase(base.get()),
     prevLinebase(NULL),
     linebaseRoot(cx, &linebase),
     prevLinebaseRoot(cx, &prevLinebase),
-    userbuf(base, length),
-    userbufRoot(cx, &userbuf),
+    userbuf(base.get(), length),
     filename(options.filename),
     sourceMap(NULL),
     listenerTSData(),
@@ -154,7 +148,7 @@ TokenStream::TokenStream(JSContext *cx, const CompileOptions &options,
     void *listenerData = cx->runtime->debugHooks.sourceHandlerData;
 
     if (listener)
-        listener(options.filename, options.lineno, base, length, &listenerTSData, listenerData);
+        listener(options.filename, options.lineno, base.get(), length, &listenerTSData, listenerData);
 
     /*
      * This table holds all the token kinds that satisfy these properties:
@@ -219,9 +213,9 @@ TokenStream::TokenStream(JSContext *cx, const CompileOptions &options,
 TokenStream::~TokenStream()
 {
     if (flags & TSF_OWNFILENAME)
-        cx->free_((void *) filename);
+        js_free((void *) filename);
     if (sourceMap)
-        cx->free_(sourceMap);
+        js_free(sourceMap);
     if (originPrincipals)
         JS_DropPrincipals(cx->runtime, originPrincipals);
 }
@@ -442,19 +436,19 @@ CompileError::throwError()
 
 CompileError::~CompileError()
 {
-    cx->free_((void*)report.uclinebuf);
-    cx->free_((void*)report.linebuf);
-    cx->free_((void*)report.ucmessage);
-    cx->free_(message);
+    js_free((void*)report.uclinebuf);
+    js_free((void*)report.linebuf);
+    js_free((void*)report.ucmessage);
+    js_free(message);
     message = NULL;
 
     if (report.messageArgs) {
         if (hasCharArgs) {
             unsigned i = 0;
             while (report.messageArgs[i])
-                cx->free_((void*)report.messageArgs[i++]);
+                js_free((void*)report.messageArgs[i++]);
         }
-        cx->free_(report.messageArgs);
+        js_free(report.messageArgs);
     }
 
     PodZero(&report);
@@ -726,7 +720,7 @@ TokenStream::getXMLEntity()
     bytes = DeflateString(cx, bp + 1, (tb.end() - bp) - 1);
     if (bytes) {
         reportError(msg, bytes);
-        cx->free_(bytes);
+        js_free(bytes);
     }
     return false;
 }
@@ -1046,10 +1040,10 @@ TokenStream::getXMLMarkup(TokenKind *ttp, Token **tpp)
 
         JSAtom *data;
         if (contentIndex < 0) {
-            data = cx->runtime->atomState.emptyAtom;
+            data = cx->names().empty;
         } else {
-            data = js_AtomizeChars(cx, tokenbuf.begin() + contentIndex,
-                                   tokenbuf.length() - contentIndex);
+            data = AtomizeChars(cx, tokenbuf.begin() + contentIndex,
+                                tokenbuf.length() - contentIndex);
             if (!data)
                 goto error;
         }
@@ -1212,7 +1206,7 @@ TokenStream::getAtLine()
             if (c == EOF || c == '\n') {
                 if (i > 0) {
                     if (flags & TSF_OWNFILENAME)
-                        cx->free_((void *) filename);
+                        js_free((void *) filename);
                     filename = JS_strdup(cx, filenameBuf);
                     if (!filename)
                         return false;
@@ -1229,34 +1223,35 @@ TokenStream::getAtLine()
 bool
 TokenStream::getAtSourceMappingURL()
 {
-    jschar peeked[18];
+    /* Match comments of the form "//@ sourceMappingURL=<url>" */
 
-    /* Match comments of the form @sourceMappingURL=<url> */
-    if (peekChars(18, peeked) && CharsMatch(peeked, "@sourceMappingURL=")) {
-        skipChars(18);
+    jschar peeked[19];
+    int32_t c;
+
+    if (peekChars(19, peeked) && CharsMatch(peeked, "@ sourceMappingURL=")) {
+        skipChars(19);
         tokenbuf.clear();
 
-        jschar c;
-        while (!IsSpaceOrBOM2((c = getChar())) &&
-               c && c != jschar(EOF))
+        while ((c = peekChar()) && c != EOF && !IsSpaceOrBOM2(c)) {
+            getChar();
             tokenbuf.append(c);
+        }
 
         if (tokenbuf.empty())
             /* The source map's URL was missing, but not quite an exception that
              * we should stop and drop everything for, though. */
             return true;
 
-        int len = tokenbuf.length();
+        size_t sourceMapLength = tokenbuf.length();
 
         if (sourceMap)
-            cx->free_(sourceMap);
-        sourceMap = (jschar *) cx->malloc_(sizeof(jschar) * (len + 1));
+            js_free(sourceMap);
+        sourceMap = cx->pod_malloc<jschar>(sourceMapLength + 1);
         if (!sourceMap)
             return false;
 
-        for (int i = 0; i < len; i++)
-            sourceMap[i] = tokenbuf[i];
-        sourceMap[len] = '\0';
+        PodCopy(sourceMap, tokenbuf.begin(), sourceMapLength);
+        sourceMap[sourceMapLength] = '\0';
     }
     return true;
 }
@@ -1275,7 +1270,7 @@ TokenStream::newToken(ptrdiff_t adjust)
 JS_ALWAYS_INLINE JSAtom *
 TokenStream::atomize(JSContext *cx, CharBuffer &cb)
 {
-    return js_AtomizeChars(cx, cb.begin(), cb.length());
+    return AtomizeChars(cx, cb.begin(), cb.length());
 }
 
 #ifdef DEBUG
@@ -1570,7 +1565,7 @@ TokenStream::getTokenInternal()
          */
         JSAtom *atom;
         if (!hadUnicodeEscape)
-            atom = js_AtomizeChars(cx, identStart, userbuf.addressOfNextRawChar() - identStart);
+            atom = AtomizeChars(cx, identStart, userbuf.addressOfNextRawChar() - identStart);
         else
             atom = atomize(cx, tokenbuf);
         if (!atom)
@@ -2151,6 +2146,14 @@ TokenStream::getTokenInternal()
     tp->pos.end.index = tp->pos.begin.index + 1;
     tp->type = TOK_ERROR;
     JS_ASSERT(IsTokenSane(tp));
+    onError();
+    return TOK_ERROR;
+}
+
+void
+TokenStream::onError()
+{
+    flags |= TSF_HAD_ERROR;
 #ifdef DEBUG
     /*
      * Poisoning userbuf on error establishes an invariant: once an erroneous
@@ -2163,7 +2166,6 @@ TokenStream::getTokenInternal()
      */
     userbuf.poison();
 #endif
-    return TOK_ERROR;
 }
 
 JS_FRIEND_API(int)
@@ -2307,6 +2309,8 @@ TokenKindToString(TokenKind tt)
       case TOK_MULASSIGN:       return "TOK_MULASSIGN";
       case TOK_DIVASSIGN:       return "TOK_DIVASSIGN";
       case TOK_MODASSIGN:       return "TOK_MODASSIGN";
+      case TOK_EXPORT:          return "TOK_EXPORT";
+      case TOK_IMPORT:          return "TOK_IMPORT";
       case TOK_LIMIT:           break;
     }
 

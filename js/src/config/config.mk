@@ -27,6 +27,20 @@ ifndef INCLUDED_AUTOCONF_MK
 include $(DEPTH)/config/autoconf.mk
 endif
 
+space = $(NULL) $(NULL)
+
+# Include defs.mk files that can be found in $(srcdir)/$(DEPTH),
+# $(srcdir)/$(DEPTH-1), $(srcdir)/$(DEPTH-2), etc., and $(srcdir)
+# where $(DEPTH-1) is one level less of depth, $(DEPTH-2), two, etc.
+# i.e. for DEPTH=../../.., DEPTH-1 is ../.. and DEPTH-2 is ..
+# These defs.mk files are used to define variables in a directory
+# and all its subdirectories, recursively.
+__depth := $(subst /, ,$(DEPTH))
+ifeq (.,$(__depth))
+__depth :=
+endif
+$(foreach __d,$(__depth) .,$(eval __depth = $(wordlist 2,$(words $(__depth)),$(__depth))$(eval -include $(subst $(space),/,$(strip $(srcdir) $(__depth) defs.mk)))))
+
 COMMA = ,
 
 # Sanity check some variables
@@ -50,9 +64,6 @@ $(foreach x,$(CHECK_VARS),$(check-variable))
 
 core_abspath = $(if $(findstring :,$(1)),$(1),$(if $(filter /%,$(1)),$(1),$(CURDIR)/$(1)))
 core_realpath = $(if $(realpath $(1)),$(realpath $(1)),$(call core_abspath,$(1)))
-
-nullstr :=
-space :=$(nullstr) # EOL
 
 core_winabspath = $(firstword $(subst /, ,$(call core_abspath,$(1)))):$(subst $(space),,$(patsubst %,\\%,$(wordlist 2,$(words $(subst /, ,$(call core_abspath,$(1)))), $(strip $(subst /, ,$(call core_abspath,$(1)))))))
 
@@ -87,20 +98,12 @@ endif
 CONFIG_TOOLS	= $(MOZ_BUILD_ROOT)/config
 AUTOCONF_TOOLS	= $(topsrcdir)/build/autoconf
 
-ifeq ($(OS_ARCH),QNX)
-ifeq ($(OS_TARGET),NTO)
-LD		:= qcc -Vgcc_ntox86 -nostdlib
-else
-LD		:= $(CC)
-endif
-endif
-
 #
 # Strip off the excessively long version numbers on these platforms,
 # but save the version to allow multiple versions of the same base
 # platform to be built in the same tree.
 #
-ifneq (,$(filter FreeBSD HP-UX Linux NetBSD OpenBSD OSF1 SunOS,$(OS_ARCH)))
+ifneq (,$(filter FreeBSD HP-UX Linux NetBSD OpenBSD SunOS,$(OS_ARCH)))
 OS_RELEASE	:= $(basename $(OS_RELEASE))
 
 # Allow the user to ignore the OS_VERSION, which is usually irrelevant.
@@ -120,18 +123,28 @@ FINAL_LINK_COMP_NAMES = $(DEPTH)/config/final-link-comp-names
 MOZ_UNICHARUTIL_LIBS = $(LIBXUL_DIST)/lib/$(LIB_PREFIX)unicharutil_s.$(LIB_SUFFIX)
 MOZ_WIDGET_SUPPORT_LIBS    = $(DIST)/lib/$(LIB_PREFIX)widgetsupport_s.$(LIB_SUFFIX)
 
+ifdef _MSC_VER
+ifdef .PYMAKE
+PYCOMMANDPATH += $(topsrcdir)/build
+CC_WRAPPER ?= %cl InvokeClWithDependencyGeneration
+CXX_WRAPPER ?= %cl InvokeClWithDependencyGeneration
+else
+CC_WRAPPER ?= $(PYTHON) -O $(topsrcdir)/build/cl.py
+CXX_WRAPPER ?= $(PYTHON) -O $(topsrcdir)/build/cl.py
+endif # .PYMAKE
+endif # _MSC_VER
+
 CC := $(CC_WRAPPER) $(CC)
 CXX := $(CXX_WRAPPER) $(CXX)
 MKDIR ?= mkdir
 SLEEP ?= sleep
 TOUCH ?= touch
 
-ifndef .PYMAKE
-PYTHON_PATH = $(PYTHON) $(topsrcdir)/config/pythonpath.py
-else
+ifdef .PYMAKE
 PYCOMMANDPATH += $(topsrcdir)/config
-PYTHON_PATH = %pythonpath main
 endif
+
+PYTHON_PATH = $(PYTHON) $(topsrcdir)/config/pythonpath.py
 
 # determine debug-related options
 _DEBUG_ASFLAGS :=
@@ -563,12 +576,6 @@ export MACOSX_DEPLOYMENT_TARGET
 PBBUILD_SETTINGS += MACOSX_DEPLOYMENT_TARGET="$(MACOSX_DEPLOYMENT_TARGET)"
 endif # MACOSX_DEPLOYMENT_TARGET
 
-ifdef MOZ_USING_CCACHE
-ifdef CLANG_CXX
-export CCACHE_CPP2=1
-endif
-endif
-
 ifdef MOZ_OPTIMIZE
 ifeq (2,$(MOZ_OPTIMIZE))
 # Only override project defaults if the config specified explicit settings
@@ -577,13 +584,10 @@ endif # MOZ_OPTIMIZE=2
 endif # MOZ_OPTIMIZE
 endif # OS_ARCH=Darwin
 
-
-ifdef MOZ_NATIVE_MAKEDEPEND
-MKDEPEND_DIR =
-MKDEPEND = $(MOZ_NATIVE_MAKEDEPEND)
-else
-MKDEPEND_DIR = $(CONFIG_TOOLS)/mkdepend
-MKDEPEND = $(MKDEPEND_DIR)/mkdepend$(BIN_SUFFIX)
+ifdef MOZ_USING_CCACHE
+ifdef CLANG_CXX
+export CCACHE_CPP2=1
+endif
 endif
 
 # Set link flags according to whether we want a console.
@@ -631,7 +635,7 @@ endif
 
 ######################################################################
 
-GARBAGE		+= $(DEPENDENCIES) $(MKDEPENDENCIES) $(MKDEPENDENCIES).bak core $(wildcard core.[0-9]*) $(wildcard *.err) $(wildcard *.pure) $(wildcard *_pure_*.o) Templates.DB
+GARBAGE		+= $(DEPENDENCIES) core $(wildcard core.[0-9]*) $(wildcard *.err) $(wildcard *.pure) $(wildcard *_pure_*.o) Templates.DB
 
 ifeq ($(OS_ARCH),Darwin)
 ifndef NSDISTMODE
@@ -755,6 +759,9 @@ OPTIMIZE_JARS_CMD = $(PYTHON) $(call core_abspath,$(topsrcdir)/config/optimizeja
 
 CREATE_PRECOMPLETE_CMD = $(PYTHON) $(call core_abspath,$(topsrcdir)/config/createprecomplete.py)
 
+# MDDEPDIR is the subdirectory where dependency files are stored
+MDDEPDIR := .deps
+
 EXPAND_LIBS_EXEC = $(PYTHON) $(topsrcdir)/config/pythonpath.py -I$(DEPTH)/config $(topsrcdir)/config/expandlibs_exec.py $(if $@,--depend $(MDDEPDIR)/$(@F).pp --target $@)
 EXPAND_LIBS_GEN = $(PYTHON) $(topsrcdir)/config/pythonpath.py -I$(DEPTH)/config $(topsrcdir)/config/expandlibs_gen.py $(if $@,--depend $(MDDEPDIR)/$(@F).pp)
 EXPAND_AR = $(EXPAND_LIBS_EXEC) --extract -- $(AR)
@@ -818,3 +825,7 @@ PLY_INCLUDE = -I$(topsrcdir)/other-licenses/ply
 endif
 
 export CL_INCLUDES_PREFIX
+
+ifeq ($(MOZ_WIDGET_GTK),2)
+MOZ_GTK2_CFLAGS := -I$(topsrcdir)/widget/gtk2/compat $(MOZ_GTK2_CFLAGS)
+endif

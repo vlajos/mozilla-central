@@ -24,6 +24,7 @@
 
 #include "nsNodeInfoManager.h"
 #include "nsIDOMHTMLInputElement.h"
+#include "nsContentList.h"
 
 const nscoord kSuggestedNotSet = -1;
 
@@ -57,7 +58,7 @@ nsGfxButtonControlFrame::GetType() const
 // We'll return true if type is NS_FORM_INPUT_BUTTON and our parent
 // is a file input.
 bool
-nsGfxButtonControlFrame::IsFileBrowseButton(PRInt32 type)
+nsGfxButtonControlFrame::IsFileBrowseButton(int32_t type) const
 {
   bool rv = false;
   if (NS_FORM_INPUT_BUTTON == type) {
@@ -101,7 +102,7 @@ nsGfxButtonControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements
 
 void
 nsGfxButtonControlFrame::AppendAnonymousContentTo(nsBaseContentList& aElements,
-                                                  PRUint32 aFilter)
+                                                  uint32_t aFilter)
 {
   aElements.MaybeAppendElement(mTextContent);
 }
@@ -142,7 +143,7 @@ nsGfxButtonControlFrame::GetFormProperty(nsIAtom* aName, nsAString& aValue) cons
     // This property is used by accessibility to get
     // the default label of the button.
     nsXPIDLString temp;
-    rv = const_cast<nsGfxButtonControlFrame*>(this)->GetDefaultLabel(temp);
+    rv = GetDefaultLabel(temp);
     aValue = temp;
   } else {
     aValue.Truncate();
@@ -161,19 +162,19 @@ NS_QUERYFRAME_TAIL_INHERITING(nsHTMLButtonControlFrame)
 // label from a string bundle as is done for all other UI strings.
 // See bug 16999 for further details.
 nsresult
-nsGfxButtonControlFrame::GetDefaultLabel(nsXPIDLString& aString)
+nsGfxButtonControlFrame::GetDefaultLabel(nsXPIDLString& aString) const
 {
   nsCOMPtr<nsIFormControl> form = do_QueryInterface(mContent);
   NS_ENSURE_TRUE(form, NS_ERROR_UNEXPECTED);
 
-  PRInt32 type = form->GetType();
+  int32_t type = form->GetType();
   const char *prop;
   if (type == NS_FORM_INPUT_RESET) {
     prop = "Reset";
-  } 
+  }
   else if (type == NS_FORM_INPUT_SUBMIT) {
     prop = "Submit";
-  } 
+  }
   else if (IsFileBrowseButton(type)) {
     prop = "Browse";
   }
@@ -233,9 +234,9 @@ nsGfxButtonControlFrame::GetLabel(nsXPIDLString& aLabel)
 }
 
 NS_IMETHODIMP
-nsGfxButtonControlFrame::AttributeChanged(PRInt32         aNameSpaceID,
+nsGfxButtonControlFrame::AttributeChanged(int32_t         aNameSpaceID,
                                           nsIAtom*        aAttribute,
-                                          PRInt32         aModType)
+                                          int32_t         aModType)
 {
   nsresult rv = NS_OK;
 

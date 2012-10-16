@@ -278,7 +278,7 @@ nsHTTPIndex::OnStartRequest(nsIRequest *request, nsISupports* aContext)
     nsCOMPtr<nsIURI> uri;
     channel->GetURI(getter_AddRefs(uri));
       
-    nsCAutoString entryuriC;
+    nsAutoCString entryuriC;
     uri->GetSpec(entryuriC);
 
     nsCOMPtr<nsIRDFResource> entry;
@@ -348,8 +348,8 @@ NS_IMETHODIMP
 nsHTTPIndex::OnDataAvailable(nsIRequest *request,
                              nsISupports* aContext,
                              nsIInputStream* aStream,
-                             PRUint32 aSourceOffset,
-                             PRUint32 aCount)
+                             uint64_t aSourceOffset,
+                             uint32_t aCount)
 {
   // If mDirectory isn't set, then we should just bail. Either an
   // error occurred and OnStartRequest() never got called, or
@@ -379,7 +379,7 @@ nsHTTPIndex::OnIndexAvailable(nsIRequest* aRequest, nsISupports *aContext,
   }
 
   // we found the filename; construct a resource for its entry
-  nsCAutoString entryuriC(baseStr);
+  nsAutoCString entryuriC(baseStr);
 
   nsXPIDLCString filename;
   nsresult rv = aIndex->GetLocation(getter_Copies(filename));
@@ -387,7 +387,7 @@ nsHTTPIndex::OnIndexAvailable(nsIRequest* aRequest, nsISupports *aContext,
   entryuriC.Append(filename);
 
   // if its a directory, make sure it ends with a trailing slash.
-  PRUint32 type;
+  uint32_t type;
   rv = aIndex->GetType(&type);
   if (NS_FAILED(rv))
     return rv;
@@ -431,13 +431,12 @@ nsHTTPIndex::OnIndexAvailable(nsIRequest* aRequest, nsISupports *aContext,
       if (NS_FAILED(rv)) return rv;
       
       // contentlength
-      PRInt64 size;
+      int64_t size;
       rv = aIndex->GetSize(&size);
       if (NS_FAILED(rv)) return rv;
-      PRInt64 minus1 = LL_MAXUINT;
-      if (LL_NE(size, minus1)) {
-        PRInt32 intSize;
-        LL_L2I(intSize, size);
+      int64_t minus1 = UINT64_MAX;
+      if (size != minus1) {
+        int32_t intSize = int32_t(size);
         // XXX RDF should support 64 bit integers (bug 240160)
         nsCOMPtr<nsIRDFInt> val;
         rv = mDirRDF->GetIntLiteral(intSize, getter_AddRefs(val));
@@ -458,7 +457,7 @@ nsHTTPIndex::OnIndexAvailable(nsIRequest* aRequest, nsISupports *aContext,
       }
 
       // filetype
-      PRUint32 type;
+      uint32_t type;
       rv = aIndex->GetType(&type);
       switch (type) {
       case nsIDirIndex::TYPE_UNKNOWN:
@@ -855,7 +854,7 @@ nsHTTPIndex::GetTargets(nsIRDFResource *aSource, nsIRDFResource *aProperty, bool
         // by using a global connection list and an immediately-firing timer
 		if (doNetworkRequest && mConnectionList)
 		{
-		    PRInt32 connectionIndex = mConnectionList->IndexOf(aSource);
+		    int32_t connectionIndex = mConnectionList->IndexOf(aSource);
 		    if (connectionIndex < 0)
 		    {
     		    // add aSource into list of connections to make
@@ -921,15 +920,15 @@ nsHTTPIndex::FireTimer(nsITimer* aTimer, void* aClosure)
   if (!httpIndex)	return;
   
   // don't return out of this loop as mTimer may need to be cancelled afterwards
-  PRUint32    numItems = 0;
+  uint32_t    numItems = 0;
   if (httpIndex->mConnectionList)
   {
         httpIndex->mConnectionList->Count(&numItems);
         if (numItems > 0)
         {
           nsCOMPtr<nsISupports>   isupports;
-          httpIndex->mConnectionList->GetElementAt((PRUint32)0, getter_AddRefs(isupports));
-          httpIndex->mConnectionList->RemoveElementAt((PRUint32)0);
+          httpIndex->mConnectionList->GetElementAt((uint32_t)0, getter_AddRefs(isupports));
+          httpIndex->mConnectionList->RemoveElementAt((uint32_t)0);
           
           nsCOMPtr<nsIRDFResource>    aSource;
           if (isupports)  aSource = do_QueryInterface(isupports);
@@ -967,21 +966,21 @@ nsHTTPIndex::FireTimer(nsITimer* aTimer, void* aClosure)
             numItems /=3;
             if (numItems > 10)  numItems = 10;
           
-            PRInt32 loop;
-            for (loop=0; loop<(PRInt32)numItems; loop++)
+            int32_t loop;
+            for (loop=0; loop<(int32_t)numItems; loop++)
             {
                 nsCOMPtr<nsISupports>   isupports;
-                httpIndex->mNodeList->GetElementAt((PRUint32)0, getter_AddRefs(isupports));
-                httpIndex->mNodeList->RemoveElementAt((PRUint32)0);
+                httpIndex->mNodeList->GetElementAt((uint32_t)0, getter_AddRefs(isupports));
+                httpIndex->mNodeList->RemoveElementAt((uint32_t)0);
                 nsCOMPtr<nsIRDFResource>    src;
                 if (isupports)  src = do_QueryInterface(isupports);
-                httpIndex->mNodeList->GetElementAt((PRUint32)0, getter_AddRefs(isupports));
-                httpIndex->mNodeList->RemoveElementAt((PRUint32)0);
+                httpIndex->mNodeList->GetElementAt((uint32_t)0, getter_AddRefs(isupports));
+                httpIndex->mNodeList->RemoveElementAt((uint32_t)0);
                 nsCOMPtr<nsIRDFResource>    prop;
                 if (isupports)  prop = do_QueryInterface(isupports);
                 
-                httpIndex->mNodeList->GetElementAt((PRUint32)0, getter_AddRefs(isupports));
-                httpIndex->mNodeList->RemoveElementAt((PRUint32)0);
+                httpIndex->mNodeList->GetElementAt((uint32_t)0, getter_AddRefs(isupports));
+                httpIndex->mNodeList->RemoveElementAt((uint32_t)0);
                 nsCOMPtr<nsIRDFNode>    target;
                 if (isupports)  target = do_QueryInterface(isupports);
                 

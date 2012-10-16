@@ -26,8 +26,8 @@ NS_IMETHODIMP
 MyStreamLoaderObserver::OnStreamComplete(nsIStreamLoader *loader,
                                          nsISupports     *ctxt,
                                          nsresult         status,
-                                         PRUint32         resultLen,
-                                         const PRUint8   *result)
+                                         uint32_t         resultLen,
+                                         const uint8_t   *result)
 {
   LOG(("OnStreamComplete [status=%x resultLen=%u]\n", status, resultLen));
 
@@ -85,5 +85,5 @@ int main(int argc, char **argv)
   } // this scopes the nsCOMPtrs
   // no nsCOMPtrs are allowed to be alive when you call NS_ShutdownXPCOM
   NS_ShutdownXPCOM(nullptr);
-  return rv;
+  return 0;
 }

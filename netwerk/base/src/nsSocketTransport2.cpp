@@ -24,6 +24,7 @@
 #include "prnetdb.h"
 #include "prerror.h"
 #include "prerr.h"
+#include "NetworkActivityMonitor.h"
 
 #include "nsIServiceManager.h"
 #include "nsISocketProviderService.h"
@@ -50,7 +51,7 @@ static NS_DEFINE_CID(kDNSServiceCID, NS_DNSSERVICE_CID);
 class nsSocketEvent : public nsRunnable
 {
 public:
-    nsSocketEvent(nsSocketTransport *transport, PRUint32 type,
+    nsSocketEvent(nsSocketTransport *transport, uint32_t type,
                   nsresult status = NS_OK, nsISupports *param = nullptr)
         : mTransport(transport)
         , mType(type)
@@ -67,7 +68,7 @@ public:
 private:
     nsRefPtr<nsSocketTransport> mTransport;
 
-    PRUint32              mType;
+    uint32_t              mType;
     nsresult              mStatus;
     nsCOMPtr<nsISupports> mParam;
 };
@@ -249,7 +250,7 @@ nsSocketInputStream::Close()
 }
 
 NS_IMETHODIMP
-nsSocketInputStream::Available(PRUint32 *avail)
+nsSocketInputStream::Available(uint64_t *avail)
 {
     SOCKET_LOG(("nsSocketInputStream::Available [this=%x]\n", this));
 
@@ -270,7 +271,7 @@ nsSocketInputStream::Available(PRUint32 *avail)
     // cannot hold lock while calling NSPR.  (worried about the fact that PSM
     // synchronously proxies notifications over to the UI thread, which could
     // mistakenly try to re-enter this code.)
-    PRInt32 n = PR_Available(fd);
+    int32_t n = PR_Available(fd);
 
     // PSM does not implement PR_Available() so do a best approximation of it
     // with MSG_PEEK
@@ -304,7 +305,7 @@ nsSocketInputStream::Available(PRUint32 *avail)
 }
 
 NS_IMETHODIMP
-nsSocketInputStream::Read(char *buf, PRUint32 count, PRUint32 *countRead)
+nsSocketInputStream::Read(char *buf, uint32_t count, uint32_t *countRead)
 {
     SOCKET_LOG(("nsSocketInputStream::Read [this=%x count=%u]\n", this, count));
 
@@ -327,7 +328,7 @@ nsSocketInputStream::Read(char *buf, PRUint32 count, PRUint32 *countRead)
     // cannot hold lock while calling NSPR.  (worried about the fact that PSM
     // synchronously proxies notifications over to the UI thread, which could
     // mistakenly try to re-enter this code.)
-    PRInt32 n = PR_Read(fd, buf, count);
+    int32_t n = PR_Read(fd, buf, count);
 
     SOCKET_LOG(("  PR_Read returned [n=%d]\n", n));
 
@@ -358,13 +359,13 @@ nsSocketInputStream::Read(char *buf, PRUint32 count, PRUint32 *countRead)
     // only send this notification if we have indeed read some data.
     // see bug 196827 for an example of why this is important.
     if (n > 0)
-        mTransport->SendStatus(nsISocketTransport::STATUS_RECEIVING_FROM);
+        mTransport->SendStatus(NS_NET_STATUS_RECEIVING_FROM);
     return rv;
 }
 
 NS_IMETHODIMP
 nsSocketInputStream::ReadSegments(nsWriteSegmentFun writer, void *closure,
-                                  PRUint32 count, PRUint32 *countRead)
+                                  uint32_t count, uint32_t *countRead)
 {
     // socket stream is unbuffered
     return NS_ERROR_NOT_IMPLEMENTED;
@@ -400,8 +401,8 @@ nsSocketInputStream::CloseWithStatus(nsresult reason)
 
 NS_IMETHODIMP
 nsSocketInputStream::AsyncWait(nsIInputStreamCallback *callback,
-                               PRUint32 flags,
-                               PRUint32 amount,
+                               uint32_t flags,
+                               uint32_t amount,
                                nsIEventTarget *target)
 {
     SOCKET_LOG(("nsSocketInputStream::AsyncWait [this=%x]\n", this));
@@ -524,7 +525,7 @@ nsSocketOutputStream::Flush()
 }
 
 NS_IMETHODIMP
-nsSocketOutputStream::Write(const char *buf, PRUint32 count, PRUint32 *countWritten)
+nsSocketOutputStream::Write(const char *buf, uint32_t count, uint32_t *countWritten)
 {
     SOCKET_LOG(("nsSocketOutputStream::Write [this=%x count=%u]\n", this, count));
 
@@ -550,7 +551,7 @@ nsSocketOutputStream::Write(const char *buf, PRUint32 count, PRUint32 *countWrit
     // cannot hold lock while calling NSPR.  (worried about the fact that PSM
     // synchronously proxies notifications over to the UI thread, which could
     // mistakenly try to re-enter this code.)
-    PRInt32 n = PR_Write(fd, buf, count);
+    int32_t n = PR_Write(fd, buf, count);
 
     SOCKET_LOG(("  PR_Write returned [n=%d]\n", n));
 
@@ -581,13 +582,13 @@ nsSocketOutputStream::Write(const char *buf, PRUint32 count, PRUint32 *countWrit
     // only send this notification if we have indeed written some data.
     // see bug 196827 for an example of why this is important.
     if (n > 0)
-        mTransport->SendStatus(nsISocketTransport::STATUS_SENDING_TO);
+        mTransport->SendStatus(NS_NET_STATUS_SENDING_TO);
     return rv;
 }
 
 NS_IMETHODIMP
 nsSocketOutputStream::WriteSegments(nsReadSegmentFun reader, void *closure,
-                                    PRUint32 count, PRUint32 *countRead)
+                                    uint32_t count, uint32_t *countRead)
 {
     // socket stream is unbuffered
     return NS_ERROR_NOT_IMPLEMENTED;
@@ -597,16 +598,16 @@ NS_METHOD
 nsSocketOutputStream::WriteFromSegments(nsIInputStream *input,
                                         void *closure,
                                         const char *fromSegment,
-                                        PRUint32 offset,
-                                        PRUint32 count,
-                                        PRUint32 *countRead)
+                                        uint32_t offset,
+                                        uint32_t count,
+                                        uint32_t *countRead)
 {
     nsSocketOutputStream *self = (nsSocketOutputStream *) closure;
     return self->Write(fromSegment, count, countRead);
 }
 
 NS_IMETHODIMP
-nsSocketOutputStream::WriteFrom(nsIInputStream *stream, PRUint32 count, PRUint32 *countRead)
+nsSocketOutputStream::WriteFrom(nsIInputStream *stream, uint32_t count, uint32_t *countRead)
 {
     return stream->ReadSegments(WriteFromSegments, this, count, countRead);
 }
@@ -641,8 +642,8 @@ nsSocketOutputStream::CloseWithStatus(nsresult reason)
 
 NS_IMETHODIMP
 nsSocketOutputStream::AsyncWait(nsIOutputStreamCallback *callback,
-                                PRUint32 flags,
-                                PRUint32 amount,
+                                uint32_t flags,
+                                uint32_t amount,
                                 nsIEventTarget *target)
 {
     SOCKET_LOG(("nsSocketOutputStream::AsyncWait [this=%x]\n", this));
@@ -702,8 +703,8 @@ nsSocketTransport::nsSocketTransport()
 
     NS_ADDREF(gSocketTransportService);
 
-    mTimeouts[TIMEOUT_CONNECT]    = PR_UINT16_MAX; // no timeout
-    mTimeouts[TIMEOUT_READ_WRITE] = PR_UINT16_MAX; // no timeout
+    mTimeouts[TIMEOUT_CONNECT]    = UINT16_MAX; // no timeout
+    mTimeouts[TIMEOUT_READ_WRITE] = UINT16_MAX; // no timeout
 }
 
 nsSocketTransport::~nsSocketTransport()
@@ -712,7 +713,7 @@ nsSocketTransport::~nsSocketTransport()
 
     // cleanup socket type info
     if (mTypes) {
-        PRUint32 i;
+        uint32_t i;
         for (i=0; i<mTypeCount; ++i)
             PL_strfree(mTypes[i]);
         free(mTypes);
@@ -723,8 +724,8 @@ nsSocketTransport::~nsSocketTransport()
 }
 
 nsresult
-nsSocketTransport::Init(const char **types, PRUint32 typeCount,
-                        const nsACString &host, PRUint16 port,
+nsSocketTransport::Init(const char **types, uint32_t typeCount,
+                        const nsACString &host, uint16_t port,
                         nsIProxyInfo *givenProxyInfo)
 {
     nsCOMPtr<nsProxyInfo> proxyInfo;
@@ -770,7 +771,7 @@ nsSocketTransport::Init(const char **types, PRUint32 typeCount,
         return NS_ERROR_OUT_OF_MEMORY;
 
     // now verify that each socket type has a registered socket provider.
-    for (PRUint32 i = 0, type = 0; i < mTypeCount; ++i) {
+    for (uint32_t i = 0, type = 0; i < mTypeCount; ++i) {
         // store socket types
         if (i == 0 && proxyType)
             mTypes[i] = PL_strdup(proxyType);
@@ -814,7 +815,7 @@ nsSocketTransport::InitWithConnectedSocket(PRFileDesc *fd, const PRNetAddr *addr
     PR_NetAddrToString(addr, buf, sizeof(buf));
     mHost.Assign(buf);
 
-    PRUint16 port;
+    uint16_t port;
     if (addr->raw.family == PR_AF_INET)
         port = addr->inet.port;
     else
@@ -846,7 +847,7 @@ nsSocketTransport::InitWithConnectedSocket(PRFileDesc *fd, const PRNetAddr *addr
 }
 
 nsresult
-nsSocketTransport::PostEvent(PRUint32 type, nsresult status, nsISupports *param)
+nsSocketTransport::PostEvent(uint32_t type, nsresult status, nsISupports *param)
 {
     SOCKET_LOG(("nsSocketTransport::PostEvent [this=%p type=%u status=%x param=%p]\n",
         this, type, status, param));
@@ -864,15 +865,15 @@ nsSocketTransport::SendStatus(nsresult status)
     SOCKET_LOG(("nsSocketTransport::SendStatus [this=%x status=%x]\n", this, status));
 
     nsCOMPtr<nsITransportEventSink> sink;
-    PRUint64 progress;
+    uint64_t progress;
     {
         MutexAutoLock lock(mLock);
         sink = mEventSink;
         switch (status) {
-        case STATUS_SENDING_TO:
+        case NS_NET_STATUS_SENDING_TO:
             progress = mOutput.ByteCount();
             break;
-        case STATUS_RECEIVING_FROM:
+        case NS_NET_STATUS_RECEIVING_FROM:
             progress = mInput.ByteCount();
             break;
         default:
@@ -881,7 +882,7 @@ nsSocketTransport::SendStatus(nsresult status)
         }
     }
     if (sink)
-        sink->OnTransportStatus(this, status, progress, LL_MAXUINT);
+        sink->OnTransportStatus(this, status, progress, UINT64_MAX);
 }
 
 nsresult
@@ -917,13 +918,13 @@ nsSocketTransport::ResolveHost()
 
     mResolving = true;
 
-    PRUint32 dnsFlags = 0;
+    uint32_t dnsFlags = 0;
     if (mConnectionFlags & nsSocketTransport::BYPASS_CACHE)
         dnsFlags = nsIDNSService::RESOLVE_BYPASS_CACHE;
     if (mConnectionFlags & nsSocketTransport::DISABLE_IPV6)
         dnsFlags |= nsIDNSService::RESOLVE_DISABLE_IPV6;
 
-    SendStatus(STATUS_RESOLVING);
+    SendStatus(NS_NET_STATUS_RESOLVING_HOST);
     rv = dns->AsyncResolve(SocketHost(), dnsFlags, this, nullptr,
                            getter_AddRefs(mDNSRequest));
     if (NS_SUCCEEDED(rv)) {
@@ -955,12 +956,12 @@ nsSocketTransport::BuildSocket(PRFileDesc *&fd, bool &proxyTransparent, bool &us
         if (NS_FAILED(rv)) return rv;
 
         const char *host       = mHost.get();
-        PRInt32     port       = (PRInt32) mPort;
+        int32_t     port       = (int32_t) mPort;
         const char *proxyHost  = mProxyHost.IsEmpty() ? nullptr : mProxyHost.get();
-        PRInt32     proxyPort  = (PRInt32) mProxyPort;
-        PRUint32    proxyFlags = 0;
+        int32_t     proxyPort  = (int32_t) mProxyPort;
+        uint32_t    proxyFlags = 0;
 
-        PRUint32 i;
+        uint32_t i;
         for (i=0; i<mTypeCount; ++i) {
             nsCOMPtr<nsISocketProvider> provider;
 
@@ -1048,6 +1049,10 @@ nsSocketTransport::InitiateSocket()
 
     nsresult rv;
 
+    if (gIOService->IsOffline() &&
+        !PR_IsNetAddrType(&mNetAddr, PR_IpAddrLoopback))
+        return NS_ERROR_OFFLINE;
+
     //
     // find out if it is going to be ok to attach another socket to the STS.
     // if not then we have to wait for the STS to tell us that it is ok.
@@ -1091,6 +1096,9 @@ nsSocketTransport::InitiateSocket()
         return rv;
     }
 
+    // Attach network activity monitor
+    mozilla::net::NetworkActivityMonitor::AttachIOLayer(fd);
+
     PRStatus status;
 
     // Make the socket non-blocking...
@@ -1110,7 +1118,7 @@ nsSocketTransport::InitiateSocket()
     // if the network.tcp.sendbuffer preference is set, use it to size SO_SNDBUF
     // The Windows default of 8KB is too small and as of vista sp1, autotuning
     // only applies to receive window
-    PRInt32 sndBufferSize;
+    int32_t sndBufferSize;
     gSocketTransportService->GetSendBufferSize(&sndBufferSize);
     if (sndBufferSize > 0) {
         opt.option = PR_SockOpt_SendBufferSize;
@@ -1144,7 +1152,7 @@ nsSocketTransport::InitiateSocket()
     SOCKET_LOG(("  advancing to STATE_CONNECTING\n"));
     mState = STATE_CONNECTING;
     mPollTimeout = mTimeouts[TIMEOUT_CONNECT];
-    SendStatus(STATUS_CONNECTING_TO);
+    SendStatus(NS_NET_STATUS_CONNECTING_TO);
 
 #if defined(PR_LOGGING)
     if (SOCKET_LOG_ENABLED()) {
@@ -1296,7 +1304,7 @@ nsSocketTransport::RecoverFromError()
 
     // prepare to try again.
     if (tryAgain) {
-        PRUint32 msg;
+        uint32_t msg;
 
         if (mState == STATE_CONNECTING) {
             mState = STATE_RESOLVING;
@@ -1381,7 +1389,7 @@ nsSocketTransport::OnSocketConnected()
         mFDconnected = true;
     }
 
-    SendStatus(STATUS_CONNECTED_TO);
+    SendStatus(NS_NET_STATUS_CONNECTED_TO);
 }
 
 PRFileDesc *
@@ -1413,7 +1421,7 @@ nsSocketTransport::ReleaseFD_Locked(PRFileDesc *fd)
 // socket event handler impl
 
 void
-nsSocketTransport::OnSocketEvent(PRUint32 type, nsresult status, nsISupports *param)
+nsSocketTransport::OnSocketEvent(uint32_t type, nsresult status, nsISupports *param)
 {
     SOCKET_LOG(("nsSocketTransport::OnSocketEvent [this=%p type=%u status=%x param=%p]\n",
         this, type, status, param));
@@ -1444,7 +1452,7 @@ nsSocketTransport::OnSocketEvent(PRUint32 type, nsresult status, nsISupports *pa
 
     case MSG_DNS_LOOKUP_COMPLETE:
         if (mDNSRequest)  // only send this if we actually resolved anything
-            SendStatus(STATUS_RESOLVED);
+            SendStatus(NS_NET_STATUS_RESOLVED_HOST);
 
         SOCKET_LOG(("  MSG_DNS_LOOKUP_COMPLETE\n"));
         mDNSRequest = 0;
@@ -1514,7 +1522,7 @@ nsSocketTransport::OnSocketEvent(PRUint32 type, nsresult status, nsISupports *pa
 // socket handler impl
 
 void
-nsSocketTransport::OnSocketReady(PRFileDesc *fd, PRInt16 outFlags)
+nsSocketTransport::OnSocketReady(PRFileDesc *fd, int16_t outFlags)
 {
     SOCKET_LOG(("nsSocketTransport::OnSocketReady [this=%x outFlags=%hd]\n",
         this, outFlags));
@@ -1664,6 +1672,15 @@ nsSocketTransport::OnSocketDetached(PRFileDesc *fd)
     }
 }
 
+void
+nsSocketTransport::IsLocal(bool *aIsLocal)
+{
+    {
+        MutexAutoLock lock(mLock);
+        *aIsLocal = PR_IsNetAddrType(&mNetAddr, PR_IpAddrLoopback);
+    }
+}
+
 //-----------------------------------------------------------------------------
 // xpcom api
 
@@ -1678,9 +1695,9 @@ NS_IMPL_CI_INTERFACE_GETTER3(nsSocketTransport,
                              nsIDNSListener)
 
 NS_IMETHODIMP
-nsSocketTransport::OpenInputStream(PRUint32 flags,
-                                   PRUint32 segsize,
-                                   PRUint32 segcount,
+nsSocketTransport::OpenInputStream(uint32_t flags,
+                                   uint32_t segsize,
+                                   uint32_t segcount,
                                    nsIInputStream **result)
 {
     SOCKET_LOG(("nsSocketTransport::OpenInputStream [this=%x flags=%x]\n",
@@ -1725,9 +1742,9 @@ nsSocketTransport::OpenInputStream(PRUint32 flags,
 }
 
 NS_IMETHODIMP
-nsSocketTransport::OpenOutputStream(PRUint32 flags,
-                                    PRUint32 segsize,
-                                    PRUint32 segcount,
+nsSocketTransport::OpenOutputStream(uint32_t flags,
+                                    uint32_t segsize,
+                                    uint32_t segcount,
                                     nsIOutputStream **result)
 {
     SOCKET_LOG(("nsSocketTransport::OpenOutputStream [this=%x flags=%x]\n",
@@ -1854,7 +1871,7 @@ nsSocketTransport::IsAlive(bool *result)
     // XXX do some idle-time based checks??
 
     char c;
-    PRInt32 rval = PR_Recv(fd, &c, 1, PR_MSG_PEEK, 0);
+    int32_t rval = PR_Recv(fd, &c, 1, PR_MSG_PEEK, 0);
 
     if ((rval > 0) || (rval < 0 && PR_GetError() == PR_WOULD_BLOCK_ERROR))
         *result = true;
@@ -1874,9 +1891,9 @@ nsSocketTransport::GetHost(nsACString &host)
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetPort(PRInt32 *port)
+nsSocketTransport::GetPort(int32_t *port)
 {
-    *port = (PRInt32) SocketPort();
+    *port = (int32_t) SocketPort();
     return NS_OK;
 }
 
@@ -1958,25 +1975,25 @@ nsSocketTransport::GetScriptableSelfAddr(nsINetAddr * *addr)
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetTimeout(PRUint32 type, PRUint32 *value)
+nsSocketTransport::GetTimeout(uint32_t type, uint32_t *value)
 {
     NS_ENSURE_ARG_MAX(type, nsISocketTransport::TIMEOUT_READ_WRITE);
-    *value = (PRUint32) mTimeouts[type];
+    *value = (uint32_t) mTimeouts[type];
     return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSocketTransport::SetTimeout(PRUint32 type, PRUint32 value)
+nsSocketTransport::SetTimeout(uint32_t type, uint32_t value)
 {
     NS_ENSURE_ARG_MAX(type, nsISocketTransport::TIMEOUT_READ_WRITE);
     // truncate overly large timeout values.
-    mTimeouts[type] = (PRUint16) NS_MIN(value, PR_UINT16_MAX);
+    mTimeouts[type] = (uint16_t) NS_MIN<uint32_t>(value, UINT16_MAX);
     PostEvent(MSG_TIMEOUT_CHANGED);
     return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSocketTransport::SetQoSBits(PRUint8 aQoSBits)
+nsSocketTransport::SetQoSBits(uint8_t aQoSBits)
 {
     // Don't do any checking here of bits.  Why?  Because as of RFC-4594
     // several different Class Selector and Assured Forwarding values
@@ -1989,10 +2006,116 @@ nsSocketTransport::SetQoSBits(PRUint8 aQoSBits)
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetQoSBits(PRUint8 *aQoSBits)
+nsSocketTransport::GetQoSBits(uint8_t *aQoSBits)
 {
     *aQoSBits = mQoSBits;
     return NS_OK;
+}
+
+NS_IMETHODIMP
+nsSocketTransport::GetRecvBufferSize(uint32_t *aSize)
+{
+    PRFileDesc *fd;
+    {
+        MutexAutoLock lock(mLock);
+        fd = GetFD_Locked();
+    }
+
+    if (!fd)
+        return NS_ERROR_NOT_CONNECTED;
+
+    nsresult rv = NS_OK;
+    PRSocketOptionData opt;
+    opt.option = PR_SockOpt_RecvBufferSize;
+    if (PR_GetSocketOption(mFD, &opt) == PR_SUCCESS)
+        *aSize = opt.value.recv_buffer_size;
+    else
+        rv = NS_ERROR_FAILURE;
+
+    {
+        MutexAutoLock lock(mLock);
+        ReleaseFD_Locked(fd);
+    }
+    return rv;
+}
+
+NS_IMETHODIMP
+nsSocketTransport::GetSendBufferSize(uint32_t *aSize)
+{
+    PRFileDesc *fd;
+    {
+        MutexAutoLock lock(mLock);
+        fd = GetFD_Locked();
+    }
+
+    if (!fd)
+        return NS_ERROR_NOT_CONNECTED;
+
+    nsresult rv = NS_OK;
+    PRSocketOptionData opt;
+    opt.option = PR_SockOpt_SendBufferSize;
+    if (PR_GetSocketOption(mFD, &opt) == PR_SUCCESS)
+        *aSize = opt.value.send_buffer_size;
+    else
+        rv = NS_ERROR_FAILURE;
+
+    {
+        MutexAutoLock lock(mLock);
+        ReleaseFD_Locked(fd);
+    }
+    return rv;
+}
+
+NS_IMETHODIMP
+nsSocketTransport::SetRecvBufferSize(uint32_t aSize)
+{
+    PRFileDesc *fd;
+    {
+        MutexAutoLock lock(mLock);
+        fd = GetFD_Locked();
+    }
+
+    if (!fd)
+        return NS_ERROR_NOT_CONNECTED;
+
+    nsresult rv = NS_OK;
+    PRSocketOptionData opt;
+    opt.option = PR_SockOpt_RecvBufferSize;
+    opt.value.recv_buffer_size = aSize;
+    if (PR_SetSocketOption(mFD, &opt) != PR_SUCCESS)
+        rv = NS_ERROR_FAILURE;
+
+    {
+        MutexAutoLock lock(mLock);
+        ReleaseFD_Locked(fd);
+    }
+    return rv;
+}
+
+NS_IMETHODIMP
+nsSocketTransport::SetSendBufferSize(uint32_t aSize)
+{
+    PRFileDesc *fd;
+    {
+        MutexAutoLock lock(mLock);
+        fd = GetFD_Locked();
+    }
+
+    if (!fd)
+        return NS_ERROR_NOT_CONNECTED;
+
+    nsresult rv = NS_OK;
+    PRSocketOptionData opt;
+    opt.option = PR_SockOpt_SendBufferSize;
+    opt.value.send_buffer_size = aSize;
+    if (PR_SetSocketOption(mFD, &opt) != PR_SUCCESS)
+        rv = NS_ERROR_FAILURE;
+
+    {
+        MutexAutoLock lock(mLock);
+        ReleaseFD_Locked(fd);
+    }
+    return rv;
 }
 
 NS_IMETHODIMP
@@ -2016,13 +2139,13 @@ nsSocketTransport::OnLookupComplete(nsICancelable *request,
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetInterfaces(PRUint32 *count, nsIID * **array)
+nsSocketTransport::GetInterfaces(uint32_t *count, nsIID * **array)
 {
     return NS_CI_INTERFACE_GETTER_NAME(nsSocketTransport)(count, array);
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetHelperForLanguage(PRUint32 language, nsISupports **_retval)
+nsSocketTransport::GetHelperForLanguage(uint32_t language, nsISupports **_retval)
 {
     *_retval = nullptr;
     return NS_OK;
@@ -2050,14 +2173,14 @@ nsSocketTransport::GetClassID(nsCID * *aClassID)
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetImplementationLanguage(PRUint32 *aImplementationLanguage)
+nsSocketTransport::GetImplementationLanguage(uint32_t *aImplementationLanguage)
 {
     *aImplementationLanguage = nsIProgrammingLanguage::CPLUSPLUS;
     return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSocketTransport::GetFlags(PRUint32 *aFlags)
+nsSocketTransport::GetFlags(uint32_t *aFlags)
 {
     *aFlags = nsIClassInfo::THREADSAFE;
     return NS_OK;
@@ -2071,14 +2194,14 @@ nsSocketTransport::GetClassIDNoAlloc(nsCID *aClassIDNoAlloc)
 
 
 NS_IMETHODIMP
-nsSocketTransport::GetConnectionFlags(PRUint32 *value)
+nsSocketTransport::GetConnectionFlags(uint32_t *value)
 {
     *value = mConnectionFlags;
     return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSocketTransport::SetConnectionFlags(PRUint32 value)
+nsSocketTransport::SetConnectionFlags(uint32_t value)
 {
     mConnectionFlags = value;
     return NS_OK;
@@ -2092,7 +2215,7 @@ nsSocketTransport::SetConnectionFlags(PRUint32 value)
 #include "prenv.h"
 
 static void
-DumpBytesToFile(const char *path, const char *header, const char *buf, PRInt32 n)
+DumpBytesToFile(const char *path, const char *header, const char *buf, int32_t n)
 {
     FILE *fp = fopen(path, "a");
 
@@ -2102,7 +2225,7 @@ DumpBytesToFile(const char *path, const char *header, const char *buf, PRInt32 n
     while (n) {
         p = (const unsigned char *) buf;
 
-        PRInt32 i, row_max = NS_MIN(16, n);
+        int32_t i, row_max = NS_MIN(16, n);
 
         for (i = 0; i < row_max; ++i)
             fprintf(fp, "%02x  ", *p++);
@@ -2127,13 +2250,13 @@ DumpBytesToFile(const char *path, const char *header, const char *buf, PRInt32 n
 }
 
 void
-nsSocketTransport::TraceInBuf(const char *buf, PRInt32 n)
+nsSocketTransport::TraceInBuf(const char *buf, int32_t n)
 {
     char *val = PR_GetEnv("NECKO_SOCKET_TRACE_LOG");
     if (!val || !*val)
         return;
 
-    nsCAutoString header;
+    nsAutoCString header;
     header.Assign(NS_LITERAL_CSTRING("Reading from: ") + mHost);
     header.Append(':');
     header.AppendInt(mPort);
@@ -2142,13 +2265,13 @@ nsSocketTransport::TraceInBuf(const char *buf, PRInt32 n)
 }
 
 void
-nsSocketTransport::TraceOutBuf(const char *buf, PRInt32 n)
+nsSocketTransport::TraceOutBuf(const char *buf, int32_t n)
 {
     char *val = PR_GetEnv("NECKO_SOCKET_TRACE_LOG");
     if (!val || !*val)
         return;
 
-    nsCAutoString header;
+    nsAutoCString header;
     header.Assign(NS_LITERAL_CSTRING("Writing to: ") + mHost);
     header.Append(':');
     header.AppendInt(mPort);

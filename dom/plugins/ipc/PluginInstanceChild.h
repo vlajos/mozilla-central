@@ -17,7 +17,7 @@
 #include "mozilla/gfx/SharedDIBWin.h"
 #elif defined(MOZ_WIDGET_COCOA)
 #include "PluginUtilsOSX.h"
-#include "nsCoreAnimationSupport.h"
+#include "mozilla/gfx/QuartzSupport.h"
 #include "base/timer.h"
 
 using namespace mozilla::plugins::PluginUtilsOSX;
@@ -34,6 +34,10 @@ using namespace mozilla::plugins::PluginUtilsOSX;
 #include "gfxASurface.h"
 
 #include <map>
+
+#if defined(MOZ_WIDGET_GTK)
+#include "gtk2xtbin.h"
+#endif
 
 namespace mozilla {
 
@@ -186,6 +190,11 @@ protected:
 
     virtual bool
     RecvNPP_DidComposite();
+
+#if defined(MOZ_X11) && defined(XP_UNIX) && !defined(XP_MACOSX)
+    bool CreateWindow(const NPRemoteWindow& aWindow);
+    void DeleteWindow();
+#endif
 
 public:
     PluginInstanceChild(const NPPluginFuncs* aPluginIface);
@@ -348,6 +357,9 @@ private:
     const NPPluginFuncs* mPluginIface;
     NPP_t mData;
     NPWindow mWindow;
+#if defined(XP_MACOSX)
+    double mContentsScaleFactor;
+#endif
     int16_t               mDrawingModel;
     NPAsyncSurface* mCurrentAsyncSurface;
     struct AsyncBitmapData {
@@ -369,6 +381,10 @@ private:
 
 #if defined(MOZ_X11) && defined(XP_UNIX) && !defined(XP_MACOSX)
     NPSetWindowCallbackStruct mWsInfo;
+#if defined(MOZ_WIDGET_GTK)
+    bool mXEmbed;
+    XtClient mXtClient;
+#endif
 #elif defined(OS_WIN)
     HWND mPluginWindowHWND;
     WNDPROC mPluginWndProc;
@@ -412,7 +428,7 @@ private:
     };
     gfx::SharedDIBWin mSharedSurfaceDib;
     struct {
-      PRUint16        doublePass;
+      uint16_t        doublePass;
       HDC             hdc;
       HBITMAP         bmp;
     } mAlphaExtract;
@@ -420,15 +436,15 @@ private:
 #if defined(MOZ_WIDGET_COCOA)
 private:
 #if defined(__i386__)
-    NPEventModel          mEventModel;
+    NPEventModel                  mEventModel;
 #endif
-    CGColorSpaceRef       mShColorSpace;
-    CGContextRef          mShContext;
-    nsCARenderer          mCARenderer;
-    void                 *mCGLayer;
+    CGColorSpaceRef               mShColorSpace;
+    CGContextRef                  mShContext;
+    mozilla::RefPtr<nsCARenderer> mCARenderer;
+    void                         *mCGLayer;
 
     // Core Animation drawing model requires a refresh timer.
-    uint32_t mCARefreshTimer;
+    uint32_t                      mCARefreshTimer;
 
 public:
     const NPCocoaEvent* getCurrentEvent() {

@@ -7,6 +7,7 @@
 
 #include "jsapi.h"
 #include "jswrapper.h"
+#include "mozilla/GuardObjects.h"
 
 // Xray wrappers re-resolve the original native properties on the native
 // object and always directly access to those properties.
@@ -29,8 +30,6 @@ extern JSClass HolderClass;
 
 bool CloneExpandoChain(JSContext *cx, JSObject *src, JSObject *dst);
 
-JSObject *createHolder(JSContext *cx, JSObject *wrappedNative, JSObject *parent);
-
 bool
 IsTransparent(JSContext *cx, JSObject *wrapper);
 
@@ -39,9 +38,21 @@ GetNativePropertiesObject(JSContext *cx, JSObject *wrapper);
 
 }
 
+class XrayTraits;
 class XPCWrappedNativeXrayTraits;
 class ProxyXrayTraits;
 class DOMXrayTraits;
+
+
+enum XrayType {
+    XrayForDOMObject,
+    XrayForDOMProxyObject,
+    XrayForWrappedNative,
+    NotXray
+};
+
+XrayType GetXrayType(JSObject *obj);
+XrayTraits* GetXrayTraits(JSObject *obj);
 
 // NB: Base *must* derive from JSProxyHandler
 template <typename Base, typename Traits = XPCWrappedNativeXrayTraits >
@@ -100,4 +111,30 @@ public:
 };
 
 extern SandboxProxyHandler sandboxProxyHandler;
+
+class AutoSetWrapperNotShadowing;
+class XPCWrappedNativeXrayTraits;
+
+class ResolvingId {
+public:
+    ResolvingId(JSObject *wrapper, jsid id);
+    ~ResolvingId();
+
+    bool isXrayShadowing(jsid id);
+    bool isResolving(jsid id);
+    static ResolvingId* getResolvingId(JSObject *holder);
+    static JSObject* getHolderObject(JSObject *wrapper);
+    static ResolvingId *getResolvingIdFromWrapper(JSObject *wrapper);
+
+private:
+    friend class AutoSetWrapperNotShadowing;
+    friend class XPCWrappedNativeXrayTraits;
+
+    jsid mId;
+    JSObject *mHolder;
+    ResolvingId *mPrev;
+    bool mXrayShadowing;
+};
+
 }
+

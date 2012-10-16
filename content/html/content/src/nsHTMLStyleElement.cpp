@@ -16,6 +16,10 @@
 #include "nsUnicharUtils.h"
 #include "nsThreadUtils.h"
 #include "nsContentUtils.h"
+#include "nsStubMutationObserver.h"
+
+using namespace mozilla;
+using namespace mozilla::dom;
 
 class nsHTMLStyleElement : public nsGenericHTMLElement,
                            public nsIDOMHTMLStyleElement,
@@ -29,6 +33,10 @@ public:
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
 
+  // CC
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsHTMLStyleElement,
+                                           nsGenericHTMLElement)
+
   // nsIDOMNode
   NS_FORWARD_NSIDOMNODE(nsGenericHTMLElement::)
 
@@ -36,24 +44,11 @@ public:
   NS_FORWARD_NSIDOMELEMENT(nsGenericHTMLElement::)
 
   // nsIDOMHTMLElement
-  NS_FORWARD_NSIDOMHTMLELEMENT_BASIC(nsGenericHTMLElement::)
-  NS_IMETHOD Click() {
-    return nsGenericHTMLElement::Click();
-  }
-  NS_IMETHOD GetTabIndex(PRInt32* aTabIndex) {
-    return nsGenericHTMLElement::GetTabIndex(aTabIndex);
-  }
-  NS_IMETHOD SetTabIndex(PRInt32 aTabIndex) {
-    return nsGenericHTMLElement::SetTabIndex(aTabIndex);
-  }
-  NS_IMETHOD Focus() {
-    return nsGenericHTMLElement::Focus();
-  }
-  NS_IMETHOD GetDraggable(bool* aDraggable) {
-    return nsGenericHTMLElement::GetDraggable(aDraggable);
-  }
-  NS_IMETHOD GetInnerHTML(nsAString& aInnerHTML);
-  NS_IMETHOD SetInnerHTML(const nsAString& aInnerHTML);
+  NS_FORWARD_NSIDOMHTMLELEMENT(nsGenericHTMLElement::)
+  virtual void GetInnerHTML(nsAString& aInnerHTML,
+                            mozilla::ErrorResult& aError) MOZ_OVERRIDE;
+  virtual void SetInnerHTML(const nsAString& aInnerHTML,
+                            mozilla::ErrorResult& aError) MOZ_OVERRIDE;
 
   // nsIDOMHTMLStyleElement
   NS_DECL_NSIDOMHTMLSTYLEELEMENT
@@ -63,15 +58,15 @@ public:
                               bool aCompileEventHandlers);
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true);
-  nsresult SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+  nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                    const nsAString& aValue, bool aNotify)
   {
     return SetAttr(aNameSpaceID, aName, nullptr, aValue, aNotify);
   }
-  virtual nsresult SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+  virtual nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                            nsIAtom* aPrefix, const nsAString& aValue,
                            bool aNotify);
-  virtual nsresult UnsetAttr(PRInt32 aNameSpaceID, nsIAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
                              bool aNotify);
 
   virtual nsresult Clone(nsINodeInfo *aNodeInfo, nsINode **aResult) const;
@@ -113,6 +108,15 @@ nsHTMLStyleElement::~nsHTMLStyleElement()
 {
 }
 
+NS_IMPL_CYCLE_COLLECTION_CLASS(nsHTMLStyleElement)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsHTMLStyleElement,
+                                                  nsGenericHTMLElement)
+  tmp->nsStyleLinkElement::Traverse(cb);
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsHTMLStyleElement,
+                                                nsGenericHTMLElement)
+  tmp->nsStyleLinkElement::Unlink();
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_ADDREF_INHERITED(nsHTMLStyleElement, nsGenericElement) 
 NS_IMPL_RELEASE_INHERITED(nsHTMLStyleElement, nsGenericElement) 
@@ -121,7 +125,7 @@ NS_IMPL_RELEASE_INHERITED(nsHTMLStyleElement, nsGenericElement)
 DOMCI_NODE_DATA(HTMLStyleElement, nsHTMLStyleElement)
 
 // QueryInterface implementation for nsHTMLStyleElement
-NS_INTERFACE_TABLE_HEAD(nsHTMLStyleElement)
+NS_INTERFACE_TABLE_HEAD_CYCLE_COLLECTION_INHERITED(nsHTMLStyleElement)
   NS_HTML_CONTENT_INTERFACE_TABLE4(nsHTMLStyleElement,
                                    nsIDOMHTMLStyleElement,
                                    nsIDOMLinkStyle,
@@ -173,7 +177,7 @@ void
 nsHTMLStyleElement::ContentAppended(nsIDocument* aDocument,
                                     nsIContent* aContainer,
                                     nsIContent* aFirstNewContent,
-                                    PRInt32 aNewIndexInContainer)
+                                    int32_t aNewIndexInContainer)
 {
   ContentChanged(aContainer);
 }
@@ -182,7 +186,7 @@ void
 nsHTMLStyleElement::ContentInserted(nsIDocument* aDocument,
                                     nsIContent* aContainer,
                                     nsIContent* aChild,
-                                    PRInt32 aIndexInContainer)
+                                    int32_t aIndexInContainer)
 {
   ContentChanged(aChild);
 }
@@ -191,7 +195,7 @@ void
 nsHTMLStyleElement::ContentRemoved(nsIDocument* aDocument,
                                    nsIContent* aContainer,
                                    nsIContent* aChild,
-                                   PRInt32 aIndexInContainer,
+                                   int32_t aIndexInContainer,
                                    nsIContent* aPreviousSibling)
 {
   ContentChanged(aChild);
@@ -231,7 +235,7 @@ nsHTMLStyleElement::UnbindFromTree(bool aDeep, bool aNullParent)
 }
 
 nsresult
-nsHTMLStyleElement::SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
+nsHTMLStyleElement::SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                             nsIAtom* aPrefix, const nsAString& aValue,
                             bool aNotify)
 {
@@ -248,7 +252,7 @@ nsHTMLStyleElement::SetAttr(PRInt32 aNameSpaceID, nsIAtom* aName,
 }
 
 nsresult
-nsHTMLStyleElement::UnsetAttr(PRInt32 aNameSpaceID, nsIAtom* aAttribute,
+nsHTMLStyleElement::UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
                               bool aNotify)
 {
   nsresult rv = nsGenericHTMLElement::UnsetAttr(aNameSpaceID, aAttribute,
@@ -263,24 +267,23 @@ nsHTMLStyleElement::UnsetAttr(PRInt32 aNameSpaceID, nsIAtom* aAttribute,
   return rv;
 }
 
-nsresult
-nsHTMLStyleElement::GetInnerHTML(nsAString& aInnerHTML)
+void
+nsHTMLStyleElement::GetInnerHTML(nsAString& aInnerHTML, ErrorResult& aError)
 {
   nsContentUtils::GetNodeTextContent(this, false, aInnerHTML);
-  return NS_OK;
 }
 
-nsresult
-nsHTMLStyleElement::SetInnerHTML(const nsAString& aInnerHTML)
+void
+nsHTMLStyleElement::SetInnerHTML(const nsAString& aInnerHTML,
+                                 ErrorResult& aError)
 {
   SetEnableUpdates(false);
 
-  nsresult rv = nsContentUtils::SetNodeTextContent(this, aInnerHTML, true);
-  
+  aError = nsContentUtils::SetNodeTextContent(this, aInnerHTML, true);
+
   SetEnableUpdates(true);
-  
+
   UpdateStyleSheetInternal(nullptr);
-  return rv;
 }
 
 already_AddRefed<nsIURI>

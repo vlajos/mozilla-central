@@ -70,8 +70,9 @@ gfxPlatformMac::gfxPlatformMac()
     }
     mFontAntiAliasingThreshold = ReadAntiAliasingThreshold();
 
-    PRUint32 backendMask = (1 << BACKEND_CAIRO) | (1 << BACKEND_SKIA) | (1 << BACKEND_COREGRAPHICS);
-    InitCanvasBackend(backendMask);
+    uint32_t canvasMask = (1 << BACKEND_CAIRO) | (1 << BACKEND_SKIA) | (1 << BACKEND_COREGRAPHICS);
+    uint32_t contentMask = 0;
+    InitBackendPrefs(canvasMask, contentMask);
 }
 
 gfxPlatformMac::~gfxPlatformMac()
@@ -135,11 +136,11 @@ gfxPlatformMac::OptimizeImage(gfxImageSurface *aSurface,
     return ret.forget();
 }
 
-RefPtr<ScaledFont>
+TemporaryRef<ScaledFont>
 gfxPlatformMac::GetScaledFontForFont(DrawTarget* aTarget, gfxFont *aFont)
 {
     gfxMacFont *font = static_cast<gfxMacFont*>(aFont);
-    return font->GetScaledFont();
+    return font->GetScaledFont(aTarget);
 }
 
 nsresult
@@ -183,7 +184,7 @@ gfxPlatformMac::LookupLocalFont(const gfxProxyFontEntry *aProxyEntry,
 
 gfxFontEntry* 
 gfxPlatformMac::MakePlatformFont(const gfxProxyFontEntry *aProxyEntry,
-                                 const PRUint8 *aFontData, PRUint32 aLength)
+                                 const uint8_t *aFontData, uint32_t aLength)
 {
     // Ownership of aFontData is received here, and passed on to
     // gfxPlatformFontList::MakePlatformFont(), which must ensure the data
@@ -194,7 +195,7 @@ gfxPlatformMac::MakePlatformFont(const gfxProxyFontEntry *aProxyEntry,
 }
 
 bool
-gfxPlatformMac::IsFontFormatSupported(nsIURI *aFontURI, PRUint32 aFormatFlags)
+gfxPlatformMac::IsFontFormatSupported(nsIURI *aFontURI, uint32_t aFormatFlags)
 {
     // check for strange format flags
     NS_ASSERTION(!(aFormatFlags & gfxUserFontSet::FLAG_FORMAT_NOT_USED),
@@ -247,20 +248,20 @@ static const char kFontPlantagenetCherokee[] = "Plantagenet Cherokee";
 static const char kFontSTHeiti[] = "STHeiti";
 
 void
-gfxPlatformMac::GetCommonFallbackFonts(const PRUint32 aCh,
-                                       PRInt32 aRunScript,
+gfxPlatformMac::GetCommonFallbackFonts(const uint32_t aCh,
+                                       int32_t aRunScript,
                                        nsTArray<const char*>& aFontList)
 {
     aFontList.AppendElement(kFontLucidaGrande);
 
     if (!IS_IN_BMP(aCh)) {
-        PRUint32 p = aCh >> 16;
+        uint32_t p = aCh >> 16;
         if (p == 1) {
             aFontList.AppendElement(kFontAppleSymbols);
             aFontList.AppendElement(kFontGeneva);
         }
     } else {
-        PRUint32 b = (aCh >> 8) & 0xff;
+        uint32_t b = (aCh >> 8) & 0xff;
 
         switch (b) {
         case 0x03:
@@ -336,7 +337,7 @@ gfxPlatformMac::GetCommonFallbackFonts(const PRUint32 aCh,
 }
 
 
-PRInt32 
+int32_t 
 gfxPlatformMac::OSXVersion()
 {
     if (!mOSXVersion) {
@@ -351,10 +352,10 @@ gfxPlatformMac::OSXVersion()
     return mOSXVersion;
 }
 
-PRUint32
+uint32_t
 gfxPlatformMac::ReadAntiAliasingThreshold()
 {
-    PRUint32 threshold = 0;  // default == no threshold
+    uint32_t threshold = 0;  // default == no threshold
     
     // first read prefs flag to determine whether to use the setting or not
     bool useAntiAliasingThreshold = Preferences::GetBool("gfx.use_text_smoothing_setting", false);
@@ -379,7 +380,17 @@ gfxPlatformMac::ReadAntiAliasingThreshold()
 already_AddRefed<gfxASurface>
 gfxPlatformMac::GetThebesSurfaceForDrawTarget(DrawTarget *aTarget)
 {
-  if (aTarget->GetType() == BACKEND_COREGRAPHICS) {
+  if (aTarget->GetType() == BACKEND_COREGRAPHICS_ACCELERATED) {
+    RefPtr<SourceSurface> source = aTarget->Snapshot();
+    RefPtr<DataSourceSurface> sourceData = source->GetDataSurface();
+    unsigned char* data = sourceData->GetData();
+    nsRefPtr<gfxImageSurface> surf = new gfxImageSurface(data, ThebesIntSize(sourceData->GetSize()), sourceData->Stride(),
+                                                         gfxImageSurface::ImageFormatARGB32);
+    // We could fix this by telling gfxImageSurface it owns data.
+    nsRefPtr<gfxImageSurface> cpy = new gfxImageSurface(ThebesIntSize(sourceData->GetSize()), gfxImageSurface::ImageFormatARGB32);
+    cpy->CopyFrom(surf);
+    return cpy.forget();
+  } else if (aTarget->GetType() == BACKEND_COREGRAPHICS) {
     CGContextRef cg = static_cast<CGContextRef>(aTarget->GetNativeSurface(NATIVE_SURFACE_CGCONTEXT));
 
     //XXX: it would be nice to have an implicit conversion from IntSize to gfxIntSize
@@ -395,6 +406,12 @@ gfxPlatformMac::GetThebesSurfaceForDrawTarget(DrawTarget *aTarget)
   return gfxPlatform::GetThebesSurfaceForDrawTarget(aTarget);
 }
 
+bool
+gfxPlatformMac::UseAcceleratedCanvas()
+{
+  // Lion or later is required
+  return OSXVersion() >= 0x1070 && Preferences::GetBool("gfx.canvas.azure.accelerated", false);
+}
 
 qcms_profile *
 gfxPlatformMac::GetPlatformCMSOutputProfile()

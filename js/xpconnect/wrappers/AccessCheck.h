@@ -19,11 +19,15 @@ namespace xpc {
 class AccessCheck {
   public:
     static bool subsumes(JSCompartment *a, JSCompartment *b);
+    static bool wrapperSubsumes(JSObject *wrapper);
+    static bool subsumesIgnoringDomain(JSCompartment *a, JSCompartment *b);
     static bool isChrome(JSCompartment *compartment);
+    static bool isChrome(JSObject *obj);
     static bool callerIsChrome();
     static nsIPrincipal *getPrincipal(JSCompartment *compartment);
     static bool isCrossOriginAccessPermitted(JSContext *cx, JSObject *obj, jsid id,
                                              js::Wrapper::Action act);
+    static bool callerIsXBL(JSContext *cx);
     static bool isSystemOnlyAccessPermitted(JSContext *cx);
     static bool isLocationObjectSameOrigin(JSContext *cx, JSObject *wrapper);
 
@@ -61,9 +65,7 @@ struct OnlyIfSubjectIsSystem : public Policy {
             return true;
         }
         perm = DenyAccess;
-        JSAutoEnterCompartment ac;
-        if (!ac.enter(cx, wrapper))
-            return false;
+        JSAutoCompartment ac(cx, wrapper);
         AccessCheck::deny(cx, id);
         return false;
     }
@@ -82,9 +84,7 @@ struct CrossOriginAccessiblePropertiesOnly : public Policy {
             return true;
         }
         perm = DenyAccess;
-        JSAutoEnterCompartment ac;
-        if (!ac.enter(cx, wrapper))
-            return false;
+        JSAutoCompartment ac(cx, wrapper);
         AccessCheck::deny(cx, id);
         return false;
     }
@@ -130,9 +130,7 @@ struct LocationPolicy : public Policy {
             return true;
         }
 
-        JSAutoEnterCompartment ac;
-        if (!ac.enter(cx, wrapper))
-            return false;
+        JSAutoCompartment ac(cx, wrapper);
         AccessCheck::deny(cx, id);
         return false;
     }

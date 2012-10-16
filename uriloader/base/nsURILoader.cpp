@@ -35,7 +35,7 @@
 #include "nsString.h"
 #include "nsNetUtil.h"
 #include "nsReadableUtils.h"
-#include "nsDOMError.h"
+#include "nsError.h"
 
 #include "nsICategoryManager.h"
 #include "nsCExternalHandlerService.h" // contains contractids for the helper app service
@@ -47,19 +47,6 @@
 
 #include "nsDocLoader.h"
 #include "mozilla/Attributes.h"
-
-#include "mozilla/FunctionTimer.h"
-#ifdef NS_FUNCTION_TIMER
-#define TIME_URILOADER_FUNCTION(req)                         \
-    nsCAutoString name__("N/A");                             \
-    (req)->GetName(name__);                                  \
-    NS_TIME_FUNCTION_FMT("%s (line %d) (request: %s)",       \
-                         MOZ_FUNCTION_NAME,                  \
-                         __LINE__,                           \
-                         name__.get())
-#else
-#define TIME_URILOADER_FUNCTION(req) do {} while(0)
-#endif
 
 #ifdef PR_LOGGING
 PRLogModuleInfo* nsURILoader::mLog = nullptr;
@@ -84,7 +71,7 @@ public:
   // Real constructor
   // aFlags is a combination of the flags on nsIURILoader
   nsDocumentOpenInfo(nsIInterfaceRequestor* aWindowContext,
-                     PRUint32 aFlags,
+                     uint32_t aFlags,
                      nsURILoader* aURILoader);
 
   NS_DECL_ISUPPORTS
@@ -151,7 +138,7 @@ protected:
    * DONT_RETARGET means that we will only try m_originalContext, no other
    * listeners.
    */
-  PRUint32 mFlags;
+  uint32_t mFlags;
 
   /**
    * The type of the data we will be trying to dispatch.
@@ -180,7 +167,7 @@ nsDocumentOpenInfo::nsDocumentOpenInfo()
 }
 
 nsDocumentOpenInfo::nsDocumentOpenInfo(nsIInterfaceRequestor* aWindowContext,
-                                       PRUint32 aFlags,
+                                       uint32_t aFlags,
                                        nsURILoader* aURILoader)
   : m_originalContext(aWindowContext),
     mFlags(aFlags),
@@ -205,8 +192,6 @@ nsresult nsDocumentOpenInfo::Prepare()
 
 NS_IMETHODIMP nsDocumentOpenInfo::OnStartRequest(nsIRequest *request, nsISupports * aCtxt)
 {
-  TIME_URILOADER_FUNCTION(request);
-
   LOG(("[0x%p] nsDocumentOpenInfo::OnStartRequest", this));
   
   nsresult rv = NS_OK;
@@ -222,7 +207,7 @@ NS_IMETHODIMP nsDocumentOpenInfo::OnStartRequest(nsIRequest *request, nsISupport
   nsCOMPtr<nsIHttpChannel> httpChannel(do_QueryInterface(request, &rv));
 
   if (NS_SUCCEEDED(rv)) {
-    PRUint32 responseCode = 0;
+    uint32_t responseCode = 0;
 
     rv = httpChannel->GetResponseStatus(&responseCode);
 
@@ -277,11 +262,11 @@ NS_IMETHODIMP nsDocumentOpenInfo::OnStartRequest(nsIRequest *request, nsISupport
   return rv;
 }
 
-NS_IMETHODIMP nsDocumentOpenInfo::OnDataAvailable(nsIRequest *request, nsISupports * aCtxt,
-                                                  nsIInputStream * inStr, PRUint32 sourceOffset, PRUint32 count)
+NS_IMETHODIMP
+nsDocumentOpenInfo::OnDataAvailable(nsIRequest *request, nsISupports * aCtxt,
+                                    nsIInputStream * inStr,
+                                    uint64_t sourceOffset, uint32_t count)
 {
-  TIME_URILOADER_FUNCTION(request);
-
   // if we have retarged to the end stream listener, then forward the call....
   // otherwise, don't do anything
 
@@ -295,8 +280,6 @@ NS_IMETHODIMP nsDocumentOpenInfo::OnDataAvailable(nsIRequest *request, nsISuppor
 NS_IMETHODIMP nsDocumentOpenInfo::OnStopRequest(nsIRequest *request, nsISupports *aCtxt, 
                                                 nsresult aStatus)
 {
-  TIME_URILOADER_FUNCTION(request);
-
   LOG(("[0x%p] nsDocumentOpenInfo::OnStopRequest", this));
   
   if ( m_targetStreamListener)
@@ -319,8 +302,6 @@ NS_IMETHODIMP nsDocumentOpenInfo::OnStopRequest(nsIRequest *request, nsISupports
 
 nsresult nsDocumentOpenInfo::DispatchContent(nsIRequest *request, nsISupports * aCtxt)
 {
-  TIME_URILOADER_FUNCTION(request);
-
   LOG(("[0x%p] nsDocumentOpenInfo::DispatchContent for type '%s'", this, mContentType.get()));
 
   NS_PRECONDITION(!m_targetStreamListener,
@@ -354,7 +335,7 @@ nsresult nsDocumentOpenInfo::DispatchContent(nsIRequest *request, nsISupports * 
   // future, because the user has specified external handling for the MIME
   // type.
   bool forceExternalHandling = false;
-  PRUint32 disposition;
+  uint32_t disposition;
   rv = aChannel->GetContentDisposition(&disposition);
   if (NS_SUCCEEDED(rv) && disposition == nsIChannel::DISPOSITION_ATTACHMENT)
     forceExternalHandling = true;
@@ -386,9 +367,9 @@ nsresult nsDocumentOpenInfo::DispatchContent(nsIRequest *request, nsISupports * 
       // Second step: See whether some other registered listener wants
       // to handle this content type.
       //
-      PRInt32 count = mURILoader->m_listeners.Count();
+      int32_t count = mURILoader->m_listeners.Count();
       nsCOMPtr<nsIURIContentListener> listener;
-      for (PRInt32 i = 0; i < count; i++) {
+      for (int32_t i = 0; i < count; i++) {
         listener = do_QueryReferent(mURILoader->m_listeners[i]);
         if (listener) {
           if (TryContentListener(listener, aChannel)) {
@@ -431,7 +412,7 @@ nsresult nsDocumentOpenInfo::DispatchContent(nsIRequest *request, nsISupports * 
       //
       // Fourth step: try to find an nsIContentHandler for our type.
       //
-      nsCAutoString handlerContractID (NS_CONTENT_HANDLER_CONTRACTID_PREFIX);
+      nsAutoCString handlerContractID (NS_CONTENT_HANDLER_CONTRACTID_PREFIX);
       handlerContractID += mContentType;
 
       nsCOMPtr<nsIContentHandler> contentHandler =
@@ -551,8 +532,6 @@ nsDocumentOpenInfo::ConvertData(nsIRequest *request,
                                 const nsACString& aSrcContentType,
                                 const nsACString& aOutContentType)
 {
-  TIME_URILOADER_FUNCTION(request);
-
   LOG(("[0x%p] nsDocumentOpenInfo::ConvertData from '%s' to '%s'", this,
        PromiseFlatCString(aSrcContentType).get(),
        PromiseFlatCString(aOutContentType).get()));
@@ -609,8 +588,6 @@ bool
 nsDocumentOpenInfo::TryContentListener(nsIURIContentListener* aListener,
                                        nsIChannel* aChannel)
 {
-  TIME_URILOADER_FUNCTION(aChannel);
-
   LOG(("[0x%p] nsDocumentOpenInfo::TryContentListener; mFlags = 0x%x",
        this, mFlags));
 
@@ -755,13 +732,11 @@ NS_IMETHODIMP nsURILoader::OpenURI(nsIChannel *channel,
 {
   NS_ENSURE_ARG_POINTER(channel);
 
-  TIME_URILOADER_FUNCTION(channel);
-
 #ifdef PR_LOGGING
   if (LOG_ENABLED()) {
     nsCOMPtr<nsIURI> uri;
     channel->GetURI(getter_AddRefs(uri));
-    nsCAutoString spec;
+    nsAutoCString spec;
     uri->GetAsciiSpec(spec);
     LOG(("nsURILoader::OpenURI for %s", spec.get()));
   }
@@ -796,7 +771,7 @@ NS_IMETHODIMP nsURILoader::OpenURI(nsIChannel *channel,
 }
 
 nsresult nsURILoader::OpenChannel(nsIChannel* channel,
-                                  PRUint32 aFlags,
+                                  uint32_t aFlags,
                                   nsIInterfaceRequestor* aWindowContext,
                                   bool aChannelIsOpen,
                                   nsIStreamListener** aListener)
@@ -804,13 +779,11 @@ nsresult nsURILoader::OpenChannel(nsIChannel* channel,
   NS_ASSERTION(channel, "Trying to open a null channel!");
   NS_ASSERTION(aWindowContext, "Window context must not be null");
 
-  TIME_URILOADER_FUNCTION(channel);
-
 #ifdef PR_LOGGING
   if (LOG_ENABLED()) {
     nsCOMPtr<nsIURI> uri;
     channel->GetURI(getter_AddRefs(uri));
-    nsCAutoString spec;
+    nsAutoCString spec;
     uri->GetAsciiSpec(spec);
     LOG(("nsURILoader::OpenChannel for %s", spec.get()));
   }
@@ -893,7 +866,7 @@ nsresult nsURILoader::OpenChannel(nsIChannel* channel,
 }
 
 NS_IMETHODIMP nsURILoader::OpenChannel(nsIChannel* channel,
-                                       PRUint32 aFlags,
+                                       uint32_t aFlags,
                                        nsIInterfaceRequestor* aWindowContext,
                                        nsIStreamListener** aListener)
 {

@@ -5,6 +5,8 @@
 
 package org.mozilla.gecko;
 
+import org.mozilla.gecko.sync.setup.SyncAccounts;
+
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
@@ -16,8 +18,6 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-
-import org.mozilla.gecko.sync.setup.SyncAccounts;
 
 public class TabsPanel extends LinearLayout {
     private static final String LOGTAG = "GeckoTabsPanel";
@@ -109,7 +109,7 @@ public class TabsPanel extends LinearLayout {
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             if (!GeckoApp.mAppContext.hasTabsSideBar()) {
-                int heightSpec = MeasureSpec.makeMeasureSpec(mContext.getResources().getDisplayMetrics().heightPixels, MeasureSpec.EXACTLY);
+                int heightSpec = MeasureSpec.makeMeasureSpec((int) (0.5 * mContext.getResources().getDisplayMetrics().heightPixels), MeasureSpec.EXACTLY);
                 super.onMeasure(widthMeasureSpec, heightSpec);
             } else {
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -143,6 +143,7 @@ public class TabsPanel extends LinearLayout {
             mListContainer.removeAllViews();
         }
 
+        final boolean showAnimation = !mVisible;
         mVisible = true;
         mCurrentPanel = panel;
 
@@ -162,7 +163,8 @@ public class TabsPanel extends LinearLayout {
         mListContainer.addView(mPanel.getLayout());
 
         if (isSideBar()) {
-            dispatchLayoutChange(getWidth(), getHeight());
+            if (showAnimation)
+                dispatchLayoutChange(getWidth(), getHeight());
         } else {
             int actionBarHeight = (int) (mContext.getResources().getDimension(R.dimen.browser_toolbar_height));
 

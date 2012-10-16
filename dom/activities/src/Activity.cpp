@@ -39,7 +39,7 @@ NS_IMETHODIMP
 Activity::Initialize(nsISupports* aOwner,
                      JSContext* aContext,
                      JSObject* aObject,
-                     PRUint32 aArgc,
+                     uint32_t aArgc,
                      JS::Value* aArgv)
 {
   nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aOwner);
@@ -67,7 +67,7 @@ Activity::Initialize(nsISupports* aOwner,
   mProxy = do_CreateInstance("@mozilla.org/dom/activities/proxy;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mProxy->StartActivity(this, options);
+  mProxy->StartActivity(this, options, window);
   return NS_OK;
 }
 

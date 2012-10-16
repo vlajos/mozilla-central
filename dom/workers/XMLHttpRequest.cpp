@@ -30,10 +30,11 @@
 #include "DOMBindingInlines.h"
 #include "mozilla/Attributes.h"
 
+using namespace mozilla;
+
 USING_WORKERS_NAMESPACE
 
 using mozilla::dom::workers::exceptions::ThrowDOMExceptionForNSResult;
-using mozilla::ErrorResult;
 
 // XXX Need to figure this out...
 #define UNCATCHABLE_EXCEPTION NS_ERROR_OUT_OF_MEMORY
@@ -90,20 +91,24 @@ public:
   WorkerPrivate* mWorkerPrivate;
   XMLHttpRequest* mXMLHttpRequestPrivate;
 
+  // XHR Params:
+  bool mMozAnon;
+  bool mMozSystem;
+
   // Only touched on the main thread.
   nsRefPtr<nsXMLHttpRequest> mXHR;
   nsCOMPtr<nsIXMLHttpRequestUpload> mXHRUpload;
-  PRUint32 mInnerEventStreamId;
-  PRUint32 mInnerChannelId;
-  PRUint32 mOutstandingSendCount;
+  uint32_t mInnerEventStreamId;
+  uint32_t mInnerChannelId;
+  uint32_t mOutstandingSendCount;
 
   // Only touched on the worker thread.
-  PRUint32 mOuterEventStreamId;
-  PRUint32 mOuterChannelId;
-  PRUint64 mLastLoaded;
-  PRUint64 mLastTotal;
-  PRUint64 mLastUploadLoaded;
-  PRUint64 mLastUploadTotal;
+  uint32_t mOuterEventStreamId;
+  uint32_t mOuterChannelId;
+  uint64_t mLastLoaded;
+  uint64_t mLastTotal;
+  uint64_t mLastUploadLoaded;
+  uint64_t mLastUploadTotal;
   bool mIsSyncXHR;
   bool mLastLengthComputable;
   bool mLastUploadLengthComputable;
@@ -111,8 +116,8 @@ public:
   bool mSeenUploadLoadStart;
 
   // Only touched on the main thread.
-  PRUint32 mSyncQueueKey;
-  PRUint32 mSyncEventResponseSyncQueueKey;
+  uint32_t mSyncQueueKey;
+  uint32_t mSyncEventResponseSyncQueueKey;
   bool mUploadEventListenersAttached;
   bool mMainThreadSeenLoadStart;
   bool mInOpen;
@@ -121,15 +126,16 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
 
-  Proxy(XMLHttpRequest* aXHRPrivate)
+  Proxy(XMLHttpRequest* aXHRPrivate, bool aMozAnon, bool aMozSystem)
   : mWorkerPrivate(nullptr), mXMLHttpRequestPrivate(aXHRPrivate),
+    mMozAnon(aMozAnon), mMozSystem(aMozSystem),
     mInnerEventStreamId(0), mInnerChannelId(0), mOutstandingSendCount(0),
     mOuterEventStreamId(0), mOuterChannelId(0), mLastLoaded(0), mLastTotal(0),
     mLastUploadLoaded(0), mLastUploadTotal(0), mIsSyncXHR(false),
     mLastLengthComputable(false), mLastUploadLengthComputable(false),
     mSeenLoadStart(false), mSeenUploadLoadStart(false),
-    mSyncQueueKey(PR_UINT32_MAX),
-    mSyncEventResponseSyncQueueKey(PR_UINT32_MAX),
+    mSyncQueueKey(UINT32_MAX),
+    mSyncEventResponseSyncQueueKey(UINT32_MAX),
     mUploadEventListenersAttached(false), mMainThreadSeenLoadStart(false),
     mInOpen(false)
   { }
@@ -157,6 +163,8 @@ public:
         mXHR = nullptr;
         return false;
       }
+
+      mXHR->SetParameters(mMozAnon, mMozSystem);
 
       if (NS_FAILED(mXHR->GetUpload(getter_AddRefs(mXHRUpload)))) {
         mXHR = nullptr;
@@ -189,11 +197,11 @@ public:
     }
   }
 
-  PRUint32
+  uint32_t
   GetSyncQueueKey()
   {
     AssertIsOnMainThread();
-    return mSyncEventResponseSyncQueueKey == PR_UINT32_MAX ?
+    return mSyncEventResponseSyncQueueKey == UINT32_MAX ?
            mSyncQueueKey :
            mSyncEventResponseSyncQueueKey;
   }
@@ -203,8 +211,8 @@ public:
   {
     AssertIsOnMainThread();
 
-    return mSyncQueueKey == PR_UINT32_MAX &&
-           mSyncEventResponseSyncQueueKey == PR_UINT32_MAX;
+    return mSyncQueueKey == UINT32_MAX &&
+           mSyncEventResponseSyncQueueKey == UINT32_MAX;
   }
 };
 
@@ -283,7 +291,7 @@ class MainThreadSyncRunnable : public WorkerSyncRunnable
 public:
   MainThreadSyncRunnable(WorkerPrivate* aWorkerPrivate,
                          ClearingBehavior aClearingBehavior,
-                         PRUint32 aSyncQueueKey,
+                         uint32_t aSyncQueueKey,
                          bool aBypassSyncEventQueue)
   : WorkerSyncRunnable(aWorkerPrivate, aSyncQueueKey, aBypassSyncEventQueue,
                        aClearingBehavior)
@@ -386,16 +394,16 @@ class LoadStartDetectionRunnable MOZ_FINAL : public nsIRunnable,
   XMLHttpRequest* mXMLHttpRequestPrivate;
   nsString mEventType;
   bool mReceivedLoadStart;
-  PRUint32 mChannelId;
+  uint32_t mChannelId;
 
   class ProxyCompleteRunnable : public MainThreadProxyRunnable
   {
     XMLHttpRequest* mXMLHttpRequestPrivate;
-    PRUint32 mChannelId;
+    uint32_t mChannelId;
 
   public:
     ProxyCompleteRunnable(WorkerPrivate* aWorkerPrivate, Proxy* aProxy,
-                          XMLHttpRequest* aXHRPrivate, PRUint32 aChannelId)
+                          XMLHttpRequest* aXHRPrivate, uint32_t aChannelId)
     : MainThreadProxyRunnable(aWorkerPrivate, RunWhenClearing, aProxy),
       mXMLHttpRequestPrivate(aXHRPrivate), mChannelId(aChannelId)
     { }
@@ -422,7 +430,7 @@ class LoadStartDetectionRunnable MOZ_FINAL : public nsIRunnable,
         return true;
       }
 
-      if (mSyncQueueKey != PR_UINT32_MAX) {
+      if (mSyncQueueKey != UINT32_MAX) {
         aWorkerPrivate->StopSyncLoop(mSyncQueueKey, true);
       }
 
@@ -527,11 +535,11 @@ class EventRunnable : public MainThreadProxyRunnable
   jsval mResponse;
   nsString mResponseText;
   nsString mStatusText;
-  PRUint64 mLoaded;
-  PRUint64 mTotal;
-  PRUint32 mEventStreamId;
-  PRUint32 mStatus;
-  PRUint16 mReadyState;
+  uint64_t mLoaded;
+  uint64_t mTotal;
+  uint32_t mEventStreamId;
+  uint32_t mStatus;
+  uint16_t mReadyState;
   bool mUploadEvent;
   bool mProgressEvent;
   bool mLengthComputable;
@@ -541,7 +549,7 @@ class EventRunnable : public MainThreadProxyRunnable
 
 public:
   EventRunnable(Proxy* aProxy, bool aUploadEvent, const nsString& aType,
-                bool aLengthComputable, PRUint64 aLoaded, PRUint64 aTotal)
+                bool aLengthComputable, uint64_t aLoaded, uint64_t aTotal)
   : MainThreadProxyRunnable(aProxy->mWorkerPrivate, SkipWhenClearing, aProxy),
     mType(aType), mResponse(JSVAL_VOID), mLoaded(aLoaded), mTotal(aTotal),
     mEventStreamId(aProxy->mInnerEventStreamId), mStatus(0), mReadyState(0),
@@ -606,7 +614,7 @@ public:
 
     xhr->GetStatusText(mStatusText);
 
-    mReadyState = xhr->GetReadyState();
+    mReadyState = xhr->ReadyState();
 
     return true;
   }
@@ -762,17 +770,17 @@ class WorkerThreadProxySyncRunnable : public nsRunnable
 protected:
   WorkerPrivate* mWorkerPrivate;
   nsRefPtr<Proxy> mProxy;
-  PRUint32 mSyncQueueKey;
+  uint32_t mSyncQueueKey;
 
 private:
   class ResponseRunnable : public MainThreadProxyRunnable
   {
-    PRUint32 mSyncQueueKey;
+    uint32_t mSyncQueueKey;
     nsresult mErrorCode;
 
   public:
     ResponseRunnable(WorkerPrivate* aWorkerPrivate, Proxy* aProxy,
-                     PRUint32 aSyncQueueKey, nsresult aErrorCode)
+                     uint32_t aSyncQueueKey, nsresult aErrorCode)
     : MainThreadProxyRunnable(aWorkerPrivate, SkipWhenClearing, aProxy),
       mSyncQueueKey(aSyncQueueKey), mErrorCode(aErrorCode)
     {
@@ -829,7 +837,7 @@ public:
   {
     AssertIsOnMainThread();
 
-    PRUint32 oldSyncQueueKey = mProxy->mSyncEventResponseSyncQueueKey;
+    uint32_t oldSyncQueueKey = mProxy->mSyncEventResponseSyncQueueKey;
     mProxy->mSyncEventResponseSyncQueueKey = mSyncQueueKey;
 
     nsresult rv = MainThreadRun();
@@ -948,11 +956,11 @@ public:
 
 class SetTimeoutRunnable : public WorkerThreadProxySyncRunnable
 {
-  PRUint32 mTimeout;
+  uint32_t mTimeout;
 
 public:
   SetTimeoutRunnable(WorkerPrivate* aWorkerPrivate, Proxy* aProxy,
-                     PRUint32 aTimeout)
+                     uint32_t aTimeout)
   : WorkerThreadProxySyncRunnable(aWorkerPrivate, aProxy),
     mTimeout(aTimeout)
   { }
@@ -1038,7 +1046,7 @@ class OpenRunnable : public WorkerThreadProxySyncRunnable
   bool mMultipart;
   bool mBackgroundRequest;
   bool mWithCredentials;
-  PRUint32 mTimeout;
+  uint32_t mTimeout;
 
 public:
   OpenRunnable(WorkerPrivate* aWorkerPrivate, Proxy* aProxy,
@@ -1046,7 +1054,7 @@ public:
                const Optional<nsAString>& aUser,
                const Optional<nsAString>& aPassword,
                bool aMultipart, bool aBackgroundRequest, bool aWithCredentials,
-               PRUint32 aTimeout)
+               uint32_t aTimeout)
   : WorkerThreadProxySyncRunnable(aWorkerPrivate, aProxy), mMethod(aMethod),
     mURL(aURL), mMultipart(aMultipart),
     mBackgroundRequest(aBackgroundRequest), mWithCredentials(aWithCredentials),
@@ -1127,14 +1135,14 @@ class SendRunnable : public WorkerThreadProxySyncRunnable
   nsString mStringBody;
   JSAutoStructuredCloneBuffer mBody;
   nsTArray<nsCOMPtr<nsISupports> > mClonedObjects;
-  PRUint32 mSyncQueueKey;
+  uint32_t mSyncQueueKey;
   bool mHasUploadListeners;
 
 public:
   SendRunnable(WorkerPrivate* aWorkerPrivate, Proxy* aProxy,
                const nsAString& aStringBody, JSAutoStructuredCloneBuffer& aBody,
                nsTArray<nsCOMPtr<nsISupports> >& aClonedObjects,
-               PRUint32 aSyncQueueKey, bool aHasUploadListeners)
+               uint32_t aSyncQueueKey, bool aHasUploadListeners)
   : WorkerThreadProxySyncRunnable(aWorkerPrivate, aProxy),
     mStringBody(aStringBody), mSyncQueueKey(aSyncQueueKey),
     mHasUploadListeners(aHasUploadListeners)
@@ -1191,7 +1199,7 @@ public:
     NS_ASSERTION(!mProxy->mWorkerPrivate, "Should be null!");
     mProxy->mWorkerPrivate = mWorkerPrivate;
 
-    NS_ASSERTION(mProxy->mSyncQueueKey == PR_UINT32_MAX, "Should be unset!");
+    NS_ASSERTION(mProxy->mSyncQueueKey == UINT32_MAX, "Should be unset!");
     mProxy->mSyncQueueKey = mSyncQueueKey;
 
     if (mHasUploadListeners) {
@@ -1329,10 +1337,10 @@ Proxy::AddRemoveEventListeners(bool aUpload, bool aAdd)
     do_QueryInterface(static_cast<nsIXMLHttpRequest*>(mXHR.get()));
   NS_ASSERTION(target, "This should never fail!");
 
-  PRUint32 lastEventType = aUpload ? STRING_LAST_EVENTTARGET : STRING_LAST_XHR;
+  uint32_t lastEventType = aUpload ? STRING_LAST_EVENTTARGET : STRING_LAST_XHR;
 
   nsAutoString eventType;
-  for (PRUint32 index = 0; index <= lastEventType; index++) {
+  for (uint32_t index = 0; index <= lastEventType; index++) {
     eventType = NS_ConvertASCIItoUTF16(sEventStrings[index]);
     if (aAdd) {
       if (NS_FAILED(target->AddEventListener(eventType, this, false))) {
@@ -1381,7 +1389,7 @@ Proxy::HandleEvent(nsIDOMEvent* aEvent)
   nsRefPtr<EventRunnable> runnable;
 
   if (mInOpen && type.EqualsASCII(sEventStrings[STRING_readystatechange])) {
-    PRUint16 readyState = 0;
+    uint16_t readyState = 0;
     if (NS_SUCCEEDED(mXHR->GetReadyState(&readyState)) &&
         readyState == nsIXMLHttpRequest::OPENED) {
       mInnerEventStreamId++;
@@ -1390,7 +1398,7 @@ Proxy::HandleEvent(nsIDOMEvent* aEvent)
 
   if (progressEvent) {
     bool lengthComputable;
-    PRUint64 loaded, total;
+    uint64_t loaded, total;
     if (NS_FAILED(progressEvent->GetLengthComputable(&lengthComputable)) ||
         NS_FAILED(progressEvent->GetLoaded(&loaded)) ||
         NS_FAILED(progressEvent->GetTotal(&total))) {
@@ -1434,7 +1442,7 @@ XMLHttpRequest::XMLHttpRequest(JSContext* aCx, WorkerPrivate* aWorkerPrivate)
   mWorkerPrivate(aWorkerPrivate),
   mResponseType(XMLHttpRequestResponseTypeValues::Text), mTimeout(0),
   mJSObjectRooted(false), mMultipart(false), mBackgroundRequest(false),
-  mWithCredentials(false), mCanceled(false)
+  mWithCredentials(false), mCanceled(false), mMozAnon(false), mMozSystem(false)
 {
   mWorkerPrivate->AssertIsOnWorkerThread();
 }
@@ -1479,7 +1487,10 @@ XMLHttpRequest::Constructor(JSContext* aCx,
     return NULL;
   }
 
-  // TODO: process aParams. See bug 761227
+  if (workerPrivate->XHRParamsAllowed()) {
+    xhr->mMozAnon = aParams.mozAnon;
+    xhr->mMozSystem = aParams.mozSystem;
+  }
 
   xhr->mJSObject = xhr->GetJSObject();
   return xhr;
@@ -1499,7 +1510,7 @@ XMLHttpRequest::ReleaseProxy(ReleaseType aType)
         new AsyncTeardownRunnable(mProxy);
       mProxy = nullptr;
 
-      if (NS_DispatchToMainThread(runnable)) {
+      if (NS_FAILED(NS_DispatchToMainThread(runnable))) {
         NS_ERROR("Failed to dispatch teardown runnable!");
       }
     } else {
@@ -1682,7 +1693,7 @@ XMLHttpRequest::SendInternal(const nsAString& aStringBody,
 
   AutoUnpinXHR autoUnpin(this);
 
-  PRUint32 syncQueueKey = PR_UINT32_MAX;
+  uint32_t syncQueueKey = UINT32_MAX;
   if (mProxy->mIsSyncXHR) {
     syncQueueKey = mWorkerPrivate->CreateNewSyncLoop();
   }
@@ -1744,7 +1755,7 @@ XMLHttpRequest::Open(const nsAString& aMethod, const nsAString& aUrl,
     }
   }
   else {
-    mProxy = new Proxy(this);
+    mProxy = new Proxy(this, mMozAnon, mMozSystem);
   }
 
   mProxy->mOuterEventStreamId++;

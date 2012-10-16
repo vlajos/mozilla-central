@@ -8,7 +8,6 @@
 #include "nsISupportsImpl.h"
 #include "nsIURIRefObject.h"
 #include "nscore.h"
-#include "prtypes.h"
 
 class nsIDOMNamedNodeMap;
 class nsIDOMNode;
@@ -36,8 +35,8 @@ public:
 protected:
   nsCOMPtr<nsIDOMNode> mNode;
   nsCOMPtr<nsIDOMNamedNodeMap> mAttributes;
-  PRUint32 mCurAttrIndex;
-  PRUint32 mAttributeCnt;
+  uint32_t mCurAttrIndex;
+  uint32_t mAttributeCnt;
 };
 
 nsresult NS_NewHTMLURIRefObject(nsIURIRefObject** aResult, nsIDOMNode* aNode);

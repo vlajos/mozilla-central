@@ -19,15 +19,13 @@ class PathBuilderCG : public PathBuilder
 public:
   // absorbs a reference of aPath
   PathBuilderCG(CGMutablePathRef aPath, FillRule aFillRule)
-    : mFigureActive(false)
-    , mFillRule(aFillRule)
+    : mFillRule(aFillRule)
   {
       mCGPath = aPath;
   }
 
   PathBuilderCG(FillRule aFillRule)
-    : mFigureActive(false)
-    , mFillRule(aFillRule)
+    : mFillRule(aFillRule)
   {
       mCGPath = CGPathCreateMutable();
   }
@@ -54,7 +52,6 @@ private:
   void EnsureActive(const Point &aPoint);
 
   CGMutablePathRef mCGPath;
-  bool mFigureActive;
   Point mCurrentPoint;
   Point mBeginPoint;
   FillRule mFillRule;
@@ -71,6 +68,8 @@ public:
   }
   virtual ~PathCG() { CGPathRelease(mPath); }
 
+  // Paths will always return BACKEND_COREGRAPHICS, but note that they
+  // are compatible with BACKEND_COREGRAPHICS_ACCELERATED backend.
   virtual BackendType GetBackendType() const { return BACKEND_COREGRAPHICS; }
 
   virtual TemporaryRef<PathBuilder> CopyToBuilder(FillRule aFillRule = FILL_WINDING) const;

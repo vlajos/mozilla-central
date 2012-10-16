@@ -3,11 +3,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH		= ../../../..
+DEPTH		= @DEPTH@
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
-relativesrcdir  = content/svg/content/test
+relativesrcdir  = @relativesrcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
@@ -72,7 +72,6 @@ MOCHITEST_FILES = \
 		test_SVGxxxListIndexing.xhtml \
 		test_switch.xhtml \
 		switch-helper.svg \
-		test_text.html \
 		text-helper.svg \
 		test_transform.xhtml \
 		test_valueAsString.xhtml \
@@ -82,5 +81,11 @@ MOCHITEST_FILES = \
 		zoom-helper.svg \
 		test_zoom.xhtml \
 		$(NULL)
+
+ifneq (android,$(MOZ_WIDGET_TOOLKIT))
+MOCHITEST_FILES += \
+		test_text.html \
+		$(NULL)
+endif
 
 include $(topsrcdir)/config/rules.mk

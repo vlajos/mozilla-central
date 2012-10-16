@@ -8,6 +8,7 @@
 #include "nsIDOMHTMLTableCaptionElem.h"
 #include "nsIDOMEventTarget.h"
 #include "nsGenericHTMLElement.h"
+#include "nsAttrValueInlines.h"
 #include "nsGkAtoms.h"
 #include "nsStyleConsts.h"
 #include "nsMappedAttributes.h"
@@ -37,7 +38,7 @@ public:
   // nsIDOMHTMLTableCaptionElement
   NS_DECL_NSIDOMHTMLTABLECAPTIONELEMENT
 
-  virtual bool ParseAttribute(PRInt32 aNamespaceID,
+  virtual bool ParseAttribute(int32_t aNamespaceID,
                                 nsIAtom* aAttribute,
                                 const nsAString& aValue,
                                 nsAttrValue& aResult);
@@ -95,7 +96,7 @@ static const nsAttrValue::EnumTable kCaptionAlignTable[] = {
 };
 
 bool
-nsHTMLTableCaptionElement::ParseAttribute(PRInt32 aNamespaceID,
+nsHTMLTableCaptionElement::ParseAttribute(int32_t aNamespaceID,
                                           nsIAtom* aAttribute,
                                           const nsAString& aValue,
                                           nsAttrValue& aResult)

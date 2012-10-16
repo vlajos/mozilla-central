@@ -16,15 +16,10 @@
 #include "States.h"
 
 #include "nsCOMPtr.h"
-#include "nsIFrame.h"
+#include "nsHTMLOptionElement.h"
 #include "nsIComboboxControlFrame.h"
-#include "nsIDocument.h"
-#include "nsIDOMHTMLInputElement.h"
-#include "nsIDOMHTMLOptGroupElement.h"
-#include "nsIDOMHTMLSelectElement.h"
+#include "nsIFrame.h"
 #include "nsIListControlFrame.h"
-#include "nsIServiceManager.h"
-#include "nsIMutableArray.h"
 
 using namespace mozilla::a11y;
 
@@ -42,10 +37,10 @@ HTMLSelectListAccessible::
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLSelectListAccessible: Accessible public
 
-PRUint64
+uint64_t
 HTMLSelectListAccessible::NativeState()
 {
-  PRUint64 state = AccessibleWrap::NativeState();
+  uint64_t state = AccessibleWrap::NativeState();
   if (mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple))
     state |= states::MULTISELECTABLE | states::EXTSELECTABLE;
 
@@ -190,86 +185,70 @@ HTMLSelectOptionAccessible::NativeRole()
   return roles::OPTION;
 }
 
-nsresult
-HTMLSelectOptionAccessible::GetNameInternal(nsAString& aName)
+ENameValueFlag
+HTMLSelectOptionAccessible::NativeName(nsString& aName)
 {
   // CASE #1 -- great majority of the cases
   // find the label attribute - this is what the W3C says we should use
   mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::label, aName);
   if (!aName.IsEmpty())
-    return NS_OK;
+    return eNameOK;
 
   // CASE #2 -- no label parameter, get the first child, 
   // use it if it is a text node
   nsIContent* text = mContent->GetFirstChild();
-  if (!text)
-    return NS_OK;
-
-  if (text->IsNodeOfType(nsINode::eTEXT)) {
-    nsAutoString txtValue;
-    nsresult rv = nsTextEquivUtils::
-      AppendTextEquivFromTextContent(text, &txtValue);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    // Temp var (txtValue) needed until CompressWhitespace built for nsAString
-    txtValue.CompressWhitespace();
-    aName.Assign(txtValue);
-    return NS_OK;
+  if (text && text->IsNodeOfType(nsINode::eTEXT)) {
+    nsTextEquivUtils::AppendTextEquivFromTextContent(text, &aName);
+    aName.CompressWhitespace();
   }
 
-  return NS_OK;
+  return eNameOK;
 }
 
-PRUint64
+uint64_t
 HTMLSelectOptionAccessible::NativeState()
 {
   // As a HTMLSelectOptionAccessible we can have the following states:
   // SELECTABLE, SELECTED, FOCUSED, FOCUSABLE, OFFSCREEN
   // Upcall to Accessible, but skip HyperTextAccessible impl
   // because we don't want EDITABLE or SELECTABLE_TEXT
-  PRUint64 state = Accessible::NativeState();
+  uint64_t state = Accessible::NativeState();
 
   Accessible* select = GetSelect();
   if (!select)
     return state;
 
-  PRUint64 selectState = select->State();
+  uint64_t selectState = select->State();
   if (selectState & states::INVISIBLE)
     return state;
 
   // Are we selected?
-  bool isSelected = false;
-  nsCOMPtr<nsIDOMHTMLOptionElement> option(do_QueryInterface(mContent));
-  if (option) {
-    option->GetSelected(&isSelected);
-    if (isSelected)
-      state |= states::SELECTED;
-  }
+  nsHTMLOptionElement* option = nsHTMLOptionElement::FromContent(mContent);
+  bool selected = option && option->Selected();
+  if (selected)
+    state |= states::SELECTED;
 
   if (selectState & states::OFFSCREEN) {
     state |= states::OFFSCREEN;
-  }
-  else if (selectState & states::COLLAPSED) {
+  } else if (selectState & states::COLLAPSED) {
     // <select> is COLLAPSED: add OFFSCREEN, if not the currently
     // visible option
-    if (!isSelected) {
+    if (!selected) {
       state |= states::OFFSCREEN;
-    }
-    else {
+    } else {
       // Clear offscreen and invisible for currently showing option
       state &= ~(states::OFFSCREEN | states::INVISIBLE);
       state |= selectState & states::OPAQUE1;
     }
-  }
-  else {
+  } else {
     // XXX list frames are weird, don't rely on Accessible's general
     // visibility implementation unless they get reimplemented in layout
     state &= ~states::OFFSCREEN;
     // <select> is not collapsed: compare bounds to calculate OFFSCREEN
     Accessible* listAcc = Parent();
     if (listAcc) {
-      PRInt32 optionX, optionY, optionWidth, optionHeight;
-      PRInt32 listX, listY, listWidth, listHeight;
+      int32_t optionX, optionY, optionWidth, optionHeight;
+      int32_t listX, listY, listWidth, listHeight;
       GetBounds(&optionX, &optionY, &optionWidth, &optionHeight);
       listAcc->GetBounds(&listX, &listY, &listWidth, &listHeight);
       if (optionY < listY || optionY + optionHeight > listY + listHeight) {
@@ -281,19 +260,19 @@ HTMLSelectOptionAccessible::NativeState()
   return state;
 }
 
-PRUint64
+uint64_t
 HTMLSelectOptionAccessible::NativeInteractiveState() const
 {
   return NativelyUnavailable() ?
     states::UNAVAILABLE : states::FOCUSABLE | states::SELECTABLE;
 }
 
-PRInt32
+int32_t
 HTMLSelectOptionAccessible::GetLevelInternal()
 {
   nsIContent *parentContent = mContent->GetParent();
 
-  PRInt32 level =
+  int32_t level =
     parentContent->NodeInfo()->Equals(nsGkAtoms::optgroup) ? 2 : 1;
 
   if (level == 1 && Role() != roles::HEADING)
@@ -314,7 +293,7 @@ HTMLSelectOptionAccessible::GetBoundsRect(nsRect& aTotalBounds,
 }
 
 NS_IMETHODIMP
-HTMLSelectOptionAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
+HTMLSelectOptionAccessible::GetActionName(uint8_t aIndex, nsAString& aName)
 {
   if (aIndex == eAction_Select) {
     aName.AssignLiteral("select"); 
@@ -323,14 +302,14 @@ HTMLSelectOptionAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
   return NS_ERROR_INVALID_ARG;
 }
 
-PRUint8
+uint8_t
 HTMLSelectOptionAccessible::ActionCount()
 {
   return 1;
 }
 
 NS_IMETHODIMP
-HTMLSelectOptionAccessible::DoAction(PRUint8 aIndex)
+HTMLSelectOptionAccessible::DoAction(uint8_t aIndex)
 {
   if (aIndex != eAction_Select)
     return NS_ERROR_INVALID_ARG;
@@ -348,8 +327,8 @@ HTMLSelectOptionAccessible::SetSelected(bool aSelect)
   if (IsDefunct())
     return NS_ERROR_FAILURE;
 
-  nsCOMPtr<nsIDOMHTMLOptionElement> optionElm(do_QueryInterface(mContent));
-  return optionElm->SetSelected(aSelect);
+  nsHTMLOptionElement* option = nsHTMLOptionElement::FromContent(mContent);
+  return option ? option->SetSelected(aSelect) : NS_ERROR_FAILURE;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -377,25 +356,25 @@ HTMLSelectOptGroupAccessible::NativeRole()
   return roles::HEADING;
 }
 
-PRUint64
+uint64_t
 HTMLSelectOptGroupAccessible::NativeInteractiveState() const
 {
   return NativelyUnavailable() ? states::UNAVAILABLE : 0;
 }
 
 NS_IMETHODIMP
-HTMLSelectOptGroupAccessible::DoAction(PRUint8 index)
+HTMLSelectOptGroupAccessible::DoAction(uint8_t index)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-HTMLSelectOptGroupAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
+HTMLSelectOptGroupAccessible::GetActionName(uint8_t aIndex, nsAString& aName)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-PRUint8
+uint8_t
 HTMLSelectOptGroupAccessible::ActionCount()
 {
   return 0;
@@ -486,13 +465,13 @@ HTMLComboboxAccessible::Shutdown()
   }
 }
 
-PRUint64
+uint64_t
 HTMLComboboxAccessible::NativeState()
 {
   // As a HTMLComboboxAccessible we can have the following states:
   // FOCUSED, FOCUSABLE, HASPOPUP, EXPANDED, COLLAPSED
   // Get focus status from base class
-  PRUint64 state = Accessible::NativeState();
+  uint64_t state = Accessible::NativeState();
 
   nsIComboboxControlFrame* comboFrame = do_QueryFrame(GetFrame());
   if (comboFrame && comboFrame->IsDroppedDown())
@@ -529,14 +508,14 @@ HTMLComboboxAccessible::Value(nsString& aValue)
     option->Name(aValue);
 }
 
-PRUint8
+uint8_t
 HTMLComboboxAccessible::ActionCount()
 {
   return 1;
 }
 
 NS_IMETHODIMP
-HTMLComboboxAccessible::DoAction(PRUint8 aIndex)
+HTMLComboboxAccessible::DoAction(uint8_t aIndex)
 {
   if (aIndex != eAction_Click)
     return NS_ERROR_INVALID_ARG;
@@ -555,7 +534,7 @@ HTMLComboboxAccessible::DoAction(PRUint8 aIndex)
   * Uses the frame to get the state, updated on every click
   */
 NS_IMETHODIMP
-HTMLComboboxAccessible::GetActionName(PRUint8 aIndex, nsAString& aName)
+HTMLComboboxAccessible::GetActionName(uint8_t aIndex, nsAString& aName)
 {
   if (aIndex != HTMLComboboxAccessible::eAction_Click) {
     return NS_ERROR_INVALID_ARG;
@@ -646,6 +625,7 @@ HTMLComboboxListAccessible::
                              DocAccessible* aDoc) :
   HTMLSelectListAccessible(aContent, aDoc)
 {
+  mFlags |= eSharedNode;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -666,12 +646,6 @@ HTMLComboboxListAccessible::GetFrame() const
   return nullptr;
 }
 
-bool
-HTMLComboboxListAccessible::IsPrimaryForNode() const
-{
-  return false;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLComboboxAccessible: Accessible
 
@@ -681,13 +655,13 @@ HTMLComboboxListAccessible::NativeRole()
   return roles::COMBOBOX_LIST;
 }
 
-PRUint64
+uint64_t
 HTMLComboboxListAccessible::NativeState()
 {
   // As a HTMLComboboxListAccessible we can have the following states:
   // FOCUSED, FOCUSABLE, FLOATING, INVISIBLE
   // Get focus status from base class
-  PRUint64 state = Accessible::NativeState();
+  uint64_t state = Accessible::NativeState();
 
   nsIComboboxControlFrame* comboFrame = do_QueryFrame(mParent->GetFrame());
   if (comboFrame && comboFrame->IsDroppedDown())

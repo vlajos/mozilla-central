@@ -25,16 +25,6 @@
 #include "prio.h"
 #include "prprf.h"
 
-// Error code used internally by the incremental downloader to cancel the
-// network channel when the download is already complete.
-#define NS_ERROR_DOWNLOAD_COMPLETE \
-    NS_ERROR_GENERATE_FAILURE(NS_ERROR_MODULE_GENERAL, 1)
-
-// Error code used internally by the incremental downloader to cancel the
-// network channel when the response to a range request is 200 instead of 206.
-#define NS_ERROR_DOWNLOAD_NOT_PARTIAL \
-    NS_ERROR_GENERATE_FAILURE(NS_ERROR_MODULE_GENERAL, 2)
-
 // Default values used to initialize a nsIncrementalDownload object.
 #define DEFAULT_CHUNK_SIZE (4096 * 16)  // bytes
 #define DEFAULT_INTERVAL    60          // seconds
@@ -47,7 +37,7 @@
 //-----------------------------------------------------------------------------
 
 static nsresult
-WriteToFile(nsIFile *lf, const char *data, PRUint32 len, PRInt32 flags)
+WriteToFile(nsIFile *lf, const char *data, uint32_t len, int32_t flags)
 {
   PRFileDesc *fd;
   nsresult rv = lf->OpenNSPRFileDesc(flags, 0600, &fd);
@@ -55,37 +45,37 @@ WriteToFile(nsIFile *lf, const char *data, PRUint32 len, PRInt32 flags)
     return rv;
 
   if (len)
-    rv = PR_Write(fd, data, len) == PRInt32(len) ? NS_OK : NS_ERROR_FAILURE;
+    rv = PR_Write(fd, data, len) == int32_t(len) ? NS_OK : NS_ERROR_FAILURE;
 
   PR_Close(fd);
   return rv;
 }
 
 static nsresult
-AppendToFile(nsIFile *lf, const char *data, PRUint32 len)
+AppendToFile(nsIFile *lf, const char *data, uint32_t len)
 {
-  PRInt32 flags = PR_WRONLY | PR_CREATE_FILE | PR_APPEND;
+  int32_t flags = PR_WRONLY | PR_CREATE_FILE | PR_APPEND;
   return WriteToFile(lf, data, len, flags);
 }
 
 // maxSize may be -1 if unknown
 static void
-MakeRangeSpec(const PRInt64 &size, const PRInt64 &maxSize, PRInt32 chunkSize,
+MakeRangeSpec(const int64_t &size, const int64_t &maxSize, int32_t chunkSize,
               bool fetchRemaining, nsCString &rangeSpec)
 {
   rangeSpec.AssignLiteral("bytes=");
-  rangeSpec.AppendInt(PRInt64(size));
+  rangeSpec.AppendInt(int64_t(size));
   rangeSpec.Append('-');
 
   if (fetchRemaining)
     return;
 
-  PRInt64 end = size + PRInt64(chunkSize);
-  if (maxSize != PRInt64(-1) && end > maxSize)
+  int64_t end = size + int64_t(chunkSize);
+  if (maxSize != int64_t(-1) && end > maxSize)
     end = maxSize;
   end -= 1;
 
-  rangeSpec.AppendInt(PRInt64(end));
+  rangeSpec.AppendInt(int64_t(end));
 }
 
 //-----------------------------------------------------------------------------
@@ -118,7 +108,7 @@ private:
   void     UpdateProgress();
   nsresult CallOnStartRequest();
   void     CallOnStopRequest();
-  nsresult StartTimer(PRInt32 interval);
+  nsresult StartTimer(int32_t interval);
   nsresult ProcessTimeout();
   nsresult ReadCurrentSize();
   nsresult ClearRequestHeader(nsIHttpChannel *channel);
@@ -132,13 +122,13 @@ private:
   nsCOMPtr<nsIChannel>                     mChannel;
   nsCOMPtr<nsITimer>                       mTimer;
   nsAutoArrayPtr<char>                     mChunk;
-  PRInt32                                  mChunkLen;
-  PRInt32                                  mChunkSize;
-  PRInt32                                  mInterval;
-  PRInt64                                  mTotalSize;
-  PRInt64                                  mCurrentSize;
-  PRUint32                                 mLoadFlags;
-  PRInt32                                  mNonPartialCount;
+  int32_t                                  mChunkLen;
+  int32_t                                  mChunkSize;
+  int32_t                                  mInterval;
+  int64_t                                  mTotalSize;
+  int64_t                                  mCurrentSize;
+  uint32_t                                 mLoadFlags;
+  int32_t                                  mNonPartialCount;
   nsresult                                 mStatus;
   bool                                     mIsPending;
   bool                                     mDidOnStartRequest;
@@ -167,7 +157,7 @@ nsIncrementalDownload::nsIncrementalDownload()
 nsresult
 nsIncrementalDownload::FlushChunk()
 {
-  NS_ASSERTION(mTotalSize != PRInt64(-1), "total size should be known");
+  NS_ASSERTION(mTotalSize != int64_t(-1), "total size should be known");
 
   if (mChunkLen == 0)
     return NS_OK;
@@ -176,7 +166,7 @@ nsIncrementalDownload::FlushChunk()
   if (NS_FAILED(rv))
     return rv;
 
-  mCurrentSize += PRInt64(mChunkLen);
+  mCurrentSize += int64_t(mChunkLen);
   mChunkLen = 0;
 
   return NS_OK;
@@ -189,8 +179,8 @@ nsIncrementalDownload::UpdateProgress()
 
   if (mProgressSink)
     mProgressSink->OnProgress(this, mObserverContext,
-                              PRUint64(PRInt64(mCurrentSize) + mChunkLen),
-                              PRUint64(PRInt64(mTotalSize)));
+                              uint64_t(int64_t(mCurrentSize) + mChunkLen),
+                              uint64_t(int64_t(mTotalSize)));
 }
 
 nsresult
@@ -222,7 +212,7 @@ nsIncrementalDownload::CallOnStopRequest()
 }
 
 nsresult
-nsIncrementalDownload::StartTimer(PRInt32 interval)
+nsIncrementalDownload::StartTimer(int32_t interval)
 {
   nsresult rv;
   mTimer = do_CreateInstance(NS_TIMER_CONTRACTID, &rv);
@@ -255,7 +245,7 @@ nsIncrementalDownload::ProcessTimeout()
   if (NS_FAILED(rv))
     return rv;
 
-  NS_ASSERTION(mCurrentSize != PRInt64(-1),
+  NS_ASSERTION(mCurrentSize != int64_t(-1),
       "we should know the current file size by now");
 
   rv = ClearRequestHeader(http);
@@ -264,8 +254,8 @@ nsIncrementalDownload::ProcessTimeout()
 
   // Don't bother making a range request if we are just going to fetch the
   // entire document.
-  if (mInterval || mCurrentSize != PRInt64(0)) {
-    nsCAutoString range;
+  if (mInterval || mCurrentSize != int64_t(0)) {
+    nsAutoCString range;
     MakeRangeSpec(mCurrentSize, mTotalSize, mChunkSize, mInterval == 0, range);
 
     rv = http->SetRequestHeader(NS_LITERAL_CSTRING("Range"), range, false);
@@ -289,8 +279,8 @@ nsIncrementalDownload::ProcessTimeout()
 nsresult
 nsIncrementalDownload::ReadCurrentSize()
 {
-  PRInt64 size;
-  nsresult rv = mDest->GetFileSize((PRInt64 *) &size);
+  int64_t size;
+  nsresult rv = mDest->GetFileSize((int64_t *) &size);
   if (rv == NS_ERROR_FILE_NOT_FOUND ||
       rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
     mCurrentSize = 0;
@@ -412,7 +402,7 @@ nsIncrementalDownload::SetLoadGroup(nsILoadGroup *loadGroup)
 
 NS_IMETHODIMP
 nsIncrementalDownload::Init(nsIURI *uri, nsIFile *dest,
-                            PRInt32 chunkSize, PRInt32 interval)
+                            int32_t chunkSize, int32_t interval)
 {
   // Keep it simple: only allow initialization once
   NS_ENSURE_FALSE(mURI, NS_ERROR_ALREADY_INITIALIZED);
@@ -458,14 +448,14 @@ nsIncrementalDownload::GetDestination(nsIFile **result)
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetTotalSize(PRInt64 *result)
+nsIncrementalDownload::GetTotalSize(int64_t *result)
 {
   *result = mTotalSize;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetCurrentSize(PRInt64 *result)
+nsIncrementalDownload::GetCurrentSize(int64_t *result)
 {
   *result = mCurrentSize;
   return NS_OK;
@@ -515,7 +505,7 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
     return rv;
 
   // Ensure that we are receiving a 206 response.
-  PRUint32 code;
+  uint32_t code;
   rv = http->GetResponseStatus(&code);
   if (NS_FAILED(rv))
     return rv;
@@ -523,7 +513,7 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
     // We may already have the entire file downloaded, in which case
     // our request for a range beyond the end of the file would have
     // been met with an error response code.
-    if (code == 416 && mTotalSize == PRInt64(-1)) {
+    if (code == 416 && mTotalSize == int64_t(-1)) {
       mTotalSize = mCurrentSize;
       // Return an error code here to suppress OnDataAvailable.
       return NS_ERROR_DOWNLOAD_COMPLETE;
@@ -557,7 +547,7 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
   }
 
   // Do special processing after the first response.
-  if (mTotalSize == PRInt64(-1)) {
+  if (mTotalSize == int64_t(-1)) {
     // Update knowledge of mFinalURI
     rv = http->GetURI(getter_AddRefs(mFinalURI));
     if (NS_FAILED(rv))
@@ -566,16 +556,16 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
     if (code == 206) {
       // OK, read the Content-Range header to determine the total size of this
       // download file.
-      nsCAutoString buf;
+      nsAutoCString buf;
       rv = http->GetResponseHeader(NS_LITERAL_CSTRING("Content-Range"), buf);
       if (NS_FAILED(rv))
         return rv;
-      PRInt32 slash = buf.FindChar('/');
+      int32_t slash = buf.FindChar('/');
       if (slash == kNotFound) {
         NS_WARNING("server returned invalid Content-Range header!");
         return NS_ERROR_UNEXPECTED;
       }
-      if (PR_sscanf(buf.get() + slash + 1, "%lld", (PRInt64 *) &mTotalSize) != 1)
+      if (PR_sscanf(buf.get() + slash + 1, "%lld", (int64_t *) &mTotalSize) != 1)
         return NS_ERROR_UNEXPECTED;
     } else {
       // Use nsIPropertyBag2 to fetch the content length as it exposes the
@@ -586,7 +576,7 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
       rv = props->GetPropertyAsInt64(NS_CHANNEL_PROP_CONTENT_LENGTH,
                                      &mTotalSize);
       // We need to know the total size of the thing we're trying to download.
-      if (mTotalSize == PRInt64(-1)) {
+      if (mTotalSize == int64_t(-1)) {
         NS_WARNING("server returned no content-length header!");
         return NS_ERROR_UNEXPECTED;
       }
@@ -603,14 +593,14 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
   }
 
   // Adjust mChunkSize accordingly if mCurrentSize is close to mTotalSize.
-  PRInt64 diff = mTotalSize - mCurrentSize;
-  if (diff <= PRInt64(0)) {
+  int64_t diff = mTotalSize - mCurrentSize;
+  if (diff <= int64_t(0)) {
     NS_WARNING("about to set a bogus chunk size; giving up");
     return NS_ERROR_UNEXPECTED;
   }
 
-  if (diff < PRInt64(mChunkSize))
-    mChunkSize = PRUint32(diff);
+  if (diff < int64_t(mChunkSize))
+    mChunkSize = uint32_t(diff);
 
   mChunk = new char[mChunkSize];
   if (!mChunk)
@@ -662,12 +652,12 @@ NS_IMETHODIMP
 nsIncrementalDownload::OnDataAvailable(nsIRequest *request,
                                        nsISupports *context,
                                        nsIInputStream *input,
-                                       PRUint32 offset,
-                                       PRUint32 count)
+                                       uint64_t offset,
+                                       uint32_t count)
 {
   while (count) {
-    PRUint32 space = mChunkSize - mChunkLen;
-    PRUint32 n, len = NS_MIN(space, count);
+    uint32_t space = mChunkSize - mChunkLen;
+    uint32_t n, len = NS_MIN(space, count);
 
     nsresult rv = input->Read(mChunk + mChunkLen, len, &n);
     if (NS_FAILED(rv))
@@ -745,7 +735,7 @@ nsIncrementalDownload::ClearRequestHeader(nsIHttpChannel *channel)
 NS_IMETHODIMP
 nsIncrementalDownload::AsyncOnChannelRedirect(nsIChannel *oldChannel,
                                               nsIChannel *newChannel,
-                                              PRUint32 flags,
+                                              uint32_t flags,
                                               nsIAsyncVerifyRedirectCallback *cb)
 {
   // In response to a redirect, we need to propagate the Range header.  See bug
@@ -764,7 +754,7 @@ nsIncrementalDownload::AsyncOnChannelRedirect(nsIChannel *oldChannel,
     return rv;
 
   // If we didn't have a Range header, then we must be doing a full download.
-  nsCAutoString rangeVal;
+  nsAutoCString rangeVal;
   http->GetRequestHeader(rangeHdr, rangeVal);
   if (!rangeVal.IsEmpty()) {
     rv = newHttpChannel->SetRequestHeader(rangeHdr, rangeVal, false);

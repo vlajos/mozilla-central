@@ -5,16 +5,15 @@
 
 package org.mozilla.gecko;
 
+import org.mozilla.gecko.gfx.GfxInfoThread;
+
 import android.content.Intent;
-import android.content.res.Resources;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.os.SystemClock;
 import android.util.Log;
 
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
-
-import org.mozilla.gecko.gfx.GfxInfoThread;
 
 public class GeckoThread extends Thread {
     private static final String LOGTAG = "GeckoThread";
@@ -22,23 +21,12 @@ public class GeckoThread extends Thread {
     Intent mIntent;
     String mUri;
     int mRestoreMode;
-    CountDownLatch mStartSignal;
 
-    GeckoThread() {
-        mStartSignal = new CountDownLatch(1);
-        setName("Gecko");
-    }
-
-    public void init(Intent intent, String uri, int restoreMode) {
+    GeckoThread(Intent intent, String uri, int restoreMode) {
         mIntent = intent;
         mUri = uri;
         mRestoreMode = restoreMode;
-    }
-
-    public void reallyStart() {
-        mStartSignal.countDown();
-        if (getState() == Thread.State.NEW)
-            start();
+        setName("Gecko");
     }
 
     public void run() {
@@ -65,11 +53,6 @@ public class GeckoThread extends Thread {
         GeckoAppShell.loadGeckoLibs(resourcePath);
 
         Locale.setDefault(locale);
-
-        try {
-            mStartSignal.await();
-        } catch (Exception e) { }
-
         Resources res = app.getBaseContext().getResources();
         Configuration config = res.getConfiguration();
         config.locale = locale;
@@ -88,14 +71,11 @@ public class GeckoThread extends Thread {
 
         String args = mIntent.getStringExtra("args");
 
-        // if this isn't the default BrowserApp, send the apps default profile to gecko
-        if (!(app instanceof BrowserApp)) {
-            String profile = app.getDefaultProfileName();
-            args = (args != null ? args : "") + "-P " + profile;
-        }
+        String profile = GeckoApp.sIsUsingCustomProfile ? "" : (" -P " + app.getProfile().getName());
+        args = (args != null ? args : "") + profile;
 
         // and then fire us up
-        Log.i(LOGTAG, "RunGecko - URI = " + mUri + " args = " + args);
+        Log.i(LOGTAG, "RunGecko - args = " + args);
         GeckoAppShell.runGecko(app.getApplication().getPackageResourcePath(),
                                args,
                                mUri,

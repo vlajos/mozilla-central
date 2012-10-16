@@ -179,7 +179,7 @@ nsGNOMEShellService::CheckHandlerMatchesAppName(const nsACString &handler) const
 {
   gint argc;
   gchar **argv;
-  nsCAutoString command(handler);
+  nsAutoCString command(handler);
 
   // The string will be something of the form: [/path/to/]browser "%s"
   // We want to remove all of the parameters and get just the binary name.
@@ -197,6 +197,7 @@ nsGNOMEShellService::CheckHandlerMatchesAppName(const nsACString &handler) const
 
 NS_IMETHODIMP
 nsGNOMEShellService::IsDefaultBrowser(bool aStartupCheck,
+                                      bool aForAllTypes,
                                       bool* aIsDefaultBrowser)
 {
   *aIsDefaultBrowser = false;
@@ -207,7 +208,7 @@ nsGNOMEShellService::IsDefaultBrowser(bool aStartupCheck,
   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
 
   bool enabled;
-  nsCAutoString handler;
+  nsAutoCString handler;
   nsCOMPtr<nsIGIOMimeApp> gioApp;
 
   for (unsigned int i = 0; i < ArrayLength(appProtocols); ++i) {
@@ -254,7 +255,7 @@ nsGNOMEShellService::SetDefaultBrowser(bool aClaimAllTypes,
   nsCOMPtr<nsIGConfService> gconf = do_GetService(NS_GCONFSERVICE_CONTRACTID);
   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
   if (gconf) {
-    nsCAutoString appKeyValue;
+    nsAutoCString appKeyValue;
     if (mAppIsInPath) {
       // mAppPath is in the users path, so use only the basename as the launcher
       gchar *tmp = g_path_get_basename(mAppPath.get());
@@ -390,7 +391,7 @@ WriteImage(const nsCString& aPath, imgIContainer* aImage)
                  
 NS_IMETHODIMP
 nsGNOMEShellService::SetDesktopBackground(nsIDOMElement* aElement, 
-                                          PRInt32 aPosition)
+                                          int32_t aPosition)
 {
   nsresult rv;
   nsCOMPtr<nsIImageLoadingContent> imageContent = do_QueryInterface(aElement, &rv);
@@ -406,7 +407,7 @@ nsGNOMEShellService::SetDesktopBackground(nsIDOMElement* aElement,
   if (!container) return rv;
 
   // Set desktop wallpaper filling style
-  nsCAutoString options;
+  nsAutoCString options;
   if (aPosition == BACKGROUND_TILE)
     options.Assign("wallpaper");
   else if (aPosition == BACKGROUND_STRETCH)
@@ -419,7 +420,7 @@ nsGNOMEShellService::SetDesktopBackground(nsIDOMElement* aElement,
     options.Assign("centered");
 
   // Write the background file to the home directory.
-  nsCAutoString filePath(PR_GetEnv("HOME"));
+  nsAutoCString filePath(PR_GetEnv("HOME"));
 
   // get the product brand name from localized strings
   nsString brandName;
@@ -494,12 +495,12 @@ nsGNOMEShellService::SetDesktopBackground(nsIDOMElement* aElement,
 #define COLOR_8_TO_16_BIT(_c) ((_c) << 8 | (_c))
 
 NS_IMETHODIMP
-nsGNOMEShellService::GetDesktopBackgroundColor(PRUint32 *aColor)
+nsGNOMEShellService::GetDesktopBackgroundColor(uint32_t *aColor)
 {
   nsCOMPtr<nsIGSettingsService> gsettings = 
     do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
   nsCOMPtr<nsIGSettingsCollection> background_settings;
-  nsCAutoString background;
+  nsAutoCString background;
 
   if (gsettings) {
     gsettings->GetCollectionForSchema(
@@ -533,25 +534,25 @@ nsGNOMEShellService::GetDesktopBackgroundColor(PRUint32 *aColor)
 }
 
 static void
-ColorToCString(PRUint32 aColor, nsCString& aResult)
+ColorToCString(uint32_t aColor, nsCString& aResult)
 {
   // The #rrrrggggbbbb format is used to match gdk_color_to_string()
   char *buf = aResult.BeginWriting(13);
   if (!buf)
     return;
 
-  PRUint16 red = COLOR_8_TO_16_BIT((aColor >> 16) & 0xff);
-  PRUint16 green = COLOR_8_TO_16_BIT((aColor >> 8) & 0xff);
-  PRUint16 blue = COLOR_8_TO_16_BIT(aColor & 0xff);
+  uint16_t red = COLOR_8_TO_16_BIT((aColor >> 16) & 0xff);
+  uint16_t green = COLOR_8_TO_16_BIT((aColor >> 8) & 0xff);
+  uint16_t blue = COLOR_8_TO_16_BIT(aColor & 0xff);
 
   PR_snprintf(buf, 14, "#%04x%04x%04x", red, green, blue);
 }
 
 NS_IMETHODIMP
-nsGNOMEShellService::SetDesktopBackgroundColor(PRUint32 aColor)
+nsGNOMEShellService::SetDesktopBackgroundColor(uint32_t aColor)
 {
   NS_ASSERTION(aColor <= 0xffffff, "aColor has extra bits");
-  nsCAutoString colorString;
+  nsAutoCString colorString;
   ColorToCString(aColor, colorString);
 
   nsCOMPtr<nsIGSettingsService> gsettings =
@@ -577,9 +578,9 @@ nsGNOMEShellService::SetDesktopBackgroundColor(PRUint32 aColor)
 }
 
 NS_IMETHODIMP
-nsGNOMEShellService::OpenApplication(PRInt32 aApplication)
+nsGNOMEShellService::OpenApplication(int32_t aApplication)
 {
-  nsCAutoString scheme;
+  nsAutoCString scheme;
   if (aApplication == APPLICATION_MAIL)
     scheme.Assign("mailto");
   else if (aApplication == APPLICATION_NEWS)
@@ -600,7 +601,7 @@ nsGNOMEShellService::OpenApplication(PRInt32 aApplication)
     return NS_ERROR_FAILURE;
 
   bool enabled;
-  nsCAutoString appCommand;
+  nsAutoCString appCommand;
   gconf->GetAppForProtocol(scheme, &enabled, appCommand);
 
   if (!enabled)

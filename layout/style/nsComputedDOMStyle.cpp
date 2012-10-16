@@ -10,7 +10,7 @@
 
 #include "nsComputedDOMStyle.h"
 
-#include "nsDOMError.h"
+#include "nsError.h"
 #include "nsDOMString.h"
 #include "nsIDOMCSS2Properties.h"
 #include "nsIDOMElement.h"
@@ -23,6 +23,7 @@
 #include "nsCSSProps.h"
 #include "nsCSSKeywords.h"
 #include "nsDOMCSSRect.h"
+#include "nsFlexContainerFrame.h"
 #include "nsGkAtoms.h"
 #include "nsHTMLReflowState.h"
 #include "nsThemeConstants.h"
@@ -45,6 +46,7 @@
 #include "mozilla/dom/Element.h"
 #include "nsGenericElement.h"
 #include "CSSCalc.h"
+#include "nsWrapperCacheInlines.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -149,30 +151,23 @@ nsComputedDOMStyle::Shutdown()
 }
 
 
-// If nsComputedDOMStyle is changed so that any additional fields are
-// traversed by the cycle collector (for instance, if wrapper cache
-// handling is changed) then CAN_SKIP must be updated.
-NS_IMPL_CYCLE_COLLECTION_1(nsComputedDOMStyle, mContent)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_1(nsComputedDOMStyle, mContent)
 
-// nsComputedDOMStyle has only one cycle collected field, so if
-// mContent is going to be skipped, the style isn't part of a garbage
-// cycle.
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_BEGIN(nsComputedDOMStyle)
-  return !tmp->mContent || nsGenericElement::CanSkip(tmp->mContent, true);
+  return tmp->IsBlack();
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_END
 
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_IN_CC_BEGIN(nsComputedDOMStyle)
-  return !tmp->mContent || nsGenericElement::CanSkipInCC(tmp->mContent);
+  return tmp->IsBlack();
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_IN_CC_END
 
-// CanSkipThis returns false to avoid problems with incomplete unlinking.
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_BEGIN(nsComputedDOMStyle)
+  return tmp->IsBlack();
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_END
 
 // QueryInterface implementation for nsComputedDOMStyle
-NS_INTERFACE_MAP_BEGIN(nsComputedDOMStyle)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsComputedDOMStyle)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRIES_CYCLE_COLLECTION(nsComputedDOMStyle)
 NS_INTERFACE_MAP_END_INHERITING(nsDOMCSSDeclaration)
 
 
@@ -232,7 +227,7 @@ nsComputedDOMStyle::SetCssText(const nsAString& aCssText)
 
 
 NS_IMETHODIMP
-nsComputedDOMStyle::GetLength(PRUint32* aLength)
+nsComputedDOMStyle::GetLength(uint32_t* aLength)
 {
   NS_PRECONDITION(aLength, "Null aLength!  Prepare to die!");
 
@@ -411,11 +406,24 @@ nsComputedDOMStyle::GetPropertyCSSValue(const nsAString& aPropertyName,
   nsCSSProperty prop = nsCSSProps::LookupProperty(aPropertyName,
                                                   nsCSSProps::eEnabled);
 
+  // We don't (for now, anyway, though it may make sense to change it
+  // for all aliases, including those in nsCSSPropAliasList) want
+  // aliases to be enumerable (via GetLength and IndexedGetter), so
+  // handle them here rather than adding entries to
+  // GetQueryablePropertyMap.
+  if (prop != eCSSProperty_UNKNOWN &&
+      nsCSSProps::PropHasFlags(prop, CSS_PROPERTY_IS_ALIAS)) {
+    const nsCSSProperty* subprops = nsCSSProps::SubpropertyEntryFor(prop);
+    NS_ABORT_IF_FALSE(subprops[1] == eCSSProperty_UNKNOWN,
+                      "must have list of length 1");
+    prop = subprops[0];
+  }
+
   const ComputedStyleMapEntry* propEntry = nullptr;
   {
-    PRUint32 length = 0;
+    uint32_t length = 0;
     const ComputedStyleMapEntry* propMap = GetQueryablePropertyMap(&length);
-    for (PRUint32 i = 0; i < length; ++i) {
+    for (uint32_t i = 0; i < length; ++i) {
       if (prop == propMap[i].mProperty) {
         propEntry = &propMap[i];
         break;
@@ -549,20 +557,23 @@ nsComputedDOMStyle::SetProperty(const nsAString& aPropertyName,
 
 
 NS_IMETHODIMP
-nsComputedDOMStyle::Item(PRUint32 aIndex, nsAString& aReturn)
+nsComputedDOMStyle::Item(uint32_t aIndex, nsAString& aReturn)
 {
-  aReturn.Truncate();
-
-  PRUint32 length = 0;
-  const ComputedStyleMapEntry* propMap = GetQueryablePropertyMap(&length);
-  if (aIndex < length) {
-    CopyASCIItoUTF16(nsCSSProps::GetStringValue(propMap[aIndex].mProperty),
-                    aReturn);
-  }
-
-  return NS_OK;
+  return nsDOMCSSDeclaration::Item(aIndex, aReturn);
 }
 
+void
+nsComputedDOMStyle::IndexedGetter(uint32_t aIndex, bool& aFound,
+                                  nsAString& aPropName)
+{
+  uint32_t length = 0;
+  const ComputedStyleMapEntry* propMap = GetQueryablePropertyMap(&length);
+  aFound = aIndex < length;
+  if (aFound) {
+    CopyASCIItoUTF16(nsCSSProps::GetStringValue(propMap[aIndex].mProperty),
+                     aPropName);
+  }
+}
 
 // Property getters...
 
@@ -629,7 +640,7 @@ nsComputedDOMStyle::SetToRGBAColor(nsROCSSPrimitiveValue* aValue,
   nsROCSSPrimitiveValue *blue  = GetROCSSPrimitiveValue();
   nsROCSSPrimitiveValue *alpha  = GetROCSSPrimitiveValue();
 
-  PRUint8 a = NS_GET_A(aColor);
+  uint8_t a = NS_GET_A(aColor);
   nsDOMCSSRGBColor *rgbColor =
     new nsDOMCSSRGBColor(red, green, blue, alpha, a < 255);
 
@@ -700,6 +711,16 @@ nsComputedDOMStyle::DoGetColumnGap()
 }
 
 nsIDOMCSSValue*
+nsComputedDOMStyle::DoGetColumnFill()
+{
+  nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
+  val->SetIdent(
+    nsCSSProps::ValueToKeywordEnum(GetStyleColumn()->mColumnFill,
+                                   nsCSSProps::kColumnFillKTable));
+  return val;
+}
+
+nsIDOMCSSValue*
 nsComputedDOMStyle::DoGetColumnRuleWidth()
 {
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
@@ -754,7 +775,7 @@ nsComputedDOMStyle::DoGetContent()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(false);
 
-  for (PRUint32 i = 0, i_end = content->ContentCount(); i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = content->ContentCount(); i < i_end; ++i) {
     nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(val);
 
@@ -801,7 +822,7 @@ nsComputedDOMStyle::DoGetContent()
 
           nsStyleUtil::AppendEscapedCSSIdent(
             nsDependentString(a->Item(0).GetStringBufferValue()), str);
-          PRInt32 typeItem = 1;
+          int32_t typeItem = 1;
           if (data.mType == eStyleContentType_Counters) {
             typeItem = 2;
             str.AppendLiteral(", ");
@@ -810,7 +831,7 @@ nsComputedDOMStyle::DoGetContent()
           }
           NS_ABORT_IF_FALSE(eCSSUnit_None != a->Item(typeItem).GetUnit(),
                             "'none' should be handled  as enumerated value");
-          PRInt32 type = a->Item(typeItem).GetIntValue();
+          int32_t type = a->Item(typeItem).GetIntValue();
           if (type != NS_STYLE_LIST_STYLE_DECIMAL) {
             str.AppendLiteral(", ");
             AppendASCIItoUTF16(
@@ -857,7 +878,7 @@ nsComputedDOMStyle::DoGetCounterIncrement()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(false);
 
-  for (PRUint32 i = 0, i_end = content->CounterIncrementCount(); i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = content->CounterIncrementCount(); i < i_end; ++i) {
     nsROCSSPrimitiveValue* name = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(name);
 
@@ -983,10 +1004,10 @@ nsComputedDOMStyle::DoGetTransform()
   /* First, get the display data.  We'll need it. */
   const nsStyleDisplay* display = GetStyleDisplay();
 
-  /* If the "no transforms" flag is set, then we should construct a
-   * single-element entry and hand it back.
+  /* If there are no transforms, then we should construct a single-element
+   * entry and hand it back.
    */
-  if (!display->HasTransform()) {
+  if (!display->mSpecifiedTransform) {
     nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
 
     /* Set it to "none." */
@@ -1087,7 +1108,7 @@ nsComputedDOMStyle::DoGetCounterReset()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(false);
 
-  for (PRUint32 i = 0, i_end = content->CounterResetCount(); i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = content->CounterResetCount(); i < i_end; ++i) {
     nsROCSSPrimitiveValue* name = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(name);
 
@@ -1117,7 +1138,7 @@ nsComputedDOMStyle::DoGetQuotes()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(false);
 
-  for (PRUint32 i = 0, i_end = quotes->QuotesCount(); i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = quotes->QuotesCount(); i < i_end; ++i) {
     nsROCSSPrimitiveValue* openVal = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(openVal);
 
@@ -1155,7 +1176,7 @@ nsComputedDOMStyle::DoGetFontFamily()
       presContext->GetDefaultFont(kPresContext_DefaultVariableFont_ID,
                                   font->mLanguage);
 
-    PRInt32 lendiff = fontName.Length() - defaultFont->name.Length();
+    int32_t lendiff = fontName.Length() - defaultFont->name.Length();
     if (lendiff > 0) {
       val->SetString(Substring(fontName, 0, lendiff-1)); // -1 removes comma
     } else {
@@ -1222,18 +1243,9 @@ nsComputedDOMStyle::DoGetFontWeight()
 
   const nsStyleFont* font = GetStyleFont();
 
-  PRUint16 weight = font->mFont.weight;
-  if (weight % 100 == 0) {
-    val->SetNumber(font->mFont.weight);
-  } else if (weight % 100 > 50) {
-    // FIXME: This doesn't represent the full range of computed values,
-    // but at least it's legal CSS.
-    val->SetIdent(eCSSKeyword_lighter);
-  } else {
-    // FIXME: This doesn't represent the full range of computed values,
-    // but at least it's legal CSS.
-    val->SetIdent(eCSSKeyword_bolder);
-  }
+  uint16_t weight = font->mFont.weight;
+  NS_ASSERTION(weight % 100 == 0, "unexpected value of font-weight");
+  val->SetNumber(weight);
 
   return val;
 }
@@ -1282,15 +1294,15 @@ nsComputedDOMStyle::DoGetFontLanguageOverride()
 }
 
 nsIDOMCSSValue*
-nsComputedDOMStyle::GetBackgroundList(PRUint8 nsStyleBackground::Layer::* aMember,
-                                      PRUint32 nsStyleBackground::* aCount,
-                                      const PRInt32 aTable[])
+nsComputedDOMStyle::GetBackgroundList(uint8_t nsStyleBackground::Layer::* aMember,
+                                      uint32_t nsStyleBackground::* aCount,
+                                      const int32_t aTable[])
 {
   const nsStyleBackground* bg = GetStyleBackground();
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(true);
 
-  for (PRUint32 i = 0, i_end = bg->*aCount; i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = bg->*aCount; i < i_end; ++i) {
     nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(val);
     val->SetIdent(nsCSSProps::ValueToKeywordEnum(bg->mLayers[i].*aMember,
@@ -1516,7 +1528,7 @@ nsComputedDOMStyle::GetCSSGradientString(const nsStyleGradient* aGradient,
 
 
   // color stops
-  for (PRUint32 i = 0; i < aGradient->mStops.Length(); ++i) {
+  for (uint32_t i = 0; i < aGradient->mStops.Length(); ++i) {
     if (needSep) {
       aString.AppendLiteral(", ");
     }
@@ -1620,7 +1632,7 @@ nsComputedDOMStyle::DoGetBackgroundImage()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(true);
 
-  for (PRUint32 i = 0, i_end = bg->mImageCount; i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = bg->mImageCount; i < i_end; ++i) {
     nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(val);
 
@@ -1656,7 +1668,7 @@ nsComputedDOMStyle::DoGetBackgroundPosition()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(true);
 
-  for (PRUint32 i = 0, i_end = bg->mPositionCount; i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = bg->mPositionCount; i < i_end; ++i) {
     nsDOMCSSValueList *itemList = GetROCSSValueList(false);
     valueList->AppendCSSValue(itemList);
 
@@ -1699,18 +1711,18 @@ nsComputedDOMStyle::DoGetBackgroundRepeat()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(true);
 
-  for (PRUint32 i = 0, i_end = bg->mRepeatCount; i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = bg->mRepeatCount; i < i_end; ++i) {
     nsDOMCSSValueList *itemList = GetROCSSValueList(false);
     valueList->AppendCSSValue(itemList);
 
     nsROCSSPrimitiveValue *valX = GetROCSSPrimitiveValue();
     itemList->AppendCSSValue(valX);
 
-    const PRUint8& xRepeat = bg->mLayers[i].mRepeat.mXRepeat;
-    const PRUint8& yRepeat = bg->mLayers[i].mRepeat.mYRepeat;
+    const uint8_t& xRepeat = bg->mLayers[i].mRepeat.mXRepeat;
+    const uint8_t& yRepeat = bg->mLayers[i].mRepeat.mYRepeat;
 
     bool hasContraction = true;
-    PRUintn contraction;
+    unsigned contraction;
     if (xRepeat == yRepeat) {
       contraction = xRepeat;
     } else if (xRepeat == NS_STYLE_BG_REPEAT_REPEAT &&
@@ -1747,7 +1759,7 @@ nsComputedDOMStyle::DoGetBackgroundSize()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(true);
 
-  for (PRUint32 i = 0, i_end = bg->mSizeCount; i < i_end; ++i) {
+  for (uint32_t i = 0, i_end = bg->mSizeCount; i < i_end; ++i) {
     const nsStyleBackground::Size &size = bg->mLayers[i].mSize;
 
     switch (size.mWidthType) {
@@ -2155,7 +2167,7 @@ nsComputedDOMStyle::DoGetOutlineColor()
 
 nsIDOMCSSValue*
 nsComputedDOMStyle::GetEllipseRadii(const nsStyleCorners& aRadius,
-                                    PRUint8 aFullCorner,
+                                    uint8_t aFullCorner,
                                     bool aIsBorder) // else outline
 {
   nsStyleCoord radiusX, radiusY;
@@ -2233,7 +2245,7 @@ nsComputedDOMStyle::GetCSSShadowArray(nsCSSShadowArray* aArray,
   };
 
   nscoord nsCSSShadowItem::* const * shadowValues;
-  PRUint32 shadowValuesLength;
+  uint32_t shadowValuesLength;
   if (aIsBoxShadow) {
     shadowValues = shadowValuesWithSpread;
     shadowValuesLength = ArrayLength(shadowValuesWithSpread);
@@ -2262,7 +2274,7 @@ nsComputedDOMStyle::GetCSSShadowArray(nsCSSShadowArray* aArray,
     SetToRGBAColor(val, shadowColor);
 
     // Set the offsets, blur radius, and spread if available
-    for (PRUint32 i = 0; i < shadowValuesLength; ++i) {
+    for (uint32_t i = 0; i < shadowValuesLength; ++i) {
       val = GetROCSSPrimitiveValue();
       itemList->AppendCSSValue(val);
       val->SetAppUnits(item->*(shadowValues[i]));
@@ -2447,12 +2459,12 @@ nsComputedDOMStyle::DoGetTextDecoration()
   // i.e., text-decoration was assumed as a longhand property.  In that case,
   // we should return computed value same as CSS 2.1 for backward compatibility.
 
-  PRUint8 line = textReset->mTextDecorationLine;
+  uint8_t line = textReset->mTextDecorationLine;
   // Clear the -moz-anchor-decoration bit and the OVERRIDE_ALL bits -- we
   // don't want these to appear in the computed style.
   line &= ~(NS_STYLE_TEXT_DECORATION_LINE_PREF_ANCHORS |
             NS_STYLE_TEXT_DECORATION_LINE_OVERRIDE_ALL);
-  PRUint8 blink = textReset->mTextBlink;
+  uint8_t blink = textReset->mTextBlink;
 
   if (blink == NS_STYLE_TEXT_BLINK_NONE &&
       line == NS_STYLE_TEXT_DECORATION_LINE_NONE) {
@@ -2499,7 +2511,7 @@ nsComputedDOMStyle::DoGetTextDecorationLine()
 {
   nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
 
-  PRInt32 intValue = GetStyleTextReset()->mTextDecorationLine;
+  int32_t intValue = GetStyleTextReset()->mTextDecorationLine;
 
   if (NS_STYLE_TEXT_DECORATION_LINE_NONE == intValue) {
     val->SetIdent(eCSSKeyword_none);
@@ -2721,19 +2733,9 @@ nsIDOMCSSValue*
 nsComputedDOMStyle::DoGetUnicodeBidi()
 {
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
-  PRInt32 intValue = GetStyleTextReset()->mUnicodeBidi;
-
-  if (NS_STYLE_UNICODE_BIDI_NORMAL == intValue) {
-    val->SetIdent(eCSSKeyword_normal);
-  } else {
-    nsAutoString unicodeBidiString;
-    nsStyleUtil::AppendBitmaskCSSValue(eCSSProperty_unicode_bidi, intValue,
-                                       NS_STYLE_UNICODE_BIDI_EMBED,
-                                       NS_STYLE_UNICODE_BIDI_PLAINTEXT,
-                                       unicodeBidiString);
-    val->SetString(unicodeBidiString);
-  }
-
+  val->SetIdent(
+    nsCSSProps::ValueToKeywordEnum(GetStyleTextReset()->mUnicodeBidi,
+                                   nsCSSProps::kUnicodeBidiKTable));
   return val;
 }
 
@@ -2879,7 +2881,7 @@ nsComputedDOMStyle::DoGetBorderImageSlice()
   NS_FOR_CSS_SIDES (side) {
     nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(val);
-    SetValueToCoord(val, border->mBorderImageSlice.Get(side), nullptr, nullptr);
+    SetValueToCoord(val, border->mBorderImageSlice.Get(side), false, nullptr);
   }
 
   // Fill keyword.
@@ -2901,7 +2903,7 @@ nsComputedDOMStyle::DoGetBorderImageWidth()
     nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(val);
     SetValueToCoord(val, border->mBorderImageWidth.Get(side),
-                    nullptr, nullptr);
+                    false, nullptr);
   }
 
   return valueList;
@@ -2918,7 +2920,7 @@ nsComputedDOMStyle::DoGetBorderImageOutset()
     nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(val);
     SetValueToCoord(val, border->mBorderImageOutset.Get(side),
-                    nullptr, nullptr);
+                    false, nullptr);
   }
 
   return valueList;
@@ -2962,7 +2964,7 @@ nsIDOMCSSValue*
 nsComputedDOMStyle::DoGetAlignSelf()
 {
   nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
-  PRUint8 computedAlignSelf = GetStylePosition()->mAlignSelf;
+  uint8_t computedAlignSelf = GetStylePosition()->mAlignSelf;
 
   if (computedAlignSelf == NS_STYLE_ALIGN_SELF_AUTO) {
     // "align-self: auto" needs to compute to parent's align-items value.
@@ -3364,7 +3366,17 @@ nsIDOMCSSValue*
 nsComputedDOMStyle::DoGetMinHeight()
 {
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
-  SetValueToCoord(val, GetStylePosition()->mMinHeight, true,
+  nsStyleCoord minHeight = GetStylePosition()->mMinHeight;
+
+  if (eStyleUnit_Auto == minHeight.GetUnit()) {
+    // In non-flexbox contexts, "min-height: auto" means "min-height: 0"
+    // XXXdholbert For flex items, we should set |minHeight| to the
+    // -moz-min-content keyword, instead of 0, once we support -moz-min-content
+    // as a height value.
+    minHeight.SetCoordValue(0);
+  }
+
+  SetValueToCoord(val, minHeight, true,
                   &nsComputedDOMStyle::GetCBContentHeight);
   return val;
 }
@@ -3373,7 +3385,27 @@ nsIDOMCSSValue*
 nsComputedDOMStyle::DoGetMinWidth()
 {
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
-  SetValueToCoord(val, GetStylePosition()->mMinWidth, true,
+
+  nsStyleCoord minWidth = GetStylePosition()->mMinWidth;
+
+  if (eStyleUnit_Auto == minWidth.GetUnit()) {
+    // "min-width: auto" means "0", unless we're a flex item in a horizontal
+    // flex container, in which case it means "min-content"
+    minWidth.SetCoordValue(0);
+#ifdef MOZ_FLEXBOX
+    if (mOuterFrame && mOuterFrame->IsFlexItem()) {
+      nsIFrame* flexContainer = mOuterFrame->GetParent();
+      MOZ_ASSERT(flexContainer &&
+                 flexContainer->GetType() == nsGkAtoms::flexContainerFrame,
+                 "IsFlexItem() lied...?");
+
+      if (static_cast<nsFlexContainerFrame*>(flexContainer)->IsHorizontal()) {
+        minWidth.SetIntValue(NS_STYLE_WIDTH_MIN_CONTENT, eStyleUnit_Enumerated);
+      }
+    }
+#endif // MOZ_FLEXBOX
+  }
+  SetValueToCoord(val, minWidth, true,
                   &nsComputedDOMStyle::GetCBContentWidth,
                   nsCSSProps::kWidthKTable);
   return val;
@@ -3424,7 +3456,7 @@ nsComputedDOMStyle::GetOffsetWidthFor(mozilla::css::Side aSide)
 
   AssertFlushedPendingReflows();
 
-  PRUint8 position = display->mPosition;
+  uint8_t position = display->mPosition;
   if (!mOuterFrame) {
     // GetRelativeOffset and GetAbsoluteOffset don't handle elements
     // without frames in any sensible way.  GetStaticOffset, however,
@@ -3517,7 +3549,7 @@ nsComputedDOMStyle::GetRelativeOffset(mozilla::css::Side aSide)
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
 
   const nsStylePosition* positionData = GetStylePosition();
-  PRInt32 sign = 1;
+  int32_t sign = 1;
   nsStyleCoord coord = positionData->mOffset.Get(aSide);
 
   NS_ASSERTION(coord.GetUnit() == eStyleUnit_Coord ||
@@ -3698,7 +3730,7 @@ nsComputedDOMStyle::SetValueToCoord(nsROCSSPrimitiveValue* aValue,
                                     const nsStyleCoord& aCoord,
                                     bool aClampNegativeCalc,
                                     PercentageBaseGetter aPercentageBaseGetter,
-                                    const PRInt32 aTable[],
+                                    const int32_t aTable[],
                                     nscoord aMinAppUnits,
                                     nscoord aMaxAppUnits)
 {
@@ -3939,6 +3971,16 @@ nsComputedDOMStyle::GetSVGPaintFor(bool aFill)
       SetToRGBAColor(fallback, paint->mFallbackColor);
       return valueList;
     }
+    case eStyleSVGPaintType_ObjectFill:
+    {
+      val->SetIdent(eCSSKeyword__moz_objectfill);
+      break;
+    }
+    case eStyleSVGPaintType_ObjectStroke:
+    {
+      val->SetIdent(eCSSKeyword__moz_objectstroke);
+      break;
+    }
   }
 
   return val;
@@ -4014,7 +4056,7 @@ nsComputedDOMStyle::DoGetStrokeDasharray()
 
   nsDOMCSSValueList *valueList = GetROCSSValueList(true);
 
-  for (PRUint32 i = 0; i < svg->mStrokeDasharrayLength; i++) {
+  for (uint32_t i = 0; i < svg->mStrokeDasharrayLength; i++) {
     nsROCSSPrimitiveValue* dash = GetROCSSPrimitiveValue();
     valueList->AppendCSSValue(dash);
 
@@ -4275,7 +4317,7 @@ nsComputedDOMStyle::DoGetTransitionDelay()
 
   NS_ABORT_IF_FALSE(display->mTransitionDelayCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsTransition *transition = &display->mTransitions[i];
     nsROCSSPrimitiveValue* delay = GetROCSSPrimitiveValue();
@@ -4295,7 +4337,7 @@ nsComputedDOMStyle::DoGetTransitionDuration()
 
   NS_ABORT_IF_FALSE(display->mTransitionDurationCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsTransition *transition = &display->mTransitions[i];
     nsROCSSPrimitiveValue* duration = GetROCSSPrimitiveValue();
@@ -4316,7 +4358,7 @@ nsComputedDOMStyle::DoGetTransitionProperty()
 
   NS_ABORT_IF_FALSE(display->mTransitionPropertyCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsTransition *transition = &display->mTransitions[i];
     nsROCSSPrimitiveValue* property = GetROCSSPrimitiveValue();
@@ -4382,7 +4424,7 @@ nsComputedDOMStyle::DoGetTransitionTimingFunction()
 
   NS_ABORT_IF_FALSE(display->mTransitionTimingFunctionCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     AppendTimingFunction(valueList,
                          display->mTransitions[i].GetTimingFunction());
@@ -4400,7 +4442,7 @@ nsComputedDOMStyle::DoGetAnimationName()
 
   NS_ABORT_IF_FALSE(display->mAnimationNameCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* property = GetROCSSPrimitiveValue();
@@ -4428,7 +4470,7 @@ nsComputedDOMStyle::DoGetAnimationDelay()
 
   NS_ABORT_IF_FALSE(display->mAnimationDelayCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* delay = GetROCSSPrimitiveValue();
@@ -4448,7 +4490,7 @@ nsComputedDOMStyle::DoGetAnimationDuration()
 
   NS_ABORT_IF_FALSE(display->mAnimationDurationCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* duration = GetROCSSPrimitiveValue();
@@ -4469,7 +4511,7 @@ nsComputedDOMStyle::DoGetAnimationTimingFunction()
 
   NS_ABORT_IF_FALSE(display->mAnimationTimingFunctionCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     AppendTimingFunction(valueList,
                          display->mAnimations[i].GetTimingFunction());
@@ -4487,7 +4529,7 @@ nsComputedDOMStyle::DoGetAnimationDirection()
 
   NS_ABORT_IF_FALSE(display->mAnimationDirectionCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* direction = GetROCSSPrimitiveValue();
@@ -4509,7 +4551,7 @@ nsComputedDOMStyle::DoGetAnimationFillMode()
 
   NS_ABORT_IF_FALSE(display->mAnimationFillModeCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* fillMode = GetROCSSPrimitiveValue();
@@ -4531,7 +4573,7 @@ nsComputedDOMStyle::DoGetAnimationIterationCount()
 
   NS_ABORT_IF_FALSE(display->mAnimationIterationCountCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* iterationCount = GetROCSSPrimitiveValue();
@@ -4565,7 +4607,7 @@ nsComputedDOMStyle::DoGetAnimationPlayState()
 
   NS_ABORT_IF_FALSE(display->mAnimationPlayStateCount > 0,
                     "first item must be explicit");
-  PRUint32 i = 0;
+  uint32_t i = 0;
   do {
     const nsAnimation *animation = &display->mAnimations[i];
     nsROCSSPrimitiveValue* playState = GetROCSSPrimitiveValue();
@@ -4584,7 +4626,7 @@ nsComputedDOMStyle::DoGetAnimationPlayState()
   { eCSSProperty_##_prop, &nsComputedDOMStyle::DoGet##_method, true }
 
 const nsComputedDOMStyle::ComputedStyleMapEntry*
-nsComputedDOMStyle::GetQueryablePropertyMap(PRUint32* aLength)
+nsComputedDOMStyle::GetQueryablePropertyMap(uint32_t* aLength)
 {
   /* ******************************************************************* *\
    * Properties below are listed in alphabetical order.                  *
@@ -4768,6 +4810,7 @@ nsComputedDOMStyle::GetQueryablePropertyMap(PRUint32* aLength)
     COMPUTED_STYLE_MAP_ENTRY(box_pack,                      BoxPack),
     COMPUTED_STYLE_MAP_ENTRY(box_sizing,                    BoxSizing),
     COMPUTED_STYLE_MAP_ENTRY(_moz_column_count,             ColumnCount),
+    COMPUTED_STYLE_MAP_ENTRY(_moz_column_fill,              ColumnFill),
     COMPUTED_STYLE_MAP_ENTRY(_moz_column_gap,               ColumnGap),
     //// COMPUTED_STYLE_MAP_ENTRY(_moz_column_rule,         ColumnRule),
     COMPUTED_STYLE_MAP_ENTRY(_moz_column_rule_color,        ColumnRuleColor),

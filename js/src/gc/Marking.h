@@ -1,4 +1,5 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=4 sw=4 et tw=99:
  */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -13,6 +14,7 @@
 
 #include "gc/Barrier.h"
 #include "js/TemplateLib.h"
+#include "ion/IonCode.h"
 
 extern "C" {
 struct JSContext;
@@ -63,16 +65,17 @@ namespace gc {
  * defined for marking arrays of object pointers.
  */
 #define DeclMarker(base, type)                                                                    \
-void Mark##base(JSTracer *trc, HeapPtr<type> *thing, const char *name);                           \
+void Mark##base(JSTracer *trc, EncapsulatedPtr<type> *thing, const char *name);                   \
 void Mark##base##Root(JSTracer *trc, type **thingp, const char *name);                            \
 void Mark##base##Unbarriered(JSTracer *trc, type **thingp, const char *name);                     \
 void Mark##base##Range(JSTracer *trc, size_t len, HeapPtr<type> *thing, const char *name);        \
 void Mark##base##RootRange(JSTracer *trc, size_t len, type **thing, const char *name);            \
 bool Is##base##Marked(type **thingp);                                                             \
-bool Is##base##Marked(HeapPtr<type> *thingp);
+bool Is##base##Marked(EncapsulatedPtr<type> *thingp);
 
 DeclMarker(BaseShape, BaseShape)
 DeclMarker(BaseShape, UnownedBaseShape)
+DeclMarker(IonCode, ion::IonCode)
 DeclMarker(Object, ArgumentsObject)
 DeclMarker(Object, DebugScopeObject)
 DeclMarker(Object, GlobalObject)
@@ -85,6 +88,7 @@ DeclMarker(String, JSAtom)
 DeclMarker(String, JSString)
 DeclMarker(String, JSFlatString)
 DeclMarker(String, JSLinearString)
+DeclMarker(String, PropertyName)
 DeclMarker(TypeObject, types::TypeObject)
 #if JS_HAS_XML_SUPPORT
 DeclMarker(XML, JSXML)
@@ -104,6 +108,9 @@ MarkKind(JSTracer *trc, void **thingp, JSGCTraceKind kind);
 
 void
 MarkGCThingRoot(JSTracer *trc, void **thingp, const char *name);
+
+void
+MarkGCThingUnbarriered(JSTracer *trc, void **thingp, const char *name);
 
 /*** ID Marking ***/
 
@@ -138,6 +145,9 @@ MarkValueRange(JSTracer *trc, HeapValue *begin, HeapValue *end, const char *name
 
 void
 MarkValueRoot(JSTracer *trc, Value *v, const char *name);
+
+void
+MarkThingOrValueUnbarriered(JSTracer *trc, uintptr_t *word, const char *name);
 
 void
 MarkValueRootRange(JSTracer *trc, size_t len, Value *vec, const char *name);
@@ -218,19 +228,19 @@ PushArena(GCMarker *gcmarker, ArenaHeader *aheader);
  */
 
 inline void
-Mark(JSTracer *trc, HeapValue *v, const char *name)
+Mark(JSTracer *trc, EncapsulatedValue *v, const char *name)
 {
     MarkValue(trc, v, name);
 }
 
 inline void
-Mark(JSTracer *trc, HeapPtr<JSObject> *o, const char *name)
+Mark(JSTracer *trc, EncapsulatedPtrObject *o, const char *name)
 {
     MarkObject(trc, o, name);
 }
 
 inline void
-Mark(JSTracer *trc, HeapPtr<JSScript> *o, const char *name)
+Mark(JSTracer *trc, EncapsulatedPtrScript *o, const char *name)
 {
     MarkScript(trc, o, name);
 }
@@ -242,6 +252,12 @@ Mark(JSTracer *trc, HeapPtr<JSXML> *xml, const char *name)
     MarkXML(trc, xml, name);
 }
 #endif
+
+inline void
+Mark(JSTracer *trc, HeapPtr<ion::IonCode> *code, const char *name)
+{
+    MarkIonCode(trc, code, name);
+}
 
 bool
 IsCellMarked(Cell **thingp);
@@ -255,16 +271,36 @@ IsMarked(EncapsulatedValue *v)
 }
 
 inline bool
-IsMarked(HeapPtrObject *objp)
+IsMarked(EncapsulatedPtrObject *objp)
 {
     return IsObjectMarked(objp);
 }
 
 inline bool
-IsMarked(HeapPtrScript *scriptp)
+IsMarked(EncapsulatedPtrScript *scriptp)
 {
     return IsScriptMarked(scriptp);
 }
+
+#ifdef JS_ION
+/* Nonsense to get WeakCache to work with new Marking semantics. */
+
+inline bool
+IsMarked(const js::ion::VMFunction **vmfunc)
+{
+    /*
+     * Preserves entries in the WeakCache<VMFunction, IonCode>
+     * iff the IonCode has been marked.
+     */
+    return true;
+}
+
+inline bool
+IsMarked(ReadBarriered<js::ion::IonCode> code)
+{
+    return IsIonCodeMarked(code.unsafeGet());
+}
+#endif
 
 inline Cell *
 ToMarkable(const Value &v)

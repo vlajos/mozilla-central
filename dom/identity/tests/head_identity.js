@@ -3,8 +3,8 @@
 
 "use strict";
 
-const Ci = Components.interfaces;
-const Cu = SpecialPowers.wrap(Components).utils;
+const Ci = SpecialPowers.Ci;
+const Cu = SpecialPowers.Cu;
 
 SpecialPowers.setBoolPref("toolkit.identity.debug", true);
 SpecialPowers.setBoolPref("dom.identity.enabled", true);
@@ -13,8 +13,7 @@ const Services = Cu.import("resource://gre/modules/Services.jsm").Services;
 const DOMIdentity = Cu.import("resource://gre/modules/DOMIdentity.jsm")
                       .DOMIdentity;
 
-let util = window.QueryInterface(Ci.nsIInterfaceRequestor)
-                 .getInterface(Ci.nsIDOMWindowUtils);
+let util = SpecialPowers.getDOMWindowUtils(window);
 let outerWinId = util.outerWindowID;
 
 const identity = navigator.id || navigator.mozId;

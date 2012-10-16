@@ -4,26 +4,25 @@
 
 package org.mozilla.gecko.gfx;
 
-import android.graphics.Rect;
-import android.graphics.RectF;
-import android.graphics.PixelFormat;
-import android.view.View;
-import android.view.Surface;
-import android.view.SurfaceView;
-import android.widget.AbsoluteLayout;
-import android.util.Log;
-import android.opengl.GLES20;
-import java.nio.FloatBuffer;
-import java.util.Map;
-import org.json.JSONArray;
-
-import org.mozilla.gecko.FloatUtils;
-import org.mozilla.gecko.SurfaceBits;
 import org.mozilla.gecko.GeckoApp;
 import org.mozilla.gecko.GeckoAppShell;
+import org.mozilla.gecko.PrefsHelper;
+import org.mozilla.gecko.SurfaceBits;
+import org.mozilla.gecko.util.FloatUtils;
 
-public class PluginLayer extends TileLayer
-{
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.opengl.GLES20;
+import android.util.Log;
+import android.view.Surface;
+import android.view.SurfaceView;
+import android.view.View;
+import android.widget.AbsoluteLayout;
+
+import java.nio.FloatBuffer;
+
+public class PluginLayer extends TileLayer {
     private static final String LOGTAG = "PluginLayer";
     private static final String PREF_PLUGIN_USE_PLACEHOLDER = "plugins.use_placeholder";
 
@@ -67,19 +66,13 @@ public class PluginLayer extends TileLayer
         mLayoutParams = new PluginLayoutParams(rect, maxDimension);
     }
 
-    static void addPrefNames(JSONArray prefs) {
-        prefs.put(PREF_PLUGIN_USE_PLACEHOLDER);
-    }
-
-    static boolean setUsePlaceholder(Map<String, Integer> prefs) {
-        Integer usePlaceholder = prefs.get(PREF_PLUGIN_USE_PLACEHOLDER);
-        if (usePlaceholder == null) {
-            return false;
-        }
-
-        sUsePlaceholder = (int)usePlaceholder == 1 ? true : false;
-        Log.i(LOGTAG, "Using plugin placeholder: " + sUsePlaceholder);
-        return true;
+    static void initPrefs() {
+        PrefsHelper.getPref(PREF_PLUGIN_USE_PLACEHOLDER, new PrefsHelper.PrefHandlerBase() {
+            @Override public void prefValue(String pref, int value) {
+                sUsePlaceholder = (value == 1);
+                Log.i(LOGTAG, "Using plugin placeholder: " + sUsePlaceholder);
+            }
+        });
     }
 
     public void setVisible(boolean newVisible) {

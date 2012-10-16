@@ -5,15 +5,14 @@
 
 package org.mozilla.gecko.gfx;
 
-import android.graphics.PointF;
-import android.graphics.RectF;
-import android.util.DisplayMetrics;
-
-import org.mozilla.gecko.FloatUtils;
-import org.mozilla.gecko.GeckoApp;
+import org.mozilla.gecko.util.FloatUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import android.graphics.PointF;
+import android.graphics.RectF;
+import android.util.DisplayMetrics;
 
 /**
  * ViewportMetrics manages state and contains some utility functions related to
@@ -27,9 +26,7 @@ public class ViewportMetrics {
     private RectF mViewportRect;
     private float mZoomFactor;
 
-    public ViewportMetrics() {
-        DisplayMetrics metrics = GeckoApp.mAppContext.getDisplayMetrics();
-
+    public ViewportMetrics(DisplayMetrics metrics) {
         mPageRect = new RectF(0, 0, metrics.widthPixels, metrics.heightPixels);
         mCssPageRect = new RectF(0, 0, metrics.widthPixels, metrics.heightPixels);
         mViewportRect = new RectF(0, 0, metrics.widthPixels, metrics.heightPixels);
@@ -59,7 +56,6 @@ public class ViewportMetrics {
         mZoomFactor = viewport.zoomFactor;
     }
 
-
     public ViewportMetrics(JSONObject json) throws JSONException {
         float x = (float)json.getDouble("x");
         float y = (float)json.getDouble("y");
@@ -75,6 +71,16 @@ public class ViewportMetrics {
         float cssPageBottom = (float)json.getDouble("cssPageBottom");
         float zoom = (float)json.getDouble("zoom");
 
+        mPageRect = new RectF(pageLeft, pageTop, pageRight, pageBottom);
+        mCssPageRect = new RectF(cssPageLeft, cssPageTop, cssPageRight, cssPageBottom);
+        mViewportRect = new RectF(x, y, x + width, y + height);
+        mZoomFactor = zoom;
+    }
+
+    public ViewportMetrics(float x, float y, float width, float height,
+                           float pageLeft, float pageTop, float pageRight, float pageBottom,
+                           float cssPageLeft, float cssPageTop, float cssPageRight, float cssPageBottom,
+                           float zoom) {
         mPageRect = new RectF(pageLeft, pageTop, pageRight, pageBottom);
         mCssPageRect = new RectF(cssPageLeft, cssPageTop, cssPageRight, cssPageBottom);
         mViewportRect = new RectF(x, y, x + width, y + height);
@@ -178,7 +184,7 @@ public class ViewportMetrics {
      * page size, the offset, and the zoom factor.
      */
     public ViewportMetrics interpolate(ViewportMetrics to, float t) {
-        ViewportMetrics result = new ViewportMetrics();
+        ViewportMetrics result = new ViewportMetrics(this);
         result.mPageRect = RectUtils.interpolate(mPageRect, to.mPageRect, t);
         result.mCssPageRect = RectUtils.interpolate(mCssPageRect, to.mCssPageRect, t);
         result.mZoomFactor = FloatUtils.interpolate(mZoomFactor, to.mZoomFactor, t);
@@ -227,4 +233,3 @@ public class ViewportMetrics {
         return buff.toString();
     }
 }
-

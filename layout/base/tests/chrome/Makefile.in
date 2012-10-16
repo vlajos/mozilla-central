@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DEPTH     = ../../../..
+DEPTH     = @DEPTH@
 topsrcdir = @top_srcdir@
 srcdir    = @srcdir@
 VPATH     = @srcdir@
@@ -40,14 +40,22 @@ MOCHITEST_CHROME_FILES = \
 	     printpreview_bug396024_helper.xul \
 	test_printpreview_bug482976.xul \
 	     printpreview_bug482976_helper.xul \
+	test_scrolling_repaints.html \
 	test_transformed_scrolling_repaints.html \
 	test_transformed_scrolling_repaints_2.html \
+	test_transformed_scrolling_repaints_3.html \
+	transformed_scrolling_repaints_3_window.html \
+	test_fixed_bg_scrolling_repaints.html \
+	blue-32x32.png \
 	$(NULL)
 
 ifdef MOZ_DEBUG
+# Disabled on Mac because of Bug 748219
+ifneq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 MOCHITEST_CHROME_FILES += \
 	test_leaf_layers_partition_browser_window.xul \
 	$(NULL)
+endif
 endif
 
 include $(topsrcdir)/config/rules.mk

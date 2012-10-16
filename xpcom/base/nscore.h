@@ -21,10 +21,12 @@
 #endif
 
 /**
- * Incorporate the core NSPR data types which XPCOM uses.
+ * Incorporate the integer data types which XPCOM uses.
  */
-#include "prtypes.h"
 #include "mozilla/StandardInteger.h"
+#include "stddef.h"
+
+#include "mozilla/NullPtr.h"
 
 /*
  * This is for functions that are like malloc_usable_size.  Such functions are
@@ -308,7 +310,7 @@ typedef size_t(*nsMallocSizeOfFun)(const void *p);
 /**
  * Generic XPCOM result data type
  */
-typedef PRUint32 nsresult;
+#include "nsError.h"
 
 /**
  * Reference count values
@@ -318,29 +320,11 @@ typedef PRUint32 nsresult;
  * The following ifdef exists to maintain binary compatibility with
  * IUnknown.
  */
-#if defined(XP_WIN) && PR_BYTES_PER_LONG == 4
+#ifdef XP_WIN
 typedef unsigned long nsrefcnt;
 #else
-typedef PRUint32 nsrefcnt;
+typedef uint32_t nsrefcnt;
 #endif
-
-/**
- * Use C++11 nullptr if available; otherwise use a C++ typesafe template; and
- * for C, fall back to longs.  See bugs 547964 and 626472.
- */
-#ifndef HAVE_NULLPTR
-#ifndef __cplusplus
-# define nullptr ((void*)0)
-#elif defined(__GNUC__)
-# define nullptr __null
-#elif defined(_WIN64)
-# define nullptr 0LL
-#else
-# define nullptr 0L
-#endif
-#endif /* defined(HAVE_NULLPTR) */
-
-#define nsnull nullptr
 
 #include "nsError.h"
 
@@ -361,7 +345,7 @@ typedef PRUint32 nsrefcnt;
   #if defined(HAVE_CPP_2BYTE_WCHAR_T) && defined(XP_WIN)
     typedef wchar_t PRUnichar;
   #else
-    typedef PRUint16 PRUnichar;
+    typedef uint16_t PRUnichar;
   #endif
 #endif
 
@@ -369,8 +353,8 @@ typedef PRUint32 nsrefcnt;
  * Use these macros to do 64bit safe pointer conversions.
  */
 
-#define NS_PTR_TO_INT32(x)  ((PRInt32)  (intptr_t) (x))
-#define NS_PTR_TO_UINT32(x) ((PRUint32) (intptr_t) (x))
+#define NS_PTR_TO_INT32(x)  ((int32_t)  (intptr_t) (x))
+#define NS_PTR_TO_UINT32(x) ((uint32_t) (intptr_t) (x))
 #define NS_INT32_TO_PTR(x)  ((void *)   (intptr_t) (x))
 
 /*

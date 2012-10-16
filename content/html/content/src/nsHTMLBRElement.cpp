@@ -8,6 +8,7 @@
 #include "nsIDOMHTMLBRElement.h"
 #include "nsIDOMEventTarget.h"
 #include "nsGenericHTMLElement.h"
+#include "nsAttrValueInlines.h"
 #include "nsGkAtoms.h"
 #include "nsStyleConsts.h"
 #include "nsMappedAttributes.h"
@@ -37,7 +38,7 @@ public:
   // nsIDOMHTMLBRElement
   NS_DECL_NSIDOMHTMLBRELEMENT    
 
-  virtual bool ParseAttribute(PRInt32 aNamespaceID,
+  virtual bool ParseAttribute(int32_t aNamespaceID,
                                 nsIAtom* aAttribute,
                                 const nsAString& aValue,
                                 nsAttrValue& aResult);
@@ -89,7 +90,7 @@ static const nsAttrValue::EnumTable kClearTable[] = {
 };
 
 bool
-nsHTMLBRElement::ParseAttribute(PRInt32 aNamespaceID,
+nsHTMLBRElement::ParseAttribute(int32_t aNamespaceID,
                                 nsIAtom* aAttribute,
                                 const nsAString& aValue,
                                 nsAttrValue& aResult)

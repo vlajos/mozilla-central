@@ -77,8 +77,8 @@ include $(MOZILLA_DIR)/toolkit/mozapps/installer/packager.mk
 PACKAGE_BASE_DIR = $(_ABS_DIST)/l10n-stage
 
 $(STAGEDIST): AB_CD:=en-US
-$(STAGEDIST): UNPACKAGE=$(call ESCAPE_SPACE,$(ZIP_IN))
-$(STAGEDIST): $(call ESCAPE_SPACE,$(ZIP_IN))
+$(STAGEDIST): UNPACKAGE=$(call ESCAPE_WILDCARD,$(ZIP_IN))
+$(STAGEDIST): $(call ESCAPE_WILDCARD,$(ZIP_IN))
 # only mac needs to remove the parent of STAGEDIST...
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 	$(RM) -r -v $(DIST)/l10n-stage
@@ -130,7 +130,7 @@ endif
 endif
 	$(NSINSTALL) -D $(DIST)/l10n-stage/$(PKG_PATH)
 	cd $(DIST)/l10n-stage; \
-	  $(MAKE_PACKAGE)
+	  $(PREPARE_PACKAGE) && $(MAKE_PACKAGE)
 ifdef MAKE_COMPLETE_MAR
 	$(MAKE) -C $(MOZDEPTH)/tools/update-packaging full-update AB_CD=$(AB_CD) \
 	  MOZ_PKG_PRETTYNAMES=$(MOZ_PKG_PRETTYNAMES) \

@@ -20,9 +20,9 @@ Cu.import("resource://gre/modules/AlarmDB.jsm");
 
 let EXPORTED_SYMBOLS = ["AlarmService"];
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
-  return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService(Ci.nsIFrameMessageManager);
-});
+XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
+                                   "@mozilla.org/parentprocessmessagemanager;1",
+                                   "nsIMessageListenerManager");
 
 XPCOMUtils.defineLazyGetter(this, "messenger", function() {
   return Cc["@mozilla.org/system-message-internal;1"].getService(Ci.nsISystemMessagesInternal);
@@ -75,11 +75,12 @@ let AlarmService = {
   receiveMessage: function receiveMessage(aMessage) {
     debug("receiveMessage(): " + aMessage.name);
 
-    let mm = aMessage.target.QueryInterface(Ci.nsIFrameMessageManager);
+    let mm = aMessage.target.QueryInterface(Ci.nsIMessageSender);
     let json = aMessage.json;
     switch (aMessage.name) {
       case "AlarmsManager:GetAll":
         this._db.getAll(
+          json.manifestURL,
           function getAllSuccessCb(aAlarms) {
             debug("Callback after getting alarms from database: " + JSON.stringify(aAlarms));
             this._sendAsyncMessage(mm, "GetAll", true, json.requestId, aAlarms);
@@ -97,6 +98,7 @@ let AlarmService = {
           ignoreTimezone: json.ignoreTimezone, 
           timezoneOffset: this._currentTimezoneOffset, 
           data: json.data,
+          pageURL: json.pageURL,
           manifestURL: json.manifestURL
         };
 
@@ -150,6 +152,7 @@ let AlarmService = {
       case "AlarmsManager:Remove":
         this._removeAlarmFromDb(
           json.id,
+          json.manifestURL,
           function removeSuccessCb() {
             debug("Callback after removing alarm from database.");
 
@@ -160,10 +163,13 @@ let AlarmService = {
             }
 
             // check if the alarm to be removed is in the queue
+            // by ID and whether it belongs to the requesting app
             let alarmQueue = this._alarmQueue;
-            if (this._currentAlarm.id != json.id) {
+            if (this._currentAlarm.id != json.id || 
+                this._currentAlarm.manifestURL != json.manifestURL) {
               for (let i = 0; i < alarmQueue.length; i++) {
-                if (alarmQueue[i].id == json.id) {
+                if (alarmQueue[i].id == json.id && 
+                    alarmQueue[i].manifestURL == json.manifestURL) {
                   alarmQueue.splice(i, 1);
                   break;
                 }
@@ -224,7 +230,7 @@ let AlarmService = {
     aMessageManager.sendAsyncMessage("AlarmsManager:" + aMessageName + ":Return:" + (aSuccess ? "OK" : "KO"), json);
   },
 
-  _removeAlarmFromDb: function _removeAlarmFromDb(aId, aRemoveSuccessCb) {
+  _removeAlarmFromDb: function _removeAlarmFromDb(aId, aManifestURL, aRemoveSuccessCb) {
     debug("_removeAlarmFromDb()");
 
     // If the aRemoveSuccessCb is undefined or null, set a 
@@ -237,6 +243,7 @@ let AlarmService = {
 
     this._db.remove(
       aId,
+      aManifestURL,
       aRemoveSuccessCb,
       function removeErrorCb(aErrorMsg) {
         throw Components.results.NS_ERROR_NOT_IMPLEMENTED;
@@ -247,7 +254,8 @@ let AlarmService = {
   _fireSystemMessage: function _fireSystemMessage(aAlarm) {
     debug("Fire system message: " + JSON.stringify(aAlarm));
     let manifestURI = Services.io.newURI(aAlarm.manifestURL, null, null);
-    messenger.sendMessage("alarm", aAlarm, manifestURI);
+    let pageURI = Services.io.newURI(aAlarm.pageURL, null, null);
+    messenger.sendMessage("alarm", aAlarm, pageURI, manifestURI);
   },
 
   _onAlarmFired: function _onAlarmFired() {
@@ -255,7 +263,7 @@ let AlarmService = {
 
     if (this._currentAlarm) {
       this._fireSystemMessage(this._currentAlarm);
-      this._removeAlarmFromDb(this._currentAlarm.id);
+      this._removeAlarmFromDb(this._currentAlarm.id, null);
       this._currentAlarm = null;
     }
 
@@ -269,7 +277,7 @@ let AlarmService = {
       // fire system message for it instead of setting it.
       if (nextAlarmTime <= Date.now()) {
         this._fireSystemMessage(nextAlarm);
-        this._removeAlarmFromDb(nextAlarm.id);
+        this._removeAlarmFromDb(nextAlarm.id, null);
       } else {
         this._currentAlarm = nextAlarm;
         break;
@@ -289,6 +297,7 @@ let AlarmService = {
     debug("_restoreAlarmsFromDb()");
 
     this._db.getAll(
+      null,
       function getAllSuccessCb(aAlarms) {
         debug("Callback after getting alarms from database: " + JSON.stringify(aAlarms));
 
@@ -296,12 +305,16 @@ let AlarmService = {
         let alarmQueue = this._alarmQueue;
         alarmQueue.length = 0;
         this._currentAlarm = null;
-        
-        // only add the alarm that is valid
-        let nowTime = Date.now();
+
+        // Only restore the alarm that's not yet expired; otherwise,
+        // fire a system message for it and remove it from database.
         aAlarms.forEach(function addAlarm(aAlarm) {
-          if (this._getAlarmTime(aAlarm) > nowTime)
+          if (this._getAlarmTime(aAlarm) > Date.now()) {
             alarmQueue.push(aAlarm);
+          } else {
+            this._fireSystemMessage(aAlarm);
+            this._removeAlarmFromDb(aAlarm.id, null);
+          }
         }.bind(this));
 
         // set the next alarm from queue
@@ -320,7 +333,7 @@ let AlarmService = {
 
   _getAlarmTime: function _getAlarmTime(aAlarm) {
     let alarmTime = (new Date(aAlarm.date)).getTime();
-    
+
     // For an alarm specified with "ignoreTimezone",
     // it must be fired respect to the user's timezone.
     // Supposing an alarm was set at 7:00pm at Tokyo,

@@ -29,9 +29,9 @@ public:
   virtual a11y::role NativeRole();
 
   // HyperLinkAccessible
-  virtual PRUint32 AnchorCount();
-  virtual Accessible* AnchorAt(PRUint32 aAnchorIndex);
-  virtual already_AddRefed<nsIURI> AnchorURIAt(PRUint32 aAnchorIndex);
+  virtual uint32_t AnchorCount();
+  virtual Accessible* AnchorAt(uint32_t aAnchorIndex);
+  virtual already_AddRefed<nsIURI> AnchorURIAt(uint32_t aAnchorIndex);
 
   /**
    * Update area children of the image map.
@@ -53,23 +53,19 @@ public:
 
   HTMLAreaAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
-  // nsAccessNode
-  virtual bool IsPrimaryForNode() const;
-
   // Accessible
   virtual void Description(nsString& aDescription);
-  virtual nsresult GetNameInternal(nsAString& aName);
-  virtual Accessible* ChildAtPoint(PRInt32 aX, PRInt32 aY,
+  virtual Accessible* ChildAtPoint(int32_t aX, int32_t aY,
                                    EWhichChildAtPoint aWhichChild);
   virtual void GetBoundsRect(nsRect& aBounds, nsIFrame** aBoundingFrame);
 
   // HyperLinkAccessible
-  virtual PRUint32 StartOffset();
-  virtual PRUint32 EndOffset();
+  virtual uint32_t StartOffset();
+  virtual uint32_t EndOffset();
 
 protected:
-
   // Accessible
+  virtual ENameValueFlag NativeName(nsString& aName) MOZ_OVERRIDE;
   virtual void CacheChildren();
 };
 

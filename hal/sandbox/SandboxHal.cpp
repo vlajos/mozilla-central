@@ -5,6 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "Hal.h"
+#include "mozilla/AppProcessPermissions.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/hal_sandbox/PHalChild.h"
 #include "mozilla/hal_sandbox/PHalParent.h"
@@ -23,6 +24,14 @@ using namespace mozilla::hal;
 
 namespace mozilla {
 namespace hal_sandbox {
+
+static bool sHalChildIsLive = false;
+
+bool
+IsHalChildLive()
+{
+  return sHalChildIsLive;
+}
 
 static PHalChild* sHal;
 static PHalChild*
@@ -183,7 +192,7 @@ GetLight(hal::LightType light, hal::LightConfiguration* aConfig)
 }
 
 void 
-AdjustSystemClock(int32_t aDeltaMilliseconds)
+AdjustSystemClock(int64_t aDeltaMilliseconds)
 {
   Hal()->SendAdjustSystemClock(aDeltaMilliseconds);
 }
@@ -194,16 +203,42 @@ SetTimezone(const nsCString& aTimezoneSpec)
   Hal()->SendSetTimezone(nsCString(aTimezoneSpec));
 } 
 
+nsCString
+GetTimezone()
+{
+  nsCString timezone;
+  Hal()->SendGetTimezone(&timezone);
+  return timezone;
+}
+
+void
+EnableSystemTimeChangeNotifications()
+{
+  Hal()->SendEnableSystemTimeChangeNotifications();
+}
+
+void
+DisableSystemTimeChangeNotifications()
+{
+  Hal()->SendDisableSystemTimeChangeNotifications();
+}
+
 void
 Reboot()
 {
-  Hal()->SendReboot();
+  NS_RUNTIMEABORT("Reboot() can't be called from sandboxed contexts.");
 }
 
 void
 PowerOff()
 {
-  Hal()->SendPowerOff();
+  NS_RUNTIMEABORT("PowerOff() can't be called from sandboxed contexts.");
+}
+
+void
+StartForceQuitWatchdog(ShutdownMode aMode, int32_t aTimeoutSecs)
+{
+  NS_RUNTIMEABORT("StartForceQuitWatchdog() can't be called from sandboxed contexts.");
 }
 
 void
@@ -274,10 +309,76 @@ DisableAlarm()
 }
 
 bool
-SetAlarm(long aSeconds, long aNanoseconds)
+SetAlarm(int32_t aSeconds, int32_t aNanoseconds)
 {
   NS_RUNTIMEABORT("Alarms can't be programmed from sandboxed contexts.  Yet.");
   return false;
+}
+
+void
+SetProcessPriority(int aPid, ProcessPriority aPriority)
+{
+  Hal()->SendSetProcessPriority(aPid, aPriority);
+}
+
+void
+EnableFMRadio(const hal::FMRadioSettings& aSettings)
+{
+  Hal()->SendEnableFMRadio(aSettings);
+}
+
+void
+DisableFMRadio()
+{
+  Hal()->SendDisableFMRadio();
+}
+
+void
+FMRadioSeek(const hal::FMRadioSeekDirection& aDirection)
+{
+  Hal()->SendFMRadioSeek(aDirection);
+}
+
+void
+GetFMRadioSettings(FMRadioSettings* aSettings)
+{
+  Hal()->SendGetFMRadioSettings(aSettings);
+}
+
+void
+SetFMRadioFrequency(const uint32_t aFrequency)
+{
+  Hal()->SendSetFMRadioFrequency(aFrequency);
+}
+
+uint32_t
+GetFMRadioFrequency()
+{
+  uint32_t frequency;
+  Hal()->SendGetFMRadioFrequency(&frequency);
+  return frequency;
+}
+
+bool
+IsFMRadioOn()
+{
+  bool FMRadioOn;
+  Hal()->SendIsFMRadioOn(&FMRadioOn);
+  return FMRadioOn;
+}
+
+uint32_t
+GetFMRadioSignalStrength()
+{
+  uint32_t strength;
+  Hal()->SendGetFMRadioSignalStrength(&strength);
+  return strength;
+}
+
+void
+CancelFMRadioSeek()
+{
+  Hal()->SendCancelFMRadioSeek();
 }
 
 class HalParent : public PHalParent
@@ -287,28 +388,32 @@ class HalParent : public PHalParent
                 , public WakeLockObserver
                 , public ScreenConfigurationObserver
                 , public SwitchObserver
+                , public SystemTimeObserver
 {
 public:
+  virtual void
+  ActorDestroy(ActorDestroyReason aWhy) MOZ_OVERRIDE
+  {
+    // NB: you *must* unconditionally unregister your observer here,
+    // if it *may* be registered below.
+    hal::UnregisterBatteryObserver(this);
+    hal::UnregisterNetworkObserver(this);
+    hal::UnregisterScreenConfigurationObserver(this);
+    for (int32_t sensor = SENSOR_UNKNOWN + 1;
+         sensor < NUM_SENSOR_TYPE; ++sensor) {
+      hal::UnregisterSensorObserver(SensorType(sensor), this);
+    }
+    hal::UnregisterWakeLockObserver(this);
+    hal::UnregisterSystemTimeChangeObserver(this);
+  }
+
   virtual bool
   RecvVibrate(const InfallibleTArray<unsigned int>& pattern,
               const InfallibleTArray<uint64_t> &id,
               PBrowserParent *browserParent) MOZ_OVERRIDE
   {
-    // Check whether browserParent is active.  We should have already
-    // checked that the corresponding window is active, but this check
-    // isn't redundant.  A window may be inactive in an active
-    // browser.  And a window is not notified synchronously when it's
-    // deactivated, so the window may think it's active when the tab
-    // is actually inactive.
+    // We give all content vibration permission.
     TabParent *tabParent = static_cast<TabParent*>(browserParent);
-    if (!tabParent->Active()) {
-      HAL_LOG(("RecvVibrate: Tab is not active. Cancelling."));
-      return true;
-    }
-
-    // Forward to hal::, not hal_impl::, because we might be a
-    // subprocess of another sandboxed process.  The hal:: entry point
-    // will do the right thing.
     nsCOMPtr<nsIDOMWindow> window =
       do_QueryInterface(tabParent->GetBrowserDOMWindow());
     WindowIdentifier newID(id, window);
@@ -330,6 +435,7 @@ public:
 
   virtual bool
   RecvEnableBatteryNotifications() MOZ_OVERRIDE {
+    // We give all content battery-status permission.
     hal::RegisterBatteryObserver(this);
     return true;
   }
@@ -342,6 +448,7 @@ public:
 
   virtual bool
   RecvGetCurrentBatteryInformation(BatteryInformation* aBatteryInfo) MOZ_OVERRIDE {
+    // We give all content battery-status permission.
     hal::GetCurrentBatteryInformation(aBatteryInfo);
     return true;
   }
@@ -352,6 +459,7 @@ public:
 
   virtual bool
   RecvEnableNetworkNotifications() MOZ_OVERRIDE {
+    // We give all content access to this network-status information.
     hal::RegisterNetworkObserver(this);
     return true;
   }
@@ -374,6 +482,8 @@ public:
 
   virtual bool
   RecvEnableScreenConfigurationNotifications() MOZ_OVERRIDE {
+    // Screen configuration is used to implement CSS and DOM
+    // properties, so all content already has access to this.
     hal::RegisterScreenConfigurationObserver(this);
     return true;
   }
@@ -393,6 +503,10 @@ public:
   virtual bool
   RecvLockScreenOrientation(const dom::ScreenOrientation& aOrientation, bool* aAllowed) MOZ_OVERRIDE
   {
+    // FIXME/bug 777980: unprivileged content may only lock
+    // orientation while fullscreen.  We should check whether the
+    // request comes from an actor in a process that might be
+    // fullscreen.  We don't have that information currently.
     *aAllowed = hal::LockScreenOrientation(aOrientation);
     return true;
   }
@@ -411,6 +525,9 @@ public:
   virtual bool
   RecvGetScreenEnabled(bool *enabled) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     *enabled = hal::GetScreenEnabled();
     return true;
   }
@@ -418,6 +535,9 @@ public:
   virtual bool
   RecvSetScreenEnabled(const bool &enabled) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     hal::SetScreenEnabled(enabled);
     return true;
   }
@@ -425,6 +545,9 @@ public:
   virtual bool
   RecvGetCpuSleepAllowed(bool *allowed) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     *allowed = hal::GetCpuSleepAllowed();
     return true;
   }
@@ -432,6 +555,9 @@ public:
   virtual bool
   RecvSetCpuSleepAllowed(const bool &allowed) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     hal::SetCpuSleepAllowed(allowed);
     return true;
   }
@@ -439,6 +565,9 @@ public:
   virtual bool
   RecvGetScreenBrightness(double *brightness) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     *brightness = hal::GetScreenBrightness();
     return true;
   }
@@ -446,6 +575,9 @@ public:
   virtual bool
   RecvSetScreenBrightness(const double &brightness) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     hal::SetScreenBrightness(brightness);
     return true;
   }
@@ -453,6 +585,13 @@ public:
   virtual bool
   RecvSetLight(const LightType& aLight,  const hal::LightConfiguration& aConfig, bool *status) MOZ_OVERRIDE
   {
+    // XXX currently, the hardware key light and screen backlight are
+    // controlled as a unit.  Those are set through the power API, and
+    // there's no other way to poke lights currently, so we require
+    // "power" privileges here.
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     *status = hal::SetLight(aLight, aConfig);
     return true;
   }
@@ -460,13 +599,19 @@ public:
   virtual bool
   RecvGetLight(const LightType& aLight, LightConfiguration* aConfig, bool* status) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     *status = hal::GetLight(aLight, aConfig);
     return true;
   }
 
   virtual bool
-  RecvAdjustSystemClock(const int32_t &aDeltaMilliseconds) MOZ_OVERRIDE
+  RecvAdjustSystemClock(const int64_t &aDeltaMilliseconds) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "time")) {
+      return false;
+    }
     hal::AdjustSystemClock(aDeltaMilliseconds);
     return true;
   }
@@ -474,26 +619,41 @@ public:
   virtual bool 
   RecvSetTimezone(const nsCString& aTimezoneSpec) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "time")) {
+      return false;
+    }
     hal::SetTimezone(aTimezoneSpec);
     return true;  
   }
 
   virtual bool
-  RecvReboot() MOZ_OVERRIDE
+  RecvGetTimezone(nsCString *aTimezoneSpec) MOZ_OVERRIDE
   {
-    hal::Reboot();
+    if (!AssertAppProcessPermission(this, "time")) {
+      return false;
+    }
+    *aTimezoneSpec = hal::GetTimezone();
     return true;
   }
 
   virtual bool
-  RecvPowerOff() MOZ_OVERRIDE
+  RecvEnableSystemTimeChangeNotifications() MOZ_OVERRIDE
   {
-    hal::PowerOff();
+    hal::RegisterSystemTimeChangeObserver(this);
+    return true;
+  }
+
+  virtual bool
+  RecvDisableSystemTimeChangeNotifications() MOZ_OVERRIDE
+  {
+    hal::UnregisterSystemTimeChangeObserver(this);
     return true;
   }
 
   virtual bool
   RecvEnableSensorNotifications(const SensorType &aSensor) MOZ_OVERRIDE {
+    // We currently allow any content to register device-sensor
+    // listeners.
     hal::RegisterSensorObserver(aSensor, this);
     return true;
   }
@@ -513,6 +673,7 @@ public:
                      const WakeLockControl &aLockAdjust,
                      const WakeLockControl &aHiddenAdjust) MOZ_OVERRIDE
   {
+    // We allow arbitrary content to use wake locks.
     hal::ModifyWakeLock(aTopic, aLockAdjust, aHiddenAdjust);
     return true;
   }
@@ -520,6 +681,7 @@ public:
   virtual bool
   RecvEnableWakeLockNotifications() MOZ_OVERRIDE
   {
+    // We allow arbitrary content to use wake locks.
     hal::RegisterWakeLockObserver(this);
     return true;
   }
@@ -534,6 +696,9 @@ public:
   virtual bool
   RecvGetWakeLockInfo(const nsString &aTopic, WakeLockInformation *aWakeLockInfo) MOZ_OVERRIDE
   {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
     hal::GetWakeLockInfo(aTopic, aWakeLockInfo);
     return true;
   }
@@ -546,8 +711,8 @@ public:
   virtual bool
   RecvEnableSwitchNotifications(const SwitchDevice& aDevice) MOZ_OVERRIDE
   {
-    hal::RegisterSwitchObserver(aDevice, this);
-    return true;
+    // Content has no reason to listen to switch events currently.
+    return false;
   }
 
   virtual bool
@@ -565,13 +730,128 @@ public:
   virtual bool
   RecvGetCurrentSwitchState(const SwitchDevice& aDevice, hal::SwitchState *aState) MOZ_OVERRIDE
   {
-    *aState = hal::GetCurrentSwitchState(aDevice);
+    // Content has no reason to listen to switch events currently.
+    return false;
+  }
+
+  virtual bool
+  RecvSetProcessPriority(const int& aPid, const ProcessPriority& aPriority)
+  {
+    // TODO As a security check, we should ensure that aPid is either the pid
+    // of our child, or the pid of one of the child's children.
+    hal::SetProcessPriority(aPid, aPriority);
+    return true;
+  }
+
+  void Notify(const SystemTimeChange& aReason)
+  {
+    unused << SendNotifySystemTimeChange(aReason);
+  }
+
+  virtual bool
+  RecvEnableFMRadio(const hal::FMRadioSettings& aSettings)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    hal::EnableFMRadio(aSettings);
+    return true;
+  }
+
+  virtual bool
+  RecvDisableFMRadio()
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    hal::DisableFMRadio();
+    return true;
+  }
+
+  virtual bool
+  RecvFMRadioSeek(const hal::FMRadioSeekDirection& aDirection)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    hal::FMRadioSeek(aDirection);
+    return true;
+  }
+
+  virtual bool
+  RecvGetFMRadioSettings(hal::FMRadioSettings* aSettings)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    hal::GetFMRadioSettings(aSettings);
+    return true;
+  }
+
+  virtual bool
+  RecvSetFMRadioFrequency(const uint32_t& aFrequency)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    hal::SetFMRadioFrequency(aFrequency);
+    return true;
+  }
+
+  virtual bool
+  RecvGetFMRadioFrequency(uint32_t* aFrequency)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    *aFrequency = hal::GetFMRadioFrequency();
+    return true;
+  }
+
+  void Notify(const hal::FMRadioOperationInformation& aRadioStatus)
+  {
+    unused << SendNotifyFMRadioStatus(aRadioStatus);
+  }
+
+  virtual bool
+  RecvIsFMRadioOn(bool* radioOn)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    *radioOn = hal::IsFMRadioOn();
+    return true;
+  }
+
+  virtual bool
+  RecvGetFMRadioSignalStrength(uint32_t* strength)
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    *strength = hal::GetFMRadioSignalStrength();
+    return true;
+  }
+
+  virtual bool
+  RecvCancelFMRadioSeek()
+  {
+    if (!AssertAppProcessPermission(this, "fmradio")) {
+      return false;
+    }
+    hal::CancelFMRadioSeek();
     return true;
   }
 };
 
 class HalChild : public PHalChild {
 public:
+  virtual void
+  ActorDestroy(ActorDestroyReason aWhy) MOZ_OVERRIDE
+  {
+    sHalChildIsLive = true;
+  }
+
   virtual bool
   RecvNotifyBatteryChange(const BatteryInformation& aBatteryInfo) MOZ_OVERRIDE {
     hal::NotifyBatteryChange(aBatteryInfo);
@@ -602,6 +882,18 @@ public:
   virtual bool
   RecvNotifySwitchChange(const mozilla::hal::SwitchEvent& aEvent) MOZ_OVERRIDE {
     hal::NotifySwitchChange(aEvent);
+    return true;
+  }
+
+  virtual bool
+  RecvNotifySystemTimeChange(const SystemTimeChange& aReason) {
+    hal::NotifySystemTimeChange(aReason);
+    return true;
+  }
+
+  virtual bool
+  RecvNotifyFMRadioStatus(const FMRadioOperationInformation& aRadioStatus) {
+    hal::NotifyFMRadioStatus(aRadioStatus);
     return true;
   }
 };

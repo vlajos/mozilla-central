@@ -29,6 +29,11 @@
 #include "nsIXULAppInfo.h"
 #include "nsDirectoryServiceUtils.h"
 #include "nsDirectoryServiceDefs.h"
+#include "nsIObserverService.h"
+#include "mozilla/Services.h"
+
+// JS
+#include "jsdbgapi.h"
 
 // we eventually want to make this runtime switchable
 #if defined(MOZ_PROFILING) && (defined(XP_UNIX) && !defined(XP_MACOSX))
@@ -92,6 +97,8 @@ mozilla::ThreadLocal<TableTicker *> tlsTicker;
 bool stack_key_initialized;
 
 TimeStamp sLastTracerEvent;
+int sFrameNumber = 0;
+int sLastFrameNumber = 0;
 
 class ThreadProfile;
 
@@ -129,6 +136,11 @@ public:
     , mTagName(aTagName)
   { }
 
+  ProfileEntry(char aTagName, int aTagLine)
+    : mTagLine(aTagLine)
+    , mTagName(aTagName)
+  { }
+
   friend std::ostream& operator<<(std::ostream& stream, const ProfileEntry& entry);
 
 private:
@@ -140,6 +152,7 @@ private:
     double mTagFloat;
     Address mTagAddress;
     uintptr_t mTagOffset;
+    int mTagLine;
   };
   char mTagName;
 };
@@ -310,6 +323,13 @@ public:
             }
           }
           break;
+        case 'f':
+          {
+            if (sample) {
+              b.DefineProperty(sample, "frameNumber", entry.mTagLine);
+            }
+          }
+          break;
         case 't':
           {
             if (sample) {
@@ -331,6 +351,13 @@ public:
                 b.DefineProperty(frame, "location", tagBuff);
               } else {
                 b.DefineProperty(frame, "location", tagStringData);
+                readAheadPos = (readPos + incBy) % mEntrySize;
+                if (readAheadPos != mLastFlushPos &&
+                    mEntries[readAheadPos].mTagName == 'n') {
+                  b.DefineProperty(frame, "line",
+                                   mEntries[readAheadPos].mTagLine);
+                  incBy++;
+                }
               }
               b.ArrayPush(frames, frame);
             }
@@ -430,7 +457,7 @@ static JSBool
 WriteCallback(const jschar *buf, uint32_t len, void *data)
 {
   std::ofstream& stream = *static_cast<std::ofstream*>(data);
-  nsCAutoString profile = NS_ConvertUTF16toUTF8(buf, len);
+  nsAutoCString profile = NS_ConvertUTF16toUTF8(buf, len);
   stream << profile.Data();
   return JS_TRUE;
 }
@@ -454,12 +481,12 @@ public:
     t->SetPaused(true);
 
     // Get file path
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
     nsCString tmpPath;
     tmpPath.AppendPrintf("/sdcard/profile_%i_%i.txt", XRE_GetProcessType(), getpid());
 #else
     nsCOMPtr<nsIFile> tmpFile;
-    nsCAutoString tmpPath;
+    nsAutoCString tmpPath;
     if (NS_FAILED(NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(tmpFile)))) {
       LOG("Failed to find temporary directory.");
       return NS_ERROR_FAILURE;
@@ -509,14 +536,10 @@ public:
       // being thread safe. Bug 750989.
       t->SetPaused(true);
       if (stream.is_open()) {
-        JSAutoEnterCompartment autoComp;
-        if (autoComp.enter(cx, obj)) {
-          JSObject* profileObj = mozilla_sampler_get_profile_data(cx);
-          jsval val = OBJECT_TO_JSVAL(profileObj);
-          JS_Stringify(cx, &val, nullptr, JSVAL_NULL, WriteCallback, &stream);
-        } else {
-          LOG("Failed to enter compartment");
-        }
+        JSAutoCompartment autoComp(cx, obj);
+        JSObject* profileObj = mozilla_sampler_get_profile_data(cx);
+        jsval val = OBJECT_TO_JSVAL(profileObj);
+        JS_Stringify(cx, &val, nullptr, JSVAL_NULL, WriteCallback, &stream);
         stream.close();
         LOGF("Saved to %s", tmpPath.get());
       } else {
@@ -557,7 +580,7 @@ JSObject* TableTicker::GetMetaJSObject(JSObjectBuilder& b)
   nsresult res;
   nsCOMPtr<nsIHttpProtocolHandler> http = do_GetService(NS_NETWORK_PROTOCOL_CONTRACTID_PREFIX "http", &res);
   if (!NS_FAILED(res)) {
-    nsCAutoString string;
+    nsAutoCString string;
 
     res = http->GetPlatform(string);
     if (!NS_FAILED(res))
@@ -574,7 +597,7 @@ JSObject* TableTicker::GetMetaJSObject(JSObjectBuilder& b)
 
   nsCOMPtr<nsIXULRuntime> runtime = do_GetService("@mozilla.org/xre/runtime;1");
   if (runtime) {
-    nsCAutoString string;
+    nsAutoCString string;
 
     res = runtime->GetXPCOMABI(string);
     if (!NS_FAILED(res))
@@ -587,7 +610,7 @@ JSObject* TableTicker::GetMetaJSObject(JSObjectBuilder& b)
 
   nsCOMPtr<nsIXULAppInfo> appInfo = do_GetService("@mozilla.org/xre/app-info;1");
   if (appInfo) {
-    nsCAutoString string;
+    nsAutoCString string;
 
     res = appInfo->GetName(string);
     if (!NS_FAILED(res))
@@ -624,12 +647,15 @@ JSObject* TableTicker::ToJSObject(JSContext *aCx)
 }
 
 static
-void addProfileEntry(ProfileStack *aStack, ThreadProfile &aProfile, int i)
+void addProfileEntry(volatile StackEntry &entry, ThreadProfile &aProfile,
+                     ProfileStack *stack, void *lastpc)
 {
+  int lineno = -1;
+
   // First entry has tagName 's' (start)
   // Check for magic pointer bit 1 to indicate copy
-  const char* sampleLabel = aStack->mStack[i].mLabel;
-  if (aStack->mStack[i].isCopyLabel()) {
+  const char* sampleLabel = entry.label();
+  if (entry.isCopyLabel()) {
     // Store the string using 1 or more 'd' (dynamic) tags
     // that will happen to the preceding tag
 
@@ -646,8 +672,30 @@ void addProfileEntry(ProfileStack *aStack, ThreadProfile &aProfile, int i)
       // Cast to *((void**) to pass the text data to a void*
       aProfile.addTag(ProfileEntry('d', *((void**)(&text[0]))));
     }
+    if (entry.js()) {
+      if (!entry.pc()) {
+        // The JIT only allows the top-most entry to have a NULL pc
+        MOZ_ASSERT(&entry == &stack->mStack[stack->stackSize() - 1]);
+        // If stack-walking was disabled, then that's just unfortunate
+        if (lastpc) {
+          jsbytecode *jspc = js::ProfilingGetPC(stack->mRuntime, entry.script(),
+                                                lastpc);
+          if (jspc) {
+            lineno = JS_PCToLineNumber(NULL, entry.script(), jspc);
+          }
+        }
+      } else {
+        lineno = JS_PCToLineNumber(NULL, entry.script(), entry.pc());
+      }
+    } else {
+      lineno = entry.line();
+    }
   } else {
     aProfile.addTag(ProfileEntry('c', sampleLabel));
+    lineno = entry.line();
+  }
+  if (lineno != -1) {
+    aProfile.addTag(ProfileEntry('n', lineno));
   }
 }
 
@@ -740,13 +788,13 @@ void TableTicker::doBacktrace(ThreadProfile &aProfile, TickSample* aSample)
     // pseudoStackPos is the position in the Pseudo stack starting
     // at the first frame (run_js in the example) and increasing.
     for (size_t i = array.count; i > 0; --i) {
-      while (pseudoStackPos < stack->mStackPointer) {
+      while (pseudoStackPos < stack->stackSize()) {
         volatile StackEntry& entry = stack->mStack[pseudoStackPos];
 
-        if (entry.mStackAddress < array.sp_array[i-1] && entry.mStackAddress)
+        if (entry.stackAddress() < array.sp_array[i-1] && entry.stackAddress())
           break;
 
-        addProfileEntry(stack, aProfile, pseudoStackPos);
+        addProfileEntry(entry, aProfile, stack, array.array[0]);
         pseudoStackPos++;
       }
 
@@ -811,10 +859,8 @@ void doSampleStackTrace(ProfileStack *aStack, ThreadProfile &aProfile, TickSampl
   // 's' tag denotes the start of a sample block
   // followed by 0 or more 'c' tags.
   aProfile.addTag(ProfileEntry('s', "(root)"));
-  for (mozilla::sig_safe_t i = 0;
-       i < aStack->mStackPointer && i < mozilla::ArrayLength(aStack->mStack);
-       i++) {
-    addProfileEntry(aStack, aProfile, i);
+  for (uint32_t i = 0; i < aStack->stackSize(); i++) {
+    addProfileEntry(aStack->mStack[i], aProfile, aStack, nullptr);
   }
 #ifdef ENABLE_SPS_LEAF_DATA
   if (sample) {
@@ -891,6 +937,11 @@ void TableTicker::Tick(TickSample* sample)
     TimeDuration delta = sample->timestamp - mStartTime;
     mPrimaryThreadProfile.addTag(ProfileEntry('t', delta.ToMilliseconds()));
   }
+
+  if (sLastFrameNumber != sFrameNumber) {
+    mPrimaryThreadProfile.addTag(ProfileEntry('f', sFrameNumber));
+    sLastFrameNumber = sFrameNumber;
+  }
 }
 
 std::ostream& operator<<(std::ostream& stream, const ThreadProfile& profile)
@@ -924,6 +975,9 @@ std::ostream& operator<<(std::ostream& stream, const ProfileEntry& entry)
 
 void mozilla_sampler_init()
 {
+  if (stack_key_initialized)
+    return;
+
   if (!tlsStack.init() || !tlsTicker.init()) {
     LOG("Failed to init.");
     return;
@@ -1040,12 +1094,17 @@ void mozilla_sampler_start(int aProfileEntries, int aInterval,
 
   mozilla_sampler_stop();
 
-  TableTicker *t = new TableTicker(aInterval, aProfileEntries, stack,
-                                   aFeatures, aFeatureCount);
+  TableTicker *t = new TableTicker(aInterval ? aInterval : PROFILE_DEFAULT_INTERVAL,
+                                   aProfileEntries ? aProfileEntries : PROFILE_DEFAULT_ENTRY,
+                                   stack, aFeatures, aFeatureCount);
   tlsTicker.set(t);
   t->Start();
   if (t->ProfileJS())
       stack->enableJSSampling();
+
+  nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
+  if (os)
+    os->NotifyObservers(nullptr, "profiler-started", nullptr);
 }
 
 void mozilla_sampler_stop()
@@ -1068,6 +1127,10 @@ void mozilla_sampler_stop()
 
   if (disableJS)
     stack->disableJSSampling();
+
+  nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
+  if (os)
+    os->NotifyObservers(nullptr, "profiler-stopped", nullptr);
 }
 
 bool mozilla_sampler_is_active()
@@ -1108,3 +1171,7 @@ const double* mozilla_sampler_get_responsiveness()
   return sResponsivenessTimes;
 }
 
+void mozilla_sampler_frame_number(int frameNumber)
+{
+  sFrameNumber = frameNumber;
+}

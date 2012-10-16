@@ -7,12 +7,14 @@
 #include "DeviceStorageRequestChild.h"
 #include "nsDeviceStorage.h"
 #include "nsDOMFile.h"
+#include "mozilla/dom/ipc/Blob.h"
 
 namespace mozilla {
 namespace dom {
 namespace devicestorage {
 
 DeviceStorageRequestChild::DeviceStorageRequestChild()
+  : mCallback(nullptr)
 {
   MOZ_COUNT_CTOR(DeviceStorageRequestChild);
 }
@@ -21,6 +23,7 @@ DeviceStorageRequestChild::DeviceStorageRequestChild(DOMRequest* aRequest,
                                                      DeviceStorageFile* aFile)
   : mRequest(aRequest)
   , mFile(aFile)
+  , mCallback(nullptr)
 {
   MOZ_COUNT_CTOR(DeviceStorageRequestChild);
 }
@@ -28,9 +31,15 @@ DeviceStorageRequestChild::DeviceStorageRequestChild(DOMRequest* aRequest,
 DeviceStorageRequestChild::~DeviceStorageRequestChild() {
   MOZ_COUNT_DTOR(DeviceStorageRequestChild);
 }
+
 bool
 DeviceStorageRequestChild::Recv__delete__(const DeviceStorageResponseValue& aValue)
 {
+  if (mCallback) {
+    mCallback->RequestComplete();
+    mCallback = nullptr;
+  }
+
   switch (aValue.type()) {
 
     case DeviceStorageResponseValue::TErrorResponse:
@@ -50,21 +59,21 @@ DeviceStorageRequestChild::Recv__delete__(const DeviceStorageResponseValue& aVal
     case DeviceStorageResponseValue::TBlobResponse:
     {
       BlobResponse r = aValue;
+      BlobChild* actor = static_cast<BlobChild*>(r.blobChild());
+      nsCOMPtr<nsIDOMBlob> blob = actor->GetBlob();
 
-      // I am going to hell for this.  bent says he'll save me.
-      const InfallibleTArray<PRUint8> bits = r.bits();
-      void* buffer = PR_Malloc(bits.Length());
-      memcpy(buffer, (void*) bits.Elements(), bits.Length());
+      nsCOMPtr<nsIDOMFile> file = do_QueryInterface(blob);
+      jsval result = InterfaceToJsval(mRequest->GetOwner(), file, &NS_GET_IID(nsIDOMFile));
+      mRequest->FireSuccess(result);
+      break;
+    }
 
-      nsString mimeType;
-      mimeType.AssignWithConversion(r.contentType());
+    case DeviceStorageResponseValue::TStatStorageResponse:
+    {
+      StatStorageResponse r = aValue;
 
-      nsCOMPtr<nsIDOMBlob> blob = new nsDOMMemoryFile(buffer,
-                                                      bits.Length(),
-                                                      mFile->mPath,
-                                                      mimeType);
-
-      jsval result = BlobToJsval(mRequest->GetOwner(), blob);
+      nsRefPtr<nsIDOMDeviceStorageStat> domstat = new nsDOMDeviceStorageStat(r.freeBytes(), r.totalBytes(), r.mountState());
+      jsval result = InterfaceToJsval(mRequest->GetOwner(), domstat, &NS_GET_IID(nsIDOMDeviceStorageStat));
       mRequest->FireSuccess(result);
       break;
     }
@@ -74,18 +83,21 @@ DeviceStorageRequestChild::Recv__delete__(const DeviceStorageResponseValue& aVal
       EnumerationResponse r = aValue;
       nsDOMDeviceStorageCursor* cursor = static_cast<nsDOMDeviceStorageCursor*>(mRequest.get());
 
-      PRUint32 count = r.paths().Length();
-      for (PRUint32 i = 0; i < count; i++) {
+      uint32_t count = r.paths().Length();
+      for (uint32_t i = 0; i < count; i++) {
         nsCOMPtr<nsIFile> f;
-        NS_NewLocalFile(r.paths()[i].fullpath(), false, getter_AddRefs(f));
+        nsresult rv = NS_NewLocalFile(r.paths()[i].fullpath(), false, getter_AddRefs(f));
+        if (NS_FAILED(rv)) {
+          continue;
+        }
 
-        nsRefPtr<DeviceStorageFile> dsf = new DeviceStorageFile(f);
-        dsf->SetPath(r.paths()[i].path());
+        nsRefPtr<DeviceStorageFile> dsf = new DeviceStorageFile(r.paths()[i].type(), f);
+        dsf->SetPath(r.paths()[i].name());
         cursor->mFiles.AppendElement(dsf);
       }
 
       nsCOMPtr<ContinueCursorEvent> event = new ContinueCursorEvent(cursor);
-      NS_DispatchToMainThread(event);
+      event->Continue();
       break;
     }
 
@@ -98,6 +110,11 @@ DeviceStorageRequestChild::Recv__delete__(const DeviceStorageResponseValue& aVal
   return true;
 }
 
+void
+DeviceStorageRequestChild::SetCallback(DeviceStorageRequestChildCallback *aCallback)
+{
+  mCallback = aCallback;
+}
 
 } // namespace devicestorage
 } // namespace dom

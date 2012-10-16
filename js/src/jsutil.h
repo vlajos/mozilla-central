@@ -15,7 +15,9 @@
 
 #include "js/Utility.h"
 
+#ifdef USE_ZLIB
 #include "zlib.h"
+#endif
 
 /* Forward declarations. */
 struct JSContext;
@@ -262,6 +264,28 @@ Swap(T &t, T &u)
     u = Move(tmp);
 }
 
+template <typename T>
+static inline bool
+IsPowerOfTwo(T t)
+{
+    return t && !(t & (t - 1));
+}
+
+template <typename T, typename U>
+static inline U
+ComputeByteAlignment(T bytes, U alignment)
+{
+    JS_ASSERT(IsPowerOfTwo(alignment));
+    return (alignment - (bytes % alignment)) % alignment;
+}
+
+template <typename T, typename U>
+static inline T
+AlignBytes(T bytes, U alignment)
+{
+    return bytes + ComputeByteAlignment(bytes, alignment);
+}
+
 JS_ALWAYS_INLINE static size_t
 UnsignedPtrDiff(const void *bigger, const void *smaller)
 {
@@ -340,7 +364,7 @@ ClearAllBitArrayElements(size_t *array, size_t length)
 #ifdef USE_ZLIB
 class Compressor
 {
-    // Number of bytes we should hand to zlib each compressMore() call.
+    /* Number of bytes we should hand to zlib each compressMore() call. */
     static const size_t CHUNKSIZE = 2048;
     z_stream zs;
     const unsigned char *inp;
@@ -358,9 +382,9 @@ class Compressor
         zs.avail_out = inplen;
     }
     bool init();
-    // Compress some of the input. Return true if it should be called again.
+    /* Compress some of the input. Return true if it should be called again. */
     bool compressMore();
-    // Finalize compression. Return the length of the compressed input.
+    /* Finalize compression. Return the length of the compressed input. */
     size_t finish();
 };
 
@@ -431,8 +455,9 @@ typedef size_t jsbitmap;
 # define JS_SILENCE_UNUSED_VALUE_IN_EXPR(expr)                                \
     JS_BEGIN_MACRO                                                            \
         _Pragma("clang diagnostic push")                                      \
+        /* If these _Pragmas cause warnings for you, try disabling ccache. */ \
         _Pragma("clang diagnostic ignored \"-Wunused-value\"")                \
-        expr;                                                                 \
+        { expr; }                                                             \
         _Pragma("clang diagnostic pop")                                       \
     JS_END_MACRO
 #elif (__GNUC__ >= 5) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)

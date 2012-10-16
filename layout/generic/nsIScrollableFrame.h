@@ -13,12 +13,12 @@
 #include "nsISupports.h"
 #include "nsCoord.h"
 #include "nsPresContext.h"
-#include "nsIFrame.h" // to get nsIBox, which is a typedef
 
 #define NS_DEFAULT_VERTICAL_SCROLL_DISTANCE 3
 
 class nsBoxLayoutState;
 class nsIScrollPositionListener;
+class nsIFrame;
 
 /**
  * Interface for frames that are scrollable. This interface exposes
@@ -50,7 +50,13 @@ public:
    * of the scrolled contents, in which case it will reflect the current
    * assumptions about scrollbar visibility.
    */
-  virtual PRUint32 GetScrollbarVisibility() const = 0;
+  virtual uint32_t GetScrollbarVisibility() const = 0;
+  /**
+   * Returns the directions in which scrolling is perceived to be allowed.
+   * A direction is perceived to be allowed if there is a visible scrollbar
+   * for that direction or if the scroll range is at least one device pixel.
+   */
+  uint32_t GetPerceivedScrollingDirections() const;
   /**
    * Return the actual sizes of all possible scrollbars. Returns 0 for scrollbar
    * positions that don't have a scrollbar or where the scrollbar is not visible.
@@ -139,6 +145,11 @@ public:
    */
   virtual void ScrollToCSSPixels(nsIntPoint aScrollPosition) = 0;
   /**
+   * Returns the scroll position in integer CSS pixels, rounded to the nearest
+   * pixel.
+   */
+  virtual nsIntPoint GetScrollPositionCSSPixels() = 0;
+  /**
    * When scrolling by a relative amount, we can choose various units.
    */
   enum ScrollUnit { DEVICE_PIXELS, LINES, PAGES, WHOLE };
@@ -179,7 +190,7 @@ public:
    * setting up a scrollbar mediator if you want to redirect scrollbar
    * input.
    */
-  virtual nsIBox* GetScrollbarBox(bool aVertical) = 0;
+  virtual nsIFrame* GetScrollbarBox(bool aVertical) = 0;
 
   /**
    * Internal method used by scrollbars to notify their scrolling
@@ -199,6 +210,11 @@ public:
    * expectation that scrolling is going to happen.
    */
   virtual bool IsScrollingActive() = 0;
+  /**
+   * Call this when the layer(s) induced by active scrolling are being
+   * completely redrawn.
+   */
+  virtual void ResetScrollPositionForLayerPixelAlignment() = 0;
 };
 
 #endif

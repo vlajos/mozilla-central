@@ -60,7 +60,7 @@ WriteConsoleLog()
   }
 
   nsIConsoleMessage** messages;
-  PRUint32 mcount;
+  uint32_t mcount;
 
   rv = csrv->GetMessageArray(&messages, &mcount);
   if (NS_FAILED(rv)) {
@@ -84,9 +84,9 @@ WriteConsoleLog()
   // the memory allocated for the messages array. XPCOM arrays suck.
 
   nsXPIDLString msg;
-  nsCAutoString nativemsg;
+  nsAutoCString nativemsg;
 
-  for (PRUint32 i = 0; i < mcount; ++i) {
+  for (uint32_t i = 0; i < mcount; ++i) {
     rv = messages[i]->GetMessageMoz(getter_Copies(msg));
     if (NS_SUCCEEDED(rv)) {
       NS_CopyUnicodeToNative(msg, nativemsg);

@@ -11,29 +11,17 @@
 
 #include "frontend/BytecodeEmitter.h"
 #include "frontend/FoldConstants.h"
-#include "frontend/SemanticAnalysis.h"
+#include "frontend/NameFunctions.h"
 #include "vm/GlobalObject.h"
 
 #include "jsinferinlines.h"
 
-#include "frontend/TreeContext-inl.h"
+#include "frontend/ParseMaps-inl.h"
+#include "frontend/Parser-inl.h"
+#include "frontend/SharedContext-inl.h"
 
 using namespace js;
 using namespace js::frontend;
-
-class AutoAttachToRuntime {
-    JSRuntime *rt;
-  public:
-    ScriptSource *ss;
-    AutoAttachToRuntime(JSRuntime *rt)
-      : rt(rt), ss(NULL) {}
-    ~AutoAttachToRuntime() {
-        // This makes the source visible to the GC. If compilation fails, and no
-        // script refers to it, it will be collected.
-        if (ss)
-            ss->attachToRuntime(rt);
-    }
-};
 
 static bool
 CheckLength(JSContext *cx, size_t length)
@@ -48,10 +36,20 @@ CheckLength(JSContext *cx, size_t length)
     return true;
 }
 
+static bool
+SetSourceMap(JSContext *cx, TokenStream &tokenStream, ScriptSource *ss, JSScript *script)
+{
+    if (tokenStream.hasSourceMap()) {
+        if (!ss->setSourceMap(cx, tokenStream.releaseSourceMap(), script->filename))
+            return false;
+    }
+    return true;
+}
+
 JSScript *
 frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *callerFrame,
                         const CompileOptions &options,
-                        const jschar *chars, size_t length,
+                        StableCharPtr chars, size_t length,
                         JSString *source_ /* = NULL */,
                         unsigned staticLevel /* = 0 */)
 {
@@ -79,14 +77,22 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
 
     if (!CheckLength(cx, length))
         return NULL;
-    AutoAttachToRuntime attacher(cx->runtime);
+    JS_ASSERT_IF(staticLevel != 0, options.sourcePolicy != CompileOptions::LAZY_SOURCE);
+    ScriptSource *ss = cx->new_<ScriptSource>();
+    if (!ss)
+        return NULL;
+    ScriptSourceHolder ssh(cx->runtime, ss);
     SourceCompressionToken sct(cx);
-    ScriptSource *ss = NULL;
-    if (!cx->hasRunOption(JSOPTION_ONLY_CNG_SOURCE) || options.compileAndGo) {
-        ss = ScriptSource::createFromSource(cx, chars, length, false, &sct);
-        if (!ss)
+    switch (options.sourcePolicy) {
+      case CompileOptions::SAVE_SOURCE:
+        if (!ss->setSourceCopy(cx, chars, length, false, &sct))
             return NULL;
-        attacher.ss = ss;
+        break;
+      case CompileOptions::LAZY_SOURCE:
+        ss->setSourceRetrievable();
+        break;
+      case CompileOptions::NO_SOURCE:
+        break;
     }
 
     Parser parser(cx, options, chars, length, /* foldConstants = */ true);
@@ -94,10 +100,10 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
         return NULL;
     parser.sct = &sct;
 
-    SharedContext sc(cx, scopeChain, /* fun = */ NULL, /* funbox = */ NULL, StrictModeFromContext(cx));
+    GlobalSharedContext globalsc(cx, scopeChain, StrictModeFromContext(cx));
 
-    TreeContext tc(&parser, &sc, staticLevel, /* bodyid = */ 0);
-    if (!tc.init())
+    ParseContext pc(&parser, &globalsc, staticLevel, /* bodyid = */ 0);
+    if (!pc.init())
         return NULL;
 
     bool savedCallerFun = options.compileAndGo && callerFrame && callerFrame->isFunctionFrame();
@@ -106,19 +112,25 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
     if (!script)
         return NULL;
 
+    // Global/eval script bindings are always empty (all names are added to the
+    // scope dynamically via JSOP_DEFFUN/VAR).
+    InternalHandle<Bindings*> bindings(script, &script->bindings);
+    if (!Bindings::initWithTemporaryStorage(cx, bindings, 0, 0, NULL))
+        return NULL;
+
     // We can specialize a bit for the given scope chain if that scope chain is the global object.
     JSObject *globalScope = scopeChain && scopeChain == &scopeChain->global() ? (JSObject*) scopeChain : NULL;
     JS_ASSERT_IF(globalScope, globalScope->isNative());
     JS_ASSERT_IF(globalScope, JSCLASS_HAS_GLOBAL_FLAG_AND_SLOTS(globalScope->getClass()));
 
-    BytecodeEmitter bce(/* parent = */ NULL, &parser, &sc, script, callerFrame, !!globalScope,
-                        options.lineno);
+    BytecodeEmitter bce(/* parent = */ NULL, &parser, &globalsc, script, callerFrame, !!globalScope,
+                        options.lineno, options.selfHostingMode);
     if (!bce.init())
         return NULL;
 
     /* If this is a direct call to eval, inherit the caller's strictness.  */
-    if (callerFrame && callerFrame->isScriptFrame() && callerFrame->script()->strictModeCode)
-        sc.strictModeState = StrictMode::STRICT;
+    if (callerFrame && callerFrame->script()->strictModeCode)
+        globalsc.strictModeState = StrictMode::STRICT;
 
     if (options.compileAndGo) {
         if (source) {
@@ -126,7 +138,7 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
              * Save eval program source in script->atoms[0] for the
              * eval cache (see EvalCacheLookup in jsobj.cpp).
              */
-            JSAtom *atom = js_AtomizeString(cx, source);
+            JSAtom *atom = AtomizeString(cx, source);
             jsatomid _;
             if (!atom || !bce.makeAtomIndex(atom, &_))
                 return NULL;
@@ -138,12 +150,13 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
              * function captured in case it refers to an upvar, and someone
              * wishes to decompile it while it's running.
              */
-            ObjectBox *funbox = parser.newObjectBox(callerFrame->fun());
+            JSFunction *fun = callerFrame->fun();
+            ObjectBox *funbox = parser.newFunctionBox(fun, &pc, 
+                                                      fun->inStrictMode() ? StrictMode::STRICT 
+                                                                          : StrictMode::NOTSTRICT);
             if (!funbox)
                 return NULL;
-            funbox->emitLink = bce.objectList.lastbox;
-            bce.objectList.lastbox = funbox;
-            bce.objectList.length++;
+            bce.objectList.add(funbox);
         }
     }
 
@@ -165,7 +178,7 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
         if (!ok)
             return NULL;
     }
-    JS_ASSERT(sc.strictModeState != StrictMode::UNKNOWN);
+    JS_ASSERT(globalsc.strictModeState != StrictMode::UNKNOWN);
     for (;;) {
         TokenKind tt = tokenStream.peekToken(TSF_OPERAND);
         if (tt <= TOK_EOF) {
@@ -181,10 +194,8 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
 
         if (!FoldConstants(cx, pn, &parser))
             return NULL;
-
-        if (!AnalyzeFunctions(&parser, callerFrame))
+        if (!NameFunctions(cx, pn))
             return NULL;
-        tc.functionList = NULL;
 
         if (!EmitTree(cx, &bce, pn))
             return NULL;
@@ -195,6 +206,9 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
 #endif
         parser.freeTree(pn);
     }
+
+    if (!SetSourceMap(cx, tokenStream, ss, script))
+        return NULL;
 
 #if JS_HAS_XML_SUPPORT
     /*
@@ -211,15 +225,13 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
 
     // It's an error to use |arguments| in a function that has a rest parameter.
     if (callerFrame && callerFrame->isFunctionFrame() && callerFrame->fun()->hasRest()) {
-        PropertyName *arguments = cx->runtime->atomState.argumentsAtom;
-        for (AtomDefnRange r = tc.lexdeps->all(); !r.empty(); r.popFront()) {
+        HandlePropertyName arguments = cx->names().arguments;
+        for (AtomDefnRange r = pc.lexdeps->all(); !r.empty(); r.popFront()) {
             if (r.front().key() == arguments) {
                 parser.reportError(NULL, JSMSG_ARGUMENTS_AND_REST);
                 return NULL;
             }
         }
-        // We're not in a function context, so we don't expect any bindings.
-        JS_ASSERT(!sc.bindings.hasBinding(cx, arguments));
     }
 
     /*
@@ -241,16 +253,20 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *call
 // handler attribute in an HTML <INPUT> tag, or in a Function() constructor.
 bool
 frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions options,
-                              Bindings *bindings, const jschar *chars, size_t length)
+                              const AutoNameVector &formals, StableCharPtr chars, size_t length)
 {
     if (!CheckLength(cx, length))
         return false;
-    AutoAttachToRuntime attacher(cx->runtime);
-    SourceCompressionToken sct(cx);
-    ScriptSource *ss = ScriptSource::createFromSource(cx, chars, length, true, &sct);
+    ScriptSource *ss = cx->new_<ScriptSource>();
     if (!ss)
-        return NULL;
-    attacher.ss = ss;
+        return false;
+    ScriptSourceHolder ssh(cx->runtime, ss);
+    SourceCompressionToken sct(cx);
+    JS_ASSERT(options.sourcePolicy != CompileOptions::LAZY_SOURCE);
+    if (options.sourcePolicy == CompileOptions::SAVE_SOURCE) {
+        if (!ss->setSourceCopy(cx, chars, length, true, &sct))
+            return false;
+    }
 
     options.setCompileAndGo(false);
     Parser parser(cx, options, chars, length, /* foldConstants = */ true);
@@ -259,25 +275,14 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
     parser.sct = &sct;
 
     JS_ASSERT(fun);
-    SharedContext funsc(cx, /* scopeChain = */ NULL, fun, /* funbox = */ NULL,
-                        StrictModeFromContext(cx));
-    funsc.bindings.transfer(bindings);
-    fun->setArgCount(funsc.bindings.numArgs());
+
+    StrictMode sms = StrictModeFromContext(cx);
+    FunctionBox *funbox = parser.newFunctionBox(fun, /* outerpc = */ NULL, sms);
+    fun->setArgCount(formals.length());
 
     unsigned staticLevel = 0;
-    TreeContext funtc(&parser, &funsc, staticLevel, /* bodyid = */ 0);
-    if (!funtc.init())
-        return false;
-
-    Rooted<JSScript*> script(cx, JSScript::Create(cx, NullPtr(), false, options,
-                                                  staticLevel, ss, 0, length));
-    if (!script)
-        return false;
-
-    StackFrame *nullCallerFrame = NULL;
-    BytecodeEmitter funbce(/* parent = */ NULL, &parser, &funsc, script, nullCallerFrame,
-                           /* hasGlobalScope = */ false, options.lineno);
-    if (!funbce.init())
+    ParseContext funpc(&parser, funbox, staticLevel, /* bodyid = */ 0);
+    if (!funpc.init())
         return false;
 
     /* FIXME: make Function format the source for a function definition. */
@@ -295,20 +300,9 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
     argsbody->makeEmpty();
     fn->pn_body = argsbody;
 
-    unsigned nargs = fun->nargs;
-    if (nargs) {
-        /*
-         * NB: do not use AutoLocalNameArray because it will release space
-         * allocated from cx->tempLifoAlloc by DefineArg.
-         */
-        BindingVector names(cx);
-        if (!GetOrderedBindings(cx, funsc.bindings, &names))
+    for (unsigned i = 0; i < formals.length(); i++) {
+        if (!DefineArg(&parser, fn, formals[i]))
             return false;
-
-        for (unsigned i = 0; i < nargs; i++) {
-            if (!DefineArg(fn, names[i].maybeName, i, &parser))
-                return false;
-        }
     }
 
     /*
@@ -317,7 +311,7 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
      * at the end.
      */
     ParseNode *pn = parser.functionBody(Parser::StatementListBody);
-    if (!pn) 
+    if (!pn)
         return false;
 
     if (!parser.tokenStream.matchToken(TOK_EOF)) {
@@ -328,7 +322,21 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
     if (!FoldConstants(cx, pn, &parser))
         return false;
 
-    if (!AnalyzeFunctions(&parser, nullCallerFrame))
+    Rooted<JSScript*> script(cx, JSScript::Create(cx, NullPtr(), false, options,
+                                                  staticLevel, ss, 0, length));
+    if (!script)
+        return false;
+
+    InternalHandle<Bindings*> bindings(script, &script->bindings);
+    if (!funpc.generateFunctionBindings(cx, bindings))
+        return false;
+
+    BytecodeEmitter funbce(/* parent = */ NULL, &parser, funbox, script, /* callerFrame = */ NULL,
+                           /* hasGlobalScope = */ false, options.lineno);
+    if (!funbce.init())
+        return false;
+
+    if (!NameFunctions(cx, pn))
         return false;
 
     if (fn->pn_body) {
@@ -337,6 +345,9 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
         fn->pn_body->pn_pos = pn->pn_pos;
         pn = fn->pn_body;
     }
+
+    if (!SetSourceMap(cx, parser.tokenStream, ss, script))
+        return false;
 
     if (!EmitFunctionScript(cx, &funbce, pn))
         return false;

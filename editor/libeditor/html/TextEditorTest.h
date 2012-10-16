@@ -7,7 +7,6 @@
 #define __TextEditorTest_h__
 
 #include "nscore.h"
-#include "prtypes.h"
 
 class nsIEditor;
 class nsIPlaintextEditor;
@@ -19,7 +18,7 @@ class TextEditorTest
 {
 public:
 
-  void Run(nsIEditor *aEditor, PRInt32 *outNumTests, PRInt32 *outNumTestsFailed);
+  void Run(nsIEditor *aEditor, int32_t *outNumTests, int32_t *outNumTestsFailed);
   TextEditorTest();
   ~TextEditorTest();
 
@@ -28,7 +27,7 @@ protected:
   /** create an empty document */
   nsresult InitDoc();
 
-  nsresult RunUnitTest(PRInt32 *outNumTests, PRInt32 *outNumTestsFailed);
+  nsresult RunUnitTest(int32_t *outNumTests, int32_t *outNumTestsFailed);
 
   nsresult TestInsertBreak();
 

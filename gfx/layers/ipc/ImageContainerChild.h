@@ -52,7 +52,7 @@ public:
    * compositor side to fetch the images without having to keep direct references
    * between the ShadowImageLayer and the InmageBridgeParent.
    */
-  const PRUint64& GetID() const
+  const uint64_t& GetID() const
   {
     return mImageContainerID;
   }
@@ -137,7 +137,7 @@ protected:
    */
   void DestroyNow();
 
-  inline void SetID(PRUint64 id)
+  inline void SetID(uint64_t id)
   {
     mImageContainerID = id;
   }
@@ -161,7 +161,7 @@ protected:
    * Removes a shared image from the pool and returns it.
    * Returns nullptr if the pool is empty.
    */
-  SharedImage* PopSharedImageFromPool();
+  SharedImage* GetSharedImageFor(Image* aImage);
   /**
    * Seallocates all the shared images from the pool and clears the pool.
    */
@@ -190,10 +190,18 @@ protected:
   SharedImage * CreateSharedImageFromData(Image* aImage);
 
 private:
-
-  PRUint64 mImageContainerID;
-  nsIntSize mSize;
+  uint64_t mImageContainerID;
   nsTArray<SharedImage*> mSharedImagePool;
+
+  /**
+   * Save a reference to the outgoing images and remove the reference
+   * once the image is returned from the compositor.
+   * GonkIOSurfaceImage needs to know when to return the buffer to the
+   * producing thread. The buffer is returned when GonkIOSurfaceImage
+   * destructs.
+   */
+  nsTArray<nsRefPtr<Image> > mImageQueue;
+
   int mActiveImageCount;
   bool mStop;
   bool mDispatchedDestroy;

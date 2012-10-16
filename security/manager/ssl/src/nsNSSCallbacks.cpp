@@ -73,9 +73,7 @@ nsHTTPDownloadEvent::Run()
   ios->NewChannel(mRequestSession->mURL, nullptr, nullptr, getter_AddRefs(chan));
   NS_ENSURE_STATE(chan);
 
-  // Disabled because it breaks authentication with a proxy, when such proxy
-  // had been setup, and brings blue UI for EV certs.
-  // chan->SetLoadFlags(nsIRequest::LOAD_ANONYMOUS);
+  chan->SetLoadFlags(nsIRequest::LOAD_ANONYMOUS);
 
   // Create a loadgroup for this new channel.  This way if the channel
   // is redirected, we'll have a way to cancel the resulting channel.
@@ -152,7 +150,7 @@ struct nsCancelHTTPDownloadEvent : nsRunnable {
 };
 
 SECStatus nsNSSHttpServerSession::createSessionFcn(const char *host,
-                                                   PRUint16 portnum,
+                                                   uint16_t portnum,
                                                    SEC_HTTP_SERVER_SESSION *pSession)
 {
   if (!host || !pSession)
@@ -192,7 +190,7 @@ SECStatus nsNSSHttpRequestSession::createFcn(SEC_HTTP_SERVER_SESSION session,
 
   // Use a maximum timeout value of 10 seconds because of bug 404059.
   // FIXME: Use a better approach once 406120 is ready.
-  PRUint32 maxBug404059Timeout = PR_TicksPerSecond() * 10;
+  uint32_t maxBug404059Timeout = PR_TicksPerSecond() * 10;
   if (timeout > maxBug404059Timeout) {
     rs->mTimeoutInterval = maxBug404059Timeout;
   }
@@ -211,7 +209,7 @@ SECStatus nsNSSHttpRequestSession::createFcn(SEC_HTTP_SERVER_SESSION session,
 }
 
 SECStatus nsNSSHttpRequestSession::setPostDataFcn(const char *http_data, 
-                                                  const PRUint32 http_data_len,
+                                                  const uint32_t http_data_len,
                                                   const char *http_content_type)
 {
   mHasPostData = true;
@@ -238,11 +236,11 @@ SECStatus nsNSSHttpRequestSession::addHeaderFcn(const char *http_header_name,
 }
 
 SECStatus nsNSSHttpRequestSession::trySendAndReceiveFcn(PRPollDesc **pPollDesc,
-                                                        PRUint16 *http_response_code, 
+                                                        uint16_t *http_response_code, 
                                                         const char **http_response_content_type, 
                                                         const char **http_response_headers, 
                                                         const char **http_response_data, 
-                                                        PRUint32 *http_response_data_len)
+                                                        uint32_t *http_response_data_len)
 {
   PR_LOG(gPIPNSSLog, PR_LOG_DEBUG,
          ("nsNSSHttpRequestSession::trySendAndReceiveFcn to %s\n", mURL.get()));
@@ -302,7 +300,7 @@ nsNSSHttpRequestSession::AddRef()
 void
 nsNSSHttpRequestSession::Release()
 {
-  PRInt32 newRefCount = NS_AtomicDecrementRefcnt(mRefCount);
+  int32_t newRefCount = NS_AtomicDecrementRefcnt(mRefCount);
   if (!newRefCount) {
     delete this;
   }
@@ -311,11 +309,11 @@ nsNSSHttpRequestSession::Release()
 SECStatus
 nsNSSHttpRequestSession::internal_send_receive_attempt(bool &retryable_error,
                                                        PRPollDesc **pPollDesc,
-                                                       PRUint16 *http_response_code,
+                                                       uint16_t *http_response_code,
                                                        const char **http_response_content_type,
                                                        const char **http_response_headers,
                                                        const char **http_response_data,
-                                                       PRUint32 *http_response_data_len)
+                                                       uint32_t *http_response_data_len)
 {
   if (pPollDesc) *pPollDesc = nullptr;
   if (http_response_code) *http_response_code = 0;
@@ -323,7 +321,7 @@ nsNSSHttpRequestSession::internal_send_receive_attempt(bool &retryable_error,
   if (http_response_headers) *http_response_headers = 0;
   if (http_response_data) *http_response_data = 0;
 
-  PRUint32 acceptableResultSize = 0;
+  uint32_t acceptableResultSize = 0;
 
   if (http_response_data_len)
   {
@@ -566,8 +564,8 @@ NS_IMETHODIMP
 nsHTTPListener::OnStreamComplete(nsIStreamLoader* aLoader,
                                  nsISupports* aContext,
                                  nsresult aStatus,
-                                 PRUint32 stringLen,
-                                 const PRUint8* string)
+                                 uint32_t stringLen,
+                                 const uint8_t* string)
 {
   mResultCode = aStatus;
 
@@ -773,7 +771,7 @@ void PK11PasswordPromptRunnable::RunOnTargetThread()
   }
 }
 
-char* PR_CALLBACK
+char*
 PK11PasswordPrompt(PK11SlotInfo* slot, PRBool retry, void* arg)
 {
   nsRefPtr<PK11PasswordPromptRunnable> runnable = 
@@ -783,14 +781,14 @@ PK11PasswordPrompt(PK11SlotInfo* slot, PRBool retry, void* arg)
   return runnable->mResult;
 }
 
-void PR_CALLBACK HandshakeCallback(PRFileDesc* fd, void* client_data) {
+void HandshakeCallback(PRFileDesc* fd, void* client_data) {
   nsNSSShutDownPreventionLock locker;
-  PRInt32 sslStatus;
+  int32_t sslStatus;
   char* signer = nullptr;
   char* cipherName = nullptr;
-  PRInt32 keyLength;
+  int32_t keyLength;
   nsresult rv;
-  PRInt32 encryptBits;
+  int32_t encryptBits;
 
   nsNSSSocketInfo* infoObject = (nsNSSSocketInfo*) fd->higher->secret;
 
@@ -808,7 +806,7 @@ void PR_CALLBACK HandshakeCallback(PRFileDesc* fd, void* client_data) {
     return;
   }
 
-  PRInt32 secStatus;
+  int32_t secStatus;
   if (sslStatus == SSL_SECURITY_STATUS_OFF)
     secStatus = nsIWebProgressListener::STATE_IS_BROKEN;
   else if (encryptBits >= 90)
@@ -1028,7 +1026,7 @@ static CERT_StringFromCertFcn oldOCSPAIAInfoCallback = nullptr;
  *
  * The result needs to be freed (PORT_Free) when no longer in use.
  */
-char* PR_CALLBACK MyAlternateOCSPAIAInfoCallback(CERTCertificate *cert) {
+char* MyAlternateOCSPAIAInfoCallback(CERTCertificate *cert) {
   if (cert && !cert->isRoot) {
     unsigned int i;
     for (i=0; i < numResponders; i++) {
@@ -1084,7 +1082,7 @@ SECStatus RegisterMyOCSPAIAInfoCallback() {
     // Create a SECItem from the Base64 authority key identifier keyID.
     myDefaultOCSPResponders[i].issuerKeyID = NSSBase64_DecodeBuffer(nullptr,
           nullptr, myDefaultOCSPResponders[i].issuerKeyID_base64,
-          (PRUint32)PORT_Strlen(myDefaultOCSPResponders[i].issuerKeyID_base64));
+          (uint32_t)PORT_Strlen(myDefaultOCSPResponders[i].issuerKeyID_base64));
     if (!(myDefaultOCSPResponders[i].issuerKeyID))
       goto loser;
   }

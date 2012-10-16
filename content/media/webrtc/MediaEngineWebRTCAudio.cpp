@@ -168,7 +168,7 @@ MediaEngineWebRTCAudioSource::Stop()
 }
 
 nsresult
-MediaEngineWebRTCAudioSource::Snapshot(PRUint32 aDuration, nsIDOMFile** aFile)
+MediaEngineWebRTCAudioSource::Snapshot(uint32_t aDuration, nsIDOMFile** aFile)
 {
    return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -214,7 +214,7 @@ MediaEngineWebRTCAudioSource::Process(const int channel,
   AudioSegment segment;
   segment.Init(CHANNELS);
   segment.AppendFrames(
-    buffer.forget(), length, 0, length, nsAudioStream::FORMAT_S16_LE
+    buffer.forget(), length, 0, length, nsAudioStream::FORMAT_S16
   );
   mSource->AppendToTrack(mTrackID, &segment);
 

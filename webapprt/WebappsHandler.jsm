@@ -19,10 +19,12 @@ let WebappsHandler = {
   init: function() {
     Services.obs.addObserver(this, "webapps-ask-install", false);
     Services.obs.addObserver(this, "webapps-launch", false);
+    Services.obs.addObserver(this, "webapps-uninstall", false);
   },
 
   observe: function(subject, topic, data) {
     data = JSON.parse(data);
+    data.mm = subject;
 
     switch (topic) {
       case "webapps-ask-install":
@@ -32,6 +34,9 @@ let WebappsHandler = {
         break;
       case "webapps-launch":
         WebappOSUtils.launch(data);
+        break;
+      case "webapps-uninstall":
+        WebappOSUtils.uninstall(data);
         break;
     }
   },

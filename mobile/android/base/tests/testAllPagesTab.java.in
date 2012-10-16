@@ -133,12 +133,11 @@ public class testAllPagesTab extends BaseTest {
         mSolo.waitForText(url);
 
         TabHost tabHost = (TabHost)mSolo.getView(TabHost.class, 0);
-        return (ListView)tabHost.getCurrentView();
+        int listId = mDriver.findElement(getActivity(), "awesomebar_list").getId();
+        return (ListView)tabHost.getCurrentView().findViewById(listId);
     }
 
     public void tearDown() throws Exception {
-        super.tearDown();
-
         ContentResolver resolver = getActivity().getContentResolver();
         Uri uri = Uri.parse("content://@ANDROID_PACKAGE_NAME@.db.browser/history");
         uri = uri.buildUpon().appendQueryParameter("profile", "default")
@@ -146,5 +145,7 @@ public class testAllPagesTab extends BaseTest {
         resolver.delete(uri, "url = ?", new String[] {
             "http://mochi.test:8888/tests/robocop/robocop_big_link.html"
         });
+
+        super.tearDown();
     }
 }
