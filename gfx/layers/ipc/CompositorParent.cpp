@@ -524,10 +524,9 @@ CompositorParent::Composite()
 
   RenderTraceLayers(layer, "0000");
 
-  if (LAYERS_OPENGL == mLayerManager->GetBackendType() &&
-      !mTargetConfig.naturalBounds().IsEmpty()) {
-    LayerManagerOGL* lm = static_cast<LayerManagerOGL*>(mLayerManager.get());
-    lm->SetWorldTransform(
+  if (!mTargetConfig.naturalBounds().IsEmpty()) {
+    //TODO[nrc] gl?
+    mLayerManager->SetWorldTransform(
       ComputeGLTransformForRotation(mTargetConfig.naturalBounds(),
                                     mTargetConfig.rotation()));
   }
@@ -968,8 +967,7 @@ CompositorParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
 PLayersParent*
 CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
                                const uint64_t& aId,
-                               LayersBackend* aBackend,
-                               int32_t* aMaxTextureSize)
+                               TextureHostIdentifier* aTextureHostIdentifier)
 {
   MOZ_ASSERT(aId == 0);
 
@@ -980,31 +978,24 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
   mWidgetSize.width = rect.width;
   mWidgetSize.height = rect.height;
 
-  *aBackend = aBackendHint;
-
   if (aBackendHint == mozilla::layers::LAYERS_OPENGL) {
-    nsRefPtr<LayerManagerOGL> layerManager;
-    layerManager =
-      new LayerManagerOGL(mWidget, mEGLSurfaceSize.width, mEGLSurfaceSize.height, mRenderToEGLSurface);
-    mWidget = NULL;
-    mLayerManager = layerManager;
-    ShadowLayerManager* shadowManager = layerManager->AsShadowManager();
-    if (shadowManager) {
-      shadowManager->SetCompositorID(mCompositorID);  
-    }
+    mLayerManager =
+      new CompositeLayerManager(new CompositorOGL(mWidget,
+                                                  mEGLSurfaceSize.width,
+                                                  mEGLSurfaceSize.height,
+                                                  mRenderToEGLSurface));
+    mWidget = nullptr;
+    mLayerManager->SetCompositorID(mCompositorID);  
     
-    if (!layerManager->Initialize()) {
-      NS_ERROR("Failed to init OGL Layers");
+    if (!mLayerManager->Initialize()) {
+      NS_ERROR("Failed to init Compositor");
       return NULL;
     }
 
-    ShadowLayerManager* slm = layerManager->AsShadowManager();
-    if (!slm) {
-      return NULL;
-    }
-    *aMaxTextureSize = layerManager->GetMaxTextureSize();
-    return new ShadowLayersParent(slm, this, 0);
-  } else if (aBackendHint == mozilla::layers::LAYERS_BASIC) {
+    *aTextureHostIdentifier = mLayerManager->GetTextureHostIdentifier();
+    return new ShadowLayersParent(mLayerManager, this, 0);
+  // Basic layers compositor not yet implemented
+  /*} else if (aBackendHint == mozilla::layers::LAYERS_BASIC) {
     nsRefPtr<LayerManager> layerManager = new BasicShadowLayerManager(mWidget);
     mWidget = NULL;
     mLayerManager = layerManager;
@@ -1012,8 +1003,8 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
     if (!slm) {
       return NULL;
     }
-    *aMaxTextureSize = layerManager->GetMaxTextureSize();
-    return new ShadowLayersParent(slm, this, 0);
+    *aTextureHostIdentifier = layerManager->GetTextureHostIdentifier();
+    return new ShadowLayersParent(slm, this, 0); */
   } else {
     NS_ERROR("Unsupported backend selected for Async Compositor");
     return NULL;
@@ -1155,8 +1146,7 @@ public:
 
   virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType,
                                       const uint64_t& aId,
-                                      LayersBackend* aBackend,
-                                      int32_t* aMaxTextureSize) MOZ_OVERRIDE;
+                                      TextureHostIdentifier* aTextureHostIdentifier) MOZ_OVERRIDE;
   virtual bool DeallocPLayers(PLayersParent* aLayers) MOZ_OVERRIDE;
 
   virtual void ShadowLayersUpdated(ShadowLayersParent* aLayerTree,

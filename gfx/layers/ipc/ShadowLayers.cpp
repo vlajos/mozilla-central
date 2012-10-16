@@ -258,7 +258,7 @@ ShadowLayerForwarder::PaintedTiledLayerBuffer(ShadowableLayer* aLayer,
   if (XRE_GetProcessType() != GeckoProcessType_Default)
     NS_RUNTIMEABORT("PaintedTiledLayerBuffer must be made IPC safe (not share pointers)");
   mTxn->AddNoSwapPaint(OpPaintTiledLayerBuffer(NULL, Shadow(aLayer),
-                                         uintptr_t(aTiledLayerBuffer)));
+                                               uintptr_t(aTiledLayerBuffer)));
 }
 
 void
@@ -268,14 +268,34 @@ ShadowLayerForwarder::PaintedImage(ShadowableLayer* aImage,
   mTxn->AddPaint(OpPaintImage(NULL, Shadow(aImage),
                               aNewFrontImage));
 }
+
 void
-ShadowLayerForwarder::PaintedCanvas(ShadowableLayer* aCanvas,
-                                    bool aNeedYFlip,
-                                    const SurfaceDescriptor& aNewFrontSurface)
+ShadowLayerForwarder::UpdateTexture(ShadowableLayer* aLayer,
+                                    TextureIdentifier aIdentifier,
+                                    const SharedImage& aImage)
 {
-  mTxn->AddPaint(OpPaintCanvas(NULL, Shadow(aCanvas),
-                               aNewFrontSurface,
-                               aNeedYFlip));
+  mTxn->AddPaint(OpPaintTexture(nullptr, Shadow(aLayer),
+                                aIdentifier,
+                                aImage));
+}
+
+void
+ShadowLayerForwarder::UpdateTextureRegion(ShadowableLayer* aThebes,
+                                          TextureIdentifier aIdentifier,
+                                          const ThebesBuffer& aThebesBuffer,
+                                          const nsIntRegion& aUpdatedRegion)
+{
+  mTxn->AddPaint(OpPaintTextureRegion(nullptr, Shadow(aThebes),
+                                      aIdentifier,
+                                      aThebesBuffer,
+                                      aUpdatedRegion));
+}
+
+void
+ShadowLayerForwarder::UpdatePictureRect(ShadowableLayer* aLayer,
+                                        const nsIntRect& aRect)
+{
+  mTxn->AddNoSwapPaint(OpUpdatePictureRect(nullptr, Shadow(aLayer), aRect));
 }
 
 bool

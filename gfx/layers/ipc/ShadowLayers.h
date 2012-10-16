@@ -331,8 +331,31 @@ public:
   void SetIsFirstPaint() { mIsFirstPaint = true; }
 
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
-  void SetMaxTextureSize(int32_t aMaxTextureSize) { mMaxTextureSize = aMaxTextureSize; }
+  
+  void IdentifyTextureHost(const TextureHostIdentifier& aIdentifier)
+  {
+    mMaxTextureSize = aIdentifier.mMaxTextureSize;
+    mParentBackend = aIdentifier.mParentBackend;
+  }
 
+  /**
+   * Create texture or buffer clients, see comments in CompositingFactory
+   */
+  TemporaryRef<TextureClient> CreateTextureClientFor(const TextureHostType& aTextureHostType,
+                                                     const BufferType& aBufferType,
+                                                     ShadowableLayer* aLayer,
+                                                     TextureFlags aFlags,
+                                                     bool aStrict = false);
+  TemporaryRef<ImageClient> CreateImageClientFor(const BufferType& aBufferType,
+                                                 ShadowableLayer* aLayer,
+                                                 TextureFlags aFlags);
+  TemporaryRef<CanvasClient> CreateCanvasClientFor(const BufferType& aBufferType,
+                                                   ShadowableLayer* aLayer,
+                                                   TextureFlags aFlags);
+  TemporaryRef<ContentClient> CreateContentClientFor(const BufferType& aBufferType,
+                                                     ShadowableLayer* aLayer,
+                                                     TextureFlags aFlags);
+  
   static void PlatformSyncBeforeUpdate();
 
 protected:
@@ -565,6 +588,23 @@ public:
   {
     mShadowTransform = aMatrix;
   }
+
+  /**
+   * Add aTextureHost to a layer. This call should be passed directtly to
+   * the layer's buffer host, aTextureIdentifier can be used however the
+   * buffer host/client want to.
+   */
+  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+                              TextureHost* aTextureHost) {}
+
+  /**
+   * Pass aFront to in to the texture host identified by this layer and
+   * aTextureIdentifier. After this call, aNewBack should point to the old
+   * data in the texture.
+   */
+  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
+                           const SharedImage& aFront,
+                           SharedImage* aNewBack) {}
 
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }

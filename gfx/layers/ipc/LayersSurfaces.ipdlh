@@ -56,10 +56,6 @@ struct SurfaceDescriptorGralloc {
   bool external;
 };
 
-struct SharedImageID {
-  uint64_t id;
-};
-
 union SurfaceDescriptor {
   Shmem;
   SurfaceDescriptorD3D10;
@@ -86,7 +82,6 @@ union SharedImage {
   SurfaceDescriptor;
   YCbCrImage;
   YUVImage;
-  SharedImageID;
   null_t;
 };
 

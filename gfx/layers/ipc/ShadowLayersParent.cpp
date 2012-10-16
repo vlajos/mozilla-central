@@ -424,6 +424,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       replyv.push_back(
         OpThebesBufferSwap(
           shadow, NULL,
+          TextureIdentifier(),
           newBack, newValidRegion,
           readonlyFront, frontUpdatedRegion));
 
@@ -441,7 +442,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateStart(canvas, "FF00FF", canvas->GetVisibleRegion().GetBounds());
 
       canvas->SetAllocator(this);
-      CanvasSurface newBack;
+      SharedImage newBack;
       canvas->Swap(op.newFrontBuffer(), op.needYFlip(), &newBack);
       canvas->Updated();
       replyv.push_back(OpBufferSwap(shadow, NULL,
@@ -469,7 +470,65 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateEnd(image, "FF00FF");
       break;
     }
+    case Edit::TOpPaintTexture: {
+      MOZ_LAYERS_LOG(("[ParentSide] Paint Texture"));
 
+      const OpPaintTexture& op = edit.get_OpPaintTexture();
+      ShadowLayerParent* shadow = AsShadowLayer(op);
+      Layer* layer = shadow->AsLayer();
+      ShadowLayer* shadowLayer = layer->AsShadowLayer();
+      const TextureIdentifier textureId = AsTextureId(op);
+
+      RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
+
+      shadowLayer->SetAllocator(this);
+      SharedImage newBack;
+      shadowLayer->SwapTexture(textureId, op.image(), &newBack);
+      replyv.push_back(OpTextureSwap(shadow, nullptr, textureId, newBack));
+ 
+      RenderTraceInvalidateEnd(layer, "FF00FF");
+      break;
+    }
+    case Edit::TOpPaintTextureRegion: {
+      MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
+
+      const OpPaintTextureRegion& op = edit.get_OpPaintTextureRegion();
+      ShadowLayerParent* shadow = AsShadowLayer(op);
+      ShadowThebesLayer* thebes =
+        static_cast<ShadowThebesLayer*>(shadow->AsLayer());
+      const TextureIdentifier textureId = AsTextureId(op);
+      const ThebesBuffer& newFront = op.newFrontBuffer();
+
+      RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
+
+      thebes->SetAllocator(this);
+      OptionalThebesBuffer newBack;
+      nsIntRegion newValidRegion;
+      OptionalThebesBuffer readonlyFront;
+      nsIntRegion frontUpdatedRegion;
+      thebes->SwapTexture(textureId,
+                          newFront, op.updatedRegion(),
+                          &newBack, &newValidRegion,
+                          &readonlyFront, &frontUpdatedRegion);
+      replyv.push_back(
+        OpThebesBufferSwap(
+          shadow, nullptr,
+          textureId,
+          newBack, newValidRegion,
+          readonlyFront, frontUpdatedRegion));
+
+      RenderTraceInvalidateEnd(thebes, "FF00FF");
+      break;
+    }
+    case Edit::TOpUpdatePictureRect: {
+      const OpUpdatePictureRect& op = edit.get_OpUpdatePictureRect();
+      ShadowLayerParent* shadow = AsShadowLayer(op);
+      ShadowImageLayer* image =
+        static_cast<ShadowImageLayer*>(shadow->AsLayer());
+
+      image->SetPictureRect(op.picture());
+      break;
+    }
     default:
       NS_RUNTIMEABORT("not reached");
     }

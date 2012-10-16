@@ -19,6 +19,7 @@
 #include "mozilla/Util.h"
 #include "LayerSorter.h"
 #include "AnimationCommon.h"
+#include "Compositor.h"
 
 using namespace mozilla::layers;
 using namespace mozilla::gfx;
@@ -943,6 +944,11 @@ void WriteSnapshotToDumpFile(Layer* aLayer, gfxASurface* aSurf)
 void WriteSnapshotToDumpFile(LayerManager* aManager, gfxASurface* aSurf)
 {
   WriteSnapshotToDumpFile_internal(aManager, aSurf);
+}
+
+void WriteSnapshotToDumpFile(Compositor* aCompositor, gfxASurface* aSurf)
+{
+  WriteSnapshotToDumpFile_internal(aCompositor, aSurf);
 }
 #endif
 

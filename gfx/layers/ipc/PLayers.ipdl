@@ -12,6 +12,7 @@ include protocol PLayer;
 include protocol PRenderFrame;
 
 include "gfxipc/ShadowLayerUtils.h";
+include "Compositor.h";
 include "mozilla/WidgetUtils.h";
 include "mozilla/TimeStamp.h";
 include "nsCSSProperty.h";
@@ -23,6 +24,7 @@ using nsPoint;
 using mozilla::TimeDuration;
 using mozilla::TimeStamp;
 using mozilla::ScreenRotation;
+using mozilla::layers::TextureIdentifier;
 using nsCSSProperty;
 
 /**
@@ -55,11 +57,6 @@ struct ThebesBuffer {
   nsIntPoint rotation;
 };
 union OptionalThebesBuffer { ThebesBuffer; null_t; };
-
-union CanvasSurface {
-  SurfaceDescriptor;
-  null_t;
-};
 
 struct CubicBezierFunction {
   float x1;
@@ -190,10 +187,7 @@ struct ContainerLayerAttributes {
 struct ColorLayerAttributes     { Color color; };
 struct CanvasLayerAttributes    { GraphicsFilterType filter; };
 struct RefLayerAttributes       { int64_t id; };
-struct ImageLayerAttributes     {
-  GraphicsFilterType filter;
-  bool forceSingleTile;
-};
+struct ImageLayerAttributes     { GraphicsFilterType filter; };
 
 union SpecificLayerAttributes {
   null_t;
@@ -215,6 +209,11 @@ struct OpSetLayerAttributes {
   LayerAttributes attrs;
 };
 
+struct OpCreateTextureHost {
+  PLayer layer;
+  TextureIdentifier textureIdentifier;
+  int textureFlags;
+};
 
 // Monkey with the tree structure
 struct OpSetRoot          { PLayer root; };
@@ -241,7 +240,7 @@ struct OpPaintTiledLayerBuffer {
 
 struct OpPaintCanvas  {
   PLayer layer;
-  CanvasSurface newFrontBuffer;
+  SharedImage newFrontBuffer;
   bool needYFlip;
 };
 
@@ -250,6 +249,23 @@ struct OpPaintImage  {
   SharedImage newFrontBuffer;
 };
 
+struct OpPaintTexture {
+  PLayer layer;
+  TextureIdentifier textureIdentifier;
+  SharedImage image;
+};
+
+struct OpPaintTextureRegion {
+  PLayer layer;
+  TextureIdentifier textureIdentifier;
+  ThebesBuffer newFrontBuffer;
+  nsIntRegion updatedRegion;
+};
+
+struct OpUpdatePictureRect {
+  PLayer layer;
+  nsIntRect picture;
+};
 
 // A unit of a changeset; a set of these comprise a changeset
 union Edit {
@@ -261,6 +277,8 @@ union Edit {
   OpCreateRefLayer;
 
   OpSetLayerAttributes;
+  
+  OpCreateTextureHost;
 
   OpSetRoot;
   OpInsertAfter;
@@ -273,16 +291,20 @@ union Edit {
   OpPaintTiledLayerBuffer;
   OpPaintCanvas;
   OpPaintImage;
+  OpPaintTexture;
+  OpPaintTextureRegion;
+  OpUpdatePictureRect;
 };
 
 
 // Replies to operations
-struct OpBufferSwap   { PLayer layer; CanvasSurface newBackBuffer; };
+struct OpBufferSwap   { PLayer layer; SurfaceDescriptor newBackBuffer; };
 
 struct OpImageSwap { PLayer layer; SharedImage newBackImage; };
 
 struct OpThebesBufferSwap {
   PLayer layer;
+  TextureIdentifier textureIdentifier;
   OptionalThebesBuffer newBackBuffer;
   nsIntRegion newValidRegion;
   // If the parent took the child's old back buffer and returned its
@@ -295,12 +317,19 @@ struct OpThebesBufferSwap {
   nsIntRegion frontUpdatedRegion;
 };
 
+struct OpTextureSwap {
+  PLayer layer;
+  TextureIdentifier textureIdentifier;
+  SharedImage image;
+};
+
 // Unit of a "changeset reply".  This is a weird abstraction, probably
 // only to be used for buffer swapping.
 union EditReply {
   OpBufferSwap;
   OpThebesBufferSwap;
   OpImageSwap;
+  OpTextureSwap;
 };
 
 

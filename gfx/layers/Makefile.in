@@ -9,6 +9,7 @@ srcdir      = @srcdir@
 VPATH       = \
   $(srcdir) \
   $(srcdir)/basic \
+  $(srcdir)/composite \
   $(srcdir)/opengl \
   $(srcdir)/d3d9 \
   $(srcdir)/d3d10 \
@@ -28,16 +29,26 @@ DEFINES += -DD3D_DEBUG_INFO
 endif
 
 EXPORTS = \
-        BasicLayers.h \
-        BasicTiledThebesLayer.h \
+        BasicBuffers.h \
+        BasicCanvasLayer.h \
         BasicImplData.h \
+        BasicLayers.h \
+        BasicLayersImpl.h \
+        BasicTiledThebesLayer.h \
+        BasicThebesLayer.h \
+        BufferHost.h \
+        CompositeLayerManager.h \
+        Compositor.h \
         CompositorOGL.h \
+        ContentHost.h \
         GonkIOSurfaceImage.h \
         FrameMetrics.h \
         CompositorChild.h \
         CompositorParent.h \
         ImageContainer.h \
         ImageLayers.h \
+        ImageHost.h \
+        LayerImpl.h \
         ImageTypes.h \
         Layers.h \
         LayersTypes.h \
@@ -63,7 +74,10 @@ CPPSRCS = \
         BasicThebesLayer.cpp \
         BasicBuffers.cpp \
         BasicTiledThebesLayer.cpp \
+        CanvasClient.cpp \
         CompositorOGL.cpp \
+        ContentClient.cpp \
+        ContentHost.cpp \
         ImageContainer.cpp \
         Layers.cpp \
         RenderTrace.cpp \
@@ -71,7 +85,15 @@ CPPSRCS = \
         ThebesLayerBuffer.cpp \
         CanvasLayerOGL.cpp \
         ColorLayerOGL.cpp \
+        CompositeCanvasLayer.cpp \
+        CompositeColorLayer.cpp \
+        CompositeContainerLayer.cpp \
+        CompositeImageLayer.cpp \
+        CompositeLayerManager.cpp \
+        CompositeThebesLayer.cpp \
         ContainerLayerOGL.cpp \
+        ImageClient.cpp \
+        ImageHost.cpp \
         ImageLayerOGL.cpp \
         LayerManagerOGL.cpp \
         TextureOGL.cpp \
@@ -82,6 +104,7 @@ CPPSRCS = \
         LayerSorter.cpp \
         LayerTreeInvalidation.cpp \
         ImageLayers.cpp \
+        TextureClient.cpp \
         TexturePoolOGL.cpp \
         Factory.cpp \
         $(NULL)
@@ -118,7 +141,7 @@ CPPSRCS += \
         ImageLayerD3D10.cpp \
         LayerManagerD3D10.cpp \
         ReadbackManagerD3D10.cpp \
-	ShadowLayerUtilsD3D10.cpp \
+        ShadowLayerUtilsD3D10.cpp \
         ThebesLayerD3D10.cpp \
         $(NULL)
 endif

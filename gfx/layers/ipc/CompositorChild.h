@@ -40,8 +40,7 @@ public:
 protected:
   virtual PLayersChild* AllocPLayers(const LayersBackend& aBackendHint,
                                      const uint64_t& aId,
-                                     LayersBackend* aBackend,
-                                     int* aMaxTextureSize);
+                                     TextureHostIdentifier* aTextureHostIdentifier);
   virtual bool DeallocPLayers(PLayersChild *aChild);
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) MOZ_OVERRIDE;

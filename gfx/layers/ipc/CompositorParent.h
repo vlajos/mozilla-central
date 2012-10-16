@@ -156,8 +156,7 @@ public:
 protected:
   virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendHint,
                                       const uint64_t& aId,
-                                      LayersBackend* aBackend,
-                                      int32_t* aMaxTextureSize);
+                                      TextureHostIdentifier* aTextureHostIdentifier);
   virtual bool DeallocPLayers(PLayersParent* aLayers);
   virtual void ScheduleTask(CancelableTask*, int);
   virtual void Composite();
@@ -248,7 +247,7 @@ private:
   virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
   { return false; }
 
-  nsRefPtr<LayerManager> mLayerManager;
+  nsRefPtr<CompositeLayerManager> mLayerManager;
   nsIWidget* mWidget;
   TargetConfig mTargetConfig;
   CancelableTask *mCurrentCompositeTask;
