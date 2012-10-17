@@ -36,13 +36,29 @@ public:
    * creates a context for the associated widget. Returns true if initialization
    * is succesful, false otherwise.
    */
-  bool Initialize(bool force = false, nsRefPtr<GLContext> aContext = nsnull);
+  bool Initialize(bool force, nsRefPtr<GLContext> aContext);
+  virtual bool Initialize() { return Initialize(true, nullptr); }
 
-  void Destroy();
+  virtual void Destroy();
+
+  virtual TemporaryRef<TextureHost>
+    CreateTextureHost(const TextureIdentifier &aIdentifier,
+                      TextureFlags aFlags) MOZ_OVERRIDE;
+
+  virtual TextureHostIdentifier GetTextureHostIdentifier() MOZ_OVERRIDE
+  {
+    TextureHostIdentifier result;
+    result.mParentBackend = LAYERS_OPENGL;
+    result.mMaxTextureSize = mGLContext->GetMaxTextureSize();
+    return result;
+  }
 
   virtual TemporaryRef<Texture>
     CreateTextureForData(const gfx::IntSize &aSize, PRInt8 *aData, PRUint32 aStride,
                          TextureFormat aFormat) MOZ_OVERRIDE;
+
+  virtual TemporaryRef<BufferHost> 
+    CreateBufferHost(BufferType aType) MOZ_OVERRIDE;
 
   virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
                                               SurfaceInitMode aInit) MOZ_OVERRIDE;
@@ -52,17 +68,25 @@ public:
 
   virtual void SetSurfaceTarget(Surface *aSurface) MOZ_OVERRIDE;
 
-  virtual void RemoveSurfaceTarget() MOZ_OVERRIDE;
-
   virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
-                        const gfx::Rect *aClipRect, const EffectChain &aEffectChain,
-                        gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform) MOZ_OVERRIDE;
+                        const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
+                        const EffectChain &aEffectChain,
+                        gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
+                        const gfx::Point &aOffset) MOZ_OVERRIDE;
 
   virtual void EndFrame() MOZ_OVERRIDE;
 
   virtual bool SupportsPartialTextureUpdate() MOZ_OVERRIDE
   {
     return mGLContext->CanUploadSubTextures();
+  }
+
+  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize)
+  {
+      if (!mGLContext)
+          return false;
+      int32_t maxSize = mGLContext->GetMaxTextureSize();
+      return aSize <= gfxIntSize(maxSize, maxSize);
   }
 
   virtual PRInt32 GetMaxTextureSize() const
@@ -77,7 +101,7 @@ public:
 
   GLContext* gl() const { return mGLContext; }
 
-  void MakeCurrent(bool aForce = false) {
+  virtual void MakeCurrent(bool aForce = false) {
     if (mDestroyed) {
       NS_WARNING("Call on destroyed layer manager");
       return;
@@ -85,7 +109,42 @@ public:
     mGLContext->MakeCurrent(aForce);
   }
 
+  virtual void SetTarget(gfxContext* aTarget)
+  {
+    mTarget = aTarget;
+  }
+
+  virtual void SaveViewport()
+  {
+    mGLContext->PushViewportRect();
+  }
+
+  virtual gfx::IntRect RestoreViewport()
+  {
+    mGLContext->PopViewportRect();
+    nsIntRect viewport = mGLContext->ViewportRect();
+    return gfx::IntRect(viewport.x,
+                        viewport.y,
+                        viewport.width,
+                        viewport.height);
+  }
+
+#ifdef MOZ_DUMP_PAINTING
+  virtual const char* Name() const { return "OGL"; }
+#endif // MOZ_DUMP_PAINTING
+
+  gl::ShaderProgramType GetFBOLayerProgramType() {
+    if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
+      return gl::RGBARectLayerProgramType;
+    return gl::RGBALayerProgramType;
+  }
+
 private:
+  /** 
+   * Context target, nullptr when drawing directly to our swap chain.
+   */
+  nsRefPtr<gfxContext> mTarget;
+
   /** Widget associated with this compositor */
   nsIWidget *mWidget;  // TODO: Do we really need to keep this?
   nsIntSize mWidgetSize;
@@ -97,9 +156,9 @@ private:
   already_AddRefed<mozilla::gl::GLContext> CreateContext();
 
   /** Backbuffer */
+  //TODO remove these
   GLuint mBackBufferFBO;
   GLuint mBackBufferTexture;
-  nsIntSize mBackBufferSize;
 
   /** Shader Programs */
   struct ShaderProgramVariations {
