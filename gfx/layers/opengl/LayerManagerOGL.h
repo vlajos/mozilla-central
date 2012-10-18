@@ -38,16 +38,10 @@ namespace mozilla {
 namespace layers {
 
 class LayerOGL;
-class ShadowThebesLayer;
-class ShadowContainerLayer;
-class ShadowImageLayer;
-class ShadowCanvasLayer;
-class ShadowColorLayer;
-struct FPSState;
 
 /**
  * This is the LayerManager used for OpenGL 2.1 and OpenGL ES 2.0.
- * This can be used either on the main thread or the compositor.
+ * This should only be used on the main thread.
  */
 class THEBES_API LayerManagerOGL :
     public ShadowLayerManager
@@ -56,26 +50,30 @@ class THEBES_API LayerManagerOGL :
   typedef mozilla::gl::ShaderProgramType ProgramType;
 
 public:
-  LayerManagerOGL(nsIWidget *aWidget, int aSurfaceWidth = -1, int aSurfaceHeight = -1,
-                  bool aIsRenderingToEGLSurface = false);
-  virtual ~LayerManagerOGL();
-
-  void Destroy();
-
+  LayerManagerOGL(nsIWidget *aWidget);
+  virtual ~LayerManagerOGL()
+  {
+    Destroy();
+  }
+ 
+ virtual void Destroy();
 
   /**
    * Initializes the layer manager with a given GLContext. If aContext is null
    * then the layer manager will try to create one for the associated widget.
    *
-   * \param aContext an existing GL context to use. Can be created with CreateContext()
+   * \param aContext an existing GL context to use. USe nullptr to create a new context
    *
    * \return True is initialization was succesful, false when it was not.
    */
-  bool Initialize(bool force = false) {
-    return Initialize(CreateContext(), force);
+  bool Initialize(nsRefPtr<GLContext> aContext = nullptr, bool force = false)
+  {
+    return mCompositor->Initialize(force, aContext);
   }
 
-  bool Initialize(nsRefPtr<GLContext> aContext, bool force = false);
+  GLContext* gl() const { return mCompositor->mGLContext; }
+
+  Compositor* GetCompositor() const { return mCompositor; }
 
   /**
    * Sets the clipping region for this layer manager. This is important on 
@@ -86,14 +84,9 @@ public:
    * \param aClippingRegion Region to clip to. Setting an empty region
    * will disable clipping.
    */
-  void SetClippingRegion(const nsIntRegion& aClippingRegion);
-
-  /**
-   * LayerManager implementation.
-   */
-  virtual ShadowLayerManager* AsShadowManager()
+  void SetClippingRegion(const nsIntRegion& aClippingRegion)
   {
-    return this;
+    mClippingRegion = aClippingRegion;
   }
 
   void BeginTransaction();
@@ -204,35 +197,36 @@ public:
    * shaders are required to sample from the different
    * texture types.
    */
-  void CreateFBOWithTexture(const nsIntRect& aRect, InitMode aInit,
+  void CreateFBOWithTexture(const nsIntRect& aRect, SurfaceInitMode aInit,
                             GLuint aCurrentFrameBuffer,
-                            GLuint *aFBO, GLuint *aTexture);
+                            GLuint *aFBO, GLuint *aTexture)
+  {
+    mCompositor->CreateFBOWithTexture(
+      gfx::IntRect(aRect.x, aRect.y, aRect.width, aRect.height),
+      aInit, aCurrentFrameBuffer, aFBO, aTexture);
+  }
 
-  GLuint QuadVBO() { return mQuadVBO; }
-  GLintptr QuadVBOVertexOffset() { return 0; }
-  GLintptr QuadVBOTexCoordOffset() { return sizeof(float)*4*2; }
-  GLintptr QuadVBOFlippedTexCoordOffset() { return sizeof(float)*8*2; }
+  GLenum FBOTextureTarget() { return mCompositor->mFBOTextureTarget; }
+
+  GLuint QuadVBO() { return mCompositor->QuadVBO(); }
+  GLintptr QuadVBOVertexOffset() { return mCompositor->QuadVBOVertexOffset(); }
+  GLintptr QuadVBOTexCoordOffset() { return mCompositor->QuadVBOTexCoordOffset(); }
+  GLintptr QuadVBOFlippedTexCoordOffset() { return mCompositor->QuadVBOFlippedTexCoordOffset(); }
 
   void BindQuadVBO() {
-    mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, mQuadVBO);
+    mCompositor->BindQuadVBO();
   }
 
   void QuadVBOVerticesAttrib(GLuint aAttribIndex) {
-    mGLContext->fVertexAttribPointer(aAttribIndex, 2,
-                                     LOCAL_GL_FLOAT, LOCAL_GL_FALSE, 0,
-                                     (GLvoid*) QuadVBOVertexOffset());
+    mCompositor->QuadVBOVerticesAttrib(aAttribIndex);
   }
 
   void QuadVBOTexCoordsAttrib(GLuint aAttribIndex) {
-    mGLContext->fVertexAttribPointer(aAttribIndex, 2,
-                                     LOCAL_GL_FLOAT, LOCAL_GL_FALSE, 0,
-                                     (GLvoid*) QuadVBOTexCoordOffset());
+    mCompositor->QuadVBOTexCoordsAttrib(aAttribIndex);
   }
 
   void QuadVBOFlippedTexCoordsAttrib(GLuint aAttribIndex) {
-    mGLContext->fVertexAttribPointer(aAttribIndex, 2,
-                                     LOCAL_GL_FLOAT, LOCAL_GL_FALSE, 0,
-                                     (GLvoid*) QuadVBOFlippedTexCoordOffset());
+     mCompositor->QuadVBOFlippedTexCoordsAttrib(aAttribIndex);
   }
 
   // Super common
@@ -241,51 +235,53 @@ public:
                        GLuint aTexCoordAttribIndex,
                        bool aFlipped = false)
   {
-    BindQuadVBO();
-    QuadVBOVerticesAttrib(aVertAttribIndex);
-
-    if (aTexCoordAttribIndex != GLuint(-1)) {
-      if (aFlipped)
-        QuadVBOFlippedTexCoordsAttrib(aTexCoordAttribIndex);
-      else
-        QuadVBOTexCoordsAttrib(aTexCoordAttribIndex);
-
-      mGLContext->fEnableVertexAttribArray(aTexCoordAttribIndex);
-    }
-
-    mGLContext->fEnableVertexAttribArray(aVertAttribIndex);
-
-    mGLContext->fDrawArrays(LOCAL_GL_TRIANGLE_STRIP, 0, 4);
-
-    mGLContext->fDisableVertexAttribArray(aVertAttribIndex);
-
-    if (aTexCoordAttribIndex != GLuint(-1)) {
-      mGLContext->fDisableVertexAttribArray(aTexCoordAttribIndex);
-    }
+    mCompositor->BindAndDrawQuad(aVertAttribIndex, aTexCoordAttribIndex, aFlipped);
   }
 
   void BindAndDrawQuad(ShaderProgramOGL *aProg,
                        bool aFlipped = false)
   {
-    NS_ASSERTION(aProg->HasInitialized(), "Shader program not correctly initialized");
-    BindAndDrawQuad(aProg->AttribLocation(ShaderProgramOGL::VertexCoordAttrib),
-                    aProg->AttribLocation(ShaderProgramOGL::TexCoordAttrib),
-                    aFlipped);
+    mCompositor->BindAndDrawQuad(aProg, aFlipped);
   }
 
+  // |aTexCoordRect| is the rectangle from the texture that we want to
+  // draw using the given program.  The program already has a necessary
+  // offset and scale, so the geometry that needs to be drawn is a unit
+  // square from 0,0 to 1,1.
+  //
+  // |aTexSize| is the actual size of the texture, as it can be larger
+  // than the rectangle given by |aTexCoordRect|.
   void BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                                       const nsIntRect& aTexCoordRect,
                                       const nsIntSize& aTexSize,
                                       GLenum aWrapMode = LOCAL_GL_REPEAT,
-                                      bool aFlipped = false);
-
-#ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "OGL"; }
-#endif // MOZ_LAYERS_HAVE_LOG
+                                      bool aFlipped = false)
+  {
+    mCompositor->BindAndDrawQuadWithTextureRect(aProg,
+                   gfx::IntRect(aTexCoordRect.x, aTexCoordRect.y, aTexCoordRect.width, aTexCoordRect.height),
+                   gfx::IntSize(aTexSize.width, aTexSize.height),
+                   aWrapMode, aFlipped);
+  }
 
   const nsIntSize& GetWidgetSize() {
-    return mWidgetSize;
+    return mCompositor->mWidgetSize;
   }
+
+  /**
+   * Set the size of the surface we're rendering to.
+   */
+  void SetSurfaceSize(int width, int height)
+  {
+    mCompositor->SetSurfaceSize(width, height);
+  }
+
+
+  ///////////////////////////////
+
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() const { return "OGL(Compositor)"; }
+#endif // MOZ_LAYERS_HAVE_LOG
 
   enum WorldTransforPolicy {
     ApplyWorldTransform,
@@ -296,7 +292,10 @@ public:
    * Setup the viewport and projection matrix for rendering
    * to a window of the given dimensions.
    */
-  void SetupPipeline(int aWidth, int aHeight, WorldTransforPolicy aTransformPolicy);
+  void SetupPipeline(int aWidth, int aHeight)
+  {
+    mCompositor->SetupPipeline(aWidth, aHeight, mWorldMatrix);
+  }
 
   /**
    * Setup World transform matrix.
@@ -305,13 +304,18 @@ public:
    */
   void SetWorldTransform(const gfxMatrix& aMatrix);
   gfxMatrix& GetWorldTransform(void);
-  void WorldTransformRect(nsIntRect& aRect);
 
-  /**
-   * Set the size of the surface we're rendering to.
-   */
-  void SetSurfaceSize(int width, int height);
+  void SaveViewport()
+  {
+    mCompositor->SaveViewport();
+  }
+  void RestoreViewport()
+  {
+    gfx::IntRect viewport = mCompositor->RestoreViewport();
+    SetupPipeline(viewport.width, viewport.height);
+  }
 
+  //REBASE new things - move to compositor
   bool CompositingDisabled() { return mCompositingDisabled; }
   void SetCompositingDisabled(bool aCompositingDisabled) { mCompositingDisabled = aCompositingDisabled; }
 
@@ -324,54 +328,12 @@ public:
                      mozilla::gfx::SurfaceFormat aFormat);
 
 private:
-  /** Widget associated with this layer manager */
-  nsIWidget *mWidget;
-  nsIntSize mWidgetSize;
-
-  /** The size of the surface we are rendering to */
-  nsIntSize mSurfaceSize;
-
-  /** 
-   * Context target, NULL when drawing directly to our swap chain.
-   */
-  nsRefPtr<gfxContext> mTarget;
-
-  nsRefPtr<GLContext> mGLContext;
-
-  already_AddRefed<mozilla::gl::GLContext> CreateContext();
-
-  /** Backbuffer */
-  GLuint mBackBufferFBO;
-  GLuint mBackBufferTexture;
-  nsIntSize mBackBufferSize;
-
-  /** Shader Programs */
-  struct ShaderProgramVariations {
-    ShaderProgramOGL* mVariations[NumMaskTypes];
-  };
-  nsTArray<ShaderProgramVariations> mPrograms;
-
-  /** Texture target to use for FBOs */
-  GLenum mFBOTextureTarget;
-
-  /** VBO that has some basics in it for a textured quad,
-   *  including vertex coords and texcoords for both
-   *  flipped and unflipped textures */
-  GLuint mQuadVBO;
+  RefPtr<CompositorOGL> mCompositor;
 
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;
 
-  /** Misc */
-  bool mHasBGRA;
   bool mCompositingDisabled;
-
-  /**
-   * When rendering to an EGL surface (e.g. on Android), we rely on being told
-   * about size changes (via SetSurfaceSize) rather than pulling this information
-   * from the widget, since the widget's information can lag behind.
-   */
-  bool mIsRenderingToEGLSurface;
 
   /** Current root layer. */
   LayerOGL *RootLayer() const;
@@ -381,36 +343,13 @@ private:
    */
   void Render();
 
-  /**
-   * Setup a backbuffer of the given dimensions.
-   */
-  void SetupBackBuffer(int aWidth, int aHeight);
-
-  /**
-   * Copies the content of our backbuffer to the set transaction target.
-   */
-  void CopyToTarget(gfxContext *aTarget);
-
-  /**
-   * Updates all layer programs with a new projection matrix.
-   */
-  void SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix);
-
-  /**
-   * Helper method for Initialize, creates all valid variations of a program
-   * and adds them to mPrograms
-   */
-  void AddPrograms(gl::ShaderProgramType aType);
+  void WorldTransformRect(nsIntRect& aRect);
 
   /* Thebes layer callbacks; valid at the end of a transaciton,
    * while rendering */
   DrawThebesLayerCallback mThebesLayerCallback;
   void *mThebesLayerCallbackData;
   gfxMatrix mWorldMatrix;
-  nsAutoPtr<FPSState> mFPS;
-
-  static bool sDrawFPS;
-  static bool sFrameCounter;
 };
 
 /**

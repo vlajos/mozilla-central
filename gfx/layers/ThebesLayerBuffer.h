@@ -54,6 +54,7 @@ public:
     : mBufferProvider(nullptr)
     , mBufferRotation(0,0)
     , mBufferSizePolicy(aBufferSizePolicy)
+    , mBuffer(nullptr)
   {
     MOZ_COUNT_CTOR(ThebesLayerBuffer);
   }
@@ -211,6 +212,8 @@ protected:
    */
   already_AddRefed<gfxContext>
   GetContextForQuadrantUpdate(const nsIntRect& aBounds);
+  
+  static bool IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegion);
 
 private:
   // Buffer helpers.  Don't use mBuffer directly; instead use one of

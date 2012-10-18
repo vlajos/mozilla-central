@@ -99,24 +99,16 @@ protected:
     mValidRegion.Or(mValidRegion, tmp);
   }
 
-  Buffer mBuffer;
+  RefPtr<ContentClient> mContentClient;
 };
-
-struct AutoBufferTracker;
 
 class BasicShadowableThebesLayer : public BasicThebesLayer,
                                    public BasicShadowableLayer
 {
-  friend struct AutoBufferTracker;
-
   typedef BasicThebesLayer Base;
-
 public:
   BasicShadowableThebesLayer(BasicShadowLayerManager* aManager)
     : BasicThebesLayer(aManager)
-    , mBufferTracker(nullptr)
-    , mIsNewBuffer(false)
-    , mFrontAndBackBufferDiffer(false)
   {
     MOZ_COUNT_CTOR(BasicShadowableThebesLayer);
   }
@@ -136,16 +128,23 @@ public:
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
-  void SetBackBufferAndAttrs(const OptionalThebesBuffer& aBuffer,
+  void SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
+                             const OptionalThebesBuffer& aBuffer,
                              const nsIntRegion& aValidRegion,
                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                             const nsIntRegion& aFrontUpdatedRegion);
+                             const nsIntRegion& aFrontUpdatedRegion)
+  {
+    mContentClient->SetBackBufferAndAttrs(aTextureIdentifier,
+                                          aBuffer,
+                                          aValidRegion,
+                                          aReadOnlyFrontBuffer,
+                                          aFrontUpdatedRegion,
+                                          mValidRegion);
+  }
 
   virtual void Disconnect();
 
   virtual BasicShadowableThebesLayer* AsThebes() { return this; }
-
-  virtual void SyncFrontBufferToBackBuffer();
 
 private:
   BasicShadowLayerManager* BasicManager()
@@ -162,33 +161,10 @@ private:
               LayerManager::DrawThebesLayerCallback aCallback,
               void* aCallbackData) MOZ_OVERRIDE;
 
-  virtual already_AddRefed<gfxASurface>
-  CreateBuffer(Buffer::ContentType aType, const nsIntSize& aSize) MOZ_OVERRIDE;
-
   void DestroyBackBuffer()
   {
-    if (IsSurfaceDescriptorValid(mBackBuffer)) {
-      BasicManager()->ShadowLayerForwarder::DestroySharedSurface(&mBackBuffer);
-    }
+    mContentClient = nullptr;
   }
-
-  // This describes the gfxASurface we hand to mBuffer.  We keep a
-  // copy of the descriptor here so that we can call
-  // DestroySharedSurface() on the descriptor.
-  SurfaceDescriptor mBackBuffer;
-  nsIntRect mBackBufferRect;
-  nsIntPoint mBackBufferRectRotation;
-
-  // This helper object lives on the stack during its lifetime and
-  // keeps track of buffers we might have mapped and/or allocated.
-  // When it goes out of scope on the stack, it unmaps whichever
-  // buffers have been mapped (if any).
-  AutoBufferTracker* mBufferTracker;
-
-  bool mIsNewBuffer;
-  OptionalThebesBuffer mROFrontBuffer;
-  nsIntRegion mFrontUpdatedRegion;
-  bool mFrontAndBackBufferDiffer;
 };
 
 }

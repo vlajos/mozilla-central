@@ -19,6 +19,8 @@
 namespace mozilla {
 namespace layers {
 
+class ImageHost;
+
 class THEBES_API CanvasLayerOGL :
   public CanvasLayer,
   public LayerOGL

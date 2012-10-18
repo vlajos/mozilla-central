@@ -257,8 +257,9 @@ CanvasLayerOGL::UpdateSurface()
 }
 
 void
-CanvasLayerOGL::RenderLayer(int aPreviousDestination,
-                            const nsIntPoint& aOffset)
+CanvasLayerOGL::RenderLayer(const nsIntPoint& aOffset,
+                            const nsIntRect& aClipRect,
+                            Surface*)
 {
   UpdateSurface();
   if (mOGLManager->CompositingDisabled()) {
@@ -360,47 +361,14 @@ IsValidSharedTexDescriptor(const SurfaceDescriptor& aDescriptor)
   return aDescriptor.type() == SurfaceDescriptor::TSharedTextureDescriptor;
 }
 
-ShadowCanvasLayerOGL::ShadowCanvasLayerOGL(LayerManagerOGL* aManager)
-  : ShadowCanvasLayer(aManager, nullptr)
-  , LayerOGL(aManager)
-  , mNeedsYFlip(false)
-  , mTexture(0)
-{
-  mImplData = static_cast<LayerOGL*>(this);
-}
-
-ShadowCanvasLayerOGL::~ShadowCanvasLayerOGL()
-{}
-
-void
-ShadowCanvasLayerOGL::Initialize(const Data& aData)
-{
-  NS_RUNTIMEABORT("Incompatibe surface type");
-}
-
-void
-ShadowCanvasLayerOGL::Init(const CanvasSurface& aNewFront, bool needYFlip)
-{
-  AutoOpenSurface autoSurf(OPEN_READ_ONLY, aNewFront);
-
-  mNeedsYFlip = needYFlip;
-
-  mTexImage = gl()->CreateTextureImage(autoSurf.Size(),
-                                       autoSurf.ContentType(),
-                                       LOCAL_GL_CLAMP_TO_EDGE,
-                                       mNeedsYFlip ? TextureImage::NeedsYFlip : TextureImage::NoFlags);
-}
-
+//TODO[nrc] rebase and sort canvas
+/*
 void
 ShadowCanvasLayerOGL::Swap(const CanvasSurface& aNewFront,
                            bool needYFlip,
                            CanvasSurface* aNewBack)
 {
-  if (mDestroyed) {
-    *aNewBack = aNewFront;
-    return;
-  }
-
+//REBASE this section is NEW
   if (nsRefPtr<TextureImage> texImage =
       ShadowLayerManager::OpenDescriptorForDirectTexturing(
         gl(), aNewFront.get_SurfaceDescriptor(), LOCAL_GL_CLAMP_TO_EDGE)) {
@@ -417,154 +385,19 @@ ShadowCanvasLayerOGL::Swap(const CanvasSurface& aNewFront,
                 CanvasSurface(mFrontBufferDescriptor) : CanvasSurface(null_t());
     mFrontBufferDescriptor = aNewFront;
     mNeedsYFlip = needYFlip;
-  } else if (IsValidSharedTexDescriptor(aNewFront)) {
-    MakeTextureIfNeeded(gl(), mTexture);
-    if (!IsValidSharedTexDescriptor(mFrontBufferDescriptor)) {
-      mFrontBufferDescriptor = SharedTextureDescriptor(TextureImage::ThreadShared, 0, nsIntSize(0, 0), false);
-    }
-    *aNewBack = mFrontBufferDescriptor;
-    mFrontBufferDescriptor = aNewFront;
-    mNeedsYFlip = needYFlip;
-  } else {
-    AutoOpenSurface autoSurf(OPEN_READ_ONLY, aNewFront);
-    gfxIntSize sz = autoSurf.Size();
-    if (!mTexImage || mTexImage->GetSize() != sz ||
-        mTexImage->GetContentType() != autoSurf.ContentType()) {
-      Init(aNewFront, needYFlip);
-    }
-    nsIntRegion updateRegion(nsIntRect(0, 0, sz.width, sz.height));
-    mTexImage->DirectUpdate(autoSurf.Get(), updateRegion);
-    *aNewBack = aNewFront;
-  }
 }
+
 
 void
 ShadowCanvasLayerOGL::DestroyFrontBuffer()
 {
-  mTexImage = nullptr;
-  if (mTexture) {
-    gl()->MakeCurrent();
-    gl()->fDeleteTextures(1, &mTexture);
-  }
   if (IsValidSharedTexDescriptor(mFrontBufferDescriptor)) {
     SharedTextureDescriptor texDescriptor = mFrontBufferDescriptor.get_SharedTextureDescriptor();
     gl()->ReleaseSharedHandle(texDescriptor.shareType(), texDescriptor.handle());
     mFrontBufferDescriptor = SurfaceDescriptor();
   } else if (IsSurfaceDescriptorValid(mFrontBufferDescriptor)) {
+  //REBASE NEW case else part
     mAllocator->DestroySharedSurface(&mFrontBufferDescriptor);
   }
 }
-
-void
-ShadowCanvasLayerOGL::Disconnect()
-{
-  Destroy();
-}
-
-void
-ShadowCanvasLayerOGL::Destroy()
-{
-  if (!mDestroyed) {
-    mDestroyed = true;
-    DestroyFrontBuffer();
-  }
-}
-
-Layer*
-ShadowCanvasLayerOGL::GetLayer()
-{
-  return this;
-}
-
-void
-ShadowCanvasLayerOGL::RenderLayer(int aPreviousFrameBuffer,
-                                  const nsIntPoint& aOffset)
-{
-  if (!mTexImage && !IsValidSharedTexDescriptor(mFrontBufferDescriptor)) {
-    return;
-  }
-
-  if (mOGLManager->CompositingDisabled()) {
-    return;
-  }
-  mOGLManager->MakeCurrent();
-
-  gfx3DMatrix effectiveTransform = GetEffectiveTransform();
-  gfxPattern::GraphicsFilter filter = mFilter;
-#ifdef ANDROID
-  // Bug 691354
-  // Using the LINEAR filter we get unexplained artifacts.
-  // Use NEAREST when no scaling is required.
-  gfxMatrix matrix;
-  bool is2D = GetEffectiveTransform().Is2D(&matrix);
-  if (is2D && !matrix.HasNonTranslationOrFlip()) {
-    filter = gfxPattern::FILTER_NEAREST;
-  }
-#endif
-
-  ShaderProgramOGL *program;
-  if (IsValidSharedTexDescriptor(mFrontBufferDescriptor)) {
-    program = mOGLManager->GetBasicLayerProgram(CanUseOpaqueSurface(),
-                                                true,
-                                                GetMaskLayer() ? Mask2d : MaskNone);
-  } else {
-    program = mOGLManager->GetProgram(mTexImage->GetShaderProgramType(),
-                                      GetMaskLayer());
-  }
-
-  program->Activate();
-  program->SetLayerTransform(effectiveTransform);
-  program->SetLayerOpacity(GetEffectiveOpacity());
-  program->SetRenderOffset(aOffset);
-  program->SetTextureUnit(0);
-  program->LoadMask(GetMaskLayer());
-
-  if (IsValidSharedTexDescriptor(mFrontBufferDescriptor)) {
-    // Shared texture handle rendering path, single texture rendering
-    SharedTextureDescriptor texDescriptor = mFrontBufferDescriptor.get_SharedTextureDescriptor();
-    gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
-    gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
-    if (!gl()->AttachSharedHandle(texDescriptor.shareType(), texDescriptor.handle())) {
-      NS_ERROR("Failed to attach shared texture handle");
-      return;
-    }
-    gl()->ApplyFilterToBoundTexture(filter);
-    program->SetLayerQuadRect(nsIntRect(nsIntPoint(0, 0), texDescriptor.size()));
-    mOGLManager->BindAndDrawQuad(program, mNeedsYFlip);
-    gl()->DetachSharedHandle(texDescriptor.shareType(), texDescriptor.handle());
-    gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
-  } else {
-    // Tiled texture image rendering path
-    mTexImage->SetFilter(filter);
-    mTexImage->BeginTileIteration();
-    if (gl()->CanUploadNonPowerOfTwo()) {
-      do {
-        TextureImage::ScopedBindTextureAndApplyFilter texBind(mTexImage, LOCAL_GL_TEXTURE0);
-        program->SetLayerQuadRect(mTexImage->GetTileRect());
-        mOGLManager->BindAndDrawQuad(program, mNeedsYFlip); // FIXME flip order of tiles?
-      } while (mTexImage->NextTile());
-    } else {
-      do {
-        TextureImage::ScopedBindTextureAndApplyFilter texBind(mTexImage, LOCAL_GL_TEXTURE0);
-        program->SetLayerQuadRect(mTexImage->GetTileRect());
-        // We can't use BindAndDrawQuad because that always uploads the whole texture from 0.0f -> 1.0f
-        // in x and y. We use BindAndDrawQuadWithTextureRect to actually draw a subrect of the texture
-        // We need to reset the origin to 0,0 from the tile rect because the tile originates at 0,0 in the
-        // actual texture, even though its origin in the composed (tiled) texture is not 0,0
-        // FIXME: we need to handle mNeedsYFlip, Bug #728625
-        mOGLManager->BindAndDrawQuadWithTextureRect(program,
-                                                    nsIntRect(0, 0, mTexImage->GetTileRect().width,
-                                                                    mTexImage->GetTileRect().height),
-                                                    mTexImage->GetTileRect().Size(),
-                                                    mTexImage->GetWrapMode(),
-                                                    mNeedsYFlip);
-      } while (mTexImage->NextTile());
-    }
-  }
-}
-
-void
-ShadowCanvasLayerOGL::CleanupResources()
-{
-  DestroyFrontBuffer();
-}
+*/

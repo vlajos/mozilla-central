@@ -4,91 +4,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/PLayersParent.h"
+#include "BasicCanvasLayer.h"
 #include "gfxImageSurface.h"
 #include "GLContext.h"
 #include "gfxUtils.h"
 #include "gfxPlatform.h"
 #include "mozilla/Preferences.h"
-
+#include "CanvasClient.h"
 #include "BasicLayersImpl.h"
+
 #include "nsXULAppAPI.h"
+
+#include "gfxPlatform.h"
 
 using namespace mozilla::gfx;
 
 namespace mozilla {
 namespace layers {
-
-class BasicCanvasLayer : public CanvasLayer,
-                         public BasicImplData
-{
-public:
-  BasicCanvasLayer(BasicLayerManager* aLayerManager) :
-    CanvasLayer(aLayerManager, static_cast<BasicImplData*>(this))
-  {
-    MOZ_COUNT_CTOR(BasicCanvasLayer);
-    mForceReadback = Preferences::GetBool("webgl.force-layers-readback", false);
-  }
-  virtual ~BasicCanvasLayer()
-  {
-    MOZ_COUNT_DTOR(BasicCanvasLayer);
-  }
-
-  virtual void SetVisibleRegion(const nsIntRegion& aRegion)
-  {
-    NS_ASSERTION(BasicManager()->InConstruction(),
-                 "Can only set properties in construction phase");
-    CanvasLayer::SetVisibleRegion(aRegion);
-  }
-
-  virtual void Initialize(const Data& aData);
-  virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
-
-  virtual void PaintWithOpacity(gfxContext* aContext,
-                                float aOpacity,
-                                Layer* aMaskLayer);
-
-protected:
-  BasicLayerManager* BasicManager()
-  {
-    return static_cast<BasicLayerManager*>(mManager);
-  }
-  void UpdateSurface(gfxASurface* aDestSurface = nullptr, Layer* aMaskLayer = nullptr);
-
-  nsRefPtr<gfxASurface> mSurface;
-  nsRefPtr<mozilla::gl::GLContext> mGLContext;
-  mozilla::RefPtr<mozilla::gfx::DrawTarget> mDrawTarget;
-  
-  uint32_t mCanvasFramebuffer;
-
-  bool mGLBufferIsPremultiplied;
-  bool mNeedsYFlip;
-  bool mForceReadback;
-
-  nsRefPtr<gfxImageSurface> mCachedTempSurface;
-  gfxIntSize mCachedSize;
-  gfxImageFormat mCachedFormat;
-
-  gfxImageSurface* GetTempSurface(const gfxIntSize& aSize, const gfxImageFormat aFormat)
-  {
-    if (!mCachedTempSurface ||
-        aSize.width != mCachedSize.width ||
-        aSize.height != mCachedSize.height ||
-        aFormat != mCachedFormat)
-    {
-      mCachedTempSurface = new gfxImageSurface(aSize, aFormat);
-      mCachedSize = aSize;
-      mCachedFormat = aFormat;
-    }
-
-    MOZ_ASSERT(mCachedTempSurface->Stride() == mCachedTempSurface->Width() * 4);
-    return mCachedTempSurface;
-  }
-
-  void DiscardTempSurface()
-  {
-    mCachedTempSurface = nullptr;
-  }
-};
 
 void
 BasicCanvasLayer::Initialize(const Data& aData)
@@ -296,77 +228,6 @@ BasicCanvasLayer::PaintWithOpacity(gfxContext* aContext,
   }
 }
 
-class BasicShadowableCanvasLayer : public BasicCanvasLayer,
-                                   public BasicShadowableLayer
-{
-public:
-  BasicShadowableCanvasLayer(BasicShadowLayerManager* aManager) :
-    BasicCanvasLayer(aManager),
-    mBufferIsOpaque(false)
-  {
-    MOZ_COUNT_CTOR(BasicShadowableCanvasLayer);
-  }
-  virtual ~BasicShadowableCanvasLayer()
-  {
-    DestroyBackBuffer();
-    MOZ_COUNT_DTOR(BasicShadowableCanvasLayer);
-  }
-
-  virtual void Initialize(const Data& aData);
-  virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
-
-  virtual void FillSpecificAttributes(SpecificLayerAttributes& aAttrs)
-  {
-    aAttrs = CanvasLayerAttributes(mFilter);
-  }
-
-  virtual Layer* AsLayer() { return this; }
-  virtual ShadowableLayer* AsShadowableLayer() { return this; }
-
-  virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
-  {
-    mBackBuffer = aBuffer;
-  }
-
-  virtual void Disconnect()
-  {
-    mBackBuffer = SurfaceDescriptor();
-    BasicShadowableLayer::Disconnect();
-  }
-
-  void DestroyBackBuffer()
-  {
-    if (mBackBuffer.type() == SurfaceDescriptor::TSharedTextureDescriptor) {
-      SharedTextureDescriptor handle = mBackBuffer.get_SharedTextureDescriptor();
-      if (mGLContext && handle.handle()) {
-        mGLContext->ReleaseSharedHandle(handle.shareType(), handle.handle());
-        mBackBuffer = SurfaceDescriptor();
-      }
-    } else if (IsSurfaceDescriptorValid(mBackBuffer)) {
-      BasicManager()->ShadowLayerForwarder::DestroySharedSurface(&mBackBuffer);
-      mBackBuffer = SurfaceDescriptor();
-    }
-  }
-
-private:
-  typedef mozilla::gl::SharedTextureHandle SharedTextureHandle;
-  typedef mozilla::gl::TextureImage TextureImage;
-  SharedTextureHandle GetSharedBackBufferHandle()
-  {
-    if (mBackBuffer.type() == SurfaceDescriptor::TSharedTextureDescriptor)
-      return mBackBuffer.get_SharedTextureDescriptor().handle();
-    return 0;
-  }
-
-  BasicShadowLayerManager* BasicManager()
-  {
-    return static_cast<BasicShadowLayerManager*>(mManager);
-  }
-
-  SurfaceDescriptor mBackBuffer;
-  bool mBufferIsOpaque;
-};
-
 void
 BasicShadowableCanvasLayer::Initialize(const Data& aData)
 {
@@ -374,15 +235,7 @@ BasicShadowableCanvasLayer::Initialize(const Data& aData)
   if (!HasShadow())
       return;
 
-  // XXX won't get here currently; need to figure out what to do on
-  // canvas resizes
-
-  if (IsSurfaceDescriptorValid(mBackBuffer)) {
-    AutoOpenSurface backSurface(OPEN_READ_ONLY, mBackBuffer);
-    if (gfxIntSize(mBounds.width, mBounds.height) != backSurface.Size()) {
-      DestroyBackBuffer();
-    }
-  }
+  mCanvasClient = nullptr;
 }
 
 void
@@ -393,109 +246,32 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     return;
   }
 
-  if (!IsDirty())
+  if (!IsDirty()) {
     return;
-
-  if (mGLContext &&
-      !mForceReadback &&
-      BasicManager()->GetParentBackendType() == mozilla::layers::LAYERS_OPENGL) {
-    TextureImage::TextureShareType flags;
-    // if process type is default, then it is single-process (non-e10s)
-    if (XRE_GetProcessType() == GeckoProcessType_Default)
-      flags = TextureImage::ThreadShared;
-    else
-      flags = TextureImage::ProcessShared;
-
-    SharedTextureHandle handle = GetSharedBackBufferHandle();
-    if (!handle) {
-      handle = mGLContext->CreateSharedHandle(flags);
-      if (handle) {
-        mBackBuffer = SharedTextureDescriptor(flags, handle, mBounds.Size(), false);
-      }
-    }
-    if (handle) {
-      mGLContext->MakeCurrent();
-      mGLContext->UpdateSharedHandle(flags, handle);
-      FireDidTransactionCallback();
-      BasicManager()->PaintedCanvas(BasicManager()->Hold(this),
-                                    mNeedsYFlip,
-                                    mBackBuffer);
-      // Move SharedTextureHandle ownership to ShadowLayer
-      mBackBuffer = SurfaceDescriptor();
-      return;
-    }
   }
-
-  bool isOpaque = (GetContentFlags() & CONTENT_OPAQUE);
-  if (!IsSurfaceDescriptorValid(mBackBuffer) ||
-      isOpaque != mBufferIsOpaque) {
-    DestroyBackBuffer();
-    mBufferIsOpaque = isOpaque;
-
-    gfxIntSize size(mBounds.width, mBounds.height);
-    gfxASurface::gfxContentType type = isOpaque ?
-        gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
-
-    if (!BasicManager()->AllocBuffer(size, type, &mBackBuffer)) {
-      NS_RUNTIMEABORT("creating CanvasLayer back buffer failed!");
-    }
-  }
-
-  AutoOpenSurface autoBackSurface(OPEN_READ_WRITE, mBackBuffer);
 
   if (aMaskLayer) {
     static_cast<BasicImplData*>(aMaskLayer->ImplData())
       ->Paint(aContext, nullptr);
   }
-  UpdateSurface(autoBackSurface.Get(), nullptr);
-  FireDidTransactionCallback();
+  
+  if (!mCanvasClient) {
+    TextureFlags flags = NoFlags;
+    if (mNeedsYFlip) {
+      flags |= NeedsYFlip;
+    }
+    mCanvasClient = BasicManager()->CreateCanvasClientFor(GetBufferClientType(), this, flags);
 
-  BasicManager()->PaintedCanvas(BasicManager()->Hold(this),
-                                mNeedsYFlip, mBackBuffer);
-}
-
-class BasicShadowCanvasLayer : public ShadowCanvasLayer,
-                               public BasicImplData
-{
-public:
-  BasicShadowCanvasLayer(BasicShadowLayerManager* aLayerManager) :
-    ShadowCanvasLayer(aLayerManager, static_cast<BasicImplData*>(this))
-  {
-    MOZ_COUNT_CTOR(BasicShadowCanvasLayer);
-  }
-  virtual ~BasicShadowCanvasLayer()
-  {
-    MOZ_COUNT_DTOR(BasicShadowCanvasLayer);
-  }
-
-  virtual void Disconnect()
-  {
-    DestroyFrontBuffer();
-    ShadowCanvasLayer::Disconnect();
-  }
-
-  virtual void Initialize(const Data& aData);
-  void Swap(const SharedImage& aNewFront, bool needYFlip, SharedImage* aNewBack);
-
-  virtual void DestroyFrontBuffer()
-  {
-    if (IsSurfaceDescriptorValid(mFrontSurface)) {
-      mAllocator->DestroySharedSurface(&mFrontSurface);
+    if (!mCanvasClient) {
+      return;
     }
   }
+  mCanvasClient->Update(gfx::IntSize(mBounds.width, mBounds.height), this);
 
-  virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
-
-private:
-  BasicShadowLayerManager* BasicManager()
-  {
-    return static_cast<BasicShadowLayerManager*>(mManager);
-  }
-
-  SurfaceDescriptor mFrontSurface;
-  bool mNeedsYFlip;
-};
-
+  FireDidTransactionCallback();
+  
+  mCanvasClient->Updated(BasicManager()->Hold(this));
+}
 
 void
 BasicShadowCanvasLayer::Initialize(const Data& aData)

@@ -212,8 +212,9 @@ ImageLayerOGL::GetLayer()
 }
 
 void
-ImageLayerOGL::RenderLayer(int,
-                           const nsIntPoint& aOffset)
+ImageLayerOGL::RenderLayer(const nsIntPoint& aOffset,
+                           const nsIntRect& aClipRect,
+                           Surface*)
 {
   nsRefPtr<ImageContainer> container = GetContainer();
 
@@ -668,185 +669,7 @@ ImageLayerOGL::LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize)
   return true;
 }
 
-ShadowImageLayerOGL::ShadowImageLayerOGL(LayerManagerOGL* aManager)
-  : ShadowImageLayer(aManager, nullptr)
-  , LayerOGL(aManager)
-  , mSharedHandle(0)
-  , mInverted(false)
-  , mTexture(0)
-{
-  mImplData = static_cast<LayerOGL*>(this);
-}
-
-ShadowImageLayerOGL::~ShadowImageLayerOGL()
-{}
-
-bool
-ShadowImageLayerOGL::Init(const SharedImage& aFront)
-{
-  if (aFront.type() == SharedImage::TSurfaceDescriptor) {
-    SurfaceDescriptor surface = aFront.get_SurfaceDescriptor();
-    if (surface.type() == SurfaceDescriptor::TSharedTextureDescriptor) {
-      SharedTextureDescriptor texture = surface.get_SharedTextureDescriptor();
-      mSize = texture.size();
-      mSharedHandle = texture.handle();
-      mShareType = texture.shareType();
-      mInverted = texture.inverted();
-    } else {
-      AutoOpenSurface autoSurf(OPEN_READ_ONLY, surface);
-      mSize = autoSurf.Size();
-      mTexImage = gl()->CreateTextureImage(nsIntSize(mSize.width, mSize.height),
-                                           autoSurf.ContentType(),
-                                           LOCAL_GL_CLAMP_TO_EDGE,
-                                           mForceSingleTile
-                                            ? TextureImage::ForceSingleTile
-                                            : TextureImage::NoFlags);
-    }
-  } else {
-    YUVImage yuv = aFront.get_YUVImage();
-
-    AutoOpenSurface surfY(OPEN_READ_ONLY, yuv.Ydata());
-    AutoOpenSurface surfU(OPEN_READ_ONLY, yuv.Udata());
-
-    mSize = surfY.Size();
-    mCbCrSize = surfU.Size();
-
-    if (!mYUVTexture[0].IsAllocated()) {
-      mYUVTexture[0].Allocate(gl());
-      mYUVTexture[1].Allocate(gl());
-      mYUVTexture[2].Allocate(gl());
-    }
-
-    NS_ASSERTION(mYUVTexture[0].IsAllocated() &&
-                 mYUVTexture[1].IsAllocated() &&
-                 mYUVTexture[2].IsAllocated(),
-                 "Texture allocation failed!");
-
-    gl()->MakeCurrent();
-    SetClamping(gl(), mYUVTexture[0].GetTextureID());
-    SetClamping(gl(), mYUVTexture[1].GetTextureID());
-    SetClamping(gl(), mYUVTexture[2].GetTextureID());
-    return true;
-  }
-  return false;
-}
-
-void
-ShadowImageLayerOGL::Swap(const SharedImage& aNewFront,
-                          SharedImage* aNewBack)
-{
-  if (!mDestroyed) {
-
-    if (aNewFront.type() == SharedImage::TSharedImageID) {
-      // We are using ImageBridge protocol. The image data will be queried at render
-      // time in the parent side.
-      uint64_t newID = aNewFront.get_SharedImageID().id();
-      if (newID != mImageContainerID) {
-        mImageContainerID = newID;
-        mImageVersion = 0;
-      }
-    } else if (aNewFront.type() == SharedImage::TSurfaceDescriptor) {
-      SurfaceDescriptor surface = aNewFront.get_SurfaceDescriptor();
-
-      if (surface.type() == SurfaceDescriptor::TSharedTextureDescriptor) {
-        SharedTextureDescriptor texture = surface.get_SharedTextureDescriptor();
-
-        SharedTextureHandle newHandle = texture.handle();
-        mSize = texture.size();
-        mInverted = texture.inverted();
-
-        if (mSharedHandle && newHandle != mSharedHandle)
-          gl()->ReleaseSharedHandle(mShareType, mSharedHandle);
-
-        mSharedHandle = newHandle;
-        mShareType = texture.shareType();
-      } else {
-        AutoOpenSurface surf(OPEN_READ_ONLY, surface);
-        gfxIntSize size = surf.Size();
-        if (mSize != size || !mTexImage ||
-            mTexImage->GetContentType() != surf.ContentType()) {
-          Init(aNewFront);
-        }
-        // XXX this is always just ridiculously slow
-        nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
-        mTexImage->DirectUpdate(surf.Get(), updateRegion);
-      }
-    } else {
-      const YUVImage& yuv = aNewFront.get_YUVImage();
-      UploadSharedYUVToTexture(yuv);
-    }
-  }
-
-  *aNewBack = aNewFront;
-}
-
-void
-ShadowImageLayerOGL::Disconnect()
-{
-  Destroy();
-}
-
-void
-ShadowImageLayerOGL::Destroy()
-{
-  if (!mDestroyed) {
-    mDestroyed = true;
-    CleanupResources();
-  }
-}
-
-Layer*
-ShadowImageLayerOGL::GetLayer()
-{
-  return this;
-}
-
-void ShadowImageLayerOGL::UploadSharedYUVToTexture(const YUVImage& yuv)
-{
-  AutoOpenSurface asurfY(OPEN_READ_ONLY, yuv.Ydata());
-  AutoOpenSurface asurfU(OPEN_READ_ONLY, yuv.Udata());
-  AutoOpenSurface asurfV(OPEN_READ_ONLY, yuv.Vdata());
-  nsRefPtr<gfxImageSurface> surfY = asurfY.GetAsImage();
-  nsRefPtr<gfxImageSurface> surfU = asurfU.GetAsImage();
-  nsRefPtr<gfxImageSurface> surfV = asurfV.GetAsImage();
-  mPictureRect = yuv.picture();
-
-  gfxIntSize size = surfY->GetSize();
-  gfxIntSize CbCrSize = surfU->GetSize();
-  if (size != mSize || mCbCrSize != CbCrSize || !mYUVTexture[0].IsAllocated()) {
-    
-    mSize = surfY->GetSize();
-    mCbCrSize = surfU->GetSize();
-
-    if (!mYUVTexture[0].IsAllocated()) {
-      mYUVTexture[0].Allocate(gl());
-      mYUVTexture[1].Allocate(gl());
-      mYUVTexture[2].Allocate(gl());
-    }
-
-    NS_ASSERTION(mYUVTexture[0].IsAllocated() &&
-                 mYUVTexture[1].IsAllocated() &&
-                 mYUVTexture[2].IsAllocated(),
-                 "Texture allocation failed!");
-
-    gl()->MakeCurrent();
-    SetClamping(gl(), mYUVTexture[0].GetTextureID());
-    SetClamping(gl(), mYUVTexture[1].GetTextureID());
-    SetClamping(gl(), mYUVTexture[2].GetTextureID());
-  }
-
-  PlanarYCbCrImage::Data data;
-  data.mYChannel = surfY->Data();
-  data.mYStride = surfY->Stride();
-  data.mYSize = surfY->GetSize();
-  data.mCbChannel = surfU->Data();
-  data.mCrChannel = surfV->Data();
-  data.mCbCrStride = surfU->Stride();
-  data.mCbCrSize = surfU->GetSize();
-
-  UploadYUVToTexture(gl(), data, &mYUVTexture[0], &mYUVTexture[1], &mYUVTexture[2]);
-}
-
+//REBASE new - move to imagehost
 void ShadowImageLayerOGL::UploadSharedYCbCrToTexture(ShmemYCbCrImage& aImage,
                                                      nsIntRect aPictureRect)
 {
@@ -888,15 +711,13 @@ void ShadowImageLayerOGL::UploadSharedYCbCrToTexture(ShmemYCbCrImage& aImage,
   UploadYUVToTexture(gl(), data, &mYUVTexture[0], &mYUVTexture[1], &mYUVTexture[2]);
 }
 
-
+//REBASE new stuff
 void
 ShadowImageLayerOGL::RenderLayer(int aPreviousFrameBuffer,
                                  const nsIntPoint& aOffset)
 {
-  if (mOGLManager->CompositingDisabled()) {
-    return;
-  }
-  mOGLManager->MakeCurrent();
+//...
+
   if (mImageContainerID) {
     ImageContainerParent::SetCompositorIDForImage(mImageContainerID,
                                                   mOGLManager->GetCompositorID());
@@ -930,42 +751,11 @@ ShadowImageLayerOGL::RenderLayer(int aPreviousFrameBuffer,
     }
   }
 
+  
+  
+  //...
+  
 
-  if (mTexImage) {
-    NS_ASSERTION(mTexImage->GetContentType() != gfxASurface::CONTENT_ALPHA,
-                 "Image layer has alpha image");
-
-    ShaderProgramOGL *colorProgram =
-      mOGLManager->GetProgram(mTexImage->GetShaderProgramType(), GetMaskLayer());
-
-    colorProgram->Activate();
-    colorProgram->SetTextureUnit(0);
-    colorProgram->SetLayerTransform(GetEffectiveTransform());
-    colorProgram->SetLayerOpacity(GetEffectiveOpacity());
-    colorProgram->SetRenderOffset(aOffset);
-    colorProgram->LoadMask(GetMaskLayer());
-
-    mTexImage->SetFilter(mFilter);
-    mTexImage->BeginTileIteration();
-
-    if (gl()->CanUploadNonPowerOfTwo()) {
-      do {
-        TextureImage::ScopedBindTextureAndApplyFilter texBind(mTexImage, LOCAL_GL_TEXTURE0);
-        colorProgram->SetLayerQuadRect(mTexImage->GetTileRect());
-        mOGLManager->BindAndDrawQuad(colorProgram);
-      } while (mTexImage->NextTile());
-    } else {
-      do {
-        TextureImage::ScopedBindTextureAndApplyFilter texBind(mTexImage, LOCAL_GL_TEXTURE0);
-        colorProgram->SetLayerQuadRect(mTexImage->GetTileRect());
-        // We can't use BindAndDrawQuad because that always uploads the whole texture from 0.0f -> 1.0f
-        // in x and y. We use BindAndDrawQuadWithTextureRect to actually draw a subrect of the texture
-        mOGLManager->BindAndDrawQuadWithTextureRect(colorProgram,
-                                                    nsIntRect(0, 0, mTexImage->GetTileRect().width,
-                                                                    mTexImage->GetTileRect().height),
-                                                    mTexImage->GetTileRect().Size());
-      } while (mTexImage->NextTile());
-    }
 #ifdef MOZ_WIDGET_GONK
   } else if (mExternalBufferTexture.IsAllocated()) {
     gl()->MakeCurrent();
@@ -988,100 +778,6 @@ ShadowImageLayerOGL::RenderLayer(int aPreviousFrameBuffer,
     mOGLManager->BindAndDrawQuad(program);
     gl()->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, 0);
 #endif
-  } else if (mSharedHandle) {
-    GLContext::SharedHandleDetails handleDetails;
-    if (!gl()->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
-      NS_ERROR("Failed to get shared handle details");
-      return;
-    }
-
-    ShaderProgramOGL* program = mOGLManager->GetProgram(handleDetails.mProgramType, GetMaskLayer());
-   
-    program->Activate();
-    program->SetLayerTransform(GetEffectiveTransform());
-    program->SetLayerOpacity(GetEffectiveOpacity());
-    program->SetRenderOffset(aOffset);
-    program->SetTextureUnit(0);
-    program->SetTextureTransform(handleDetails.mTextureTransform);
-    program->LoadMask(GetMaskLayer());
-
-    MakeTextureIfNeeded(gl(), mTexture);
-    gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
-    gl()->fBindTexture(handleDetails.mTarget, mTexture);
-    
-    if (!gl()->AttachSharedHandle(mShareType, mSharedHandle)) {
-      NS_ERROR("Failed to bind shared texture handle");
-      return;
-    }
-
-    gl()->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
-                             LOCAL_GL_ONE, LOCAL_GL_ONE);
-    gl()->ApplyFilterToBoundTexture(mFilter);
-    program->SetLayerQuadRect(nsIntRect(nsIntPoint(0, 0), mSize));
-    mOGLManager->BindAndDrawQuad(program, mInverted);
-    gl()->fBindTexture(handleDetails.mTarget, 0);
-    gl()->DetachSharedHandle(mShareType, mSharedHandle);
-  } else {
-    gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
-    gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mYUVTexture[0].GetTextureID());
-    gl()->ApplyFilterToBoundTexture(mFilter);
-    gl()->fActiveTexture(LOCAL_GL_TEXTURE1);
-    gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mYUVTexture[1].GetTextureID());
-    gl()->ApplyFilterToBoundTexture(mFilter);
-    gl()->fActiveTexture(LOCAL_GL_TEXTURE2);
-    gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mYUVTexture[2].GetTextureID());
-    gl()->ApplyFilterToBoundTexture(mFilter);
-
-    ShaderProgramOGL *yuvProgram = mOGLManager->GetProgram(YCbCrLayerProgramType, GetMaskLayer());
-
-    yuvProgram->Activate();
-    yuvProgram->SetLayerQuadRect(nsIntRect(0, 0,
-                                           mPictureRect.width,
-                                           mPictureRect.height));
-    yuvProgram->SetYCbCrTextureUnits(0, 1, 2);
-    yuvProgram->SetLayerTransform(GetEffectiveTransform());
-    yuvProgram->SetLayerOpacity(GetEffectiveOpacity());
-    yuvProgram->SetRenderOffset(aOffset);
-    yuvProgram->LoadMask(GetMaskLayer());
-
-    mOGLManager->BindAndDrawQuadWithTextureRect(yuvProgram,
-                                                mPictureRect,
-                                                nsIntSize(mSize.width, mSize.height));
- }
-}
-
-bool
-ShadowImageLayerOGL::LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize)
-{
-  if (!mTexImage) {
-    return false;
-  }
-
-  mTexImage->BindTextureAndApplyFilter(aTextureUnit);
-
-  NS_ASSERTION(mTexImage->GetContentType() == gfxASurface::CONTENT_ALPHA,
-               "OpenGL mask layers must be backed by alpha surfaces");
-
-  // We're assuming that the gl backend won't cheat and use NPOT
-  // textures when glContext says it can't (which seems to happen
-  // on a mac when you force POT textures)
-  *aSize = CalculatePOTSize(mTexImage->GetSize(), gl());
-  return true;
-}
-
-void
-ShadowImageLayerOGL::CleanupResources()
-{
-  if (mSharedHandle) {
-    gl()->ReleaseSharedHandle(mShareType, mSharedHandle);
-    mSharedHandle = 0;
-  }
-
-  mExternalBufferTexture.Release();
-  mYUVTexture[0].Release();
-  mYUVTexture[1].Release();
-  mYUVTexture[2].Release();
-  mTexImage = nullptr;
 }
 
 } /* layers */

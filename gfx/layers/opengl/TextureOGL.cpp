@@ -166,6 +166,14 @@
    }
  }
  
+ void
+ TextureImageAsTextureHost::Abort()
+ {
+   if (mTexImage->InUpdate()) {
+     mTexImage->EndUpdate();
+   }
+ }
+ 
  TextureImageHost::TextureImageHost(GLContext* aGL, TextureImage* aTexImage)
    : TextureImageAsTextureHost(aGL)
  {

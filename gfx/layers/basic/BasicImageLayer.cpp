@@ -9,6 +9,7 @@
 #include "gfxUtils.h"
 #include "gfxSharedImageSurface.h"
 #include "mozilla/layers/ImageContainerChild.h"
+#include "ImageClient.h"
 #ifdef MOZ_X11
 #include "gfxXlibSurface.h"
 #endif
@@ -107,12 +108,11 @@ BasicImageLayer::GetAndPaintCurrentImage(gfxContext* aContext,
   return pat.forget();
 }
 
-/*static*/ void
-BasicImageLayer::PaintContext(gfxPattern* aPattern,
-                              const nsIntRegion& aVisible,
-                              float aOpacity,
-                              gfxContext* aContext,
-                              Layer* aMaskLayer)
+PaintContext(gfxPattern* aPattern,
+             const nsIntRegion& aVisible,
+             float aOpacity,
+             gfxContext* aContext,
+             Layer* aMaskLayer)
 {
   // Set PAD mode so that when the video is being scaled, we do not sample
   // outside the bounds of the video image.
@@ -162,8 +162,7 @@ class BasicShadowableImageLayer : public BasicImageLayer,
 public:
   BasicShadowableImageLayer(BasicShadowLayerManager* aManager) :
     BasicImageLayer(aManager),
-    mBufferIsOpaque(false),
-    mLastPaintedImageSerial(0)
+    mImageClient(nullptr)
   {
     MOZ_COUNT_CTOR(BasicShadowableImageLayer);
   }
@@ -177,45 +176,32 @@ public:
 
   virtual void FillSpecificAttributes(SpecificLayerAttributes& aAttrs)
   {
-    aAttrs = ImageLayerAttributes(mFilter, mForceSingleTile);
+    aAttrs = ImageLayerAttributes(mFilter);
   }
 
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
-  virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
+  virtual void SetBackBuffer(const SharedImage& aBuffer)
   {
-    mBackBuffer = aBuffer;
+    // only called for ImageBridge and then there is nothing to do
   }
 
-  virtual void SetBackBufferYUVImage(const SurfaceDescriptor& aYBuffer,
-                                     const SurfaceDescriptor& aUBuffer,
-                                     const SurfaceDescriptor& aVBuffer)
+  virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
+                             const SharedImage& aBuffer)
   {
-    mBackBufferY = aYBuffer;
-    mBackBufferU = aUBuffer;
-    mBackBufferV = aVBuffer;
+    mImageClient->SetBuffer(aTextureIdentifier, aBuffer);
   }
 
   virtual void Disconnect()
   {
-    mBackBufferY = SurfaceDescriptor();
-    mBackBufferU = SurfaceDescriptor();
-    mBackBufferV = SurfaceDescriptor();
-    mBackBuffer = SurfaceDescriptor();
+    mImageClient = nullptr;
     BasicShadowableLayer::Disconnect();
   }
 
   void DestroyBackBuffer()
   {
-    if (IsSurfaceDescriptorValid(mBackBuffer)) {
-      BasicManager()->ShadowLayerForwarder::DestroySharedSurface(&mBackBuffer);
-    }
-    if (IsSurfaceDescriptorValid(mBackBufferY)) {
-      BasicManager()->ShadowLayerForwarder::DestroySharedSurface(&mBackBufferY);
-      BasicManager()->ShadowLayerForwarder::DestroySharedSurface(&mBackBufferU);
-      BasicManager()->ShadowLayerForwarder::DestroySharedSurface(&mBackBufferV);
-}
+    mImageClient = nullptr;
   }
 
 private:
@@ -224,17 +210,21 @@ private:
     return static_cast<BasicShadowLayerManager*>(mManager);
   }
 
-  // For YUV Images these are the 3 planes (Y, Cb and Cr),
-  // for RGB images only mBackSurface is used.
-  SurfaceDescriptor mBackBuffer;
-  bool mBufferIsOpaque;
-  SurfaceDescriptor mBackBufferY;
-  SurfaceDescriptor mBackBufferU;
-  SurfaceDescriptor mBackBufferV;
-  gfxIntSize mCbCrSize;
-  int32_t mLastPaintedImageSerial;
+  BufferType GetImageClientType()
+  {
+    if (mContainer->IsAsync()) {
+      return BUFFER_BRIDGE;
+    }
+
+    nsRefPtr<gfxASurface> surface;
+    AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
+
+    return CompositingFactory::TypeForImage(autoLock.GetImage());
+  }
+
+  RefPtr<ImageClient>  mImageClient;
 };
- 
+
 void
 BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
 {
@@ -243,138 +233,28 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     return;
   }
 
-  if (!mContainer) {
-    return;
-  }
-
-  if (mContainer->IsAsync()) {
-    uint32_t containerID = mContainer->GetAsyncContainerID();
-    BasicManager()->PaintedImage(BasicManager()->Hold(this), 
-                                 SharedImageID(containerID));
-    return;
-  }
-
-  nsRefPtr<gfxASurface> surface;
-  AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
-
-  Image *image = autoLock.GetImage();
-
-  if (!image) {
-    return;
-  }
-
   if (aMaskLayer) {
     static_cast<BasicImplData*>(aMaskLayer->ImplData())
       ->Paint(aContext, nullptr);
   }
 
-  if (image->GetFormat() == SHARED_TEXTURE &&
-      BasicManager()->GetParentBackendType() == mozilla::layers::LAYERS_OPENGL) {
-    SharedTextureImage *sharedImage = static_cast<SharedTextureImage*>(image);
-    const SharedTextureImage::Data *data = sharedImage->GetData();
-
-    SharedTextureDescriptor texture(data->mShareType, data->mHandle, data->mSize, data->mInverted);
-    SurfaceDescriptor descriptor(texture);
-    BasicManager()->PaintedImage(BasicManager()->Hold(this), descriptor);
+  if (!mContainer) {
     return;
   }
 
-  if (image->GetFormat() == PLANAR_YCBCR && BasicManager()->IsCompositingCheap()) {
-    PlanarYCbCrImage *YCbCrImage = static_cast<PlanarYCbCrImage*>(image);
-    const PlanarYCbCrImage::Data *data = YCbCrImage->GetData();
-    NS_ASSERTION(data, "Must be able to retrieve yuv data from image!");
-
-    if (mSize != data->mYSize || mCbCrSize != data->mCbCrSize || !IsSurfaceDescriptorValid(mBackBufferY)) {
-      DestroyBackBuffer();
-      mSize = data->mYSize;
-      mCbCrSize = data->mCbCrSize;
-
-      // We either allocate all three planes or none.
-      if (!BasicManager()->AllocBufferWithCaps(mSize,
-                                               gfxASurface::CONTENT_ALPHA,
-                                               MAP_AS_IMAGE_SURFACE,
-                                               &mBackBufferY) ||
-          !BasicManager()->AllocBufferWithCaps(mCbCrSize,
-                                               gfxASurface::CONTENT_ALPHA,
-                                               MAP_AS_IMAGE_SURFACE,
-                                               &mBackBufferU) ||
-          !BasicManager()->AllocBufferWithCaps(mCbCrSize,
-                                               gfxASurface::CONTENT_ALPHA,
-                                               MAP_AS_IMAGE_SURFACE,
-                                               &mBackBufferV)) {
-        NS_RUNTIMEABORT("creating ImageLayer 'front buffer' failed!");
-      }
+  if (!mImageClient ||
+      !mImageClient->UpdateImage(mContainer, this)) {
+    mImageClient = BasicManager()->CreateImageClientFor(GetImageClientType(), this,
+                                                        mForceSingleTile
+                                                          ? ForceSingleTile
+                                                          : NoFlags);
+    if (!mImageClient ||
+        !mImageClient->UpdateImage(mContainer, this)) {
+      return;
     }
-
-    AutoOpenSurface dyas(OPEN_READ_WRITE, mBackBufferY);
-    gfxImageSurface* dy = dyas.GetAsImage();
-
-    for (int i = 0; i < data->mYSize.height; i++) {
-      memcpy(dy->Data() + i * dy->Stride(),
-             data->mYChannel + i * data->mYStride,
-             data->mYSize.width);
-    }
-
-    AutoOpenSurface duas(OPEN_READ_WRITE, mBackBufferU);
-    gfxImageSurface* du = duas.GetAsImage();
-    AutoOpenSurface dvas(OPEN_READ_WRITE, mBackBufferV);
-    gfxImageSurface* dv = dvas.GetAsImage();
-
-    for (int i = 0; i < data->mCbCrSize.height; i++) {
-      memcpy(du->Data() + i * du->Stride(),
-             data->mCbChannel + i * data->mCbCrStride,
-             data->mCbCrSize.width);
-      memcpy(dv->Data() + i * dv->Stride(),
-             data->mCrChannel + i * data->mCbCrStride,
-             data->mCbCrSize.width);
-    }
-
-    YUVImage yuv(mBackBufferY, mBackBufferU, mBackBufferV,
-                 data->GetPictureRect());
-
-    BasicManager()->PaintedImage(BasicManager()->Hold(this),
-                                 yuv);
-    return;
   }
-
-  gfxIntSize oldSize = mSize;
-  nsRefPtr<gfxPattern> pat = GetAndPaintCurrentImage
-    (aContext, GetEffectiveOpacity(), nullptr);
-  if (!pat)
-    return;
-
-  bool isOpaque = (GetContentFlags() & CONTENT_OPAQUE);
-  if (oldSize != mSize || 
-      !IsSurfaceDescriptorValid(mBackBuffer) ||
-      isOpaque != mBufferIsOpaque) {
-    DestroyBackBuffer();
-    mBufferIsOpaque = isOpaque;
-
-    gfxASurface::gfxContentType type = gfxASurface::CONTENT_COLOR_ALPHA;
-    if (surface) {
-      type = surface->GetContentType();
-    }
-    if (type != gfxASurface::CONTENT_ALPHA &&
-        isOpaque) {
-      type = gfxASurface::CONTENT_COLOR;
-    }
-
-    if (!BasicManager()->AllocBuffer(mSize, type, &mBackBuffer))
-      NS_RUNTIMEABORT("creating ImageLayer 'front buffer' failed!");
-  } else if (mLastPaintedImageSerial == image->GetSerial()) {
-    return;
-  }
-
-  AutoOpenSurface backSurface(OPEN_READ_WRITE, mBackBuffer);
-  nsRefPtr<gfxContext> tmpCtx = new gfxContext(backSurface.Get());
-  tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
-  PaintContext(pat,
-               nsIntRegion(nsIntRect(0, 0, mSize.width, mSize.height)),
-               1.0, tmpCtx, nullptr);
-
-  BasicManager()->PaintedImage(BasicManager()->Hold(this),
-                               mBackBuffer);
-  mLastPaintedImageSerial = image->GetSerial();
+  
+  mImageClient->Updated(BasicManager()->Hold(this));
 }
 
 class BasicShadowImageLayer : public ShadowImageLayer, public BasicImplData {

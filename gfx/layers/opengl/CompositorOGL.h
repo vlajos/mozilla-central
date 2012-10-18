@@ -18,6 +18,7 @@ namespace layers {
 
 //TODO[nrc] remove this when we remove the friend decl
 class LayerManagerOGL;
+struct FPSState;
 
 class CompositorOGL : public Compositor
 {
@@ -327,26 +328,9 @@ private:
 
   bool mDestroyed;
 
-  struct FPSState
-  {
-      GLuint texture;
-      int fps;
-      bool initialized;
-      int fcount;
-      TimeStamp last;
-
-      FPSState()
-        : texture(0)
-        , fps(0)
-        , initialized(false)
-        , fcount(0)
-      {
-        last = TimeStamp::Now();
-      }
-      void DrawFPS(GLContext*, ShaderProgramOGL*);
-  } mFPS;
-
+  nsAutoPtr<FPSState> mFPS;
   static bool sDrawFPS;
+  static bool sFrameCounter;
 
   //TODO[nrc] remove this when we are using only the compositor API in LayerManagerOGL
   friend class LayerManagerOGL;

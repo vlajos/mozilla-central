@@ -7,7 +7,6 @@
 #define GFX_IMAGELAYEROGL_H
 
 #include "mozilla/layers/PLayers.h"
-#include "mozilla/layers/ShadowLayers.h"
 
 #include "LayerManagerOGL.h"
 #include "ImageLayers.h"
@@ -17,6 +16,9 @@
 
 namespace mozilla {
 namespace layers {
+
+class ImageHost;
+class GLTextureAsTextureHost;
 
 class CairoImage;
 class PlanarYCbCrImage;
@@ -34,7 +36,8 @@ class ShmemYCbCrImage;
  *
  * Initially the texture is not allocated --- it's in a "null" state.
  */
-class GLTexture {
+class GLTexture
+{
   typedef mozilla::gl::GLContext GLContext;
 
 public:
@@ -156,34 +159,12 @@ struct CairoOGLBackendData : public ImageBackendData
   gfxIntSize mTextureSize;
 };
 
+
+//REBASE all these things!
 class ShadowImageLayerOGL : public ShadowImageLayer,
                             public LayerOGL
 {
-  typedef gl::TextureImage TextureImage;
-
-public:
-  ShadowImageLayerOGL(LayerManagerOGL* aManager);
-  virtual ~ShadowImageLayerOGL();
-
-  // ShadowImageLayer impl
-  virtual void Swap(const SharedImage& aFront,
-                    SharedImage* aNewBack);
-
-  virtual void Disconnect();
-
-  // LayerOGL impl
-  virtual void Destroy();
-  virtual bool LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize);
-
-  virtual Layer* GetLayer();
-
-  virtual void RenderLayer(int aPreviousFrameBuffer,
-                           const nsIntPoint& aOffset);
-
-  virtual void CleanupResources();
-
 private:
-  bool Init(const SharedImage& aFront);
   // Will be replaced by UploadSharedYCbCrToTexture after the layers 
   // refactoring. 
   void UploadSharedYUVToTexture(const YUVImage& yuv);
@@ -192,23 +173,12 @@ private:
                                   nsIntRect aPictureRect);
 
 
-  nsRefPtr<TextureImage> mTexImage;
-
-  // For SharedTextureHandle
-  gl::SharedTextureHandle mSharedHandle;
-  gl::TextureImage::TextureShareType mShareType;
-  bool mInverted;
-  GLuint mTexture;
 
   // For direct texturing with OES_EGL_image_external extension. This
   // texture is allocated when the image supports binding with
   // BindExternalBuffer.
   GLTexture mExternalBufferTexture;
 
-  GLTexture mYUVTexture[3];
-  gfxIntSize mSize;
-  gfxIntSize mCbCrSize;
-  nsIntRect mPictureRect;
 };
 
 } /* layers */
