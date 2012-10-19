@@ -49,12 +49,28 @@ enum BufferType
 {
   BUFFER_UNKNOWN,
   BUFFER_YUV,
+  BUFFER_YCBCR,
+  BUFFER_DIRECT_EXTERNAL,
   BUFFER_SHARED,
   BUFFER_TEXTURE,
   BUFFER_BRIDGE,
   BUFFER_THEBES,
   BUFFER_DIRECT
 };
+
+BufferTypeForImageBridgeType(SharedImage::Type aType)
+{
+  switch (aType) {
+  case SharedImage::TYUVImage:
+    return BUFFER_YUV
+  case SharedImage::TYCbCrImage:
+    return BUFFER_YCBCR;
+  case SharedImage::TSurfaceDescriptor:
+    return BUFFER_DIRECT_EXTERNAL;
+  }
+
+  return BUFFER_UNKNOWN;
+}
 
 enum TextureHostType
 {
@@ -95,7 +111,7 @@ struct TextureIdentifier
 {
   BufferType mBufferType;
   TextureHostType mTextureType;
-  uint32_t mDescriptor;
+  uint64_t mDescriptor;
 };
 
 static bool operator==(const TextureIdentifier& aLeft, const TextureIdentifier& aRight)
@@ -114,8 +130,15 @@ public:
    * equal to this Texture's rect.
    */
   virtual void
-    UpdateTexture(const nsIntRegion& aRegion, PRInt8 *aData, uint32_t aStride) = 0;
+    UpdateTexture(const nsIntRegion& aRegion, int8_t *aData, uint32_t aStride) = 0;
   virtual ~Texture() {}
+};
+
+// a texture used for compositing
+class TextureSource
+{
+public:
+
 };
 
 /**
@@ -274,7 +297,7 @@ struct EffectBGRX : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureHost> mBGRXTexture;
+  RefPtr<TextureSource> mBGRXTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -291,7 +314,7 @@ struct EffectRGBX : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureHost> mRGBXTexture;
+  RefPtr<TextureSource> mRGBXTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -308,7 +331,7 @@ struct EffectBGRA : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureHost> mBGRATexture;
+  RefPtr<TextureSource> mBGRATexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -325,7 +348,7 @@ struct EffectRGB : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureHost> mRGBTexture;
+  RefPtr<TextureSource> mRGBTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -342,7 +365,7 @@ struct EffectRGBA : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureHost> mRGBATexture;
+  RefPtr<TextureSource> mRGBATexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -360,7 +383,7 @@ struct EffectRGBAExternal : public Effect
     , mFilter(aFilter), mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureHost> mRGBATexture;
+  RefPtr<TextureSource> mRGBATexture;
   gfx::Matrix4x4 mTextureTransform;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
@@ -375,9 +398,9 @@ struct EffectYCbCr : public Effect
     , mFilter(aFilter)
   {}
 
-  RefPtr<TextureHost> mY;
-  RefPtr<TextureHost> mCb;
-  RefPtr<TextureHost> mCr;
+  RefPtr<TextureSource> mY;
+  RefPtr<TextureSource> mCb;
+  RefPtr<TextureSource> mCr;
   mozilla::gfx::Filter mFilter;
 };
 
@@ -387,8 +410,8 @@ struct EffectComponentAlpha : public Effect
     : Effect(EFFECT_COMPONENT_ALPHA), mOnWhite(aOnWhite), mOnBlack(aOnBlack)
   {}
 
-  RefPtr<TextureHost> mOnWhite;
-  RefPtr<TextureHost> mOnBlack;
+  RefPtr<TextureSource> mOnWhite;
+  RefPtr<TextureSource> mOnBlack;
 };
 
 struct EffectSolidColor : public Effect

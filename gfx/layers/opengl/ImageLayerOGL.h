@@ -159,28 +159,6 @@ struct CairoOGLBackendData : public ImageBackendData
   gfxIntSize mTextureSize;
 };
 
-
-//REBASE all these things!
-class ShadowImageLayerOGL : public ShadowImageLayer,
-                            public LayerOGL
-{
-private:
-  // Will be replaced by UploadSharedYCbCrToTexture after the layers 
-  // refactoring. 
-  void UploadSharedYUVToTexture(const YUVImage& yuv);
-
-  void UploadSharedYCbCrToTexture(ShmemYCbCrImage& aImage,
-                                  nsIntRect aPictureRect);
-
-
-
-  // For direct texturing with OES_EGL_image_external extension. This
-  // texture is allocated when the image supports binding with
-  // BindExternalBuffer.
-  GLTexture mExternalBufferTexture;
-
-};
-
 } /* layers */
 } /* mozilla */
 #endif /* GFX_IMAGELAYEROGL_H */

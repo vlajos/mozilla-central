@@ -67,7 +67,6 @@ union SurfaceDescriptor {
 struct YCbCrImage {
   Shmem data;
   size_t offset;
-  nsIntRect picture;
 };
 
 // Will be removed in the near future
@@ -75,7 +74,6 @@ struct YUVImage {
   Shmem Ydata;
   Shmem Udata;
   Shmem Vdata;
-  nsIntRect picture;
 };
 
 union SharedImage {
