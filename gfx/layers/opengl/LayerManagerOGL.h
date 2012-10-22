@@ -38,13 +38,13 @@ namespace mozilla {
 namespace layers {
 
 class LayerOGL;
+struct FPSState;
 
 /**
  * This is the LayerManager used for OpenGL 2.1 and OpenGL ES 2.0.
  * This should only be used on the main thread.
  */
-class THEBES_API LayerManagerOGL :
-    public ShadowLayerManager
+class THEBES_API LayerManagerOGL : public LayerManager
 {
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::ShaderProgramType ProgramType;
@@ -55,14 +55,14 @@ public:
   {
     Destroy();
   }
- 
- virtual void Destroy();
+
+  virtual void Destroy();
 
   /**
    * Initializes the layer manager with a given GLContext. If aContext is null
    * then the layer manager will try to create one for the associated widget.
    *
-   * \param aContext an existing GL context to use. USe nullptr to create a new context
+   * \param aContext an existing GL context to use. Use nullptr to create a new context
    *
    * \return True is initialization was succesful, false when it was not.
    */
@@ -89,6 +89,9 @@ public:
     mClippingRegion = aClippingRegion;
   }
 
+  /**
+   * LayerManager implementation.
+   */
   void BeginTransaction();
 
   void BeginTransactionWithTarget(gfxContext* aTarget);
@@ -96,7 +99,6 @@ public:
   void EndConstruction();
 
   virtual bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT);
-  virtual void NotifyShadowTreeTransaction();
   virtual void EndTransaction(DrawThebesLayerCallback aCallback,
                               void* aCallbackData,
                               EndTransactionFlags aFlags = END_DEFAULT);
@@ -205,9 +207,8 @@ public:
       gfx::IntRect(aRect.x, aRect.y, aRect.width, aRect.height),
       aInit, aCurrentFrameBuffer, aFBO, aTexture);
   }
-
+                            
   GLenum FBOTextureTarget() { return mCompositor->mFBOTextureTarget; }
-
   GLuint QuadVBO() { return mCompositor->QuadVBO(); }
   GLintptr QuadVBOVertexOffset() { return mCompositor->QuadVBOVertexOffset(); }
   GLintptr QuadVBOTexCoordOffset() { return mCompositor->QuadVBOTexCoordOffset(); }
@@ -226,7 +227,7 @@ public:
   }
 
   void QuadVBOFlippedTexCoordsAttrib(GLuint aAttribIndex) {
-     mCompositor->QuadVBOFlippedTexCoordsAttrib(aAttribIndex);
+    mCompositor->QuadVBOFlippedTexCoordsAttrib(aAttribIndex);
   }
 
   // Super common
@@ -258,7 +259,10 @@ public:
                                       bool aFlipped = false)
   {
     mCompositor->BindAndDrawQuadWithTextureRect(aProg,
-                   gfx::IntRect(aTexCoordRect.x, aTexCoordRect.y, aTexCoordRect.width, aTexCoordRect.height),
+                   gfx::IntRect(aTexCoordRect.x,
+                                aTexCoordRect.y,
+                                aTexCoordRect.width,
+                                aTexCoordRect.height),
                    gfx::IntSize(aTexSize.width, aTexSize.height),
                    aWrapMode, aFlipped);
   }
@@ -275,9 +279,7 @@ public:
     mCompositor->SetSurfaceSize(width, height);
   }
 
-
   ///////////////////////////////
-
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual const char* Name() const { return "OGL(Compositor)"; }
@@ -296,7 +298,7 @@ public:
   {
     mCompositor->SetupPipeline(aWidth, aHeight, mWorldMatrix);
   }
-
+ 
   /**
    * Setup World transform matrix.
    * Transform will be ignored if it is not PreservesAxisAlignedRectangles
@@ -304,7 +306,6 @@ public:
    */
   void SetWorldTransform(const gfxMatrix& aMatrix);
   gfxMatrix& GetWorldTransform(void);
-
   void SaveViewport()
   {
     mCompositor->SaveViewport();
@@ -314,8 +315,7 @@ public:
     gfx::IntRect viewport = mCompositor->RestoreViewport();
     SetupPipeline(viewport.width, viewport.height);
   }
-
-  //REBASE new things - move to compositor
+ 
   bool CompositingDisabled() { return mCompositingDisabled; }
   void SetCompositingDisabled(bool aCompositingDisabled) { mCompositingDisabled = aCompositingDisabled; }
 
@@ -329,7 +329,7 @@ public:
 
 private:
   RefPtr<CompositorOGL> mCompositor;
-
+  
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;
 
@@ -344,7 +344,7 @@ private:
   void Render();
 
   void WorldTransformRect(nsIntRect& aRect);
-
+  
   /* Thebes layer callbacks; valid at the end of a transaciton,
    * while rendering */
   DrawThebesLayerCallback mThebesLayerCallback;

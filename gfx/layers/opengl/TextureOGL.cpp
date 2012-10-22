@@ -6,6 +6,7 @@
 #include "TextureOGL.h"
 #include "ipc/AutoOpenSurface.h"
 #include "gfx2DGlue.h"
+#include "ShmemYCbCrImage.h"
  
 namespace mozilla {
 namespace layers {
@@ -329,7 +330,7 @@ GLTextureAsTextureHost::Update(const SharedImage& aImage)
 }
 
 void
-GLTextureAsTextureSource::Update(gfx::IntSize aSize, unint8_t aData, uint32_t aStride, GLContext* aGL)
+GLTextureAsTextureSource::Update(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL)
 {
   if (aSize != mSize || !mTexture.IsAllocated()) {
     mSize = aSize;
@@ -346,10 +347,10 @@ GLTextureAsTextureSource::Update(gfx::IntSize aSize, unint8_t aData, uint32_t aS
 
   GLuint textureId = mTexture.GetTextureID();
   nsRefPtr<gfxASurface> surf = new gfxImageSurface(aData,
-                                                   mSize,
+                                                   gfxIntSize(mSize.width, mSize.height),
                                                    aStride,
                                                    gfxASurface::ImageFormatA8);
-  mGL->UploadSurfaceToTexture(surf.GetAsImage(),
+  aGL->UploadSurfaceToTexture(surf,
                               nsIntRect(0, 0, mSize.width, mSize.height),
                               textureId,
                               true);
@@ -359,20 +360,19 @@ GLTextureAsTextureSource::Update(gfx::IntSize aSize, unint8_t aData, uint32_t aS
 const SharedImage*
 YCbCrTextureHost::Update(const SharedImage& aImage)
 {
-  NS_ASSERTION(aImage.type() == SharedImage::TYCbCrImage, "SharedImage mismatch")
+  NS_ASSERTION(aImage.type() == SharedImage::TYCbCrImage, "SharedImage mismatch");
 
   ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
                              aImage.get_YCbCrImage().offset());
 
-  UploadSharedYCbCrToTexture(shmemImage);
   gfxIntSize gfxSize = shmemImage.GetYSize();
   gfx::IntSize size = gfx::IntSize(gfxSize.width, gfxSize.height);
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
   gfx::IntSize CbCrSize = gfx::IntSize(gfxCbCrSize.width, gfxCbCrSize.height);
 
   mTextures[0].Update(size, shmemImage.GetYData(), shmemImage.GetYStride(), mGL);
-  mTextures[1].Update(size, shmemImage.GetCbData(), shmemImage.GetCbCrStride(), mGL);
-  mTextures[2].Update(size, shmemImage.GetCrData(), shmemImage.GetCbCrStride(), mGL);
+  mTextures[1].Update(CbCrSize, shmemImage.GetCbData(), shmemImage.GetCbCrStride(), mGL);
+  mTextures[2].Update(CbCrSize, shmemImage.GetCrData(), shmemImage.GetCbCrStride(), mGL);
 
   return &aImage;
 }
@@ -380,7 +380,10 @@ YCbCrTextureHost::Update(const SharedImage& aImage)
 Effect*
 YCbCrTextureHost::Lock(const gfx::Filter& aFilter)
 {
-  EffectYCbCr* effect = new EffectYCbCr(mTextures[0], mTextures[1], mTextures[2], aFilter);
+  EffectYCbCr* effect = new EffectYCbCr(&mTextures[0],
+                                        &mTextures[1],
+                                        &mTextures[2],
+                                        aFilter);
 
   return effect;
 }

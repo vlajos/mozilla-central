@@ -15,8 +15,6 @@
 
 #include "nsXULAppAPI.h"
 
-#include "gfxPlatform.h"
-
 using namespace mozilla::gfx;
 
 namespace mozilla {

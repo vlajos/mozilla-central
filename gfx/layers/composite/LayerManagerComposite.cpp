@@ -8,24 +8,22 @@
 /* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
 #include "mozilla/Util.h"
 
-#include "LayerManagerOGL.h"
-#include "ThebesLayerOGL.h"
-#include "ContainerLayerOGL.h"
-#include "ImageLayerOGL.h"
-#include "ColorLayerOGL.h"
-#include "CanvasLayerOGL.h"
-#include "TiledThebesLayerOGL.h"
+#include "LayerManagerComposite.h"
+#include "ThebesLayerComposite.h"
+#include "ContainerLayerComposite.h"
+#include "ImageLayerComposite.h"
+#include "ColorLayerComposite.h"
+#include "CanvasLayerComposite.h"
+//TODO[nrc]
+//#include "TiledThebesLayerComposite.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Preferences.h"
-#include "TexturePoolOGL.h"
 
 #include "gfxContext.h"
 #include "gfxUtils.h"
+#include "gfx2DGlue.h"
 #include "gfxPlatform.h"
 #include "nsIWidget.h"
-
-#include "GLContext.h"
-#include "GLContextProvider.h"
 
 #include "nsIServiceManager.h"
 #include "nsIConsoleService.h"
@@ -37,48 +35,45 @@
 #ifdef MOZ_WIDGET_ANDROID
 #include <android/log.h>
 #endif
-#ifdef XP_MACOSX
-#include "gfxPlatformMac.h"
-#endif
 
 namespace mozilla {
 namespace layers {
 
 using namespace mozilla::gfx;
-using namespace mozilla::gl;
+
 
 /**
- * LayerManagerOGL
+ * CompositeLayerManager
  */
-LayerManagerOGL::LayerManagerOGL(nsIWidget *aWidget)
+CompositeLayerManager::CompositeLayerManager(Compositor* aCompositor)
 {
-  mCompositor = new CompositorOGL(aWidget);
+  mCompositor = aCompositor;
 }
 
 void
-LayerManagerOGL::Destroy()
+CompositeLayerManager::Destroy()
 {
-  if (mDestroyed)
-    return;
-
-  if (mRoot) {
-    RootLayer()->Destroy();
+  if (!mDestroyed) {
+    if (mRoot) {
+      RootLayer()->Destroy();
+    }
     mRoot = nullptr;
+
+    mCompositor->Destroy();
+
+    mDestroyed = true;
   }
-
-  mCompositor->Destroy();
-
-  mDestroyed = true;
 }
 
+
 void
-LayerManagerOGL::BeginTransaction()
+CompositeLayerManager::BeginTransaction()
 {
   mInTransaction = true;
 }
 
 void
-LayerManagerOGL::BeginTransactionWithTarget(gfxContext *aTarget)
+CompositeLayerManager::BeginTransactionWithTarget(gfxContext *aTarget)
 {
   mInTransaction = true;
 
@@ -96,21 +91,21 @@ LayerManagerOGL::BeginTransactionWithTarget(gfxContext *aTarget)
 }
 
 bool
-LayerManagerOGL::EndEmptyTransaction(EndTransactionFlags aFlags)
+CompositeLayerManager::EndEmptyTransaction(EndTransactionFlags aFlags)
 {
   mInTransaction = false;
 
   if (!mRoot)
     return false;
 
-  EndTransaction(nullptr, nullptr, aFlags);
+  EndTransaction(nullptr, nullptr);
   return true;
 }
 
 void
-LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
-                                void* aCallbackData,
-                                EndTransactionFlags aFlags)
+CompositeLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
+                                      void* aCallbackData,
+                                      EndTransactionFlags aFlags)
 {
   mInTransaction = false;
 
@@ -154,87 +149,62 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
 }
 
 already_AddRefed<gfxASurface>
-LayerManagerOGL::CreateOptimalMaskSurface(const gfxIntSize &aSize)
+CompositeLayerManager::CreateOptimalMaskSurface(const gfxIntSize &aSize)
 {
-  return gfxPlatform::GetPlatform()->
-    CreateOffscreenImageSurface(aSize, gfxASurface::CONTENT_ALPHA);
+  NS_ERROR("Should only be called on the drawing side");
+  return nullptr;
 }
 
 already_AddRefed<ThebesLayer>
-LayerManagerOGL::CreateThebesLayer()
+CompositeLayerManager::CreateThebesLayer()
 {
-  if (mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-
-  nsRefPtr<ThebesLayer> layer = new ThebesLayerOGL(this);
-  return layer.forget();
+  NS_ERROR("Should only be called on the drawing side");
+  return nullptr;
 }
 
 already_AddRefed<ContainerLayer>
-LayerManagerOGL::CreateContainerLayer()
+CompositeLayerManager::CreateContainerLayer()
 {
-  if (mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-
-  nsRefPtr<ContainerLayer> layer = new ContainerLayerOGL(this);
-  return layer.forget();
+  NS_ERROR("Should only be called on the drawing side");
+  return nullptr;
 }
 
 already_AddRefed<ImageLayer>
-LayerManagerOGL::CreateImageLayer()
+CompositeLayerManager::CreateImageLayer()
 {
-  if (mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-
-  nsRefPtr<ImageLayer> layer = new ImageLayerOGL(this);
-  return layer.forget();
+  NS_ERROR("Should only be called on the drawing side");
+  return nullptr;
 }
 
 already_AddRefed<ColorLayer>
-LayerManagerOGL::CreateColorLayer()
+CompositeLayerManager::CreateColorLayer()
 {
-  if (mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-
-  nsRefPtr<ColorLayer> layer = new ColorLayerOGL(this);
-  return layer.forget();
+  NS_ERROR("Should only be called on the drawing side");
+  return nullptr;
 }
 
 already_AddRefed<CanvasLayer>
-LayerManagerOGL::CreateCanvasLayer()
+CompositeLayerManager::CreateCanvasLayer()
 {
-  if (mDestroyed) {
-    NS_WARNING("Call on destroyed layer manager");
-    return nullptr;
-  }
-
-  nsRefPtr<CanvasLayer> layer = new CanvasLayerOGL(this);
-  return layer.forget();
+  NS_ERROR("Should only be called on the drawing side");
+  return nullptr;
 }
 
-LayerOGL*
-LayerManagerOGL::RootLayer() const
+CompositeLayer*
+CompositeLayerManager::RootLayer() const
 {
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
 
-  return static_cast<LayerOGL*>(mRoot->ImplData());
+  return static_cast<CompositeLayer*>(mRoot->ImplData());
 }
 
 void
-LayerManagerOGL::Render()
+CompositeLayerManager::Render()
 {
-  SAMPLE_LABEL("LayerManagerOGL", "Render");
+  SAMPLE_LABEL("CompositeLayerManager", "Render");
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return;
@@ -253,20 +223,13 @@ LayerManagerOGL::Render()
   }
 
   // Render our layers.
-  if (CompositingDisabled()) {
-    RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
-    //TODO[nrc] REBASE need an EndFrameEmpty on the Compositor for this
-    //mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
-    return;
-  }
-
   RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
 
   mCompositor->EndFrame();
 }
 
 void
-LayerManagerOGL::SetWorldTransform(const gfxMatrix& aMatrix)
+CompositeLayerManager::SetWorldTransform(const gfxMatrix& aMatrix)
 {
   NS_ASSERTION(aMatrix.PreservesAxisAlignedRectangles(),
                "SetWorldTransform only accepts matrices that satisfy PreservesAxisAlignedRectangles");
@@ -277,22 +240,100 @@ LayerManagerOGL::SetWorldTransform(const gfxMatrix& aMatrix)
 }
 
 gfxMatrix&
-LayerManagerOGL::GetWorldTransform(void)
+CompositeLayerManager::GetWorldTransform(void)
 {
   return mWorldMatrix;
 }
 
 void
-LayerManagerOGL::WorldTransformRect(nsIntRect& aRect)
+CompositeLayerManager::WorldTransformRect(nsIntRect& aRect)
 {
   gfxRect grect(aRect.x, aRect.y, aRect.width, aRect.height);
   grect = mWorldMatrix.TransformBounds(grect);
   aRect.SetRect(grect.X(), grect.Y(), grect.Width(), grect.Height());
 }
 
-//REBASE I guess CompositeLayerManager needs this too?
+already_AddRefed<ShadowThebesLayer>
+CompositeLayerManager::CreateShadowThebesLayer()
+{
+  if (CompositeLayerManager::mDestroyed) {
+    NS_WARNING("Call on destroyed layer manager");
+    return nullptr;
+  }
+//#ifdef FORCE_BASICTILEDTHEBESLAYER
+//  return nsRefPtr<ShadowThebesLayer>(new TiledThebesLayerOGL(this)).forget();
+//#else
+  return nsRefPtr<CompositeThebesLayer>(new CompositeThebesLayer(this)).forget();
+//#endif
+}
+
+already_AddRefed<ShadowContainerLayer>
+CompositeLayerManager::CreateShadowContainerLayer()
+{
+  if (CompositeLayerManager::mDestroyed) {
+    NS_WARNING("Call on destroyed layer manager");
+    return nullptr;
+  }
+  return nsRefPtr<CompositeContainerLayer>(new CompositeContainerLayer(this)).forget();
+}
+
+already_AddRefed<ShadowImageLayer>
+CompositeLayerManager::CreateShadowImageLayer()
+{
+  if (CompositeLayerManager::mDestroyed) {
+    NS_WARNING("Call on destroyed layer manager");
+    return nullptr;
+  }
+  return nsRefPtr<CompositeImageLayer>(new CompositeImageLayer(this)).forget();
+}
+
+already_AddRefed<ShadowColorLayer>
+CompositeLayerManager::CreateShadowColorLayer()
+{
+  if (CompositeLayerManager::mDestroyed) {
+    NS_WARNING("Call on destroyed layer manager");
+    return nullptr;
+  }
+  return nsRefPtr<CompositeColorLayer>(new CompositeColorLayer(this)).forget();
+}
+
+already_AddRefed<ShadowCanvasLayer>
+CompositeLayerManager::CreateShadowCanvasLayer()
+{
+  if (CompositeLayerManager::mDestroyed) {
+    NS_WARNING("Call on destroyed layer manager");
+    return nullptr;
+  }
+  return nsRefPtr<CompositeCanvasLayer>(new CompositeCanvasLayer(this)).forget();
+}
+
+already_AddRefed<ShadowRefLayer>
+CompositeLayerManager::CreateShadowRefLayer()
+{
+  if (CompositeLayerManager::mDestroyed) {
+    NS_WARNING("Call on destroyed layer manager");
+    return nullptr;
+  }
+  return nsRefPtr<CompositeRefLayer>(new CompositeRefLayer(this)).forget();
+}
+
+/* static */EffectMask*
+CompositeLayerManager::MakeMaskEffect(Layer* aMaskLayer)
+{
+  if (aMaskLayer) {
+    CompositeLayer* maskLayerComposite = static_cast<CompositeLayer*>(aMaskLayer->ImplData());
+    //TODO[nrc] change AsTextureHost to AsTextureSource
+    RefPtr<TextureHost> maskHost = maskLayerComposite->AsTextureHost();
+    Matrix4x4 transform;
+    ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
+    return new EffectMask(maskHost->GetAsTextureSource(), transform);
+  }
+
+  return nullptr;
+}
+
 TemporaryRef<DrawTarget>
-LayerManagerOGL::CreateDrawTarget(const IntSize &aSize,
+CompositeLayerManager::CreateDrawTarget(const IntSize &aSize,
                                   SurfaceFormat aFormat)
 {
 #ifdef XP_MACOSX
@@ -310,6 +351,7 @@ LayerManagerOGL::CreateDrawTarget(const IntSize &aSize,
 #endif
   return LayerManager::CreateDrawTarget(aSize, aFormat);
 }
+
 
 } /* layers */
 } /* mozilla */

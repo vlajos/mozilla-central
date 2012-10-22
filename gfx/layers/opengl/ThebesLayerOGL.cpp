@@ -81,6 +81,8 @@ public:
     }
   }
 
+  enum { PAINT_WILL_RESAMPLE = ThebesLayerBuffer::PAINT_WILL_RESAMPLE };
+
 protected:
   ThebesLayerBufferOGL(ThebesLayer* aLayer, LayerOGL* aOGLLayer, Compositor* aCompositor)
     : CompositingThebesLayerBuffer(aCompositor)

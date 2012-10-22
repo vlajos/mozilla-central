@@ -58,20 +58,6 @@ enum BufferType
   BUFFER_DIRECT
 };
 
-BufferTypeForImageBridgeType(SharedImage::Type aType)
-{
-  switch (aType) {
-  case SharedImage::TYUVImage:
-    return BUFFER_YUV
-  case SharedImage::TYCbCrImage:
-    return BUFFER_YCBCR;
-  case SharedImage::TSurfaceDescriptor:
-    return BUFFER_DIRECT_EXTERNAL;
-  }
-
-  return BUFFER_UNKNOWN;
-}
-
 enum TextureHostType
 {
   TEXTURE_UNKNOWN,
@@ -134,8 +120,9 @@ public:
   virtual ~Texture() {}
 };
 
-// a texture used for compositing
-class TextureSource
+// a texture or part of texture used for compositing
+// TODO[nrc] maybe merge with Texture?
+class TextureSource : public RefCounted<TextureSource>
 {
 public:
 
@@ -211,6 +198,7 @@ public:
 
   virtual TileIterator* GetAsTileIterator() { return nullptr; }
   virtual BufferedTexture* GetAsBuffered() { return nullptr; }
+  virtual TextureSource* GetAsTextureSource() { return nullptr; }
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
@@ -265,14 +253,14 @@ struct Effect : public RefCounted<Effect>
 
 struct EffectMask : public Effect
 {
-  EffectMask(TextureHost *aMaskTexture,
+  EffectMask(TextureSource *aMaskTexture,
              const gfx::Matrix4x4 &aMaskTransform)
     : Effect(EFFECT_MASK), mMaskTexture(aMaskTexture)
     , mIs3D(false)
     , mMaskTransform(aMaskTransform)
   {}
 
-  RefPtr<TextureHost> mMaskTexture;
+  RefPtr<TextureSource> mMaskTexture;
   bool mIs3D;
   gfx::Matrix4x4 mMaskTransform;
 };
@@ -288,7 +276,7 @@ struct EffectSurface : public Effect
 
 struct EffectBGRX : public Effect
 {
-  EffectBGRX(TextureHost *aBGRXTexture,
+  EffectBGRX(TextureSource *aBGRXTexture,
              bool aPremultiplied,
              mozilla::gfx::Filter aFilter,
              bool aFlipped = false)
@@ -305,7 +293,7 @@ struct EffectBGRX : public Effect
 
 struct EffectRGBX : public Effect
 {
-  EffectRGBX(TextureHost *aRGBXTexture,
+  EffectRGBX(TextureSource *aRGBXTexture,
              bool aPremultiplied,
              mozilla::gfx::Filter aFilter,
              bool aFlipped = false)
@@ -322,7 +310,7 @@ struct EffectRGBX : public Effect
 
 struct EffectBGRA : public Effect
 {
-  EffectBGRA(TextureHost *aBGRATexture,
+  EffectBGRA(TextureSource *aBGRATexture,
              bool aPremultiplied,
              mozilla::gfx::Filter aFilter,
              bool aFlipped = false)
@@ -339,10 +327,10 @@ struct EffectBGRA : public Effect
 
 struct EffectRGB : public Effect
 {
-  EffectRGB(TextureHost *aRGBTexture,
-             bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
+  EffectRGB(TextureSource *aRGBTexture,
+            bool aPremultiplied,
+            mozilla::gfx::Filter aFilter,
+            bool aFlipped = false)
     : Effect(EFFECT_RGB), mRGBTexture(aRGBTexture)
     , mPremultiplied(aPremultiplied), mFilter(aFilter)
     , mFlipped(aFlipped)
@@ -356,7 +344,7 @@ struct EffectRGB : public Effect
 
 struct EffectRGBA : public Effect
 {
-  EffectRGBA(TextureHost *aRGBATexture,
+  EffectRGBA(TextureSource *aRGBATexture,
              bool aPremultiplied,
              mozilla::gfx::Filter aFilter,
              bool aFlipped = false)
@@ -373,7 +361,7 @@ struct EffectRGBA : public Effect
 
 struct EffectRGBAExternal : public Effect
 {
-  EffectRGBAExternal(TextureHost *aRGBATexture,
+  EffectRGBAExternal(TextureSource *aRGBATexture,
                      const gfx::Matrix4x4 &aTextureTransform,
                      bool aPremultiplied,
                      mozilla::gfx::Filter aFilter,
@@ -392,7 +380,7 @@ struct EffectRGBAExternal : public Effect
 
 struct EffectYCbCr : public Effect
 {
-  EffectYCbCr(TextureHost *aY, TextureHost *aCb, TextureHost *aCr,
+  EffectYCbCr(TextureSource *aY, TextureSource *aCb, TextureSource *aCr,
               mozilla::gfx::Filter aFilter)
     : Effect(EFFECT_YCBCR), mY(aY), mCb(aCb), mCr(aCr)
     , mFilter(aFilter)
@@ -406,7 +394,7 @@ struct EffectYCbCr : public Effect
 
 struct EffectComponentAlpha : public Effect
 {
-  EffectComponentAlpha(TextureHost *aOnWhite, TextureHost *aOnBlack)
+  EffectComponentAlpha(TextureSource *aOnWhite, TextureSource *aOnBlack)
     : Effect(EFFECT_COMPONENT_ALPHA), mOnWhite(aOnWhite), mOnBlack(aOnBlack)
   {}
 
@@ -547,6 +535,9 @@ public:
   {
     return mCompositorID;
   }
+
+  //TODO[nrc] I think this belongs in the layer manager, not here
+  virtual void NotifyShadowTreeTransaction() = 0;
 
 protected:
   uint32_t mCompositorID;

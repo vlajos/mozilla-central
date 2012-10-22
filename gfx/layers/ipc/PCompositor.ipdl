@@ -54,7 +54,7 @@ parent:
     returns (SurfaceDescriptor outSnapshot);
 
   sync PLayers(LayersBackend backendHint, uint64_t id)
-    returns (TextureHostIdentifier textureHostIdentifier));
+    returns (TextureHostIdentifier textureHostIdentifier);
 
   // FIXME/bug 783451
   sync PGrallocBuffer(gfxIntSize size, uint32_t format, uint32_t usage)

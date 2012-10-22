@@ -29,7 +29,6 @@ DEFINES += -DD3D_DEBUG_INFO
 endif
 
 EXPORTS = \
-        BasicBuffers.h \
         BasicCanvasLayer.h \
         BasicImplData.h \
         BasicLayers.h \
@@ -37,7 +36,7 @@ EXPORTS = \
         BasicTiledThebesLayer.h \
         BasicThebesLayer.h \
         BufferHost.h \
-        CompositeLayerManager.h \
+        LayerManagerComposite.h \
         Compositor.h \
         CompositorOGL.h \
         ContentHost.h \
@@ -48,7 +47,7 @@ EXPORTS = \
         ImageContainer.h \
         ImageLayers.h \
         ImageHost.h \
-        LayerImpl.h \
+        LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
         LayersTypes.h \
@@ -61,6 +60,7 @@ EXPORTS = \
         ShadowLayersManager.h \
         SharedTextureImage.h \
         TexturePoolOGL.h \
+        ShmemYCbCrImage.h \
         $(NULL)
 
 CPPSRCS = \
@@ -72,7 +72,6 @@ CPPSRCS = \
         BasicImageLayer.cpp \
         BasicLayersImpl.cpp \
         BasicThebesLayer.cpp \
-        BasicBuffers.cpp \
         BasicTiledThebesLayer.cpp \
         CanvasClient.cpp \
         CompositorOGL.cpp \
@@ -85,15 +84,7 @@ CPPSRCS = \
         ThebesLayerBuffer.cpp \
         CanvasLayerOGL.cpp \
         ColorLayerOGL.cpp \
-        CompositeCanvasLayer.cpp \
-        CompositeColorLayer.cpp \
-        CompositeContainerLayer.cpp \
-        CompositeImageLayer.cpp \
-        CompositeLayerManager.cpp \
-        CompositeThebesLayer.cpp \
         ContainerLayerOGL.cpp \
-        ImageClient.cpp \
-        ImageHost.cpp \
         ImageLayerOGL.cpp \
         LayerManagerOGL.cpp \
         TextureOGL.cpp \
@@ -101,12 +92,19 @@ CPPSRCS = \
         TiledThebesLayerOGL.cpp \
         ReusableTileStoreOGL.cpp \
         LayerManagerOGLProgram.cpp \
+        CanvasLayerComposite.cpp \
+        ColorLayerComposite.cpp \
+        ContainerLayerComposite.cpp \
+        ImageLayerComposite.cpp \
+        LayerManagerComposite.cpp \
+        ThebesLayerComposite.cpp \
         LayerSorter.cpp \
         LayerTreeInvalidation.cpp \
         ImageLayers.cpp \
+        ImageClient.cpp \
+        ImageHost.cpp \
         TextureClient.cpp \
         TexturePoolOGL.cpp \
-        Factory.cpp \
         $(NULL)
 
 ifeq ($(MOZ_WIDGET_TOOLKIT),windows)

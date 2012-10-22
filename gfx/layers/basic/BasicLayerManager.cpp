@@ -112,11 +112,11 @@ ToInsideIntRect(const gfxRect& aRect)
 // around. It also uses ensures that the Transform and Opaque rect are restored
 // to their former state on destruction.
 
-class PaintContext {
+class PaintLayerContext {
 public:
-  PaintContext(gfxContext* aTarget, Layer* aLayer,
-               LayerManager::DrawThebesLayerCallback aCallback,
-               void* aCallbackData, ReadbackProcessor* aReadback)
+  PaintLayerContext(gfxContext* aTarget, Layer* aLayer,
+                    LayerManager::DrawThebesLayerCallback aCallback,
+                    void* aCallbackData, ReadbackProcessor* aReadback)
    : mTarget(aTarget)
    , mTargetMatrixSR(aTarget)
    , mLayer(aLayer)
@@ -126,7 +126,7 @@ public:
    , mPushedOpaqueRect(false)
   {}
 
-  ~PaintContext()
+  ~PaintLayerContext()
   {
     // Matrix is restored by mTargetMatrixSR
     if (mPushedOpaqueRect)
@@ -803,7 +803,7 @@ Transform3D(gfxASurface* aSource, gfxContext* aDest,
 }
 
 void
-BasicLayerManager::PaintSelfOrChildren(PaintContext& aPaintContext,
+BasicLayerManager::PaintSelfOrChildren(PaintLayerContext& aPaintContext,
                                        gfxContext* aGroupTarget)
 {
   BasicImplData* data = ToData(aPaintContext.mLayer);
@@ -845,7 +845,7 @@ BasicLayerManager::PaintSelfOrChildren(PaintContext& aPaintContext,
 }
 
 void
-BasicLayerManager::FlushGroup(PaintContext& aPaintContext, bool aNeedsClipToVisibleRegion)
+BasicLayerManager::FlushGroup(PaintLayerContext& aPaintContext, bool aNeedsClipToVisibleRegion)
 {
   // If we're doing our own double-buffering, we need to avoid drawing
   // the results of an incomplete transaction to the destination surface ---
@@ -875,7 +875,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
                               void* aCallbackData,
                               ReadbackProcessor* aReadback)
 {
-  PaintContext paintContext(aTarget, aLayer, aCallback, aCallbackData, aReadback);
+  PaintLayerContext PaintLayerContext(aTarget, aLayer, aCallback, aCallbackData, aReadback);
 
   RenderTraceScope trace("BasicLayerManager::PaintLayer", "707070");
 
@@ -898,7 +898,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
   gfxContextAutoSaveRestore contextSR;
   gfxMatrix transform;
   // Will return an identity matrix for 3d transforms, and is handled separately below.
-  bool is2D = paintContext.Setup2DTransform();
+  bool is2D = PaintLayerContext.Setup2DTransform();
   NS_ABORT_IF_FALSE(is2D || needsGroup || !aLayer->GetFirstChild(), "Must PushGroup for 3d transforms!");
 
   bool needsSaveRestore =
@@ -913,7 +913,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     }
   }
 
-  paintContext.Apply2DTransform();
+  PaintLayerContext.Apply2DTransform();
 
   const nsIntRegion& visibleRegion = aLayer->GetEffectiveVisibleRegion();
   // If needsGroup is true, we'll clip to the visible region after we've popped the group
@@ -924,12 +924,12 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
   }
   
   if (is2D) {
-    paintContext.AnnotateOpaqueRect();
+    PaintLayerContext.AnnotateOpaqueRect();
   }
 
   bool clipIsEmpty = !aTarget || aTarget->GetClipExtents().IsEmpty();
   if (clipIsEmpty) {
-    PaintSelfOrChildren(paintContext, aTarget);
+    PaintSelfOrChildren(PaintLayerContext, aTarget);
     return;
   }
 
@@ -937,11 +937,11 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     if (needsGroup) {
       nsRefPtr<gfxContext> groupTarget = PushGroupForLayer(aTarget, aLayer, aLayer->GetEffectiveVisibleRegion(),
                                       &needsClipToVisibleRegion);
-      PaintSelfOrChildren(paintContext, groupTarget);
+      PaintSelfOrChildren(PaintLayerContext, groupTarget);
       PopGroupToSourceWithCachedSurface(aTarget, groupTarget);
-      FlushGroup(paintContext, needsClipToVisibleRegion);
+      FlushGroup(PaintLayerContext, needsClipToVisibleRegion);
     } else {
-      PaintSelfOrChildren(paintContext, aTarget);
+      PaintSelfOrChildren(PaintLayerContext, aTarget);
     }
   } else {
     const nsIntRect& bounds = visibleRegion.GetBounds();
@@ -954,7 +954,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     untransformedSurface->SetDeviceOffset(gfxPoint(-bounds.x, -bounds.y));
     nsRefPtr<gfxContext> groupTarget = new gfxContext(untransformedSurface);
 
-    PaintSelfOrChildren(paintContext, groupTarget);
+    PaintSelfOrChildren(PaintLayerContext, groupTarget);
 
     // Temporary fast fix for bug 725886
     // Revert these changes when 725886 is ready
@@ -988,7 +988,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
       aTarget->NewPath();
       aTarget->Rectangle(destRect, true);
       aTarget->Clip();
-      FlushGroup(paintContext, needsClipToVisibleRegion);
+      FlushGroup(PaintLayerContext, needsClipToVisibleRegion);
     }
   }
 }

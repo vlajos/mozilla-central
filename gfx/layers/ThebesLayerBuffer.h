@@ -206,6 +206,15 @@ protected:
     }
   }
 
+  // XXX[nrc] this replaces the above method, remove the above when 
+  // BasicShadow layers are refactored.
+  void SetBuffer(gfxASurface* aBuffer)
+  {
+    NS_ASSERTION(!mBufferProvider, "Can't have a buffer and a buffer provider");
+    NS_ASSERTION(!aBuffer || !mBuffer, "Can't reset a buffer");
+    mBuffer = aBuffer;
+  }
+
   /**
    * Get a context at the specified resolution for updating |aBounds|,
    * which must be contained within a single quadrant.
@@ -241,6 +250,7 @@ private:
    * when we're using surfaces that require explicit map/unmap.
    */
   AutoOpenSurface* mBufferProvider;
+
   /** The area of the ThebesLayer that is covered by the buffer as a whole */
   nsIntRect             mBufferRect;
   /**

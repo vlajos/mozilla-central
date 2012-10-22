@@ -305,6 +305,73 @@ BasicShadowableThebesLayer::Disconnect()
   BasicShadowableLayer::Disconnect();
 }
 
+class ShadowThebesLayerBuffer : public ThebesLayerBuffer
+{
+  typedef ThebesLayerBuffer Base;
+
+public:
+  ShadowThebesLayerBuffer()
+    : Base(ContainsVisibleBounds)
+  {
+    MOZ_COUNT_CTOR(ShadowThebesLayerBuffer);
+  }
+
+  ~ShadowThebesLayerBuffer()
+  {
+    MOZ_COUNT_DTOR(ShadowThebesLayerBuffer);
+  }
+
+  /**
+   * Swap in the old "virtual buffer" (see above) attributes in aNew*
+   * and return the old ones in aOld*.
+   *
+   * Swap() must only be called when the buffer is in its "unmapped"
+   * state, that is the underlying gfxASurface is not available.  It
+   * is expected that the owner of this buffer holds an unmapped
+   * SurfaceDescriptor as the backing storage for this buffer.  That's
+   * why no gfxASurface or SurfaceDescriptor parameters appear here.
+   */
+  void Swap(const nsIntRect& aNewRect, const nsIntPoint& aNewRotation,
+            nsIntRect* aOldRect, nsIntPoint* aOldRotation)
+  {
+    *aOldRect = BufferRect();
+    *aOldRotation = BufferRotation();
+
+    nsRefPtr<gfxASurface> oldBuffer;
+    oldBuffer = SetBuffer(nullptr, aNewRect, aNewRotation);
+    MOZ_ASSERT(!oldBuffer);
+  }
+
+  /**
+   * When BasicThebesLayerBuffer is used with layers that hold
+   * SurfaceDescriptor, this buffer only has a valid gfxASurface in
+   * the scope of an AutoOpenSurface for that SurfaceDescriptor.  That
+   * is, it's sort of a "virtual buffer" that's only mapped an
+   * unmapped within the scope of AutoOpenSurface.  None of the
+   * underlying buffer attributes (rect, rotation) are affected by
+   * mapping/unmapping.
+   *
+   * These helpers just exist to provide more descriptive names of the
+   * map/unmap process.
+   */
+  void ProvideBuffer(AutoOpenSurface* aProvider)
+  {
+    SetBufferProvider(aProvider);
+  }
+  void RevokeBuffer()
+  {
+    SetBufferProvider(nullptr);
+  }
+
+protected:
+  virtual already_AddRefed<gfxASurface>
+  CreateBuffer(ContentType, const nsIntSize&, uint32_t)
+  {
+    NS_RUNTIMEABORT("ShadowThebesLayer can't paint content");
+    return nullptr;
+  }
+};
+
 class BasicShadowThebesLayer : public ShadowThebesLayer, public BasicImplData {
 public:
   BasicShadowThebesLayer(BasicShadowLayerManager* aLayerManager)

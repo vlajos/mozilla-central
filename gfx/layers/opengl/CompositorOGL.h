@@ -140,6 +140,9 @@ public:
     return gl::RGBALayerProgramType;
   }
 
+  virtual void NotifyShadowTreeTransaction();
+
+
 private:
   /** 
    * Context target, nullptr when drawing directly to our swap chain.

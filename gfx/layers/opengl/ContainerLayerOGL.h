@@ -8,7 +8,7 @@
 
 #include "Layers.h"
 #include "LayerManagerOGL.h"
-#include "LayersImpl.h"
+#include "LayerImplComposite.h"
 
 namespace mozilla {
 namespace layers {
@@ -19,6 +19,10 @@ class ContainerLayerOGL : public ContainerLayer,
                                                      LayerOGL,
                                                      LayerManagerOGL>
 {
+  template<class ContainerT,
+         class LayerT,
+         class ManagerT>
+  friend class ContainerLayerImpl;
 public:
   ContainerLayerOGL(LayerManagerOGL *aManager);
   ~ContainerLayerOGL();

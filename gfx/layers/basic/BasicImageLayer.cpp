@@ -108,6 +108,7 @@ BasicImageLayer::GetAndPaintCurrentImage(gfxContext* aContext,
   return pat.forget();
 }
 
+void
 PaintContext(gfxPattern* aPattern,
              const nsIntRegion& aVisible,
              float aOpacity,
@@ -187,8 +188,8 @@ public:
     // only called for ImageBridge and then there is nothing to do
   }
 
-  virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
-                             const SharedImage& aBuffer)
+  virtual void SetBackBufferYUVImage(const TextureIdentifier& aTextureIdentifier,
+                                     const SharedImage& aBuffer)
   {
     mImageClient->SetBuffer(aTextureIdentifier, aBuffer);
   }
@@ -239,7 +240,7 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   }
 
   if (!mContainer) {
-    return;
+     return;
   }
 
   if (!mImageClient ||
@@ -253,7 +254,7 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
       return;
     }
   }
-  
+
   mImageClient->Updated(BasicManager()->Hold(this));
 }
 

@@ -21,7 +21,7 @@
 #include "mozilla/Monitor.h"
 #include "mozilla/TimeStamp.h"
 #include "ShadowLayersManager.h"
-#include "CompositeLayerManager.h"
+#include "LayerManagerComposite.h"
 class nsIWidget;
 
 namespace base {

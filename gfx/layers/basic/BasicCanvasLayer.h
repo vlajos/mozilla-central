@@ -10,7 +10,10 @@
 #include "nsXULAppAPI.h"
 #include "BasicLayers.h"
 #include "BasicImplData.h"
+#include "CanvasClient.h"
 #include "mozilla/Preferences.h"
+
+#include "gfxPlatform.h"
 
 using namespace mozilla::gfx;
 
@@ -147,8 +150,7 @@ private:
 
   BufferType GetBufferClientType()
   {
-    if (mGLContext &&
-        !mForceReadback) {
+    if (mGLContext) {
       return BUFFER_SHARED;
     }
     return BUFFER_TEXTURE;

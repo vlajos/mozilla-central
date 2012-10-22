@@ -219,10 +219,10 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
   texture->SetWrapMode(LOCAL_GL_REPEAT);
 
   if (aTile.mFormat == LOCAL_GL_RGB) {
-    effect = new EffectRGB(texture, true, gfx::FILTER_LINEAR);
+    effect = new EffectRGB(texture->GetAsTextureSource(), true, gfx::FILTER_LINEAR);
     effectChain.mEffects[EFFECT_RGB] = effect;
   } else {
-    effect = new EffectBGRA(texture, true, gfx::FILTER_LINEAR);
+    effect = new EffectBGRA(texture->GetAsTextureSource(), true, gfx::FILTER_LINEAR);
     effectChain.mEffects[EFFECT_BGRA] = effect;
   }
 

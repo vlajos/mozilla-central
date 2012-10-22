@@ -28,7 +28,7 @@ class ShadowCanvasLayer;
 class ShadowColorLayer;
 class ReadbackProcessor;
 class ImageFactory;
-class PaintContext;
+class PaintLayerContext;
 
 /**
  * This is a cairo/Thebes-only, main-thread-only implementation of layers.
@@ -164,11 +164,11 @@ protected:
   // This is the main body of the PaintLayer routine which will if it has
   // children, recurse into PaintLayer() otherwise it will paint using the
   // underlying Paint() method of the Layer. It will not do both.
-  void PaintSelfOrChildren(PaintContext& aPaintContext, gfxContext* aGroupTarget);
+  void PaintSelfOrChildren(PaintLayerContext& aPaintContext, gfxContext* aGroupTarget);
 
   // Paint the group onto the underlying target. This is used by PaintLayer to
   // flush the group to the underlying target.
-  void FlushGroup(PaintContext& aPaintContext, bool aNeedsClipToVisibleRegion);
+  void FlushGroup(PaintLayerContext& aPaintContext, bool aNeedsClipToVisibleRegion);
 
   // Paints aLayer to mTarget.
   void PaintLayer(gfxContext* aTarget,

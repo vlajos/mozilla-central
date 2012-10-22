@@ -7,7 +7,6 @@
 #define GFX_BASICTHEBESLAYER_H
 
 #include "mozilla/layers/PLayersParent.h"
-#include "BasicBuffers.h"
 #include "BasicLayersImpl.h"
 #include "ContentClient.h"
 

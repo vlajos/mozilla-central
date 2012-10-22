@@ -9,20 +9,22 @@
 #include "ImageLayerOGL.h"
 #include "CompositorOGL.h"
 #include "GLContext.h"
+#include "gfx2DGlue.h"
  
 namespace mozilla {
 namespace layers {
  
-class TextureSourceOGL : TextureSource
+class TextureSourceOGL : public TextureSource
 {
 public:
   virtual GLuint GetTextureHandle() = 0;
+  virtual gfx::IntSize GetSize() = 0;
+  virtual GLenum GetWrapMode() = 0;
 };
 
 //TODO[nrc] TextureOGL and Texture are only used by CreateTextureForData,
 // which is not used anywhere, so what are they for?
 class TextureOGL : public Texture
-                 , public TextureSourceOGL
 {
   typedef mozilla::gl::GLContext GLContext;
 public:
@@ -85,25 +87,37 @@ public:
   {
     mWrapMode = aWrapMode;
   }
- 
 protected:
   TextureHostOGL()
     : mWrapMode(LOCAL_GL_REPEAT)
   {}
  
-  TextureHostOGL(gfx::IntSize aSize)
-    : mSize(aSize)
-    , mWrapMode(LOCAL_GL_REPEAT)
-  {}
+  //TextureHostOGL(gfx::IntSize aSize)
+  //  : mSize(aSize)
+  //  , mWrapMode(LOCAL_GL_REPEAT)
+  //{}
  
   gfx::IntSize mSize;
   GLenum mWrapMode;
 };
+
+class TextureSourceHostOGL : public TextureHostOGL
+                           , public TextureSourceOGL
+{
+public:
+  void AddRef() { TextureHostOGL::AddRef(); }
+  void Release() { TextureHostOGL::Release(); }
+
+  virtual gfx::IntSize GetSize() { return TextureHostOGL::GetSize(); }
+  virtual GLenum GetWrapMode() { return TextureHostOGL::GetWrapMode(); }
+  virtual TextureSource* GetAsTextureSource() { return this; }
+protected:
+    TextureSourceHostOGL() {}
+};
  
 //thin TextureHost wrapper around a TextureImage
-class TextureImageAsTextureHost : public TextureHostOGL
+class TextureImageAsTextureHost : public TextureSourceHostOGL
                                 , public TileIterator
-                                , public TextureSourceOGL
 {
 public:
   virtual gfx::IntSize GetSize()
@@ -131,7 +145,6 @@ public:
  
   virtual TileIterator* GetAsTileIterator() { return this; }
   virtual Effect* Lock(const gfx::Filter& aFilter);
- 
  
   void SetFilter(const gfx::Filter& aFilter) { mTexImage->SetFilter(gfx::ThebesFilter(aFilter)); }
   virtual void BeginTileIteration() { mTexImage->BeginTileIteration(); }
@@ -173,8 +186,8 @@ public:
   void SetTextureImage(TextureImage* aTexImage) { mTexImage = aTexImage; }
 };
  
-class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost,
-                                                  BufferedTexture
+class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
+                                          , public BufferedTexture
 {
 public:
   ~TextureImageAsTextureHostWithBuffer();
@@ -208,8 +221,7 @@ protected:
   friend class CompositorOGL;
 };
  
-class TextureHostOGLShared : public TextureHostOGL
-                           , public TextureSourceOGL
+class TextureHostOGLShared : public TextureSourceHostOGL
 {
 public:
   virtual ~TextureHostOGLShared()
@@ -271,15 +283,12 @@ protected:
 };
 
 //TODO[nrc] share code between GLTextureAsTextureHost and GLTextureAsTextureSource
-class GLTextureAsTextureHost : public TextureHostOGL
-                             , public TextureSourceOGL
+class GLTextureAsTextureHost : public TextureSourceHostOGL
 {
   typedef mozilla::gl::GLContext GLContext;
- 
 public:
   GLTextureAsTextureHost(GLContext* aGL)
-    : TextureHostOGL()
-    , mGL(aGL)
+    : mGL(aGL)
   {}
  
   ~GLTextureAsTextureHost()
@@ -301,17 +310,28 @@ private:
 
 class GLTextureAsTextureSource : public TextureSourceOGL
 {
+  typedef mozilla::gl::GLContext GLContext;
 public: 
   ~GLTextureAsTextureSource()
   {
     mTexture.Release();
   }
 
-  void Update(gfx::IntSize aSize, unint8_t aData, uint32_t aStride);
+  void Update(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL);
 
   virtual GLuint GetTextureHandle()
   {
     return mTexture.GetTextureID();
+  }
+
+  virtual gfx::IntSize GetSize()
+  {
+    return mSize;
+  }
+ 
+  virtual GLenum GetWrapMode()
+  {
+    return LOCAL_GL_REPEAT;
   }
 private:
   GLTexture mTexture;
@@ -321,10 +341,10 @@ private:
 // a texture host with all three plains in one texture
 class YCbCrTextureHost : public TextureHostOGL
 {
+  typedef mozilla::gl::GLContext GLContext;
 public:
   YCbCrTextureHost(GLContext* aGL)
-    : TextureHostOGL()
-    , mGL(aGL)
+    : mGL(aGL)
   {}
 
   const SharedImage* Update(const SharedImage& aImage);
@@ -339,15 +359,12 @@ private:
 // For direct texturing with OES_EGL_image_external extension. This
 // texture is allocated when the image supports binding with
 // BindExternalBuffer.
-class DirectExternalTextureHost : public TextureHostOGL
-                                , public TextureSourceOGL
+class DirectExternalTextureHost : public TextureSourceHostOGL
 {
   typedef mozilla::gl::GLContext GLContext;
- 
 public:
   GLTextureAsTextureHost(GLContext* aGL)
-    : TextureHostOGL()
-    , mGL(aGL)
+    : mGL(aGL)
   {}
  
   ~GLTextureAsTextureHost()

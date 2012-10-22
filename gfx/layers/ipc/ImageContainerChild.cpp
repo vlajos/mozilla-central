@@ -155,7 +155,7 @@ bool ImageContainerChild::CopyDataIntoSharedImage(Image* src, SharedImage* dest)
 SharedImage* ImageContainerChild::CreateSharedImageFromData(Image* image)
 {
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
-                  "Should be in ImageBridgeChild thread.");
+                    "Should be in ImageBridgeChild thread.");
 
   if (!image) {
     return nullptr;
@@ -201,7 +201,9 @@ SharedImage* ImageContainerChild::CreateSharedImageFromData(Image* image)
     }
 
     ++mActiveImageCount;
-    SharedImage* result = new SharedImage(YCbCrImage(shmem, 0, data->GetPictureRect()));
+    SharedImage* result = new SharedImage(YCbCrImage(shmem, 0));
+    //TODO[nrc] REBASE need to pass the picture rect somehow
+    //data->GetPictureRect()
     return result;
 #ifdef MOZ_WIDGET_GONK
   } else if (image->GetFormat() == GONK_IO_SURFACE) {
