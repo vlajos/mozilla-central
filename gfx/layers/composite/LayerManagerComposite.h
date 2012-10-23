@@ -176,15 +176,6 @@ public:
   };
 
   /**
-   * Setup the viewport and projection matrix for rendering
-   * to a window of the given dimensions.
-   */
-  void SetupPipeline(int aWidth, int aHeight)
-  {
-    mCompositor->SetupPipeline(aWidth, aHeight, mWorldMatrix);
-  }
-
-  /**
    * Setup World transform matrix.
    * Transform will be ignored if it is not PreservesAxisAlignedRectangles
    * or has non integer scale
@@ -199,7 +190,7 @@ public:
   void RestoreViewport()
   {
     gfx::IntRect viewport = mCompositor->RestoreViewport();
-    SetupPipeline(viewport.width, viewport.height);
+    mCompositor->PrepareViewport(viewport.width, viewport.height, mWorldMatrix);
   }
 
   static EffectMask* MakeMaskEffect(Layer* aMaskLayer);

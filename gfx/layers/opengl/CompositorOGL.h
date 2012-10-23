@@ -131,6 +131,10 @@ public:
                         viewport.height);
   }
 
+  
+  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
+
+
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const { return "OGL"; }
 #endif // MOZ_DUMP_PAINTING
@@ -316,12 +320,6 @@ private:
                                       const gfx::IntSize& aTexSize,
                                       GLenum aWrapMode = LOCAL_GL_REPEAT,
                                       bool aFlipped = false);
-
-  /**
-   * Setup the viewport and projection matrix for rendering
-   * to a window of the given dimensions.
-   */
-  virtual void SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
 
   void CleanupResources();
 

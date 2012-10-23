@@ -445,12 +445,7 @@ public:
    */
   virtual void SetTarget(gfxContext *aTarget) = 0;
 
-  //TODO[nrc] this is annoying - we go through the LayerManager to get aWorldTransform
-  // but this call is kind of backend specific, maybe needs better API
-  virtual void SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) = 0;
-  //TODO[nrc] ought to be pre-render or something API
   virtual void MakeCurrent(bool aForce = false) = 0;
-
 
   /* This creates a texture based on an in-memory bitmap.
    */
@@ -517,6 +512,12 @@ public:
    */
   virtual void AbortFrame() = 0;
 
+  /**
+   * Setup the viewport and projection matrix for rendering
+   * to a window of the given dimensions.
+   */
+  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) = 0;
+
   // save the current viewport
   virtual void SaveViewport() = 0;
   // resotre the previous viewport and return its bounds
@@ -542,7 +543,6 @@ public:
     return mCompositorID;
   }
 
-  //TODO[nrc] I think this belongs in the layer manager, not here
   virtual void NotifyShadowTreeTransaction() = 0;
 
 protected:

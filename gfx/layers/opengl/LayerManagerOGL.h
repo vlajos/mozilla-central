@@ -296,7 +296,7 @@ public:
    */
   void SetupPipeline(int aWidth, int aHeight)
   {
-    mCompositor->SetupPipeline(aWidth, aHeight, mWorldMatrix);
+    mCompositor->PrepareViewport(aWidth, aHeight, mWorldMatrix);
   }
  
   /**

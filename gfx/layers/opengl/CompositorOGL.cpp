@@ -644,7 +644,7 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
 }
 
 void
-CompositorOGL::SetupPipeline(int aWidth, int aHeight, const gfxMatrix& aWorldTransform)
+CompositorOGL::PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform)
 {
   // Set the viewport correctly.
   mGLContext->fViewport(0, 0, aWidth, aHeight);
@@ -946,7 +946,7 @@ CompositorOGL::CreateFBOWithTexture(const gfx::IntRect& aRect, SurfaceInitMode a
     NS_RUNTIMEABORT(msg.get());
   }
 
-  SetupPipeline(aRect.width, aRect.height, gfxMatrix());
+  PrepareViewport(aRect.width, aRect.height, gfxMatrix());
   mGLContext->fScissor(0, 0, aRect.width, aRect.height);
 
   if (aInit == INIT_MODE_CLEAR) {
@@ -1052,7 +1052,7 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
 #endif
 
   mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
-  SetupPipeline(width, height, aTransform);
+  PrepareViewport(width, height, aTransform);
 
   // Default blend function implements "OVER"
   mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
