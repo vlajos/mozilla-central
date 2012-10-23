@@ -29,7 +29,7 @@ class AsyncPanZoomController;
 class GestureEventListener;
 class TargetConfig;
 class ShadowLayersParent;
-struct TextureHostIdentifier;
+struct TextureFactoryIdentifier;
 }
 
 namespace layout {
@@ -46,7 +46,7 @@ class RenderFrameParent : public PRenderFrameParent,
   typedef mozilla::layers::TargetConfig TargetConfig;
   typedef mozilla::layers::ShadowLayersParent ShadowLayersParent;
   typedef mozilla::FrameLayerBuilder::ContainerParameters ContainerParameters;
-  typedef mozilla::layers::TextureHostIdentifier TextureHostIdentifier;
+  typedef mozilla::layers::TextureFactoryIdentifier TextureFactoryIdentifier;
   typedef FrameMetrics::ViewID ViewID;
 
 public:
@@ -59,7 +59,7 @@ public:
    */
   RenderFrameParent(nsFrameLoader* aFrameLoader,
                     ScrollingBehavior aScrollingBehavior,
-                    TextureHostIdentifier* aTextureHostIdentifier,
+                    TextureFactoryIdentifier* aTextureFactoryIdentifier,
                     uint64_t* aId);
   virtual ~RenderFrameParent();
 

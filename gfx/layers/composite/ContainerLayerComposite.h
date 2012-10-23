@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef GFX_COMPOSITECONTAINERLAYER_H
-#define GFX_COMPOSITECONTAINERLAYER_H
+#ifndef GFX_ContainerLayerComposite_H
+#define GFX_ContainerLayerComposite_H
 
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
@@ -16,20 +16,20 @@
 namespace mozilla {
 namespace layers {
 
-class CompositeContainerLayer : public ShadowContainerLayer,
-                                public CompositeLayer,
-                                private ContainerLayerImpl<CompositeContainerLayer,
-                                                           CompositeLayer,
-                                                           CompositeLayerManager>
+class ContainerLayerComposite : public ShadowContainerLayer,
+                                public LayerComposite,
+                                private ContainerLayerImpl<ContainerLayerComposite,
+                                                           LayerComposite,
+                                                           LayerManagerComposite>
 {
   template<class ContainerT,
-         class LayerT,
-         class ManagerT>
+           class LayerT,
+           class ManagerT>
   friend class ContainerLayerImpl;
 
 public:
-  CompositeContainerLayer(CompositeLayerManager *aManager);
-  ~CompositeContainerLayer();
+  ContainerLayerComposite(LayerManagerComposite *aManager);
+  ~ContainerLayerComposite();
 
   void InsertAfter(Layer* aChild, Layer* aAfter);
 
@@ -37,12 +37,12 @@ public:
   
   void RepositionChild(Layer* aChild, Layer* aAfter);
 
-  // CompositeLayer Implementation
+  // LayerComposite Implementation
   virtual Layer* GetLayer() { return this; }
 
   virtual void Destroy();
 
-  CompositeLayer* GetFirstChildComposite();
+  LayerComposite* GetFirstChildComposite();
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
@@ -57,10 +57,10 @@ public:
 };
 
 class CompositeRefLayer : public ShadowRefLayer,
-                          public CompositeLayer,
+                          public LayerComposite,
                           protected ContainerLayerImpl<CompositeRefLayer,
-                                                       CompositeLayer,
-                                                       CompositeLayerManager>
+                                                       LayerComposite,
+                                                       LayerManagerComposite>
 {
   template<class ContainerT,
          class LayerT,
@@ -68,7 +68,7 @@ class CompositeRefLayer : public ShadowRefLayer,
   friend class ContainerLayerImpl;
 
 public:
-  CompositeRefLayer(CompositeLayerManager *aManager);
+  CompositeRefLayer(LayerManagerComposite *aManager);
   ~CompositeRefLayer();
 
   /** LayerOGL implementation */
@@ -76,7 +76,7 @@ public:
 
   void Destroy();
 
-  CompositeLayer* GetFirstChildComposite();
+  LayerComposite* GetFirstChildComposite();
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
@@ -93,4 +93,4 @@ public:
 } /* layers */
 } /* mozilla */
 
-#endif /* GFX_COMPOSITECONTAINERLAYER_H */
+#endif /* GFX_ContainerLayerComposite_H */

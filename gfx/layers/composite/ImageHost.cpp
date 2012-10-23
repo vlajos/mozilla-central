@@ -174,6 +174,8 @@ YCbCrImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
 {
   NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YCBCR, "BufferType mismatch.");
 
+  mPictureRect = aImage.get_YCbCrImage().picture();;
+
   return mTextureHost->Update(aImage);
 }
 

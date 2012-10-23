@@ -73,7 +73,7 @@ CompositorChild::Get()
 PLayersChild*
 CompositorChild::AllocPLayers(const LayersBackend& aBackendHint,
                               const uint64_t& aId,
-                              TextureHostIdentifier* aTextureHostIdentifier)
+                              TextureFactoryIdentifier* aTextureFactoryIdentifier)
 {
   return new ShadowLayersChild();
 }

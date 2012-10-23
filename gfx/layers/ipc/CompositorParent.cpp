@@ -967,7 +967,7 @@ CompositorParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
 PLayersParent*
 CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
                                const uint64_t& aId,
-                               TextureHostIdentifier* aTextureHostIdentifier)
+                               TextureFactoryIdentifier* aTextureFactoryIdentifier)
 {
   MOZ_ASSERT(aId == 0);
 
@@ -980,7 +980,7 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
 
   if (aBackendHint == mozilla::layers::LAYERS_OPENGL) {
     mLayerManager =
-      new CompositeLayerManager(new CompositorOGL(mWidget,
+      new LayerManagerComposite(new CompositorOGL(mWidget,
                                                   mEGLSurfaceSize.width,
                                                   mEGLSurfaceSize.height,
                                                   mRenderToEGLSurface));
@@ -992,7 +992,7 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
       return NULL;
     }
 
-    *aTextureHostIdentifier = mLayerManager->GetTextureHostIdentifier();
+    *aTextureFactoryIdentifier = mLayerManager->GetTextureFactoryIdentifier();
     return new ShadowLayersParent(mLayerManager, this, 0);
   // Basic layers compositor not yet implemented
   /*} else if (aBackendHint == mozilla::layers::LAYERS_BASIC) {
@@ -1003,7 +1003,7 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
     if (!slm) {
       return NULL;
     }
-    *aTextureHostIdentifier = layerManager->GetTextureHostIdentifier();
+    *aTextureFactoryIdentifier = layerManager->GetTextureFactoryIdentifier();
     return new ShadowLayersParent(slm, this, 0); */
   } else {
     NS_ERROR("Unsupported backend selected for Async Compositor");
@@ -1146,7 +1146,7 @@ public:
 
   virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType,
                                       const uint64_t& aId,
-                                      TextureHostIdentifier* aTextureHostIdentifier) MOZ_OVERRIDE;
+                                      TextureFactoryIdentifier* aTextureFactoryIdentifier) MOZ_OVERRIDE;
   virtual bool DeallocPLayers(PLayersParent* aLayers) MOZ_OVERRIDE;
 
   virtual void ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
@@ -1236,12 +1236,12 @@ CrossProcessCompositorParent::ActorDestroy(ActorDestroyReason aWhy)
 PLayersParent*
 CrossProcessCompositorParent::AllocPLayers(const LayersBackend& aBackendType,
                                            const uint64_t& aId,
-                                           TextureHostIdentifier* aTextureHostIdentifier)
+                                           TextureFactoryIdentifier* aTextureFactoryIdentifier)
 {
   MOZ_ASSERT(aId != 0);
 
   nsRefPtr<LayerManager> lm = sCurrentCompositor->GetLayerManager();
-  *aTextureHostIdentifier = lm->GetTextureHostIdentifier();
+  *aTextureFactoryIdentifier = lm->GetTextureFactoryIdentifier();
   return new ShadowLayersParent(lm->AsShadowManager(), this, aId);
 }
  

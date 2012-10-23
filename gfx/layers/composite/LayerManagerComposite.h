@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef GFX_COMPOSITELAYERMANAGER_H
-#define GFX_COMPOSITELAYERMANAGER_H
+#ifndef GFX_LayerManagerComposite_H
+#define GFX_LayerManagerComposite_H
 
 #include "Compositor.h"
 
@@ -23,19 +23,19 @@
 namespace mozilla {
 namespace layers {
 
-class CompositeLayer;
+class LayerComposite;
 class ShadowThebesLayer;
 class ShadowContainerLayer;
 class ShadowImageLayer;
 class ShadowCanvasLayer;
 class ShadowColorLayer;
 
-class THEBES_API CompositeLayerManager :
+class THEBES_API LayerManagerComposite :
     public ShadowLayerManager
 {
 public:
-  CompositeLayerManager(Compositor* aCompositor);
-  virtual ~CompositeLayerManager()
+  LayerManagerComposite(Compositor* aCompositor);
+  virtual ~LayerManagerComposite()
   {
     Destroy();
   }
@@ -104,9 +104,9 @@ public:
     aLayer->AddTextureHost(aTextureIdentifier, textureHost);
   }
 
-  virtual TextureHostIdentifier GetTextureHostIdentifier()
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier()
   {
-    return mCompositor->GetTextureHostIdentifier();
+    return mCompositor->GetTextureFactoryIdentifier();
   }
 
   virtual int32_t GetMaxTextureSize() const
@@ -220,7 +220,7 @@ private:
   nsIntRegion mClippingRegion;
 
   /** Current root layer. */
-  CompositeLayer *RootLayer() const;
+  LayerComposite *RootLayer() const;
 
   /**
    * Render the current layer tree to the active target.
@@ -243,22 +243,22 @@ private:
 /**
  * General information and tree management for OGL layers.
  */
-class CompositeLayer
+class LayerComposite
 {
 public:
-  CompositeLayer(CompositeLayerManager *aManager)
+  LayerComposite(LayerManagerComposite *aManager)
     : mCompositeManager(aManager)
     , mCompositor(aManager->GetCompositor())
     , mDestroyed(false)
   { }
 
-  virtual ~CompositeLayer() { }
+  virtual ~LayerComposite() { }
 
-  virtual CompositeLayer *GetFirstChildComposite() {
+  virtual LayerComposite *GetFirstChildComposite() {
     return nullptr;
   }
 
-  /* Do NOT call this from the generic CompositeLayer destructor.  Only from the
+  /* Do NOT call this from the generic LayerComposite destructor.  Only from the
    * concrete class destructor
    */
   virtual void Destroy() = 0;
@@ -282,7 +282,7 @@ public:
   }
 
 protected:
-  CompositeLayerManager* mCompositeManager;
+  LayerManagerComposite* mCompositeManager;
   Compositor* mCompositor;
   bool mDestroyed;
 };
@@ -291,4 +291,4 @@ protected:
 } /* layers */
 } /* mozilla */
 
-#endif /* GFX_COMPOSITELAYERMANAGER_H */
+#endif /* GFX_LayerManagerComposite_H */

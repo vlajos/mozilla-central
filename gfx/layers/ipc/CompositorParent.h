@@ -34,7 +34,7 @@ namespace layers {
 class AsyncPanZoomController;
 class Layer;
 class LayerManager;
-struct TextureHostIdentifier;
+struct TextureFactoryIdentifier;
 
 // Represents (affine) transforms that are calculated from a content view.
 struct ViewTransform {
@@ -79,7 +79,7 @@ public:
                                    bool isFirstPaint) MOZ_OVERRIDE;
   void Destroy();
 
-  CompositeLayerManager* GetLayerManager() { return mLayerManager; }
+  LayerManagerComposite* GetLayerManager() { return mLayerManager; }
 
   void SetTransformation(float aScale, nsIntPoint aScrollOffset);
   void AsyncRender();
@@ -156,7 +156,7 @@ public:
 protected:
   virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendHint,
                                       const uint64_t& aId,
-                                      TextureHostIdentifier* aTextureHostIdentifier);
+                                      TextureFactoryIdentifier* aTextureFactoryIdentifier);
   virtual bool DeallocPLayers(PLayersParent* aLayers);
   virtual void ScheduleTask(CancelableTask*, int);
   virtual void Composite();
@@ -247,7 +247,7 @@ private:
   virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
   { return false; }
 
-  nsRefPtr<CompositeLayerManager> mLayerManager;
+  nsRefPtr<LayerManagerComposite> mLayerManager;
   nsIWidget* mWidget;
   TargetConfig mTargetConfig;
   CancelableTask *mCurrentCompositeTask;

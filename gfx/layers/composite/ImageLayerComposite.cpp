@@ -19,19 +19,19 @@ using namespace mozilla::gfx;
 namespace mozilla {
 namespace layers {
 
-CompositeImageLayer::CompositeImageLayer(CompositeLayerManager* aManager)
+ImageLayerComposite::ImageLayerComposite(LayerManagerComposite* aManager)
   : ShadowImageLayer(aManager, nullptr)
-  , CompositeLayer(aManager)
+  , LayerComposite(aManager)
   , mImageHost(nullptr)
 {
-  mImplData = static_cast<CompositeLayer*>(this);
+  mImplData = static_cast<LayerComposite*>(this);
 }
 
-CompositeImageLayer::~CompositeImageLayer()
+ImageLayerComposite::~ImageLayerComposite()
 {}
 
 void
-CompositeImageLayer::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ImageLayerComposite::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
 {
   EnsureImageHost(aTextureIdentifier.mBufferType);
 
@@ -39,7 +39,7 @@ CompositeImageLayer::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
 }
 
 void
-CompositeImageLayer::SwapTexture(const TextureIdentifier& aTextureIdentifier,
+ImageLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
                                  const SharedImage& aFront,
                                  SharedImage* aNewBack)
 {
@@ -54,7 +54,7 @@ CompositeImageLayer::SwapTexture(const TextureIdentifier& aTextureIdentifier,
 }
 
 void
-CompositeImageLayer::EnsureImageHost(BufferType aHostType)
+ImageLayerComposite::EnsureImageHost(BufferType aHostType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aHostType) {
@@ -64,13 +64,13 @@ CompositeImageLayer::EnsureImageHost(BufferType aHostType)
 }
 
 void
-CompositeImageLayer::Disconnect()
+ImageLayerComposite::Disconnect()
 {
   Destroy();
 }
 
 void
-CompositeImageLayer::Destroy()
+ImageLayerComposite::Destroy()
 {
   if (!mDestroyed) {
     mDestroyed = true;
@@ -79,13 +79,13 @@ CompositeImageLayer::Destroy()
 }
 
 Layer*
-CompositeImageLayer::GetLayer()
+ImageLayerComposite::GetLayer()
 {
   return this;
 }
 
 void
-CompositeImageLayer::RenderLayer(const nsIntPoint& aOffset,
+ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                  const nsIntRect& aClipRect,
                                  Surface*)
 {
@@ -101,7 +101,7 @@ CompositeImageLayer::RenderLayer(const nsIntPoint& aOffset,
 
   EffectChain effectChain;
   effectChain.mEffects[EFFECT_MASK] =
-    CompositeLayerManager::MakeMaskEffect(mMaskLayer);
+    LayerManagerComposite::MakeMaskEffect(mMaskLayer);
 
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
@@ -116,13 +116,13 @@ CompositeImageLayer::RenderLayer(const nsIntPoint& aOffset,
 }
 
 TemporaryRef<TextureHost> 
-CompositeImageLayer::AsTextureHost()
+ImageLayerComposite::AsTextureHost()
 {
   return mImageHost->GetTextureHost();
 }
 
 void
-CompositeImageLayer::SetPictureRect(const nsIntRect& aPictureRect)
+ImageLayerComposite::SetPictureRect(const nsIntRect& aPictureRect)
 {
   if (mImageHost) {
     mImageHost->SetPictureRect(aPictureRect);
@@ -130,7 +130,7 @@ CompositeImageLayer::SetPictureRect(const nsIntRect& aPictureRect)
 }
 
 void
-CompositeImageLayer::CleanupResources()
+ImageLayerComposite::CleanupResources()
 {
   mImageHost = nullptr;
 }

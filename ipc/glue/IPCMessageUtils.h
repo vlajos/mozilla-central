@@ -991,9 +991,9 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
 };
 
 template<>
-struct ParamTraits<mozilla::layers::TextureHostIdentifier>
+struct ParamTraits<mozilla::layers::TextureFactoryIdentifier>
 {
-  typedef mozilla::layers::TextureHostIdentifier paramType;
+  typedef mozilla::layers::TextureFactoryIdentifier paramType;
 
   static void Write(Message* aMsg, const paramType& aParam)
   {

@@ -81,7 +81,7 @@ const TextureFlags AllowRepeat        = 0x10;
  * of the compositor and should (in the future) include information (BufferType)
  * about what kinds of buffer and texture clients to create.
  */
-struct TextureHostIdentifier
+struct TextureFactoryIdentifier
 {
   LayersBackend mParentBackend;
   int32_t mMaxTextureSize;
@@ -432,8 +432,8 @@ public:
    * accross process or thread boundaries that are compatible with this
    * compositor.
    */
-  virtual TextureHostIdentifier
-    GetTextureHostIdentifier() = 0;
+  virtual TextureFactoryIdentifier
+    GetTextureFactoryIdentifier() = 0;
 
   /**
    * Properties of the compositor
@@ -502,14 +502,21 @@ public:
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset) = 0;
 
-  /* Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
+  /**
+   * Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
                           gfx::Rect *aClipRectOut = nullptr) = 0;
 
-  /* Flush the current frame to the screen.
+  /**
+   * Flush the current frame to the screen.
    */
-  virtual void EndFrame() = 0;
+  virtual void EndFrame(const gfxMatrix& aTransform) = 0;
+
+  /**
+   * Tidy up if BeginFrame has been called, but EndFrame won't be
+   */
+  virtual void AbortFrame() = 0;
 
   // save the current viewport
   virtual void SaveViewport() = 0;

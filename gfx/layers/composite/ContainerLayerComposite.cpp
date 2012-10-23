@@ -13,14 +13,14 @@ namespace mozilla {
 namespace layers {
 
 
-CompositeContainerLayer::CompositeContainerLayer(CompositeLayerManager *aManager)
+ContainerLayerComposite::ContainerLayerComposite(LayerManagerComposite *aManager)
   : ShadowContainerLayer(aManager, nullptr)
-  , CompositeLayer(aManager)
+  , LayerComposite(aManager)
 {
-  mImplData = static_cast<CompositeLayer*>(this);
+  mImplData = static_cast<LayerComposite*>(this);
 }
  
-CompositeContainerLayer::~CompositeContainerLayer()
+ContainerLayerComposite::~ContainerLayerComposite()
 {
   // We don't Destroy() on destruction here because this destructor
   // can be called after remote content has crashed, and it may not be
@@ -37,40 +37,40 @@ CompositeContainerLayer::~CompositeContainerLayer()
 }
 
 void
-CompositeContainerLayer::InsertAfter(Layer* aChild, Layer* aAfter)
+ContainerLayerComposite::InsertAfter(Layer* aChild, Layer* aAfter)
 {
   ContainerInsertAfter(this, aChild, aAfter);
 }
 
 void
-CompositeContainerLayer::RemoveChild(Layer *aChild)
+ContainerLayerComposite::RemoveChild(Layer *aChild)
 {
   ContainerRemoveChild(this, aChild);
 }
 
 void
-CompositeContainerLayer::Destroy()
+ContainerLayerComposite::Destroy()
 {
   ContainerDestroy(this);
 }
 
-CompositeLayer*
-CompositeContainerLayer::GetFirstChildComposite()
+LayerComposite*
+ContainerLayerComposite::GetFirstChildComposite()
 {
   if (!mFirstChild) {
     return nullptr;
    }
-  return static_cast<CompositeLayer*>(mFirstChild->ImplData());
+  return static_cast<LayerComposite*>(mFirstChild->ImplData());
 }
 
 void
-CompositeContainerLayer::RepositionChild(Layer* aChild, Layer* aAfter)
+ContainerLayerComposite::RepositionChild(Layer* aChild, Layer* aAfter)
 {
   ContainerRepositionChild(this, aChild, aAfter);
 }
 
 void
-CompositeContainerLayer::RenderLayer(const nsIntPoint& aOffset,
+ContainerLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                      const nsIntRect& aClipRect,
                                      Surface* aPreviousSurface)
 {
@@ -78,16 +78,16 @@ CompositeContainerLayer::RenderLayer(const nsIntPoint& aOffset,
 }
 
 void
-CompositeContainerLayer::CleanupResources()
+ContainerLayerComposite::CleanupResources()
 {
   ContainerCleanupResources(this);
 }
 
-CompositeRefLayer::CompositeRefLayer(CompositeLayerManager* aManager)
+CompositeRefLayer::CompositeRefLayer(LayerManagerComposite* aManager)
   : ShadowRefLayer(aManager, nullptr)
-  , CompositeLayer(aManager)
+  , LayerComposite(aManager)
 {
-  mImplData = static_cast<CompositeLayer*>(this);
+  mImplData = static_cast<LayerComposite*>(this);
 }
 
 CompositeRefLayer::~CompositeRefLayer()
@@ -102,13 +102,13 @@ CompositeRefLayer::Destroy()
   mDestroyed = true;
 }
 
-CompositeLayer*
+LayerComposite*
 CompositeRefLayer::GetFirstChildComposite()
 {
   if (!mFirstChild) {
     return nullptr;
    }
-  return static_cast<CompositeLayer*>(mFirstChild->ImplData());
+  return static_cast<LayerComposite*>(mFirstChild->ImplData());
 }
 
 void

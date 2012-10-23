@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef GFX_COMPOSITEIMAGELAYER_H
-#define GFX_COMPOSITEIMAGELAYER_H
+#ifndef GFX_ImageLayerComposite_H
+#define GFX_ImageLayerComposite_H
 
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
@@ -19,14 +19,14 @@ namespace layers {
 
 class ImageHost;
 
-class CompositeImageLayer : public ShadowImageLayer,
-                            public CompositeLayer
+class ImageLayerComposite : public ShadowImageLayer,
+                            public LayerComposite
 {
   typedef gl::TextureImage TextureImage;
 
 public:
-  CompositeImageLayer(CompositeLayerManager* aManager);
-  virtual ~CompositeImageLayer();
+  ImageLayerComposite(LayerManagerComposite* aManager);
+  virtual ~ImageLayerComposite();
 
   virtual void SetAllocator(ISurfaceDeAllocator* aAllocator) {}
 
@@ -71,4 +71,4 @@ private:
 
 } /* layers */
 } /* mozilla */
-#endif /* GFX_COMPOSITEIMAGELAYER_H */
+#endif /* GFX_ImageLayerComposite_H */

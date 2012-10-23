@@ -14,20 +14,20 @@
 using namespace mozilla;
 using namespace mozilla::layers;
 
-CompositeCanvasLayer::CompositeCanvasLayer(CompositeLayerManager* aManager)
+CanvasLayerComposite::CanvasLayerComposite(LayerManagerComposite* aManager)
   : ShadowCanvasLayer(aManager, nullptr)
-  , CompositeLayer(aManager)
+  , LayerComposite(aManager)
   , mImageHost(nullptr)
 {
-  mImplData = static_cast<CompositeLayer*>(this);
+  mImplData = static_cast<LayerComposite*>(this);
 }
 
-CompositeCanvasLayer::~CompositeCanvasLayer()
+CanvasLayerComposite::~CanvasLayerComposite()
 {
 }
 
 void
-CompositeCanvasLayer::EnsureImageHost(BufferType aHostType)
+CanvasLayerComposite::EnsureImageHost(BufferType aHostType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aHostType) {
@@ -37,7 +37,7 @@ CompositeCanvasLayer::EnsureImageHost(BufferType aHostType)
 }
 
 void
-CompositeCanvasLayer::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+CanvasLayerComposite::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
                                      TextureHost* aTextureHost)
 {
   EnsureImageHost(aTextureIdentifier.mBufferType);
@@ -49,7 +49,7 @@ CompositeCanvasLayer::AddTextureHost(const TextureIdentifier& aTextureIdentifier
 }
 
 void
-CompositeCanvasLayer::SwapTexture(const TextureIdentifier& aTextureIdentifier,
+CanvasLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
                                   const SharedImage& aFront,
                                   SharedImage* aNewBack)
 {
@@ -63,7 +63,7 @@ CompositeCanvasLayer::SwapTexture(const TextureIdentifier& aTextureIdentifier,
 }
 
 void
-CompositeCanvasLayer::Destroy()
+CanvasLayerComposite::Destroy()
 {
   if (!mDestroyed) {
     mDestroyed = true;
@@ -71,13 +71,13 @@ CompositeCanvasLayer::Destroy()
 }
 
 Layer*
-CompositeCanvasLayer::GetLayer()
+CanvasLayerComposite::GetLayer()
 {
   return this;
 }
 
 void
-CompositeCanvasLayer::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
+CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;
@@ -102,7 +102,7 @@ CompositeCanvasLayer::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aC
 #endif
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = CompositeLayerManager::MakeMaskEffect(mMaskLayer);
+  effectChain.mEffects[EFFECT_MASK] = LayerManagerComposite::MakeMaskEffect(mMaskLayer);
 
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
@@ -117,7 +117,7 @@ CompositeCanvasLayer::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aC
 }
 
 void
-CompositeCanvasLayer::CleanupResources()
+CanvasLayerComposite::CleanupResources()
 {
   mImageHost = nullptr;
 }

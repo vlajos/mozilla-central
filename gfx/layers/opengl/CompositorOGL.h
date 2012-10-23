@@ -46,9 +46,9 @@ public:
     CreateTextureHost(const TextureIdentifier &aIdentifier,
                       TextureFlags aFlags) MOZ_OVERRIDE;
 
-  virtual TextureHostIdentifier GetTextureHostIdentifier() MOZ_OVERRIDE
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {
-    TextureHostIdentifier result;
+    TextureFactoryIdentifier result;
     result.mParentBackend = LAYERS_OPENGL;
     result.mMaxTextureSize = mGLContext->GetMaxTextureSize();
     return result;
@@ -75,7 +75,8 @@ public:
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset) MOZ_OVERRIDE;
 
-  virtual void EndFrame() MOZ_OVERRIDE;
+  virtual void EndFrame(const gfxMatrix& aTransform) MOZ_OVERRIDE;
+  virtual void AbortFrame() MOZ_OVERRIDE;
 
   virtual bool SupportsPartialTextureUpdate() MOZ_OVERRIDE
   {
@@ -327,7 +328,7 @@ private:
   /**
    * Copies the content of our backbuffer to the set transaction target.
    */
-  void CopyToTarget(gfxContext *aTarget);
+  void CopyToTarget(gfxContext *aTarget, const gfxMatrix& aWorldMatrix);
 
   bool mDestroyed;
 

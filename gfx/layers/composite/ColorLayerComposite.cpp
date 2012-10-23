@@ -12,7 +12,7 @@ namespace layers {
 
 
 void
-CompositeColorLayer::RenderLayer(const nsIntPoint& aOffset,
+ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                  const nsIntRect& aClipRect,
                                  Surface*)
 {

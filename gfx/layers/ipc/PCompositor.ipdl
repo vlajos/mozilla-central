@@ -11,7 +11,7 @@ include protocol PLayers;
 include "Compositor.h";
 
 using mozilla::layers::LayersBackend;
-using mozilla::layers::TextureHostIdentifier;
+using mozilla::layers::TextureFactoryIdentifier;
 using mozilla::null_t;
 
 namespace mozilla {
@@ -54,7 +54,7 @@ parent:
     returns (SurfaceDescriptor outSnapshot);
 
   sync PLayers(LayersBackend backendHint, uint64_t id)
-    returns (TextureHostIdentifier textureHostIdentifier);
+    returns (TextureFactoryIdentifier textureFactoryIdentifier);
 
   // FIXME/bug 783451
   sync PGrallocBuffer(gfxIntSize size, uint32_t format, uint32_t usage)

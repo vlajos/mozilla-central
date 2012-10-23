@@ -29,22 +29,22 @@ using gl::GLContext;
 
 
 
-CompositeThebesLayer::CompositeThebesLayer(CompositeLayerManager *aManager)
+ThebesLayerComposite::ThebesLayerComposite(LayerManagerComposite *aManager)
   : ShadowThebesLayer(aManager, nullptr)
-  , CompositeLayer(aManager)
+  , LayerComposite(aManager)
   , mBuffer(nullptr)
 {
 #ifdef FORCE_BASICTILEDTHEBESLAYER
   NS_ABORT();
 #endif
-  mImplData = static_cast<CompositeLayer*>(this);
+  mImplData = static_cast<LayerComposite*>(this);
 }
 
-CompositeThebesLayer::~CompositeThebesLayer()
+ThebesLayerComposite::~ThebesLayerComposite()
 {}
 
 void
-CompositeThebesLayer::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ThebesLayerComposite::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
 {
   EnsureBuffer(aTextureIdentifier.mBufferType);
 
@@ -53,7 +53,7 @@ CompositeThebesLayer::AddTextureHost(const TextureIdentifier& aTextureIdentifier
 
 
 void
-CompositeThebesLayer::EnsureBuffer(BufferType aHostType)
+ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
 {
   if (!mBuffer ||
       mBuffer->GetType() != aHostType) {
@@ -65,7 +65,7 @@ CompositeThebesLayer::EnsureBuffer(BufferType aHostType)
 }
 
 void
-CompositeThebesLayer::SwapTexture(const TextureIdentifier& aTextureIdentifier,
+ThebesLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
                                   const ThebesBuffer& aNewFront,
                                   const nsIntRegion& aUpdatedRegion,
                                   OptionalThebesBuffer* aNewBack,
@@ -102,13 +102,13 @@ CompositeThebesLayer::SwapTexture(const TextureIdentifier& aTextureIdentifier,
 }
 
 void
-CompositeThebesLayer::Disconnect()
+ThebesLayerComposite::Disconnect()
 {
   Destroy();
 }
 
 void
-CompositeThebesLayer::Destroy()
+ThebesLayerComposite::Destroy()
 {
   if (!mDestroyed) {
     mBuffer = nullptr;
@@ -117,19 +117,19 @@ CompositeThebesLayer::Destroy()
 }
 
 Layer*
-CompositeThebesLayer::GetLayer()
+ThebesLayerComposite::GetLayer()
 {
   return this;
 }
 
 bool
-CompositeThebesLayer::IsEmpty()
+ThebesLayerComposite::IsEmpty()
 {
   return !mBuffer;
 }
 
 void
-CompositeThebesLayer::RenderLayer(const nsIntPoint& aOffset,
+ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                   const nsIntRect& aClipRect,
                                   Surface* aPreviousSurface)
 {
@@ -153,7 +153,7 @@ CompositeThebesLayer::RenderLayer(const nsIntPoint& aOffset,
 #endif
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = CompositeLayerManager::MakeMaskEffect(mMaskLayer);
+  effectChain.mEffects[EFFECT_MASK] = LayerManagerComposite::MakeMaskEffect(mMaskLayer);
 
   mBuffer->Composite(effectChain,
                      GetEffectiveOpacity(), 
@@ -165,20 +165,20 @@ CompositeThebesLayer::RenderLayer(const nsIntPoint& aOffset,
 }
 void
 
-CompositeThebesLayer::DestroyFrontBuffer()
+ThebesLayerComposite::DestroyFrontBuffer()
 {
   mBuffer = nullptr;
   mValidRegionForNextBackBuffer.SetEmpty();
 }
 
 void
-CompositeThebesLayer::CleanupResources()
+ThebesLayerComposite::CleanupResources()
 {
   DestroyFrontBuffer();
 }
 
 void
-CompositeThebesLayer::SetAllocator(ISurfaceDeAllocator* aAllocator)
+ThebesLayerComposite::SetAllocator(ISurfaceDeAllocator* aAllocator)
 {
   mBuffer->SetDeAllocator(aAllocator);
 }

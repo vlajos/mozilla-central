@@ -332,7 +332,7 @@ public:
 
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
   
-  void IdentifyTextureHost(const TextureHostIdentifier& aIdentifier)
+  void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier)
   {
     mMaxTextureSize = aIdentifier.mMaxTextureSize;
     mParentBackend = aIdentifier.mParentBackend;

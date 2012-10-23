@@ -541,7 +541,7 @@ private:
 
 RenderFrameParent::RenderFrameParent(nsFrameLoader* aFrameLoader,
                                      ScrollingBehavior aScrollingBehavior,
-                                     TextureHostIdentifier* aTextureHostIdentifier,
+                                     TextureFactoryIdentifier* aTextureFactoryIdentifier,
                                      uint64_t* aId)
   : mLayersId(0)
   , mFrameLoader(aFrameLoader)
@@ -554,7 +554,7 @@ RenderFrameParent::RenderFrameParent(nsFrameLoader* aFrameLoader,
   *aId = 0;
 
   nsRefPtr<LayerManager> lm = GetFrom(mFrameLoader);
-  *aTextureHostIdentifier = lm->GetTextureHostIdentifier();
+  *aTextureFactoryIdentifier = lm->GetTextureFactoryIdentifier();
 
   if (CompositorParent::CompositorLoop()) {
     // Our remote frame will push layers updates to the compositor,

@@ -201,9 +201,7 @@ SharedImage* ImageContainerChild::CreateSharedImageFromData(Image* image)
     }
 
     ++mActiveImageCount;
-    SharedImage* result = new SharedImage(YCbCrImage(shmem, 0));
-    //TODO[nrc] REBASE need to pass the picture rect somehow
-    //data->GetPictureRect()
+    SharedImage* result = new SharedImage(YCbCrImage(shmem, 0, data->GetPictureRect()));
     return result;
 #ifdef MOZ_WIDGET_GONK
   } else if (image->GetFormat() == GONK_IO_SURFACE) {

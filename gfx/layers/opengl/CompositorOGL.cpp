@@ -1008,7 +1008,7 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
                           gfx::Rect *aClipRectOut)
 {
   if (mFrameInProgress) {
-    EndFrame();
+    EndFrame(aTransform);
   }
   mFrameInProgress = true;
   nsIntRect rect;
@@ -1463,7 +1463,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 }
 
 void
-CompositorOGL::EndFrame()
+CompositorOGL::EndFrame(const gfxMatrix& aTransform)
 {
   // Allow widget to render a custom foreground.
   //TODO[nrc] DrawWindowOverlay does not use its params, can we change its interface?
@@ -1479,14 +1479,14 @@ CompositorOGL::EndFrame()
     }
     nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(rect.Size(), gfxASurface::CONTENT_COLOR_ALPHA);
     nsRefPtr<gfxContext> ctx = new gfxContext(surf);
-    CopyToTarget(ctx);
+    CopyToTarget(ctx, aTransform);
 
     WriteSnapshotToDumpFile(this, surf);
   }
 #endif
 
   if (mTarget) {
-    CopyToTarget(mTarget);
+    CopyToTarget(mTarget, aTransform);
     mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
     mFrameInProgress = false;
     return;
@@ -1509,15 +1509,21 @@ CompositorOGL::EndFrame()
   mFrameInProgress = false;
 }
 
+void
+CompositorOGL::AbortFrame()
+{
+  mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
+  mFrameInProgress = false;
+}
 
 void
-CompositorOGL::CopyToTarget(gfxContext *aTarget)
+CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
 {
   nsIntRect rect;
   if (mIsRenderingToEGLSurface) {
     rect = nsIntRect(0, 0, mSurfaceSize.width, mSurfaceSize.height);
   } else {
-    mWidget->GetBounds(rect);
+    rect = nsIntRect(0, 0, mWidgetSize.width, mWidgetSize.height);
   }
   GLint width = rect.width;
   GLint height = rect.height;
@@ -1545,8 +1551,7 @@ CompositorOGL::CopyToTarget(gfxContext *aTarget)
   mGLContext->ReadPixelsIntoImageSurface(imageSurface);
 
   // Map from GL space to Cairo space and reverse the world transform.
-  //REBASE mWorldMatrix in LayerManager?
-  gfxMatrix glToCairoTransform;// = mWorldMatrix;
+  gfxMatrix glToCairoTransform = aTransform;
   glToCairoTransform.Invert();
   glToCairoTransform.Scale(1.0, -1.0);
   glToCairoTransform.Translate(-gfxPoint(0.0, height));

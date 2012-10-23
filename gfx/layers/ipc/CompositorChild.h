@@ -15,7 +15,7 @@ namespace layers {
 
 class LayerManager;
 class CompositorParent;
-struct TextureHostIdentifier;
+struct TextureFactoryIdentifier;
 
 class CompositorChild : public PCompositorChild
 {
@@ -40,7 +40,7 @@ public:
 protected:
   virtual PLayersChild* AllocPLayers(const LayersBackend& aBackendHint,
                                      const uint64_t& aId,
-                                     TextureHostIdentifier* aTextureHostIdentifier);
+                                     TextureFactoryIdentifier* aTextureFactoryIdentifier);
   virtual bool DeallocPLayers(PLayersChild *aChild);
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) MOZ_OVERRIDE;

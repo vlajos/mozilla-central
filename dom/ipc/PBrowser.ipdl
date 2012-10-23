@@ -28,7 +28,7 @@ using IPC::Principal;
 using gfxMatrix;
 using gfxRect;
 using gfxSize;
-using mozilla::layers::TextureHostIdentifier;
+using mozilla::layers::TextureFactoryIdentifier;
 using mozilla::layers::FrameMetrics;
 using mozilla::layout::ScrollingBehavior;
 using mozilla::WindowsHandle;
@@ -204,7 +204,7 @@ parent:
      */
     sync PRenderFrame()
         returns (ScrollingBehavior scrolling,
-                 TextureHostIdentifier textureHostIdentifier, uint64_t layersId);
+                 TextureFactoryIdentifier textureFactoryIdentifier, uint64_t layersId);
 
     /** 
      * Starts an offline application cache update.

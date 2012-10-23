@@ -76,7 +76,7 @@ class ShadowLayerManager;
 class SpecificLayerAttributes;
 class Compositor;
 struct TextureIdentifier;
-struct TextureHostIdentifier;
+struct TextureFactoryIdentifier;
 struct EffectMask;
 
 typedef uint32_t TextureFlags;
@@ -405,10 +405,10 @@ public:
   }
 
   /**
-   * Returns a TextureHostIdentifier which describes properties of the backend
+   * Returns a TextureFactoryIdentifier which describes properties of the backend
    * used to decide what kind of texture and buffer clients to create
    */
-  virtual TextureHostIdentifier GetTextureHostIdentifier();
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier();
 
   /**
    * returns the maximum texture size on this layer backend, or INT32_MAX

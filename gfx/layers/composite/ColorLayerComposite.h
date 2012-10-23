@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef GFX_COMPOSITECOLORLAYER_H
-#define GFX_COMPOSITECOLORLAYER_H
+#ifndef GFX_ColorLayerComposite_H
+#define GFX_ColorLayerComposite_H
 
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
@@ -15,19 +15,19 @@ namespace mozilla {
 namespace layers {
 
 
-class CompositeColorLayer : public ShadowColorLayer,
-                            public CompositeLayer
+class ColorLayerComposite : public ShadowColorLayer,
+                            public LayerComposite
 {
 public:
-  CompositeColorLayer(CompositeLayerManager *aManager)
+  ColorLayerComposite(LayerManagerComposite *aManager)
     : ShadowColorLayer(aManager, nullptr)
-    , CompositeLayer(aManager)
+    , LayerComposite(aManager)
   { 
-    mImplData = static_cast<CompositeLayer*>(this);
+    mImplData = static_cast<LayerComposite*>(this);
   }
-  ~CompositeColorLayer() { Destroy(); }
+  ~ColorLayerComposite() { Destroy(); }
 
-  // CompositeLayer Implementation
+  // LayerComposite Implementation
   virtual Layer* GetLayer() { return this; }
 
   virtual void Destroy() { mDestroyed = true; }
@@ -40,4 +40,4 @@ public:
 
 } /* layers */
 } /* mozilla */
-#endif /* GFX_COMPOSITECOLORLAYER_H */
+#endif /* GFX_ColorLayerComposite_H */

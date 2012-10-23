@@ -60,7 +60,7 @@ class RenderFrameChild;
 }
 
 namespace layers {
-class aTextureHostIdentifier;
+struct TextureFactoryIdentifier;
 }
 
 namespace dom {
@@ -298,7 +298,7 @@ public:
 
 protected:
     virtual PRenderFrameChild* AllocPRenderFrame(ScrollingBehavior* aScrolling,
-                                                 TextureHostIdentifier* aTextureHostIdentifier,
+                                                 TextureFactoryIdentifier* aTextureFactoryIdentifier,
                                                  uint64_t* aLayersId) MOZ_OVERRIDE;
     virtual bool DeallocPRenderFrame(PRenderFrameChild* aFrame) MOZ_OVERRIDE;
     virtual bool RecvDestroy() MOZ_OVERRIDE;

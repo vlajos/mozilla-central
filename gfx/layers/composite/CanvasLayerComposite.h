@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef GFX_COMPOSITECANVASLAYER_H
-#define GFX_COMPOSITECANVASLAYER_H
+#ifndef GFX_CanvasLayerComposite_H
+#define GFX_CanvasLayerComposite_H
 
 
 #include "LayerManagerComposite.h"
@@ -22,12 +22,12 @@ class ImageHost;
 // NB: eventually we'll have separate shadow canvas2d and shadow
 // canvas3d layers, but currently they look the same from the
 // perspective of the compositor process
-class CompositeCanvasLayer : public ShadowCanvasLayer,
-                             public CompositeLayer
+class CanvasLayerComposite : public ShadowCanvasLayer,
+                             public LayerComposite
 {
 public:
-  CompositeCanvasLayer(CompositeLayerManager* aManager);
-  virtual ~CompositeCanvasLayer();
+  CanvasLayerComposite(LayerManagerComposite* aManager);
+  virtual ~CanvasLayerComposite();
 
   // CanvasLayer impl
   virtual void Initialize(const Data& aData)
@@ -59,7 +59,7 @@ public:
     Destroy();
   }
 
-  // CompositeLayer impl
+  // LayerComposite impl
   void Destroy();
   Layer* GetLayer();
   virtual void RenderLayer(const nsIntPoint& aOffset,
@@ -76,4 +76,4 @@ private:
 
 } /* layers */
 } /* mozilla */
-#endif /* GFX_COMPOSITECANVASLAYER_H */
+#endif /* GFX_CanvasLayerComposite_H */

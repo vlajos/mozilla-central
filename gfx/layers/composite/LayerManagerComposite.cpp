@@ -43,15 +43,15 @@ using namespace mozilla::gfx;
 
 
 /**
- * CompositeLayerManager
+ * LayerManagerComposite
  */
-CompositeLayerManager::CompositeLayerManager(Compositor* aCompositor)
+LayerManagerComposite::LayerManagerComposite(Compositor* aCompositor)
 {
   mCompositor = aCompositor;
 }
 
 void
-CompositeLayerManager::Destroy()
+LayerManagerComposite::Destroy()
 {
   if (!mDestroyed) {
     if (mRoot) {
@@ -67,13 +67,13 @@ CompositeLayerManager::Destroy()
 
 
 void
-CompositeLayerManager::BeginTransaction()
+LayerManagerComposite::BeginTransaction()
 {
   mInTransaction = true;
 }
 
 void
-CompositeLayerManager::BeginTransactionWithTarget(gfxContext *aTarget)
+LayerManagerComposite::BeginTransactionWithTarget(gfxContext *aTarget)
 {
   mInTransaction = true;
 
@@ -91,7 +91,7 @@ CompositeLayerManager::BeginTransactionWithTarget(gfxContext *aTarget)
 }
 
 bool
-CompositeLayerManager::EndEmptyTransaction(EndTransactionFlags aFlags)
+LayerManagerComposite::EndEmptyTransaction(EndTransactionFlags aFlags)
 {
   mInTransaction = false;
 
@@ -103,7 +103,7 @@ CompositeLayerManager::EndEmptyTransaction(EndTransactionFlags aFlags)
 }
 
 void
-CompositeLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
+LayerManagerComposite::EndTransaction(DrawThebesLayerCallback aCallback,
                                       void* aCallbackData,
                                       EndTransactionFlags aFlags)
 {
@@ -149,62 +149,62 @@ CompositeLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
 }
 
 already_AddRefed<gfxASurface>
-CompositeLayerManager::CreateOptimalMaskSurface(const gfxIntSize &aSize)
+LayerManagerComposite::CreateOptimalMaskSurface(const gfxIntSize &aSize)
 {
   NS_ERROR("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ThebesLayer>
-CompositeLayerManager::CreateThebesLayer()
+LayerManagerComposite::CreateThebesLayer()
 {
   NS_ERROR("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ContainerLayer>
-CompositeLayerManager::CreateContainerLayer()
+LayerManagerComposite::CreateContainerLayer()
 {
   NS_ERROR("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ImageLayer>
-CompositeLayerManager::CreateImageLayer()
+LayerManagerComposite::CreateImageLayer()
 {
   NS_ERROR("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ColorLayer>
-CompositeLayerManager::CreateColorLayer()
+LayerManagerComposite::CreateColorLayer()
 {
   NS_ERROR("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<CanvasLayer>
-CompositeLayerManager::CreateCanvasLayer()
+LayerManagerComposite::CreateCanvasLayer()
 {
   NS_ERROR("Should only be called on the drawing side");
   return nullptr;
 }
 
-CompositeLayer*
-CompositeLayerManager::RootLayer() const
+LayerComposite*
+LayerManagerComposite::RootLayer() const
 {
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
 
-  return static_cast<CompositeLayer*>(mRoot->ImplData());
+  return static_cast<LayerComposite*>(mRoot->ImplData());
 }
 
 void
-CompositeLayerManager::Render()
+LayerManagerComposite::Render()
 {
-  SAMPLE_LABEL("CompositeLayerManager", "Render");
+  SAMPLE_LABEL("LayerManagerComposite", "Render");
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return;
@@ -225,11 +225,11 @@ CompositeLayerManager::Render()
   // Render our layers.
   RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
 
-  mCompositor->EndFrame();
+  mCompositor->EndFrame(mWorldMatrix);
 }
 
 void
-CompositeLayerManager::SetWorldTransform(const gfxMatrix& aMatrix)
+LayerManagerComposite::SetWorldTransform(const gfxMatrix& aMatrix)
 {
   NS_ASSERTION(aMatrix.PreservesAxisAlignedRectangles(),
                "SetWorldTransform only accepts matrices that satisfy PreservesAxisAlignedRectangles");
@@ -240,13 +240,13 @@ CompositeLayerManager::SetWorldTransform(const gfxMatrix& aMatrix)
 }
 
 gfxMatrix&
-CompositeLayerManager::GetWorldTransform(void)
+LayerManagerComposite::GetWorldTransform(void)
 {
   return mWorldMatrix;
 }
 
 void
-CompositeLayerManager::WorldTransformRect(nsIntRect& aRect)
+LayerManagerComposite::WorldTransformRect(nsIntRect& aRect)
 {
   gfxRect grect(aRect.x, aRect.y, aRect.width, aRect.height);
   grect = mWorldMatrix.TransformBounds(grect);
@@ -254,63 +254,63 @@ CompositeLayerManager::WorldTransformRect(nsIntRect& aRect)
 }
 
 already_AddRefed<ShadowThebesLayer>
-CompositeLayerManager::CreateShadowThebesLayer()
+LayerManagerComposite::CreateShadowThebesLayer()
 {
-  if (CompositeLayerManager::mDestroyed) {
+  if (LayerManagerComposite::mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
 //#ifdef FORCE_BASICTILEDTHEBESLAYER
 //  return nsRefPtr<ShadowThebesLayer>(new TiledThebesLayerOGL(this)).forget();
 //#else
-  return nsRefPtr<CompositeThebesLayer>(new CompositeThebesLayer(this)).forget();
+  return nsRefPtr<ThebesLayerComposite>(new ThebesLayerComposite(this)).forget();
 //#endif
 }
 
 already_AddRefed<ShadowContainerLayer>
-CompositeLayerManager::CreateShadowContainerLayer()
+LayerManagerComposite::CreateShadowContainerLayer()
 {
-  if (CompositeLayerManager::mDestroyed) {
+  if (LayerManagerComposite::mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
-  return nsRefPtr<CompositeContainerLayer>(new CompositeContainerLayer(this)).forget();
+  return nsRefPtr<ContainerLayerComposite>(new ContainerLayerComposite(this)).forget();
 }
 
 already_AddRefed<ShadowImageLayer>
-CompositeLayerManager::CreateShadowImageLayer()
+LayerManagerComposite::CreateShadowImageLayer()
 {
-  if (CompositeLayerManager::mDestroyed) {
+  if (LayerManagerComposite::mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
-  return nsRefPtr<CompositeImageLayer>(new CompositeImageLayer(this)).forget();
+  return nsRefPtr<ImageLayerComposite>(new ImageLayerComposite(this)).forget();
 }
 
 already_AddRefed<ShadowColorLayer>
-CompositeLayerManager::CreateShadowColorLayer()
+LayerManagerComposite::CreateShadowColorLayer()
 {
-  if (CompositeLayerManager::mDestroyed) {
+  if (LayerManagerComposite::mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
-  return nsRefPtr<CompositeColorLayer>(new CompositeColorLayer(this)).forget();
+  return nsRefPtr<ColorLayerComposite>(new ColorLayerComposite(this)).forget();
 }
 
 already_AddRefed<ShadowCanvasLayer>
-CompositeLayerManager::CreateShadowCanvasLayer()
+LayerManagerComposite::CreateShadowCanvasLayer()
 {
-  if (CompositeLayerManager::mDestroyed) {
+  if (LayerManagerComposite::mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
-  return nsRefPtr<CompositeCanvasLayer>(new CompositeCanvasLayer(this)).forget();
+  return nsRefPtr<CanvasLayerComposite>(new CanvasLayerComposite(this)).forget();
 }
 
 already_AddRefed<ShadowRefLayer>
-CompositeLayerManager::CreateShadowRefLayer()
+LayerManagerComposite::CreateShadowRefLayer()
 {
-  if (CompositeLayerManager::mDestroyed) {
+  if (LayerManagerComposite::mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
@@ -318,10 +318,10 @@ CompositeLayerManager::CreateShadowRefLayer()
 }
 
 /* static */EffectMask*
-CompositeLayerManager::MakeMaskEffect(Layer* aMaskLayer)
+LayerManagerComposite::MakeMaskEffect(Layer* aMaskLayer)
 {
   if (aMaskLayer) {
-    CompositeLayer* maskLayerComposite = static_cast<CompositeLayer*>(aMaskLayer->ImplData());
+    LayerComposite* maskLayerComposite = static_cast<LayerComposite*>(aMaskLayer->ImplData());
     //TODO[nrc] change AsTextureHost to AsTextureSource
     RefPtr<TextureHost> maskHost = maskLayerComposite->AsTextureHost();
     Matrix4x4 transform;
@@ -333,8 +333,8 @@ CompositeLayerManager::MakeMaskEffect(Layer* aMaskLayer)
 }
 
 TemporaryRef<DrawTarget>
-CompositeLayerManager::CreateDrawTarget(const IntSize &aSize,
-                                  SurfaceFormat aFormat)
+LayerManagerComposite::CreateDrawTarget(const IntSize &aSize,
+                                        SurfaceFormat aFormat)
 {
 #ifdef XP_MACOSX
   // We don't want to accelerate if the surface is too small which indicates

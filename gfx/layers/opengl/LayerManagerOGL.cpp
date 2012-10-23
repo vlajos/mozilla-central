@@ -253,16 +253,14 @@ LayerManagerOGL::Render()
   }
 
   // Render our layers.
+  RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
+
   if (CompositingDisabled()) {
-    RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
-    //TODO[nrc] REBASE need an EndFrameEmpty on the Compositor for this
-    //mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
+    mCompositor->AbortFrame();
     return;
   }
 
-  RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
-
-  mCompositor->EndFrame();
+  mCompositor->EndFrame(mWorldMatrix);
 }
 
 void
@@ -290,7 +288,6 @@ LayerManagerOGL::WorldTransformRect(nsIntRect& aRect)
   aRect.SetRect(grect.X(), grect.Y(), grect.Width(), grect.Height());
 }
 
-//REBASE I guess CompositeLayerManager needs this too?
 TemporaryRef<DrawTarget>
 LayerManagerOGL::CreateDrawTarget(const IntSize &aSize,
                                   SurfaceFormat aFormat)

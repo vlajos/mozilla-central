@@ -139,11 +139,6 @@ public:
 
   virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
 
-  virtual void SetPictureRect(const nsIntRect& aPictureRect)
-  {
-    mPictureRect = aPictureRect;
-  }
-
 protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;

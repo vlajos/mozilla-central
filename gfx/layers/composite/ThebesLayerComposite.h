@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef GFX_COMPOSITETHEBESLAYER_H
-#define GFX_COMPOSITETHEBESLAYER_H
+#ifndef GFX_ThebesLayerComposite_H
+#define GFX_ThebesLayerComposite_H
 
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
@@ -19,12 +19,12 @@ namespace layers {
 
 class AContentHost;
 
-class CompositeThebesLayer : public ShadowThebesLayer,
-                             public CompositeLayer
+class ThebesLayerComposite : public ShadowThebesLayer,
+                             public LayerComposite
 {
 public:
-  CompositeThebesLayer(CompositeLayerManager *aManager);
-  virtual ~CompositeThebesLayer();
+  ThebesLayerComposite(LayerManagerComposite *aManager);
+  virtual ~ThebesLayerComposite();
 
   virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
 
@@ -53,7 +53,7 @@ public:
     ShadowThebesLayer::SetValidRegion(aRegion);
   }
 
-  // CompositeLayer impl
+  // LayerComposite impl
   void Destroy();
   Layer* GetLayer();
   virtual bool IsEmpty();
@@ -73,4 +73,4 @@ private:
 
 } /* layers */
 } /* mozilla */
-#endif /* GFX_COMPOSITETHEBESLAYER_H */
+#endif /* GFX_ThebesLayerComposite_H */

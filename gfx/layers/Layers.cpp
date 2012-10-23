@@ -252,12 +252,12 @@ LayerManager::CreateDrawTarget(const IntSize &aSize,
     CreateOffscreenDrawTarget(aSize, aFormat);
 }
 
-TextureHostIdentifier
-LayerManager::GetTextureHostIdentifier()
+TextureFactoryIdentifier
+LayerManager::GetTextureFactoryIdentifier()
 {
   //TODO[nrc] make pure virtual when all layer managers use Compositor
   NS_ERROR("Should have been overridden");
-  return TextureHostIdentifier();
+  return TextureFactoryIdentifier();
 }
 
 
