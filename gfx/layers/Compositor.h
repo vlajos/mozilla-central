@@ -121,7 +121,6 @@ public:
 };
 
 // a texture or part of texture used for compositing
-// TODO[nrc] maybe merge with Texture?
 class TextureSource : public RefCounted<TextureSource>
 {
 public:
