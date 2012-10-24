@@ -414,7 +414,7 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
     return false;
   }
 
-  //TODO can we skip some of this initialisation because we won't do double buffering?
+  //TODO[nrc] can we skip some of this initialisation because we won't do double buffering?
   mGLContext->fGenFramebuffers(1, &mBackBufferFBO);
 
   if (mGLContext->WorkAroundDriverBugs()) {
@@ -725,7 +725,8 @@ CompositorOGL::CreateTextureForData(const gfx::IntSize &aSize, PRInt8 *aData, PR
       MOZ_NOT_REACHED("aFormat is not a valid TextureFormat");
   }
 
-  texture->UpdateTexture(aData, aStride);
+  texture->UpdateTexture(nsIntRegion(nsIntRect(0, 0, aSize.width, aSize.height)),
+                         aData, aStride);
 
   return texture.forget();
 }
@@ -994,8 +995,8 @@ FPSState::DrawFrameCounter(GLContext* context)
  * If the OpenGL setup is capable of using non-POT textures, then it
  * will just return aSize.
  */
-//TODO[nrc] duplicated from ImageLayerOGL.cpp
-gfx::IntSize CalculatePOTSize(const gfx::IntSize& aSize, GLContext* gl)
+static gfx::IntSize
+CalculatePOTSize(const gfx::IntSize& aSize, GLContext* gl)
 {
   if (gl->CanUploadNonPowerOfTwo())
     return aSize;
@@ -1011,20 +1012,19 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
     EndFrame(aTransform);
   }
   mFrameInProgress = true;
-  nsIntRect rect;
+  gfxRect rect;
   if (mIsRenderingToEGLSurface) {
-    rect = nsIntRect(0, 0, mSurfaceSize.width, mSurfaceSize.height);
+    rect = gfxRect(0, 0, mSurfaceSize.width, mSurfaceSize.height);
   } else {
+    nsIntRect intRect;
     // FIXME/bug XXXXXX this races with rotation changes on the main
     // thread, and undoes all the care we take with layers txns being
     // sent atomically with rotation changes
-    mWidget->GetClientBounds(rect);
+    mWidget->GetClientBounds(intRect);
+    rect = gfxRect(intRect);
   }
 
-  //TODO[nrc] sort this rect/gfxRect bullshit
-  gfxRect grect(rect);
-  grect = aTransform.TransformBounds(grect);
-  rect.SetRect(grect.X(), grect.Y(), grect.Width(), grect.Height());
+  rect = aTransform.TransformBounds(rect);
 
   GLint width = rect.width;
   GLint height = rect.height;
@@ -1079,8 +1079,7 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
 #endif
 
   // Allow widget to render a custom background.
-  //TODO[nrc] DrawWindowUnderlay doesn't use its params, can we change its interface?
-  mWidget->DrawWindowUnderlay(nullptr, nsIntRect());
+  mWidget->DrawWindowUnderlay();
 }
 
 void
@@ -1121,11 +1120,9 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     effectMask = static_cast<EffectMask*>(aEffectChain.mEffects[EFFECT_MASK].get());
     textureMask = static_cast<TextureSourceOGL*>(effectMask->mMaskTexture.get());
 
-    NS_ASSERTION(textureMask, "mask effect, but no texture host");
-
-    //TODO[nrc] do something with this assertion
-    //NS_ASSERTION(static_cast<ImageHostTexture*>(textureMask)->mTexImage->GetContentType() == gfxASurface::CONTENT_ALPHA,
-    //             "OpenGL mask layers must be backed by alpha surfaces");
+    NS_ASSERTION(textureMask, "mask effect, but no mask texture");
+    NS_ASSERTION(textureMask->IsAlpha(),
+                 "OpenGL mask layers must be backed by alpha surfaces");
 
     // We're assuming that the gl backend won't cheat and use NPOT
     // textures when glContext says it can't (which seems to happen
@@ -1466,8 +1463,7 @@ void
 CompositorOGL::EndFrame(const gfxMatrix& aTransform)
 {
   // Allow widget to render a custom foreground.
-  //TODO[nrc] DrawWindowOverlay does not use its params, can we change its interface?
-  mWidget->DrawWindowOverlay(nullptr, nsIntRect());
+  mWidget->DrawWindowOverlay();
 
 #ifdef MOZ_DUMP_PAINTING
   if (gfxUtils::sDumpPainting) {

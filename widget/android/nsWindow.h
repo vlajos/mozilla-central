@@ -148,8 +148,8 @@ public:
 
 #ifdef MOZ_ANDROID_OMTC
     virtual bool NeedsPaint();
-    virtual void DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect);
-    virtual void DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect);
+    virtual void DrawWindowUnderlay();
+    virtual void DrawWindowOverlay();
 
     static void SetCompositor(mozilla::layers::CompositorParent* aCompositorParent,
                               mozilla::layers::CompositorChild* aCompositorChild);

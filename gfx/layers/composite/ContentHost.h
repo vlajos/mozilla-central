@@ -84,7 +84,8 @@ public:
 #endif
 };
 
-class ContentHost : public AContentHost, protected CompositingThebesLayerBuffer
+class ContentHost : public AContentHost
+                  , protected CompositingThebesLayerBuffer
 {
 public:
 

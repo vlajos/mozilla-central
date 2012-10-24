@@ -13,7 +13,6 @@
 #endif
 
 namespace mozilla {
-
 namespace layers {
 
 class SurfaceOGL : public Surface

@@ -7,6 +7,8 @@
 #include "mozilla/layers/PLayers.h"
 #include "TiledLayerBuffer.h"
 #include "TextureOGL.h"
+#include "SurfaceOGL.h"
+#include "LayerManagerComposite.h"
 
 /* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
 #include "mozilla/Util.h"
@@ -83,6 +85,13 @@ public:
 
   enum { PAINT_WILL_RESAMPLE = ThebesLayerBuffer::PAINT_WILL_RESAMPLE };
 
+#ifdef MOZ_DUMP_PAINTING
+  virtual already_AddRefed<gfxImageSurface> Dump()
+  {
+    return mTextureHost->Dump();
+  }
+#endif
+
 protected:
   ThebesLayerBufferOGL(ThebesLayer* aLayer, LayerOGL* aOGLLayer, Compositor* aCompositor)
     : CompositingThebesLayerBuffer(aCompositor)
@@ -90,7 +99,6 @@ protected:
     , mOGLLayer(aOGLLayer)
   {}
 
-  //TODO[nrc] get rid of the GL stuff
   GLContext* gl() const { return mOGLLayer->gl(); }
 
   ThebesLayer* mLayer;
@@ -669,28 +677,22 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
 
   // Drawing thebes layers can change the current context, reset it.
   gl()->MakeCurrent();
-
-  // line is the simplest build fix. ORLY?
-  //gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aPreviousFrameBuffer);
+  gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
+                         static_cast<SurfaceOGL*>(aPreviousSurface)->mFBO);
 
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
 
 #ifdef MOZ_DUMP_PAINTING
-  //TODO[nrc]
-  /*if (gfxUtils::sDumpPainting) {
-    nsRefPtr<gfxImageSurface> surf = 
-      gl()->GetTexImage(mBuffer->GetTextureImage()->GetTextureID(), false,
-                        mBuffer->GetTextureImage()->GetShaderProgramType());
-    
+  if (gfxUtils::sDumpPainting) {
+    nsRefPtr<gfxImageSurface> surf = mBuffer->Dump();
     WriteSnapshotToDumpFile(this, surf);
-  }*/
+  }
 #endif
 
   EffectChain effectChain;
-  //TODO[nrc]
-  //effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
+  effectChain.mEffects[EFFECT_MASK] = LayerManagerComposite::MakeMaskEffect(mMaskLayer);
 
   mBuffer->Composite(effectChain,
                      GetEffectiveOpacity(),

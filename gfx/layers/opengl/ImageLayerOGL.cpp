@@ -581,7 +581,8 @@ ImageLayerOGL::AllocateTexturesCairo(CairoImage *aImage)
  * If the OpenGL setup is capable of using non-POT textures, then it
  * will just return aSize.
  */
-gfxIntSize CalculatePOTSize(const gfxIntSize& aSize, GLContext* gl)
+static gfxIntSize
+CalculatePOTSize(const gfxIntSize& aSize, GLContext* gl)
 {
   if (gl->CanUploadNonPowerOfTwo())
     return aSize;

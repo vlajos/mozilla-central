@@ -14,7 +14,7 @@
 #include "ImageLayerComposite.h"
 #include "ColorLayerComposite.h"
 #include "CanvasLayerComposite.h"
-//TODO[nrc]
+//TODO[nrc] tiled thebes layers
 //#include "TiledThebesLayerComposite.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Preferences.h"
@@ -322,11 +322,10 @@ LayerManagerComposite::MakeMaskEffect(Layer* aMaskLayer)
 {
   if (aMaskLayer) {
     LayerComposite* maskLayerComposite = static_cast<LayerComposite*>(aMaskLayer->ImplData());
-    //TODO[nrc] change AsTextureHost to AsTextureSource
-    RefPtr<TextureHost> maskHost = maskLayerComposite->AsTextureHost();
+    RefPtr<TextureSource> maskTexture = maskLayerComposite->AsTextureSource();
     Matrix4x4 transform;
     ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
-    return new EffectMask(maskHost->GetAsTextureSource(), transform);
+    return new EffectMask(maskTexture, transform);
   }
 
   return nullptr;

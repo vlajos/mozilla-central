@@ -20,6 +20,9 @@ public:
   virtual GLuint GetTextureHandle() = 0;
   virtual gfx::IntSize GetSize() = 0;
   virtual GLenum GetWrapMode() = 0;
+#ifdef DEBUG
+  virtual bool IsAlpha() { return true; }
+#endif
 };
 
 //TODO[nrc] TextureOGL and Texture are only used by CreateTextureForData,
@@ -44,10 +47,9 @@ public:
     return mSize;
   }
  
-  virtual void
-    UpdateTexture(const nsIntRegion& aRegion, int8_t *aData, uint32_t aStride) MOZ_OVERRIDE;
-  //TODO[nrc] should use the full version above with the whole region somehow
-  void UpdateTexture(int8_t *aData, uint32_t aStride);
+  virtual void UpdateTexture(const nsIntRegion& aRegion,
+                             int8_t *aData,
+                             uint32_t aStride) MOZ_OVERRIDE;
  
   void SetProperties(GLenum aFormat,
                     GLenum aInternalFormat,
@@ -91,11 +93,6 @@ protected:
   TextureHostOGL()
     : mWrapMode(LOCAL_GL_REPEAT)
   {}
- 
-  //TextureHostOGL(gfx::IntSize aSize)
-  //  : mSize(aSize)
-  //  , mWrapMode(LOCAL_GL_REPEAT)
-  //{}
  
   gfx::IntSize mSize;
   GLenum mWrapMode;
@@ -151,6 +148,10 @@ public:
   virtual nsIntRect GetTileRect() { return mTexImage->GetTileRect(); }
   virtual size_t GetTileCount() { return mTexImage->GetTileCount(); }
   virtual bool NextTile() { return mTexImage->NextTile(); }
+
+#ifdef DEBUG
+  virtual bool IsAlpha() { return mTexImage->GetContentType() == gfxASurface::CONTENT_ALPHA; }
+#endif
  
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump()
@@ -181,9 +182,11 @@ class TextureImageHost : public TextureImageAsTextureHost
 public:
   TextureImageHost(GLContext* aGL, TextureImage* aTexImage);
  
-  //TODO[nrc] override TextureImageAsTextureHost methods to do nothing
   TextureImage* GetTextureImage() { return mTexImage; }
   void SetTextureImage(TextureImage* aTexImage) { mTexImage = aTexImage; }
+
+  virtual const SharedImage* Update(const SharedImage& aImage) { return nullptr; }
+  virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {}
 };
  
 class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
@@ -266,10 +269,6 @@ protected:
 class TextureHostOGLSharedWithBuffer : public TextureHostOGLShared
 {
 public:
-  //TODO: do we need to de-allocate mBuffer?
-  virtual ~TextureHostOGLSharedWithBuffer()
-  {}
- 
   virtual const SharedImage* Update(const SharedImage& aImage);
  
 protected:
@@ -280,32 +279,6 @@ protected:
   SharedImage mBuffer;
  
   friend class CompositorOGL;
-};
-
-//TODO[nrc] share code between GLTextureAsTextureHost and GLTextureAsTextureSource
-class GLTextureAsTextureHost : public TextureSourceHostOGL
-{
-  typedef mozilla::gl::GLContext GLContext;
-public:
-  GLTextureAsTextureHost(GLContext* aGL)
-    : mGL(aGL)
-  {}
- 
-  ~GLTextureAsTextureHost()
-  {
-    mTexture.Release();
-  }
- 
-  virtual GLuint GetTextureHandle()
-  {
-    return mTexture.GetTextureID();
-  }
- 
-  const SharedImage* Update(const SharedImage& aImage);
- 
-private:
-  nsRefPtr<GLContext> mGL;
-  GLTexture mTexture;
 };
 
 class GLTextureAsTextureSource : public TextureSourceOGL
@@ -333,9 +306,35 @@ public:
   {
     return LOCAL_GL_REPEAT;
   }
+
 private:
   GLTexture mTexture;
   gfx::IntSize mSize;
+};
+
+class GLTextureAsTextureHost : public TextureSourceHostOGL
+{
+  typedef mozilla::gl::GLContext GLContext;
+public:
+  GLTextureAsTextureHost(GLContext* aGL)
+    : mGL(aGL)
+  {}
+ 
+  ~GLTextureAsTextureHost()
+  {
+    mTexture.Release();
+  }
+ 
+  virtual GLuint GetTextureHandle()
+  {
+    return mTexture.GetTextureID();
+  }
+ 
+  const SharedImage* Update(const SharedImage& aImage);
+ 
+private:
+  nsRefPtr<GLContext> mGL;
+  GLTexture mTexture;
 };
 
 // a texture host with all three plains in one texture

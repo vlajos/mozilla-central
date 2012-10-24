@@ -2188,7 +2188,7 @@ nsWindow::GetIMEUpdatePreference()
 
 #ifdef MOZ_ANDROID_OMTC
 void
-nsWindow::DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect)
+nsWindow::DrawWindowUnderlay()
 {
     JNIEnv *env = GetJNIForThread();
     NS_ABORT_IF_FALSE(env, "No JNI environment at DrawWindowUnderlay()!");
@@ -2210,7 +2210,7 @@ nsWindow::DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect)
 }
 
 void
-nsWindow::DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect)
+nsWindow::DrawWindowOverlay()
 {
     JNIEnv *env = GetJNIForThread();
     NS_ABORT_IF_FALSE(env, "No JNI environment at DrawWindowOverlay()!");

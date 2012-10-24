@@ -263,11 +263,11 @@ public:
   virtual void CleanupResources() = 0;
 
   /**
-   * Get a texture host representation of the layer. This should not be used
+   * Get a texture source representation of the layer. This should not be used
    * for normal rendering. It is used for using the layer as a mask layer, any
    * layer that can be used as a mask layer should override this method.
    */
-  virtual TemporaryRef<TextureHost> AsTextureHost()
+  virtual TemporaryRef<TextureSource> AsTextureSource()
   {
     return nullptr;
   }

@@ -20,15 +20,6 @@ DataOffset(uint32_t aStride, uint32_t aPixelSize, const nsIntPoint &aPoint)
 }
  
 void
-TextureOGL::UpdateTexture(int8_t *aData, uint32_t aStride)
-{
-  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
-  mGL->TexImage2D(LOCAL_GL_TEXTURE_2D, 0, mInternalFormat,
-                  mSize.width, mSize.height, aStride, mPixelSize,
-                  0, mFormat, mType, aData);
-}
- 
-void
 TextureOGL::UpdateTexture(const nsIntRegion& aRegion, int8_t *aData, uint32_t aStride)
 {
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);

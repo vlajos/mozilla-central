@@ -1080,19 +1080,13 @@ class nsIWidget : public nsISupports {
 
     /**
      * Called before the LayerManager draws the layer tree.
-     *
-     * @param aManager The drawing LayerManager.
-     * @param aWidgetRect The current widget rect that is being drawn.
      */
-    virtual void DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect) = 0;
+    virtual void DrawWindowUnderlay() = 0;
 
     /**
      * Called after the LayerManager draws the layer tree
-     *
-     * @param aManager The drawing LayerManager.
-     * @param aRect Current widget rect that is being drawn.
      */
-    virtual void DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect) = 0;
+    virtual void DrawWindowOverlay() = 0;
 
     /**
      * Called when Gecko knows which themed widgets exist in this window.
