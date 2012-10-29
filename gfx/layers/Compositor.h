@@ -121,8 +121,18 @@ public:
   virtual ~Texture() {}
 };
 
+// It is common to inherit from TextureSource and TextureHost, and both need to
+// be refcounted
+class TextureBase : public RefCounted<TextureBase>
+{
+public:
+  virtual ~TextureBase() {}
+protected:
+  TextureBase() {}
+};
+
 // a texture or part of texture used for compositing
-class TextureSource : public RefCounted<TextureSource>
+class TextureSource : public TextureBase
 {
 public:
 
@@ -142,7 +152,7 @@ public:
   virtual bool NextTile() = 0;
 };
 
-class TextureHost : public RefCounted<TextureHost>
+class TextureHost : public TextureBase
 {
 public:
   TextureHost() : mFlags(NoFlags) {}

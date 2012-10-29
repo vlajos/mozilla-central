@@ -98,12 +98,13 @@ protected:
   GLenum mWrapMode;
 };
 
+//TODO[nrc] so this just doesn't work, need one root RefCounted
 class TextureSourceHostOGL : public TextureHostOGL
                            , public TextureSourceOGL
 {
 public:
-  void AddRef() { TextureHostOGL::AddRef(); }
-  void Release() { TextureHostOGL::Release(); }
+  void AddRef() { TextureBase::AddRef(); }
+  void Release() { TextureBase::Release(); }
 
   virtual gfx::IntSize GetSize() { return TextureHostOGL::GetSize(); }
   virtual GLenum GetWrapMode() { return TextureHostOGL::GetWrapMode(); }
