@@ -50,7 +50,13 @@ public:
                            void* aCallbackData,
                            ReadbackProcessor* aReadback);
 
-  virtual void ClearCachedResources() { mContentClient->Clear(); mValidRegion.SetEmpty(); }
+  virtual void ClearCachedResources()
+  {
+    if (mContentClient) {
+      mContentClient->Clear();
+    }
+    mValidRegion.SetEmpty();
+  }
   
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {
