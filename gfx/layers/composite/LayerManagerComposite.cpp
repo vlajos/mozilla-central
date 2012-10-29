@@ -22,7 +22,7 @@
 #include "gfxContext.h"
 #include "gfxUtils.h"
 #include "gfx2DGlue.h"
-#include "gfxPlatform.h"
+#include "gfxPlatformMac.h"
 #include "nsIWidget.h"
 
 #include "nsIServiceManager.h"
