@@ -98,7 +98,6 @@ protected:
   GLenum mWrapMode;
 };
 
-//TODO[nrc] so this just doesn't work, need one root RefCounted
 class TextureSourceHostOGL : public TextureHostOGL
                            , public TextureSourceOGL
 {

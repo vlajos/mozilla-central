@@ -132,7 +132,7 @@ protected:
 };
 
 // a texture or part of texture used for compositing
-class TextureSource : public TextureBase
+class TextureSource : public virtual TextureBase
 {
 public:
 
@@ -152,7 +152,7 @@ public:
   virtual bool NextTile() = 0;
 };
 
-class TextureHost : public TextureBase
+class TextureHost : public virtual TextureBase
 {
 public:
   TextureHost() : mFlags(NoFlags) {}
