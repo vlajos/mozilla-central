@@ -194,7 +194,7 @@ TextureImageAsTextureHostWithBuffer::Update(const SurfaceDescriptor& aNewBuffer,
   if (aResult) {
     *aResult = IsSurfaceDescriptorValid(mBufferDescriptor)
                  ? SharedImage(mBufferDescriptor)
-                 : null_t();
+                 : SharedImage(null_t());
   }
 
   mBufferDescriptor = aNewBuffer;
