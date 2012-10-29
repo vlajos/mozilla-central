@@ -38,7 +38,7 @@ public:
   // This isn't meaningful for shadow canvas.
   virtual void Updated(const nsIntRect&) {}
 
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator) {}
+  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
 
   // ShadowCanvasLayer impl
   virtual void Swap(const SharedImage& aNewFront,

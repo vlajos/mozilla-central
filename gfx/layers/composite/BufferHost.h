@@ -29,6 +29,8 @@ public:
 
   virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
                               TextureHost* aTextureHost) = 0;
+
+  virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 };
 
 }

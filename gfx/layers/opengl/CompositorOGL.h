@@ -61,6 +61,8 @@ public:
   virtual TemporaryRef<BufferHost> 
     CreateBufferHost(BufferType aType) MOZ_OVERRIDE;
 
+  virtual TextureIdentifier FallbackIdentifier(const TextureIdentifier& aId);
+
   virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
                                               SurfaceInitMode aInit) MOZ_OVERRIDE;
 
@@ -163,11 +165,6 @@ private:
   nsIntSize mSurfaceSize;
 
   already_AddRefed<mozilla::gl::GLContext> CreateContext();
-
-  /** Backbuffer */
-  //TODO remove these
-  GLuint mBackBufferFBO;
-  GLuint mBackBufferTexture;
 
   /** Shader Programs */
   struct ShaderProgramVariations {

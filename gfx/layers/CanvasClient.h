@@ -32,24 +32,25 @@ protected:
   RefPtr<TextureClient> mTextureClient;
 };
 
-//TODO[nrc] are these named the wrong way around?
-//Texture used SHMEM and Shared uses a texture :-s
-class CanvasClientTexture : public CanvasClient
+// used for 2D canvases and WebGL canvas on non-GL systems where readback is requried
+class CanvasClient2D : public CanvasClient
 {
 public:
-  CanvasClientTexture(ShadowLayerForwarder* aLayerForwarder,
+  CanvasClient2D(ShadowLayerForwarder* aLayerForwarder,
                       ShadowableLayer* aLayer,
                       TextureFlags aFlags);
 
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);
 };
 
-class CanvasClientShared : public CanvasClient
+// used for GL canvases where we don't need to do any readback, i.e., with a
+// GL backend
+class CanvasClientWebGL : public CanvasClient
 {
 public:
-  CanvasClientShared(ShadowLayerForwarder* aLayerForwarder,
-                     ShadowableLayer* aLayer,
-                     TextureFlags aFlags);
+  CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
+                    ShadowableLayer* aLayer,
+                    TextureFlags aFlags);
 
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);
 };

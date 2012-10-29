@@ -25,10 +25,6 @@ namespace layers {
 
 using gl::GLContext;
 
-
-
-
-
 ThebesLayerComposite::ThebesLayerComposite(LayerManagerComposite *aManager)
   : ShadowThebesLayer(aManager, nullptr)
   , LayerComposite(aManager)
@@ -58,8 +54,8 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
   if (!mBuffer ||
       mBuffer->GetType() != aHostType) {
     RefPtr<BufferHost> bufferHost = mCompositor->CreateBufferHost(aHostType);
-    NS_ASSERTION(bufferHost->GetType() == BUFFER_THEBES ||
-                 bufferHost->GetType() == BUFFER_DIRECT, "bad buffer type");
+    NS_ASSERTION(bufferHost->GetType() == BUFFER_CONTENT ||
+                 bufferHost->GetType() == BUFFER_CONTENT_DIRECT, "bad buffer type");
     mBuffer = static_cast<AContentHost*>(bufferHost.get());
   }
 }

@@ -166,7 +166,7 @@ public:
 
   virtual void SyncFrontBufferToBackBuffer();
 
-  virtual BufferType GetType() { return BUFFER_DIRECT; }
+  virtual BufferType GetType() { return BUFFER_CONTENT_DIRECT; }
 
 private:
   ContentClientDirect(gfxASurface* aBuffer,
@@ -206,7 +206,7 @@ public:
 
   virtual void SyncFrontBufferToBackBuffer(); 
 
-  virtual BufferType GetType() { return BUFFER_THEBES; }
+  virtual BufferType GetType() { return BUFFER_CONTENT; }
 protected:
   nsIntRect mBackBufferRect;
   nsIntPoint mBackBufferRectRotation;

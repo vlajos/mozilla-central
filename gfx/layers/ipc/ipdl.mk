@@ -10,4 +10,6 @@ IPDLSRCS = \
   PImageContainer.ipdl \
   PLayer.ipdl \
   PLayers.ipdl \
+#  PTexture.ipdl \
+#  PTextureManager.ipdl \
   $(NULL)

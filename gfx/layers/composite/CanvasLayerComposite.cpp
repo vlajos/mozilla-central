@@ -59,7 +59,7 @@ CanvasLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
     return;
   }
 
-  *aNewBack = *mImageHost->UpdateImage(aTextureIdentifier, aFront);
+  *aNewBack = mImageHost->UpdateImage(aTextureIdentifier, aFront);
 }
 
 void
@@ -120,4 +120,10 @@ void
 CanvasLayerComposite::CleanupResources()
 {
   mImageHost = nullptr;
+}
+
+void
+CanvasLayerComposite::SetAllocator(ISurfaceDeAllocator* aAllocator)
+{
+  mImageHost->SetDeAllocator(aAllocator);
 }

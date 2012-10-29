@@ -54,7 +54,8 @@ enum BufferType
   BUFFER_SHARED,
   BUFFER_TEXTURE,
   BUFFER_BRIDGE,
-  BUFFER_THEBES,
+  BUFFER_CONTENT,
+  BUFFER_CONTENT_DIRECT,
   BUFFER_DIRECT
 };
 
@@ -141,15 +142,6 @@ public:
   virtual bool NextTile() = 0;
 };
 
-/**
- * A view on a texture host where the host has a back buffer
- */
-class BufferedTexture
-{
-public:
-  virtual bool EnsureBuffer(nsIntSize aSize) = 0;
-};
-
 class TextureHost : public RefCounted<TextureHost>
 {
 public:
@@ -157,18 +149,15 @@ public:
   virtual ~TextureHost() {}
 
   /**
-   * Update the texture host from a SharedImage, may return the old
+   * Update the texture host from a SharedImage, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The
    * texture client should know what to expect
    */
-  virtual const SharedImage* Update(const SharedImage& aImage) { return nullptr; }
-  /**
-   * Update the texture host from a SurfaceDescriptor, aOldBuffer points
-   * to the old content of the texture host. Returns true if the texture
-   * host could be properly updated
-   */
-  virtual bool Update(const SurfaceDescriptor& aNewBuffer,
-                      SurfaceDescriptor* aOldBuffer) { return false; }
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr) {}
+
   /**
    * Updates a region of the texture host from aSurface
    */
@@ -190,13 +179,13 @@ public:
 
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
+  TextureFlags GetFlags() { return mFlags; }
 
   virtual gfx::IntSize GetSize() = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
   virtual TileIterator* GetAsTileIterator() { return nullptr; }
-  virtual BufferedTexture* GetAsBuffered() { return nullptr; }
   virtual TextureSource* GetAsTextureSource() { return nullptr; }
 
 #ifdef MOZ_DUMP_PAINTING
@@ -464,6 +453,14 @@ public:
    */
   virtual TemporaryRef<BufferHost> 
     CreateBufferHost(BufferType aType) = 0;
+
+  /**
+   * return a TextureIdentifier to be used in a fallback situation for aId
+   */
+  virtual TextureIdentifier FallbackIdentifier(const TextureIdentifier& aId)
+  {
+    return aId;
+  }
 
   /**
    * This creates a Surface that can be used as a rendering target by this

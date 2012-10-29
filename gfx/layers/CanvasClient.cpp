@@ -13,15 +13,27 @@
 namespace mozilla {
 namespace layers {
 
-CanvasClientTexture::CanvasClientTexture(ShadowLayerForwarder* aLayerForwarder,
-                                         ShadowableLayer* aLayer,
-                                         TextureFlags aFlags)
+void
+CanvasClient::SetBuffer(const TextureIdentifier& aTextureIdentifier,
+                        const SharedImage& aBuffer)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, BUFFER_TEXTURE, aLayer, aFlags, true);
+  if (aBuffer.type() != SharedImage::TSurfaceDescriptor) {
+    mTextureClient->SetDescriptor(SurfaceDescriptor());
+    return;
+  }
+
+  mTextureClient->SetDescriptor(aBuffer.get_SurfaceDescriptor());
+}
+
+CanvasClient2D::CanvasClient2D(ShadowLayerForwarder* aLayerForwarder,
+                               ShadowableLayer* aLayer,
+                               TextureFlags aFlags)
+{
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, BUFFER_DIRECT, aLayer, aFlags, true);
 }
 
 void
-CanvasClientTexture::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
+CanvasClient2D::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
     return;
@@ -38,20 +50,7 @@ CanvasClientTexture::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   mTextureClient->Unlock();
 }
 
-void
-CanvasClient::SetBuffer(const TextureIdentifier& aTextureIdentifier,
-                        const SharedImage& aBuffer)
-{
-  if (aBuffer.type() != SharedImage::TSurfaceDescriptor) {
-    mTextureClient->SetDescriptor(SurfaceDescriptor());
-    return;
-  }
-
-  mTextureClient->SetDescriptor(aBuffer.get_SurfaceDescriptor());
-}
-
-
-CanvasClientShared::CanvasClientShared(ShadowLayerForwarder* aLayerForwarder,
+CanvasClientWebGL::CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer, 
                                        TextureFlags aFlags)
 {
@@ -59,13 +58,13 @@ CanvasClientShared::CanvasClientShared(ShadowLayerForwarder* aLayerForwarder,
 }
 
 void
-CanvasClientShared::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
+CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
     return;
   }
 
-  NS_ASSERTION(aLayer->mGLContext, "CanvasClientShared should only be used with GL canvases");
+  NS_ASSERTION(aLayer->mGLContext, "CanvasClientWebGL should only be used with GL canvases");
 
   // the content type won't be used
   mTextureClient->EnsureTextureClient(aSize, gfxASurface::CONTENT_COLOR);

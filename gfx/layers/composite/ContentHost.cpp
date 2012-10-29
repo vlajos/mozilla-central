@@ -20,7 +20,6 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
                                         const nsIntRegion* aVisibleRegion)
 {
   NS_ASSERTION(aVisibleRegion, "Requires a visible region");
-  NS_ASSERTION(mInitialised, "Composite with uninitialised buffer!");
 
   if (!mTextureHost || !mInitialised)
     return;
@@ -197,7 +196,7 @@ ContentHostTexture::UpdateThebes(const TextureIdentifier& aTextureIdentifier,
 void
 ContentHostTexture::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_THEBES &&
+  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_CONTENT &&
                aTextureIdentifier.mTextureType == TEXTURE_SHMEM,
                "BufferType mismatch.");
   mTextureHost = aTextureHost;
@@ -227,26 +226,28 @@ ContentHostDirect::UpdateThebes(const TextureIdentifier& aTextureIdentifier,
     return;
   }
 
-  AutoOpenSurface newBack(OPEN_READ_ONLY, aNewBack.buffer());
-  bool needsReset = mTextureHost->GetAsBuffered()->EnsureBuffer(newBack.Size());
-
-  ThebesBuffer newFront;
-  mInitialised = mTextureHost->Update(aNewBack.buffer(), &newFront.buffer());
-  newFront.rect() = mBufferRect;
-  newFront.rotation() = mBufferRotation;
-  *aNewFront = newFront;
+  bool needsReset;
+  SharedImage newFrontBuffer;
+  mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
+  //TODO[nrc] if !mInitialised should we fallback to a different texturehost?
+  if (newFrontBuffer.type() == SharedImage::TSurfaceDescriptor) {
+    *aNewFront = ThebesBuffer(newFrontBuffer.get_SurfaceDescriptor(), mBufferRect, mBufferRotation);
+  } else {
+    *aNewFront = null_t();
+  }
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.
   aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
-  *aNewBackResult = newFront;
+  *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 }
 
 void
-ContentHostDirect::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ContentHostDirect::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+                                  TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_DIRECT &&
+  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_CONTENT_DIRECT &&
                aTextureIdentifier.mTextureType == TEXTURE_SHMEM,
                "BufferType mismatch.");
   mTextureHost = aTextureHost;

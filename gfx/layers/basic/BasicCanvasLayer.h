@@ -20,8 +20,8 @@ using namespace mozilla::gfx;
 namespace mozilla {
 namespace layers {
 
-class CanvasClientTexture;
-class CanvasClientShared;
+class CanvasClient2D;
+class CanvasClientWebGL;
 
 class BasicCanvasLayer : public CanvasLayer,
                          public BasicImplData
@@ -94,8 +94,8 @@ protected:
     mCachedTempSurface = nullptr;
   }
 
-  friend class CanvasClientTexture;
-  friend class CanvasClientShared;
+  friend class CanvasClient2D;
+  friend class CanvasClientWebGL;
 };
 
 class BasicShadowableCanvasLayer : public BasicCanvasLayer,
@@ -153,7 +153,7 @@ private:
     if (mGLContext) {
       return BUFFER_SHARED;
     }
-    return BUFFER_TEXTURE;
+    return BUFFER_DIRECT;
   }
 
   bool mBufferIsOpaque;

@@ -77,8 +77,6 @@ public:
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack) = 0;
 
-  virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
-
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
@@ -153,7 +151,7 @@ public:
     : ContentHost(aCompositor)
   {}
 
-  virtual BufferType GetType() { return BUFFER_DIRECT; }
+  virtual BufferType GetType() { return BUFFER_CONTENT_DIRECT; }
 
   virtual void UpdateThebes(const TextureIdentifier& aTextureIdentifier,
                             const ThebesBuffer& aNewBack,
@@ -178,7 +176,7 @@ public:
     : ContentHost(aCompositor)
   {}
 
-  virtual BufferType GetType() { return BUFFER_THEBES; }
+  virtual BufferType GetType() { return BUFFER_CONTENT; }
 
   virtual void UpdateThebes(const TextureIdentifier& aTextureIdentifier,
                             const ThebesBuffer& aNewBack,

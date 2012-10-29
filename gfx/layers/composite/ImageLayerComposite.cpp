@@ -49,8 +49,7 @@ ImageLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
     return;
   }
 
-  mImageHost->UpdateImage(aTextureIdentifier, aFront);
-  *aNewBack = aFront;
+  *aNewBack = mImageHost->UpdateImage(aTextureIdentifier, aFront);
 }
 
 void

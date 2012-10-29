@@ -9,6 +9,7 @@
 #include "ContentHost.h"
 #include "SurfaceOGL.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/layers/ShadowLayers.h"
 
 #include "gfxUtils.h"
 
@@ -272,8 +273,6 @@ CompositorOGL::CompositorOGL(nsIWidget *aWidget, int aSurfaceWidth,
   : mWidget(aWidget)
   , mWidgetSize(-1, -1)
   , mSurfaceSize(aSurfaceWidth, aSurfaceHeight)
-  , mBackBufferFBO(0)
-  , mBackBufferTexture(0)
   , mBoundFBO(0)
   , mHasBGRA(0)
   , mIsRenderingToEGLSurface(aIsRenderingToEGLSurface)
@@ -352,16 +351,6 @@ CompositorOGL::CleanupResources()
 
   ctx->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
 
-  if (mBackBufferFBO) {
-    ctx->fDeleteFramebuffers(1, &mBackBufferFBO);
-    mBackBufferFBO = 0;
-  }
-
-  if (mBackBufferTexture) {
-    ctx->fDeleteTextures(1, &mBackBufferTexture);
-    mBackBufferTexture = 0;
-  }
-
   if (mQuadVBO) {
     ctx->fDeleteBuffers(1, &mQuadVBO);
     mQuadVBO = 0;
@@ -414,11 +403,7 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
     return false;
   }
 
-  //TODO[nrc] can we skip some of this initialisation because we won't do double buffering?
-  mGLContext->fGenFramebuffers(1, &mBackBufferFBO);
-
   if (mGLContext->WorkAroundDriverBugs()) {
-
     /**
     * We'll test the ability here to bind NPOT textures to a framebuffer, if
     * this fails we'll try ARB_texture_rectangle.
@@ -435,13 +420,17 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
 
     mFBOTextureTarget = LOCAL_GL_NONE;
 
+    GLuint testFBO = 0;
+    mGLContext->fGenFramebuffers(1, &testFBO);
+    GLuint testTexture = 0;
+
     for (PRUint32 i = 0; i < ArrayLength(textureTargets); i++) {
       GLenum target = textureTargets[i];
       if (!target)
           continue;
 
-      mGLContext->fGenTextures(1, &mBackBufferTexture);
-      mGLContext->fBindTexture(target, mBackBufferTexture);
+      mGLContext->fGenTextures(1, &testTexture);
+      mGLContext->fBindTexture(target, testTexture);
       mGLContext->fTexParameteri(target,
                                 LOCAL_GL_TEXTURE_MIN_FILTER,
                                 LOCAL_GL_NEAREST);
@@ -460,23 +449,26 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
       // unbind this texture, in preparation for binding it to the FBO
       mGLContext->fBindTexture(target, 0);
 
-      mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mBackBufferFBO);
+      mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, testFBO);
       mGLContext->fFramebufferTexture2D(LOCAL_GL_FRAMEBUFFER,
                                         LOCAL_GL_COLOR_ATTACHMENT0,
                                         target,
-                                        mBackBufferTexture,
+                                        testTexture,
                                         0);
 
       if (mGLContext->fCheckFramebufferStatus(LOCAL_GL_FRAMEBUFFER) ==
           LOCAL_GL_FRAMEBUFFER_COMPLETE)
       {
         mFBOTextureTarget = target;
+        mGLContext->fDeleteTextures(1, &testTexture);
         break;
       }
 
-      // We weren't succesful with this texture, so we don't need it
-      // any more.
-      mGLContext->fDeleteTextures(1, &mBackBufferTexture);
+      mGLContext->fDeleteTextures(1, &testTexture);
+    }
+
+    if (testFBO) {
+      mGLContext->fDeleteFramebuffers(1, &testFBO);
     }
 
     if (mFBOTextureTarget == LOCAL_GL_NONE) {
@@ -500,10 +492,6 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
     if (!mGLContext->IsExtensionSupported(gl::GLContext::ARB_texture_rectangle))
       return false;
   }
-
-  // If we're double-buffered, we don't need this fbo anymore.
-  mGLContext->fDeleteFramebuffers(1, &mBackBufferFBO);
-  mBackBufferFBO = 0;
 
   /* Create a simple quad VBO */
 
@@ -741,22 +729,33 @@ CompositorOGL::CreateBufferHost(BufferType aType)
     return new YCbCrImageHost(this);
 #ifdef MOZ_WIDGET_GONK
   case BUFFER_DIRECT_EXTERNAL:
-    return new ImageHostShared(this);
 #endif
   case BUFFER_SHARED:
-    return new ImageHostShared(this);
   case BUFFER_TEXTURE:
-    return new ImageHostTexture(this);
+  case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
+    return new ImageHostSingle(this, aType);
   case BUFFER_BRIDGE:
     return new ImageHostBridge(this);
-  case BUFFER_THEBES:
+  case BUFFER_CONTENT:
     return new ContentHostTexture(this);
-  case BUFFER_DIRECT:
+  case BUFFER_CONTENT_DIRECT:
     return new ContentHostDirect(this);
   default:
     NS_ERROR("Unknown BufferType");
     return nullptr;
   }
+}
+
+TextureIdentifier
+CompositorOGL::FallbackIdentifier(const TextureIdentifier& aId)
+{
+  //TODO[nrc] change this when you fix the fuck up
+  TextureIdentifier result = aId;
+  if (aId.mBufferType == BUFFER_DIRECT) {
+    result.mBufferType = BUFFER_TEXTURE;
+  }
+
+  return result;
 }
 
 TemporaryRef<TextureHost>
@@ -772,12 +771,20 @@ CompositorOGL::CreateTextureHost(const TextureIdentifier &aIdentifier,
     result = new TextureHostOGLSharedWithBuffer(mGLContext);
     break;
   case TEXTURE_SHMEM:
+    //TODO[nrc] fuck up
     if (aIdentifier.mBufferType == BUFFER_YUV) {
       result = new GLTextureAsTextureHost(mGLContext);
     } else if (aIdentifier.mBufferType == BUFFER_YCBCR) {
       result = new YCbCrTextureHost(mGLContext);
-    } else if (aIdentifier.mBufferType == BUFFER_DIRECT) {
+    } else if (aIdentifier.mBufferType == BUFFER_CONTENT_DIRECT) {
+      //TODO[nrc] should probably use the below path with fallback, but check
       result = new TextureImageAsTextureHostWithBuffer(mGLContext);
+    } else if (aIdentifier.mBufferType == BUFFER_DIRECT) {
+      if (ShadowLayerManager::SupportsDirectTexturing()) {
+        result = new TextureImageAsTextureHostWithBuffer(mGLContext);
+      } else {
+        result = new TextureImageAsTextureHost(mGLContext);
+      }
 #ifdef MOZ_WIDGET_GONK
     } else if (aIdentifier.mBufferType == BUFFER_DIRECT_EXTERNAL) {
       result = new DirectExternalTextureHost(mGLContext);

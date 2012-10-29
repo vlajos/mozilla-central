@@ -239,14 +239,14 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
                                        ShadowableLayer* aLayer,
                                        TextureFlags aFlags)
 {
-  if (aBufferHostType == BUFFER_TEXTURE) {
-    return new CanvasClientTexture(aLayerForwarder, aLayer, aFlags);
+  if (aBufferHostType == BUFFER_DIRECT) {
+    return new CanvasClient2D(aLayerForwarder, aLayer, aFlags);
   }
   if (aBufferHostType == BUFFER_SHARED) {
     if (aParentBackend == LAYERS_OPENGL) {
-      return new CanvasClientShared(aLayerForwarder, aLayer, aFlags);
+      return new CanvasClientWebGL(aLayerForwarder, aLayer, aFlags);
     }
-    return new CanvasClientTexture(aLayerForwarder, aLayer, aFlags);
+    return new CanvasClient2D(aLayerForwarder, aLayer, aFlags);
   }
   return nullptr;
 }
@@ -261,10 +261,10 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
   if (aParentBackend != LAYERS_OPENGL) {
     return nullptr;
   }
-  if (aBufferHostType == BUFFER_THEBES) {
+  if (aBufferHostType == BUFFER_CONTENT) {
     return new ContentClientTexture(aLayerForwarder, aLayer, aFlags);
   }
-  if (aBufferHostType == BUFFER_DIRECT) {
+  if (aBufferHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
       return new ContentClientDirect(aLayerForwarder, aLayer, aFlags);
     }

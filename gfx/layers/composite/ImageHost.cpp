@@ -10,73 +10,32 @@
 namespace mozilla {
 namespace layers {
 
-ImageHostTexture::ImageHostTexture(Compositor* aCompositor)
-  : ImageHost(aCompositor)
-  , mTextureHost(nullptr)
-{
-}
-
-const SharedImage*
-ImageHostTexture::UpdateImage(const TextureIdentifier& aTextureIdentifier,
-                              const SharedImage& aImage)
-{
-  return mTextureHost->Update(aImage);
-}
-
-void
-ImageHostTexture::Composite(EffectChain& aEffectChain,
-                            float aOpacity,
-                            const gfx::Matrix4x4& aTransform,
-                            const gfx::Point& aOffset,
-                            const gfx::Filter& aFilter,
-                            const gfx::Rect& aClipRect,
-                            const nsIntRegion* aVisibleRegion)
-{
-  if (Effect* effect = mTextureHost->Lock(aFilter)) {
-    aEffectChain.mEffects[effect->mType] = effect;
-  } else {
-    return;
-  }
-
-  TileIterator* it = mTextureHost->GetAsTileIterator();
-  NS_ASSERTION(it, "Texture host should be iterable as tiles");
-
-  it->BeginTileIteration();
-  do {
-    nsIntRect tileRect = it->GetTileRect();
-    gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
-    gfx::Rect sourceRect(0, 0, tileRect.width, tileRect.height);
-    mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
-                          aOpacity, aTransform, aOffset);
-  } while (it->NextTile());
-
-  mTextureHost->Unlock();
-}
-
-void
-ImageHostTexture::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
-{
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_TEXTURE &&
-               aTextureIdentifier.mTextureType == TEXTURE_SHMEM,
-               "BufferType mismatch.");
-  mTextureHost = aTextureHost;
-}
-
-ImageHostShared::ImageHostShared(Compositor* aCompositor)
-  : ImageHost(aCompositor)
-  , mTextureHost(nullptr)
-{
-}
-
-const SharedImage*
-ImageHostShared::UpdateImage(const TextureIdentifier& aTextureIdentifier,
+SharedImage
+ImageHostSingle::UpdateImage(const TextureIdentifier& aTextureIdentifier,
                              const SharedImage& aImage)
 {
-  return mTextureHost->Update(aImage);
+  if (!mTextureHost) {
+    return null_t();
+  }
+
+  SharedImage result;
+  bool success;
+  mTextureHost->Update(aImage, &result, &success);
+  if (!success) {
+    mTextureHost = mCompositor->CreateTextureHost(
+                     mCompositor->FallbackIdentifier(aTextureIdentifier),
+                     mTextureHost->GetFlags());
+    mTextureHost->Update(aImage, &result, &success);
+    if (!success) {
+      mTextureHost = nullptr;
+      NS_ASSERTION(result.type() == SharedImage::Tnull_t, "fail should give null result");
+    }
+  }
+  return result;
 }
 
 void
-ImageHostShared::Composite(EffectChain& aEffectChain,
+ImageHostSingle::Composite(EffectChain& aEffectChain,
                            float aOpacity,
                            const gfx::Matrix4x4& aTransform,
                            const gfx::Point& aOffset,
@@ -84,23 +43,41 @@ ImageHostShared::Composite(EffectChain& aEffectChain,
                            const gfx::Rect& aClipRect,
                            const nsIntRegion* aVisibleRegion)
 {
+  if (!mTextureHost) {
+    return;
+  }
+
   if (Effect* effect = mTextureHost->Lock(aFilter)) {
     aEffectChain.mEffects[effect->mType] = effect;
   } else {
     return;
   }
 
-  gfx::Rect rect(0, 0, mTextureHost->GetSize().width, mTextureHost->GetSize().height);
-  mCompositor->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
-                        aOpacity, aTransform, aOffset);
+  TileIterator* it = mTextureHost->GetAsTileIterator();
+  if (it) {
+    it->BeginTileIteration();
+    do {
+      nsIntRect tileRect = it->GetTileRect();
+      gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
+      gfx::Rect sourceRect(0, 0, tileRect.width, tileRect.height);
+      mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
+                            aOpacity, aTransform, aOffset);
+    } while (it->NextTile());
+  } else {
+    gfx::Rect rect(0, 0, mTextureHost->GetSize().width, mTextureHost->GetSize().height);
+    mCompositor->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
+                          aOpacity, aTransform, aOffset);
+  }
 
   mTextureHost->Unlock();
 }
 
 void
-ImageHostShared::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ImageHostSingle::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
 {
-  NS_ASSERTION((aTextureIdentifier.mBufferType == BUFFER_SHARED &&
+  NS_ASSERTION((aTextureIdentifier.mBufferType == BUFFER_TEXTURE &&
+                aTextureIdentifier.mTextureType == TEXTURE_SHMEM) ||
+               (aTextureIdentifier.mBufferType == BUFFER_SHARED &&
                 aTextureIdentifier.mTextureType == TEXTURE_SHARED) ||
                (aTextureIdentifier.mBufferType == BUFFER_DIRECT_EXTERNAL &&
                 aTextureIdentifier.mTextureType == TEXTURE_SHMEM),
@@ -109,7 +86,7 @@ ImageHostShared::AddTextureHost(const TextureIdentifier& aTextureIdentifier, Tex
 }
 
 
-const SharedImage*
+SharedImage
 YUVImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
                           const SharedImage& aImage)
 {
@@ -123,13 +100,13 @@ YUVImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
     mTextures[1]->Update(SurfaceDescriptor(yuv.Udata()));
     mTextures[2]->Update(SurfaceDescriptor(yuv.Vdata()));
 
-    return &aImage;
+    return aImage;
   }
 
   // update a single channel
   mTextures[aTextureIdentifier.mDescriptor]->Update(aImage);
 
-  return &aImage;
+  return aImage;
 }
 
 void
@@ -168,7 +145,7 @@ YUVImageHost::AddTextureHost(const TextureIdentifier& aTextureIdentifier, Textur
   mTextures[aTextureIdentifier.mDescriptor] = aTextureHost;
 }
 
-const SharedImage*
+SharedImage
 YCbCrImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
                             const SharedImage& aImage)
 {
@@ -176,7 +153,9 @@ YCbCrImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
 
   mPictureRect = aImage.get_YCbCrImage().picture();;
 
-  return mTextureHost->Update(aImage);
+  SharedImage result;
+  mTextureHost->Update(aImage, &result);
+  return result;
 }
 
 void
@@ -238,7 +217,7 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
   }
 }
 
-const SharedImage*
+SharedImage
 ImageHostBridge::UpdateImage(const TextureIdentifier& aTextureIdentifier,
                              const SharedImage& aImage)
 {
@@ -249,7 +228,7 @@ ImageHostBridge::UpdateImage(const TextureIdentifier& aTextureIdentifier,
     mImageVersion = 0;
   }
 
-  return &aImage;
+  return aImage;
 }
 
 BufferType

@@ -137,7 +137,10 @@ public:
     mTexImage->mWrapMode = aWrapMode;
   }
  
-  virtual const SharedImage* Update(const SharedImage& aImage);
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
   virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
  
   virtual TileIterator* GetAsTileIterator() { return this; }
@@ -185,38 +188,40 @@ public:
   TextureImage* GetTextureImage() { return mTexImage; }
   void SetTextureImage(TextureImage* aTexImage) { mTexImage = aTexImage; }
 
-  virtual const SharedImage* Update(const SharedImage& aImage) { return nullptr; }
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr) {}
   virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {}
 };
- 
+
 class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
-                                          , public BufferedTexture
 {
 public:
   ~TextureImageAsTextureHostWithBuffer();
  
-  virtual bool Update(const SurfaceDescriptor& aNewBuffer,
-                      SurfaceDescriptor* aOldBuffer);
+  virtual void Update(const SurfaceDescriptor& aNewBuffer,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
   /**
-  * Set deallocator for data recieved from IPC protocol
-  * We should be able to set allocator right before swap call
-  * that is why allowed multiple call with the same Allocator
-  */
+   * Set deallocator for data recieved from IPC protocol
+   * We should be able to set allocator right before swap call
+   * that is why allowed multiple call with the same Allocator
+   */
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator)
   {
     NS_ASSERTION(!mDeAllocator || mDeAllocator == aDeAllocator, "Stomping allocator?");
     mDeAllocator = aDeAllocator;
   }
  
-  virtual BufferedTexture* GetAsBuffered() { return this; }
- 
-  // returns true if the buffer was reset
-  virtual bool EnsureBuffer(nsIntSize aSize);
- 
 protected:
   TextureImageAsTextureHostWithBuffer(GLContext* aGL)
     : TextureImageAsTextureHost(aGL)
   {}
+ 
+  // returns true if the buffer was reset
+  bool EnsureBuffer(nsIntSize aSize);
  
   ISurfaceDeAllocator* mDeAllocator;
   SurfaceDescriptor mBufferDescriptor;
@@ -246,7 +251,10 @@ public:
     return mTextureHandle;
   }
  
-  virtual const SharedImage* Update(const SharedImage& aImage);
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
   virtual void Unlock();
  
@@ -265,11 +273,14 @@ protected:
  
   friend class CompositorOGL;
 };
- 
+
 class TextureHostOGLSharedWithBuffer : public TextureHostOGLShared
 {
 public:
-  virtual const SharedImage* Update(const SharedImage& aImage);
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
  
 protected:
   TextureHostOGLSharedWithBuffer(GLContext* aGL)
@@ -330,7 +341,10 @@ public:
     return mTexture.GetTextureID();
   }
  
-  const SharedImage* Update(const SharedImage& aImage);
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
  
 private:
   nsRefPtr<GLContext> mGL;
@@ -346,7 +360,10 @@ public:
     : mGL(aGL)
   {}
 
-  const SharedImage* Update(const SharedImage& aImage);
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
 
 private:
@@ -376,7 +393,10 @@ public:
     return mExternalBufferTexture.GetTextureID()
   }
  
-  const SharedImage* Update(const SharedImage& aImage);
+  virtual void Update(const SharedImage& aImage,
+                      SharedImage* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
  
 private:
