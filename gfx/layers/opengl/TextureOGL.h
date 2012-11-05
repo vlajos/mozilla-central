@@ -184,11 +184,16 @@ protected:
 // i.e., where we draw to it directly, and do not have a texture client
 class TextureImageHost : public TextureImageAsTextureHost
 {
+  //TODO[nrc] what is happening with mSize here? need to set it.
 public:
   TextureImageHost(GLContext* aGL, TextureImage* aTexImage);
  
   TextureImage* GetTextureImage() { return mTexImage; }
-  void SetTextureImage(TextureImage* aTexImage) { mTexImage = aTexImage; }
+  void SetTextureImage(TextureImage* aTexImage)
+  {
+    mTexImage = aTexImage;
+    mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
+  }
 
   virtual void Update(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,

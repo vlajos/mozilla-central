@@ -49,6 +49,7 @@ namespace mozilla {
     class LayerManagerOGL;
     class ColorTextureLayerProgram;
     class TextureImageAsTextureHost;
+    class TextureImageHost;
   }
 
 namespace gl {
@@ -94,6 +95,7 @@ class TextureImage
 {
     NS_INLINE_DECL_REFCOUNTING(TextureImage)
     friend class layers::TextureImageAsTextureHost;
+    friend class layers::TextureImageHost;
 public:
     enum TextureState
     {

@@ -291,16 +291,15 @@ protected:
       // assert it though
     }
 
-
     if (needsSurface) {
       // Unbind the current surface and rebind the previous one.
       compositor->SetSurfaceTarget(aPreviousSurface);
-  #ifdef MOZ_DUMP_PAINTING
+#ifdef MOZ_DUMP_PAINTING
       if (gfxUtils::sDumpPainting) {
         nsRefPtr<gfxImageSurface> surf = surface->Dump(aManager->GetCompositor());
         WriteSnapshotToDumpFile(aContainer, surf);
       }
-  #endif
+#endif
 
       aManager->RestoreViewport();
       if (!aManager->CompositingDisabled()) {
