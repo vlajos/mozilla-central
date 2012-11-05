@@ -188,8 +188,8 @@ public:
     // only called for ImageBridge and then there is nothing to do
   }
 
-  virtual void SetBackBufferYUVImage(const TextureIdentifier& aTextureIdentifier,
-                                     const SharedImage& aBuffer)
+  virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
+                             const SharedImage& aBuffer)
   {
     mImageClient->SetBuffer(aTextureIdentifier, aBuffer);
   }

@@ -142,7 +142,9 @@ public:
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
- 
+  
+  virtual void Abort();
+
   virtual TileIterator* GetAsTileIterator() { return this; }
   virtual Effect* Lock(const gfx::Filter& aFilter);
  

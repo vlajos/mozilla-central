@@ -483,10 +483,15 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   } else {
     mTextureHost = new TextureImageHost(gl(), texImage);
   }
-  if (mTextureHostOnWhite) {
-    static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
+
+  if (!texImageOnWhite) {
+    mTextureHostOnWhite = nullptr;
   } else {
-    mTextureHostOnWhite = new TextureImageHost(gl(), texImage);
+    if (mTextureHostOnWhite) {
+      static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
+    } else if (texImageOnWhite) {
+      mTextureHostOnWhite = new TextureImageHost(gl(), texImageOnWhite);
+    }
   }
 
   nsIntRegion invalidate;
@@ -677,8 +682,12 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
 
   // Drawing thebes layers can change the current context, reset it.
   gl()->MakeCurrent();
-  gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
-                         static_cast<SurfaceOGL*>(aPreviousSurface)->mFBO);
+  if (aPreviousSurface) {
+    gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
+                           static_cast<SurfaceOGL*>(aPreviousSurface)->mFBO);
+  } else {
+    gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
+  }
 
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
