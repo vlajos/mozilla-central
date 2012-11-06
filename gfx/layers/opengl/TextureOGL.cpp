@@ -179,6 +179,7 @@ TextureImageHost::TextureImageHost(GLContext* aGL, TextureImage* aTexImage)
   : TextureImageAsTextureHost(aGL)
 {
   mTexImage = aTexImage;
+  mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
 }
  
 TextureImageAsTextureHostWithBuffer::~TextureImageAsTextureHostWithBuffer()
