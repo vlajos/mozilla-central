@@ -358,6 +358,7 @@ private:
 };
 
 // a texture host with all three plains in one texture
+//TODO used by YUV not YCbCr
 class YCbCrTextureHost : public TextureHostOGL
 {
   typedef mozilla::gl::GLContext GLContext;
