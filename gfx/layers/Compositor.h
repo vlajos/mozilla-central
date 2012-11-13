@@ -479,20 +479,29 @@ public:
   virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
                                               SurfaceInitMode aInit) = 0;
 
-  /* This creates a Surface that can be used as a rendering target by this compositor,
+  /**
+   * This creates a Surface that can be used as a rendering target by this compositor,
    * and initializes this surface by copying from the given surface. If the given surface
    * is nullptr, the screen frame in progress is used as the source.
    */
   virtual TemporaryRef<Surface> CreateSurfaceFromSurface(const gfx::IntRect &aRect,
                                                          const Surface *aSource) = 0;
 
-  /* Sets the given surface as the target for subsequent calls to DrawQuad.
+  /**
+   * Sets the given surface as the target for subsequent calls to DrawQuad.
    * Passing nullptr as aSurface sets the screen as the target.
    */
   virtual void SetSurfaceTarget(Surface *aSurface) = 0;
 
+  /**
+   * Mostly the compositor will pull the size from a widget and this will
+   * be ignored, but compositor implementations are free to use it if they
+   * like.
+   */
+  virtual void SetSurfaceSize(int aWidth, int aHeight) = 0;
 
-  /* This tells the compositor to actually draw a quad, where the area is
+  /**
+   * This tells the compositor to actually draw a quad, where the area is
    * specified in userspace, and the source rectangle is the area of the
    * currently set textures to sample from. This area may not refer directly
    * to pixels depending on the effect.
@@ -551,6 +560,12 @@ public:
   }
 
   virtual void NotifyShadowTreeTransaction() = 0;
+
+  /**
+   * Notify the compositor that composition is being paused/resumed.
+   */
+  virtual void Pause() {}
+  virtual void Resume() {}
 
 protected:
   uint32_t mCompositorID;

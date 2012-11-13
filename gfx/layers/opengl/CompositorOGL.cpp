@@ -1520,6 +1520,13 @@ CompositorOGL::AbortFrame()
 }
 
 void
+CompositorOGL::SetSurfaceSize(int aWidth, int aHeight)
+{
+  mSurfaceSize.width = aWidth;
+  mSurfaceSize.height = aHeight;
+}
+
+void
 CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
 {
   nsIntRect rect;
@@ -1573,6 +1580,23 @@ CompositorOGL::NotifyShadowTreeTransaction()
     mFPS->NotifyShadowTreeTransaction();
   }
 }
+
+void
+CompositorOGL::Pause()
+{
+#ifdef MOZ_WIDGET_ANDROID
+  gl()->ReleaseSurface();
+#endif
+}
+
+void
+CompositorOGL::Resume()
+{
+#ifdef MOZ_WIDGET_ANDROID
+  gl()->RenewSurface();
+#endif
+}
+
 
 } /* layers */
 } /* mozilla */

@@ -101,7 +101,7 @@ public:
   /**
    * Set the size of the EGL surface we're rendering to.
    */
-  void SetSurfaceSize(int width, int height);
+  virtual void SetSurfaceSize(int aWidth, int aHeight);
 
   GLContext* gl() const { return mGLContext; }
 
@@ -149,6 +149,8 @@ public:
 
   virtual void NotifyShadowTreeTransaction();
 
+  virtual void Pause();
+  virtual void Resume();
 
 private:
   /** 

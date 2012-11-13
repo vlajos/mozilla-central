@@ -451,25 +451,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateEnd(canvas, "FF00FF");
       break;
     }
-    case Edit::TOpPaintImage: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint ImageLayer"));
-
-      const OpPaintImage& op = edit.get_OpPaintImage();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
-      ShadowImageLayer* image =
-        static_cast<ShadowImageLayer*>(shadow->AsLayer());
-
-      RenderTraceInvalidateStart(image, "FF00FF", image->GetVisibleRegion().GetBounds());
-
-      image->SetAllocator(this);
-      SharedImage newBack;
-      image->Swap(op.newFrontBuffer(), &newBack);
-      replyv.push_back(OpImageSwap(shadow, NULL,
-                                   newBack));
-
-      RenderTraceInvalidateEnd(image, "FF00FF");
-      break;
-    }
     case Edit::TOpPaintTexture: {
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture"));
 

@@ -184,7 +184,6 @@ protected:
 // i.e., where we draw to it directly, and do not have a texture client
 class TextureImageHost : public TextureImageAsTextureHost
 {
-  //TODO[nrc] what is happening with mSize here? need to set it.
 public:
   TextureImageHost(GLContext* aGL, TextureImage* aTexImage);
  

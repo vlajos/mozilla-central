@@ -17,13 +17,12 @@
 #include "AutoOpenSurface.h"
 #include "BasicLayers.h"
 #include "CompositorParent.h"
-#include "LayerManagerOGL.h"
+#include "CompositorOGL.h"
 #include "nsGkAtoms.h"
 #include "nsIWidget.h"
 #include "RenderTrace.h"
 #include "ShadowLayersParent.h"
 #include "BasicLayers.h"
-#include "LayerManagerOGL.h"
 #include "nsIWidget.h"
 #include "nsGkAtoms.h"
 #include "RenderTrace.h"
@@ -283,9 +282,7 @@ CompositorParent::PauseComposition()
   if (!mPaused) {
     mPaused = true;
 
-#ifdef MOZ_WIDGET_ANDROID
-    static_cast<LayerManagerOGL*>(mLayerManager.get())->gl()->ReleaseSurface();
-#endif
+    mLayerManager->GetCompositor()->Pause();
   }
 
   // if anyone's waiting to make sure that composition really got paused, tell them
@@ -302,9 +299,7 @@ CompositorParent::ResumeComposition()
 
   mPaused = false;
 
-#ifdef MOZ_WIDGET_ANDROID
-  static_cast<LayerManagerOGL*>(mLayerManager.get())->gl()->RenewSurface();
-#endif
+  mLayerManager->GetCompositor()->Resume();
 
   Composite();
 
@@ -315,11 +310,10 @@ CompositorParent::ResumeComposition()
 void
 CompositorParent::SetEGLSurfaceSize(int width, int height)
 {
-  NS_ASSERTION(mRenderToEGLSurface, "Compositor created without RenderToEGLSurface ar provided");
+  NS_ASSERTION(mRenderToEGLSurface, "Compositor created without RenderToEGLSurface provided");
   mEGLSurfaceSize.SizeTo(width, height);
   if (mLayerManager) {
-    //TODO[nrc]
-    //mLayerManager->GetCompositor()->SetSurfaceSize(mEGLSurfaceSize.width, mEGLSurfaceSize.height);
+    mLayerManager->GetCompositor()->SetSurfaceSize(mEGLSurfaceSize.width, mEGLSurfaceSize.height);
   }
 }
 
@@ -525,10 +519,9 @@ CompositorParent::Composite()
   RenderTraceLayers(layer, "0000");
 
   if (!mTargetConfig.naturalBounds().IsEmpty()) {
-    //TODO[nrc] gl?
     mLayerManager->SetWorldTransform(
-      ComputeGLTransformForRotation(mTargetConfig.naturalBounds(),
-                                    mTargetConfig.rotation()));
+      ComputeTransformForRotation(mTargetConfig.naturalBounds(),
+                                  mTargetConfig.rotation()));
   }
   mLayerManager->EndEmptyTransaction();
 

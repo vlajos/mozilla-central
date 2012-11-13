@@ -212,14 +212,6 @@ public:
                                BasicTiledLayerBuffer* aTiledLayerBuffer);
 
   /**
-   * NB: this initial implementation only forwards RGBA data for
-   * ImageLayers.  This is slow, and will be optimized.
-   */
-  //TODO[nrc] remove this one when not used (image bridge)
-  void PaintedImage(ShadowableLayer* aImage,
-                    const SharedImage& aNewFrontImage);
-
-  /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
    */

@@ -262,14 +262,6 @@ ShadowLayerForwarder::PaintedTiledLayerBuffer(ShadowableLayer* aLayer,
 }
 
 void
-ShadowLayerForwarder::PaintedImage(ShadowableLayer* aImage,
-                                   const SharedImage& aNewFrontImage)
-{
-  mTxn->AddPaint(OpPaintImage(NULL, Shadow(aImage),
-                              aNewFrontImage));
-}
-
-void
 ShadowLayerForwarder::UpdateTexture(ShadowableLayer* aLayer,
                                     TextureIdentifier aIdentifier,
                                     const SharedImage& aImage)

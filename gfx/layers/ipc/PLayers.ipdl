@@ -10,6 +10,7 @@ include protocol PCompositor;
 include protocol PGrallocBuffer;
 include protocol PLayer;
 include protocol PRenderFrame;
+include protocol PTexture;
 
 include "gfxipc/ShadowLayerUtils.h";
 include "Compositor.h";
@@ -209,11 +210,11 @@ struct OpSetLayerAttributes {
   LayerAttributes attrs;
 };
 
-struct OpCreateTextureHost {
+/*struct OpCreateTextureHost {
   PLayer layer;
   TextureIdentifier textureIdentifier;
   int textureFlags;
-};
+};*/
 
 // Monkey with the tree structure
 struct OpSetRoot          { PLayer root; };
@@ -244,12 +245,7 @@ struct OpPaintCanvas  {
   bool needYFlip;
 };
 
-struct OpPaintImage  {
-  PLayer layer;
-  SharedImage newFrontBuffer;
-};
-
-struct OpPaintTexture {
+/*struct OpPaintTexture {
   PLayer layer;
   TextureIdentifier textureIdentifier;
   SharedImage image;
@@ -258,6 +254,20 @@ struct OpPaintTexture {
 struct OpPaintTextureRegion {
   PLayer layer;
   TextureIdentifier textureIdentifier;
+  ThebesBuffer newFrontBuffer;
+  nsIntRegion updatedRegion;
+};*/
+
+//TODO[nrc] names
+struct OpCreateTexture { PTexture texture; };
+
+struct OpPaintTexture {
+  PTexture texture;
+  SharedImage image;
+};
+
+struct OpPaintTextureRegion {
+  PTexture texture;
   ThebesBuffer newFrontBuffer;
   nsIntRegion updatedRegion;
 };
@@ -278,8 +288,6 @@ union Edit {
 
   OpSetLayerAttributes;
   
-  OpCreateTextureHost;
-
   OpSetRoot;
   OpInsertAfter;
   OpAppendChild;
@@ -290,10 +298,11 @@ union Edit {
   OpPaintThebesBuffer;
   OpPaintTiledLayerBuffer;
   OpPaintCanvas;
-  OpPaintImage;
+  OpUpdatePictureRect;
+
+  OpCreateTexture;
   OpPaintTexture;
   OpPaintTextureRegion;
-  OpUpdatePictureRect;
 };
 
 
@@ -332,11 +341,16 @@ union EditReply {
   OpTextureSwap;
 };
 
+struct OpTextureReply {
+  PTexture texture;
+  SharedImage image;
+};
 
 sync protocol PLayers {
   manager PRenderFrame or PCompositor;
   manages PGrallocBuffer;
   manages PLayer;
+  manages PTexture;
 
 parent:
   /**
@@ -347,6 +361,7 @@ parent:
   sync PGrallocBuffer(gfxIntSize size, gfxContentType content)
     returns (MaybeMagicGrallocBufferHandle handle);
   async PLayer();
+  async PTexture();
 
   // The isFirstPaint flag can be used to indicate that this is the first update
   // for a particular document.
