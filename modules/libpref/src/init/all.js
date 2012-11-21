@@ -169,7 +169,7 @@ pref("media.webm.enabled", true);
 pref("media.dash.enabled", true);
 #endif
 #ifdef MOZ_GSTREAMER
-pref("media.h264.enabled", true);
+pref("media.gstreamer.enabled", true);
 #endif
 #ifdef MOZ_WEBRTC
 pref("media.navigator.enabled", false);
@@ -188,15 +188,15 @@ pref("media.webaudio.enabled", false);
 pref("media.autoplay.enabled", true);
 
 // The default number of decoded video frames that are enqueued in
-// nsBuiltinDecoderReader's mVideoQueue.
+// MediaDecoderReader's mVideoQueue.
 pref("media.video-queue.default-size", 10);
 
 #ifdef XP_MACOSX
 // Whether to run in native HiDPI mode on machines with "Retina"/HiDPI display;
 //   <= 0 : hidpi mode disabled, display will just use pixel-based upscaling
 //   == 1 : hidpi supported if all screens share the same backingScaleFactor
-//   >= 2 : hidpi supported even with mixed backingScaleFactors (currently broken)
-pref("gfx.hidpi.enabled", 1);
+//   >= 2 : hidpi supported even with mixed backingScaleFactors (somewhat broken)
+pref("gfx.hidpi.enabled", 2);
 #endif
 
 // 0 = Off, 1 = Full, 2 = Tagged Images Only. 
@@ -342,8 +342,8 @@ pref("toolkit.autocomplete.richBoundaryCutoff", 200);
 
 pref("toolkit.scrollbox.smoothScroll", true);
 pref("toolkit.scrollbox.scrollIncrement", 20);
-// Make sure to update NS_DEFAULT_VERTICAL_SCROLL_DISTANCE if changing this default.
 pref("toolkit.scrollbox.verticalScrollDistance", 3);
+pref("toolkit.scrollbox.horizontalScrollDistance", 5);
 pref("toolkit.scrollbox.clickToScroll.scrollDelay", 150);
 
 // Telemetry
@@ -358,6 +358,7 @@ pref("toolkit.telemetry.infoURL", "http://www.mozilla.com/legal/privacy/firefox.
 pref("toolkit.telemetry.debugSlowSql", false);
 
 // Identity module
+pref("toolkit.identity.enabled", false);
 pref("toolkit.identity.debug", false);
 
 // Disable remote debugging protocol logging
@@ -681,7 +682,6 @@ pref("dom.min_background_timeout_value", 1000);
 
 // Use the new DOM bindings (only affects any scopes created after the pref is
 // changed)
-pref("dom.new_bindings", true);
 pref("dom.experimental_bindings", true);
 
 // Don't use new input types
@@ -709,7 +709,6 @@ pref("javascript.options.strict",           false);
 #ifdef DEBUG
 pref("javascript.options.strict.debug",     true);
 #endif
-pref("javascript.options.relimit",          true);
 pref("javascript.options.methodjit.content", true);
 pref("javascript.options.methodjit.chrome",  true);
 pref("javascript.options.ion.content",      true);
@@ -742,6 +741,7 @@ pref("javascript.options.mem.gc_high_frequency_heap_growth_min", 150);
 pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
 pref("javascript.options.mem.gc_dynamic_heap_growth", true);
 pref("javascript.options.mem.gc_dynamic_mark_slice", true);
+pref("javascript.options.mem.gc_allocation_threshold_mb", 30);
 
 pref("javascript.options.mem.analysis_purge_mb", 100);
 
@@ -921,7 +921,7 @@ pref("network.http.spdy.chunk-size", 4096);
 pref("network.http.spdy.timeout", 180);
 pref("network.http.spdy.coalesce-hostnames", true);
 pref("network.http.spdy.use-alternate-protocol", true);
-pref("network.http.spdy.ping-threshold", 44);
+pref("network.http.spdy.ping-threshold", 58);
 pref("network.http.spdy.ping-timeout", 8);
 pref("network.http.spdy.send-buffer-size", 131072);
 
@@ -1025,6 +1025,7 @@ pref("network.IDN.whitelist.es", true);
 pref("network.IDN.whitelist.fi", true);
 pref("network.IDN.whitelist.fr", true);
 pref("network.IDN.whitelist.gr", true);
+pref("network.IDN.whitelist.gt", true);
 pref("network.IDN.whitelist.hu", true);
 pref("network.IDN.whitelist.il", true);
 pref("network.IDN.whitelist.io", true);
@@ -1096,8 +1097,11 @@ pref("network.IDN.whitelist.xn--kprw13d", true);  // Simplified
 pref("network.IDN.whitelist.asia", true);
 pref("network.IDN.whitelist.biz", true);
 pref("network.IDN.whitelist.cat", true);
+pref("network.IDN.whitelist.com", true);
 pref("network.IDN.whitelist.info", true);
 pref("network.IDN.whitelist.museum", true);
+pref("network.IDN.whitelist.name", true);
+pref("network.IDN.whitelist.net", true);
 pref("network.IDN.whitelist.org", true);
 pref("network.IDN.whitelist.tel", true);
 
@@ -1249,6 +1253,9 @@ pref("network.proxy.autoconfig_url", "");
 pref("network.proxy.autoconfig_retry_interval_min", 5);    // 5 seconds
 pref("network.proxy.autoconfig_retry_interval_max", 300);  // 5 minutes
 
+// Use the HSTS preload list by default
+pref("network.stricttransportsecurity.preloadlist", true);
+
 pref("converter.html2txt.structs",          true); // Output structured phrases (strong, em, code, sub, sup, b, i, u)
 pref("converter.html2txt.header_strategy",  1); // 0 = no indention; 1 = indention, increased with header level; 2 = numbering and slight indention
 
@@ -1256,9 +1263,9 @@ pref("intl.accept_languages",               "chrome://global/locale/intl.propert
 pref("intl.menuitems.alwaysappendaccesskeys","chrome://global/locale/intl.properties");
 pref("intl.menuitems.insertseparatorbeforeaccesskeys","chrome://global/locale/intl.properties");
 pref("intl.charsetmenu.browser.static",     "chrome://global/locale/intl.properties");
-pref("intl.charsetmenu.browser.more1",      "ISO-8859-1, ISO-8859-15, IBM850, x-mac-roman, windows-1252, ISO-8859-14, ISO-8859-7, x-mac-greek, windows-1253, x-mac-icelandic, ISO-8859-10, ISO-8859-3");
+pref("intl.charsetmenu.browser.more1",      "ISO-8859-1, ISO-8859-15, IBM850, macintosh, windows-1252, ISO-8859-14, ISO-8859-7, x-mac-greek, windows-1253, x-mac-icelandic, ISO-8859-10, ISO-8859-3");
 pref("intl.charsetmenu.browser.more2",      "ISO-8859-4, ISO-8859-13, windows-1257, IBM852, ISO-8859-2, x-mac-ce, windows-1250, x-mac-croatian, IBM855, ISO-8859-5, ISO-IR-111, KOI8-R, x-mac-cyrillic, windows-1251, IBM866, KOI8-U, x-mac-ukrainian, ISO-8859-16, x-mac-romanian");
-pref("intl.charsetmenu.browser.more3",      "GB2312, gbk, gb18030, HZ-GB-2312, ISO-2022-CN, Big5, Big5-HKSCS, x-euc-tw, EUC-JP, ISO-2022-JP, Shift_JIS, EUC-KR, x-windows-949, x-johab, ISO-2022-KR");
+pref("intl.charsetmenu.browser.more3",      "GB2312, gbk, gb18030, HZ-GB-2312, ISO-2022-CN, Big5, Big5-HKSCS, x-euc-tw, EUC-JP, ISO-2022-JP, Shift_JIS, EUC-KR, x-johab, ISO-2022-KR");
 pref("intl.charsetmenu.browser.more4",      "armscii-8, TIS-620, ISO-8859-11, windows-874, IBM857, ISO-8859-9, x-mac-turkish, windows-1254, x-viet-tcvn5712, VISCII, x-viet-vps, windows-1258, x-mac-devanagari, x-mac-gujarati, x-mac-gurmukhi");
 pref("intl.charsetmenu.browser.more5",      "ISO-8859-6, windows-1256, ISO-8859-8-I, windows-1255, ISO-8859-8, IBM862");
 pref("intl.charsetmenu.browser.unicode",    "UTF-8, UTF-16LE, UTF-16BE");
@@ -1608,6 +1615,12 @@ pref("layout.css.supports-rule.enabled", true);
 // Is support for CSS Flexbox enabled?
 pref("layout.css.flexbox.enabled", false);
 
+// Are sets of prefixed properties supported?
+pref("layout.css.prefixes.border-image", true);
+pref("layout.css.prefixes.transforms", true);
+pref("layout.css.prefixes.transitions", true);
+pref("layout.css.prefixes.animations", true);
+
 // pref for which side vertical scrollbars should be on
 // 0 = end-side in UI direction
 // 1 = end-side in document/content direction
@@ -1671,6 +1684,9 @@ pref("editor.positioning.offset",            0);
 
 pref("dom.max_chrome_script_run_time", 20);
 pref("dom.max_script_run_time", 10);
+
+// If true, ArchiveReader will be enabled
+pref("dom.archivereader.enabled", false);
 
 // Hang monitor timeout after which we kill the browser, in seconds
 // (0 is disabled)
@@ -1769,6 +1785,17 @@ pref("font.size.inflation.emPerLine", 0);
  */
 pref("font.size.inflation.minTwips", 0);
 /*
+ * In products with multi-mode pan-and-zoom and non-pan-and-zoom UIs,
+ * this pref forces font inflation to always be enabled in all modes.
+ * That is, any heuristics used to detect pan-and-zoom
+ * vs. non-pan-and-zoom modes are disabled and all content is treated
+ * as pan-and-zoom mode wrt font inflation.
+ *
+ * This pref has no effect if font inflation is not enabled through
+ * either of the prefs above.  It has no meaning in single-mode UIs.
+ */
+pref("font.size.inflation.forceEnabled", false);
+/*
  * Since the goal of font size inflation is to avoid having to
  * repeatedly scroll side to side to read a block of text, and there are
  * a number of page layouts where a relatively small chunk of text is
@@ -1813,6 +1840,19 @@ pref("font.size.inflation.lineThreshold", 400);
  * large enough. This means that when s=0, i is always equal to m.
  */
 pref("font.size.inflation.mappingIntercept", 1);
+
+
+/*
+ * This controls the percentage that fonts will be inflated, if font
+ * size inflation is enabled. Essentially, if we have a specified font
+ * size, s, and an inflated font size, i, this specifies that the ratio
+ * i/s * 100 should never exceed the value of this preference.
+ *
+ * In order for this preference to have any effect, its value must be
+ * greater than 100, since font inflation can never decrease the ratio
+ * i/s.
+ */
+pref("font.size.inflation.maxRatio", 0);
 
 /*
  * When enabled, the touch.radius and mouse.radius prefs allow events to be dispatched
@@ -2998,10 +3038,10 @@ pref("font.name.monospace.he", "Droid Sans Mono");
 pref("font.name-list.sans-serif.he", "Droid Sans Hebrew, Droid Sans");
 
 pref("font.name.serif.ja", "Droid Serif");
-pref("font.name.sans-serif.ja", "Droid Sans Japanese");
+pref("font.name.sans-serif.ja", "Droid Sans");
 pref("font.name.monospace.ja", "MotoyaLMaru");
-pref("font.name-list.sans-serif.ja", "MotoyaLMaru, MotoyaLCedar, Droid Sans Japanese");
-pref("font.name-list.monospace.ja", "MotoyaLMaru, MotoyaLCedar");
+pref("font.name-list.sans-serif.ja", "Roboto, Droid Sans, MotoyaLMaru, MotoyaLCedar, Droid Sans Japanese");
+pref("font.name-list.monospace.ja", "MotoyaLMaru, MotoyaLCedar, Droid Sans Mono");
 
 pref("font.name.serif.ko", "Droid Serif");
 pref("font.name.sans-serif.ko", "Droid Sans");
@@ -3556,7 +3596,7 @@ pref("image.http.accept", "image/png,image/*;q=0.8,*/*;q=0.5");
 #ifdef XP_MACOSX
 pref("image.high_quality_downscaling.enabled", false);
 #else
-pref("image.high_quality_downscaling.enabled", false);
+pref("image.high_quality_downscaling.enabled", true);
 #endif
 
 // The minimum percent downscaling we'll use high-quality downscaling on,
@@ -3585,7 +3625,7 @@ pref("image.mem.decodeondraw", true);
 pref("image.mem.min_discard_timeout_ms", 10000);
 
 // Chunk size for calls to the image decoders
-pref("image.mem.decode_bytes_at_a_time", 4096);
+pref("image.mem.decode_bytes_at_a_time", 16384);
 
 // The longest time we can spend in an iteration of an async decode
 pref("image.mem.max_ms_before_yield", 5);
@@ -3606,6 +3646,10 @@ pref("webgl.msaa-force", false);
 pref("webgl.prefer-16bpp", false);
 pref("webgl.default-no-alpha", false);
 pref("webgl.force-layers-readback", false);
+
+// Stagefright prefs
+pref("stagefright.force-enabled", false);
+pref("stagefright.disabled", false);
 
 #ifdef XP_WIN
 // The default TCP send window on Windows is too small, and autotuning only occurs on receive
@@ -3632,6 +3676,9 @@ pref("layers.acceleration.draw-fps", false);
 pref("layers.offmainthreadcomposition.animate-opacity", false);
 pref("layers.offmainthreadcomposition.animate-transform", false);
 pref("layers.offmainthreadcomposition.log-animations", false);
+
+// Whether to (try) to use a Composer2D if available on this platform.
+pref("layers.composer2d.enabled", false);
 
 #ifdef MOZ_X11
 #ifdef MOZ_WIDGET_GTK2
@@ -3736,8 +3783,9 @@ pref("dom.mozSettings.enabled", false);
 pref("dom.mozPermissionSettings.enabled", false);
 
 // W3C touch events
+// 0 - disabled, 1 - enabled, 2 - autodetect (win)
 #ifdef XP_WIN
-pref("dom.w3c_touch_events.enabled", true);
+pref("dom.w3c_touch_events.enabled", 2);
 #endif
 
 // enable JS dump() function.
@@ -3776,13 +3824,14 @@ pref("memory.low_memory_notification_interval_ms", 10000);
 // window to be collected via the GC/CC.
 pref("memory.ghost_window_timeout_seconds", 60);
 
+// Disable freeing dirty pages when minimizing memory.
+pref("memory.free_dirty_pages", false);
+
 pref("social.enabled", false);
 
 // Disable idle observer fuzz, because only privileged content can access idle
 // observers (bug 780507).
 pref("dom.idle-observers-api.fuzz_time.disabled", true);
-
-pref("toolkit.identity.debug", false);
 
 // Setting that to true grant elevated privileges to apps that ask
 // for them in their manifest.
@@ -3796,3 +3845,16 @@ pref("dom.mozApps.maxLocalId", 1000);
 // they are handled separately. This pref is only read once at startup:
 // a restart is required to enable a new value.
 pref("network.activity.blipIntervalMilliseconds", 0);
+
+// If true, reuse the same global for everything loaded by the component loader
+// (JS components, JSMs, etc).  This saves memory, but makes it possible for
+// the scripts to interfere with each other.  A restart is required for this
+// to take effect.
+pref("jsloader.reuseGlobal", false);
+
+// When we're asked to take a screenshot, don't wait more than 2000ms for the
+// event loop to become idle before actually taking the screenshot.
+pref("dom.browserElement.maxScreenshotDelayMS", 2000);
+
+// Whether we should show the placeholder when the element is focused but empty.
+pref("dom.placeholder.show_on_focus", true);

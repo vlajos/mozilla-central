@@ -156,6 +156,9 @@ const DownloadsButton = {
     if (!placeholder) {
       // The placeholder has been removed from the browser window.
       indicator.collapsed = true;
+      // Move the indicator to a safe position on the toolbar, since otherwise
+      // it may break the merge of adjacent items, like back/forward + urlbar.
+      indicator.parentNode.appendChild(indicator);
       return null;
     }
 
@@ -506,9 +509,10 @@ const DownloadsIndicatorView = {
     if (DownloadsCommon.useToolkitUI) {
       // The panel won't suppress attention for us, we need to clear now.
       DownloadsCommon.indicatorData.attention = false;
+      BrowserDownloadsUI();
+    } else {
+      DownloadsPanel.showPanel();
     }
-
-    DownloadsPanel.showPanel();
 
     aEvent.stopPropagation();
   },
@@ -522,6 +526,12 @@ const DownloadsIndicatorView = {
 
   onDrop: function DIV_onDrop(aEvent)
   {
+    let dt = aEvent.dataTransfer;
+    // If dragged item is from our source, do not try to
+    // redownload already downloaded file.
+    if (dt.mozGetDataAt("application/x-moz-file", 0))
+      return;
+
     let name = {};
     let url = browserDragAndDrop.drop(aEvent, name);
     if (url) {

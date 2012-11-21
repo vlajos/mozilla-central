@@ -537,9 +537,13 @@ BasicLayerManager::EndTransactionInternal(DrawThebesLayerCallback aCallback,
   mTransactionIncomplete = false;
 
   if (aFlags & END_NO_COMPOSITE) {
-    // TODO: We should really just set mTarget to null and make sure we can handle that further down the call chain
-    nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(gfxIntSize(1, 1), gfxASurface::CONTENT_COLOR);
-    mTarget = new gfxContext(surf);
+    if (!mDummyTarget) {
+      // TODO: We should really just set mTarget to null and make sure we can handle that further down the call chain
+      // Creating this temporary surface can be expensive on some platforms (d2d in particular), so cache it between paints.
+      nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(gfxIntSize(1, 1), gfxASurface::CONTENT_COLOR);
+      mDummyTarget = new gfxContext(surf);
+    }
+    mTarget = mDummyTarget;
   }
 
   if (mTarget && mRoot && !(aFlags & END_NO_IMMEDIATE_REDRAW)) {
@@ -994,12 +998,14 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
 }
 
 void
-BasicLayerManager::ClearCachedResources()
+BasicLayerManager::ClearCachedResources(Layer* aSubtree)
 {
-  if (mRoot) {
+  MOZ_ASSERT(!aSubtree || aSubtree->Manager() == this);
+  if (aSubtree) {
+    ClearLayer(aSubtree);
+  } else if (mRoot) {
     ClearLayer(mRoot);
   }
-
   mCachedSurface.Expire();
 }
 void
@@ -1022,7 +1028,7 @@ BasicLayerManager::CreateReadbackLayer()
 
 BasicShadowLayerManager::BasicShadowLayerManager(nsIWidget* aWidget) :
   BasicLayerManager(aWidget), mTargetRotation(ROTATION_0),
-  mRepeatTransaction(false)
+  mRepeatTransaction(false), mIsRepeatTransaction(false)
 {
   MOZ_COUNT_CTOR(BasicShadowLayerManager);
 }
@@ -1132,8 +1138,10 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
 
   if (mRepeatTransaction) {
     mRepeatTransaction = false;
+    mIsRepeatTransaction = true;
     BasicLayerManager::BeginTransaction();
     BasicShadowLayerManager::EndTransaction(aCallback, aCallbackData, aFlags);
+    mIsRepeatTransaction = false;
   } else if (mShadowTarget) {
     if (mWidget) {
       if (CompositorChild* remoteRenderer = mWidget->GetRemoteRenderer()) {
@@ -1277,8 +1285,21 @@ BasicShadowLayerManager::SetIsFirstPaint()
   ShadowLayerForwarder::SetIsFirstPaint();
 }
 
+void
+BasicShadowLayerManager::ClearCachedResources(Layer* aSubtree)
+{
+  MOZ_ASSERT(!HasShadowManager() || !aSubtree);
+  if (PLayersChild* manager = GetShadowManager()) {
+    manager->SendClearCachedResources();
+  }
+  BasicLayerManager::ClearCachedResources(aSubtree);
+}
+
 bool
-BasicShadowLayerManager::ShouldAbortProgressiveUpdate(bool aHasPendingNewThebesContent)
+BasicShadowLayerManager::ProgressiveUpdateCallback(bool aHasPendingNewThebesContent,
+                                                   gfx::Rect& aViewport,
+                                                   float& aScaleX,
+                                                   float& aScaleY)
 {
 #ifdef MOZ_WIDGET_ANDROID
   Layer* primaryScrollable = GetPrimaryScrollableLayer();
@@ -1295,8 +1316,9 @@ BasicShadowLayerManager::ShouldAbortProgressiveUpdate(bool aHasPendingNewThebesC
                           metrics.mDisplayPort.width * devPixelRatioX,
                           metrics.mDisplayPort.height * devPixelRatioY);
 
-    return AndroidBridge::Bridge()->ShouldAbortProgressiveUpdate(
-      aHasPendingNewThebesContent, displayPort, devPixelRatioX);
+    return AndroidBridge::Bridge()->ProgressiveUpdateCallback(
+      aHasPendingNewThebesContent, displayPort, devPixelRatioX,
+      aViewport, aScaleX, aScaleY);
   }
 #endif
 

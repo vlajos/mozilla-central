@@ -31,7 +31,7 @@ HTMLSelectListAccessible::
   HTMLSelectListAccessible(nsIContent* aContent, DocAccessible* aDoc) :
   AccessibleWrap(aContent, aDoc)
 {
-  mFlags |= eListControlAccessible;
+  mFlags |= eSelectAccessible | eListControlAccessible;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -55,12 +55,6 @@ HTMLSelectListAccessible::NativeRole()
 
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLSelectListAccessible: SelectAccessible
-
-bool
-HTMLSelectListAccessible::IsSelect()
-{
-  return true;
-}
 
 bool
 HTMLSelectListAccessible::SelectAll()
@@ -200,6 +194,7 @@ HTMLSelectOptionAccessible::NativeName(nsString& aName)
   if (text && text->IsNodeOfType(nsINode::eTEXT)) {
     nsTextEquivUtils::AppendTextEquivFromTextContent(text, &aName);
     aName.CompressWhitespace();
+    return aName.IsEmpty() ? eNameOK : eNameFromSubtree;
   }
 
   return eNameOK;

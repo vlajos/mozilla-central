@@ -60,6 +60,13 @@ int get_bdaddr(const char *str, bdaddr_t *ba)
   return 0;
 }
 
+static
+void get_bdaddr_as_string(const bdaddr_t *ba, char *str) {
+    const uint8_t *b = (const uint8_t *)ba;
+    sprintf(str, "%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X",
+            b[5], b[4], b[3], b[2], b[1], b[0]);
+}
+
 BluetoothUnixSocketConnector::BluetoothUnixSocketConnector(
   BluetoothSocketType aType,
   int aChannel,
@@ -81,12 +88,10 @@ BluetoothUnixSocketConnector::SetUp(int aFd)
   case BluetoothSocketType::RFCOMM:
     lm |= mAuth ? RFCOMM_LM_AUTH : 0;
     lm |= mEncrypt ? RFCOMM_LM_ENCRYPT : 0;
-    lm |= (mAuth && mEncrypt) ? RFCOMM_LM_SECURE : 0;
     break;
   case BluetoothSocketType::L2CAP:
     lm |= mAuth ? L2CAP_LM_AUTH : 0;
     lm |= mEncrypt ? L2CAP_LM_ENCRYPT : 0;
-    lm |= (mAuth && mEncrypt) ? L2CAP_LM_SECURE : 0;
     break;
   }
 
@@ -179,3 +184,11 @@ BluetoothUnixSocketConnector::CreateAddr(bool aIsServer,
   }
 }
 
+void
+BluetoothUnixSocketConnector::GetSocketAddr(const sockaddr& aAddr,
+                                            nsAString& aAddrStr)
+{
+  char addr[18];
+  get_bdaddr_as_string((bdaddr_t*)aAddr.sa_data, addr);
+  aAddrStr.AssignASCII(addr);
+}

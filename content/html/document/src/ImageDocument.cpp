@@ -221,11 +221,11 @@ ImageDocument::~ImageDocument()
 NS_IMPL_CYCLE_COLLECTION_CLASS(ImageDocument)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ImageDocument, MediaDocument)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mImageContent)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mImageContent)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(ImageDocument, MediaDocument)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mImageContent)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mImageContent)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_ADDREF_INHERITED(ImageDocument, MediaDocument)
@@ -641,7 +641,9 @@ ImageDocument::CreateSyntheticDocument()
     nsRefPtr<nsGenericHTMLElement> styleContent = NS_NewHTMLStyleElement(nodeInfo.forget());
     NS_ENSURE_TRUE(styleContent, NS_ERROR_OUT_OF_MEMORY);
 
-    styleContent->SetTextContent(NS_LITERAL_STRING("img { display: block; }"));
+    ErrorResult error;
+    styleContent->SetTextContent(NS_LITERAL_STRING("img { display: block; }"),
+                                 error);
     head->AppendChildTo(styleContent, false);
   }
 

@@ -6,6 +6,8 @@
 #include "nsUrlClassifierProxies.h"
 #include "nsUrlClassifierDBService.h"
 
+using namespace mozilla::safebrowsing;
+
 static nsresult
 DispatchToWorkerThread(nsIRunnable* r)
 {
@@ -238,9 +240,15 @@ UrlClassifierUpdateObserverProxy::UpdateUrlRequestedRunnable::Run()
 NS_IMETHODIMP
 UrlClassifierUpdateObserverProxy::RekeyRequested()
 {
-  nsCOMPtr<nsIRunnable> r =
-    NS_NewRunnableMethod(mTarget, &nsIUrlClassifierUpdateObserver::RekeyRequested);
+  nsCOMPtr<nsIRunnable> r = new RekeyRequestedRunnable(mTarget);
   return NS_DispatchToMainThread(r);
+}
+
+NS_IMETHODIMP
+UrlClassifierUpdateObserverProxy::RekeyRequestedRunnable::Run()
+{
+  mTarget->RekeyRequested();
+  return NS_OK;
 }
 
 NS_IMETHODIMP

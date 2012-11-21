@@ -33,6 +33,7 @@
 #include "nsContentUtils.h"
 
 #include "ipc/IndexedDBChild.h"
+#include "ipc/IndexedDBParent.h"
 
 USING_INDEXEDDB_NAMESPACE
 using mozilla::dom::ContentParent;
@@ -217,7 +218,6 @@ IDBDatabase::IDBDatabase()
   mActorParent(nullptr),
   mContentParent(nullptr),
   mInvalidated(false),
-  mDisconnected(false),
   mRegistered(false),
   mClosed(false),
   mRunningVersionChange(false)
@@ -269,24 +269,21 @@ IDBDatabase::Invalidate()
   if (owner) {
     IndexedDatabaseManager::CancelPromptsForWindow(owner);
   }
-}
 
-bool
-IDBDatabase::IsInvalidated()
-{
-  return mInvalidated;
+  DatabaseInfo::Remove(mDatabaseId);
+
+  // And let the child process know as well.
+  if (mActorParent) {
+    NS_ASSERTION(IndexedDatabaseManager::IsMainProcess(), "Wrong process!");
+    mActorParent->Invalidate();
+  }
 }
 
 void
-IDBDatabase::DisconnectFromActor()
+IDBDatabase::DisconnectFromActorParent()
 {
+  NS_ASSERTION(IndexedDatabaseManager::IsMainProcess(), "Wrong process!");
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
-
-  if (IsDisconnectedFromActor()) {
-    return;
-  }
-
-  mDisconnected = true;
 
   // Make sure we're closed too.
   Close();
@@ -296,12 +293,6 @@ IDBDatabase::DisconnectFromActor()
   if (owner) {
     IndexedDatabaseManager::CancelPromptsForWindow(owner);
   }
-}
-
-bool
-IDBDatabase::IsDisconnectedFromActor()
-{
-  return mDisconnected;
 }
 
 void
@@ -330,7 +321,7 @@ IDBDatabase::CloseInternal(bool aIsDead)
     }
 
     // And let the parent process know as well.
-    if (mActorChild) {
+    if (mActorChild && !IsInvalidated()) {
       NS_ASSERTION(!IndexedDatabaseManager::IsMainProcess(), "Wrong process!");
       mActorChild->SendClose(aIsDead);
     }
@@ -338,7 +329,7 @@ IDBDatabase::CloseInternal(bool aIsDead)
 }
 
 bool
-IDBDatabase::IsClosed()
+IDBDatabase::IsClosed() const
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
   return mClosed;
@@ -435,7 +426,7 @@ IDBDatabase::CreateObjectStoreInternal(IDBTransaction* aTransaction,
 NS_IMPL_CYCLE_COLLECTION_CLASS(IDBDatabase)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(IDBDatabase, IDBWrapperCache)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mFactory)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFactory)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(IDBDatabase, IDBWrapperCache)
@@ -753,6 +744,11 @@ IDBDatabase::MozCreateFileHandle(const nsAString& aName,
                                  nsIIDBRequest** _retval)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
+
+  if (!IndexedDatabaseManager::IsMainProcess()) {
+    NS_WARNING("Not supported yet!");
+    return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+  }
 
   if (IndexedDatabaseManager::IsShuttingDown()) {
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;

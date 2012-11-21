@@ -53,9 +53,16 @@ static bool sInitialized = false;
 // in your environment.
 
 #ifdef PR_LOGGING
-static PRLogModuleInfo* logModule = PR_NewLogModule("ProcessPriorityManager");
+static PRLogModuleInfo*
+GetPPMLog()
+{
+  static PRLogModuleInfo *sLog;
+  if (!sLog)
+    sLog = PR_NewLogModule("ProcessPriorityManager");
+  return sLog;
+}
 #define LOG(fmt, ...) \
-  PR_LOG(logModule, PR_LOG_DEBUG, \
+  PR_LOG(GetPPMLog(), PR_LOG_DEBUG,                                     \
          ("[%d] ProcessPriorityManager - " fmt, getpid(), ##__VA_ARGS__))
 #else
 #define LOG(fmt, ...)
@@ -187,7 +194,7 @@ ProcessPriorityManager::OnContentDocumentGlobalCreated(
     return;
   }
 
-  target->AddSystemEventListener(NS_LITERAL_STRING("mozvisibilitychange"),
+  target->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"),
                                  this,
                                  /* useCapture = */ false,
                                  /* wantsUntrusted = */ false);
@@ -228,7 +235,7 @@ ProcessPriorityManager::RecomputeNumVisibleWindows()
     }
 
     bool hidden = false;
-    doc->GetMozHidden(&hidden);
+    doc->GetHidden(&hidden);
 #ifdef DEBUG
     nsAutoString spec;
     doc->GetDocumentURI(spec);
@@ -298,6 +305,13 @@ ProcessPriorityManager::OnGracePeriodTimerFired()
 
   mGracePeriodTimer = nullptr;
   hal::SetProcessPriority(getpid(), PROCESS_PRIORITY_BACKGROUND);
+
+  // We're in the background; dump as much memory as we can.
+  nsCOMPtr<nsIMemoryReporterManager> mgr =
+    do_GetService("@mozilla.org/memory-reporter-manager;1");
+  if (mgr) {
+    mgr->MinimizeMemoryUsage(/* callback = */ nullptr);
+  }
 }
 
 } // anonymous namespace

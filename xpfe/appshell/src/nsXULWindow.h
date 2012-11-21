@@ -112,7 +112,6 @@ protected:
    void       SetContentScrollbarVisibility(bool aVisible);
    bool       GetContentScrollbarVisibility();
    void       PersistentAttributesDirty(uint32_t aDirtyFlags);
-   uint32_t   AppUnitsPerDevPixel();
 
    nsChromeTreeOwner*      mChromeTreeOwner;
    nsContentTreeOwner*     mContentTreeOwner;
@@ -139,12 +138,13 @@ protected:
    bool                    mIgnoreXULPosition;
    bool                    mChromeFlagsFrozen;
    bool                    mIgnoreXULSizeMode;
+   // mDestroying is used to prevent reentry into into Destroy(), which can
+   // otherwise happen due to script running as we tear down various things.
+   bool                    mDestroying;
    uint32_t                mContextFlags;
    uint32_t                mPersistentAttributesDirty; // persistentAttributes
    uint32_t                mPersistentAttributesMask;
    uint32_t                mChromeFlags;
-   uint32_t                mAppPerDev; // sometimes needed when we can't get
-                                       // it from the widget
    nsString                mTitle;
    nsIntRect               mOpenerScreenRect; // the screen rect of the opener
 

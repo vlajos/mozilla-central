@@ -67,19 +67,6 @@ OuterDocAccessible::ChildAtPoint(int32_t aX, int32_t aY,
   return child;
 }
 
-nsresult
-OuterDocAccessible::GetAttributesInternal(nsIPersistentProperties* aAttributes)
-{
-  nsAutoString tag;
-  aAttributes->GetStringProperty(NS_LITERAL_CSTRING("tag"), tag);
-  if (!tag.IsEmpty()) {
-    // We're overriding the ARIA attributes on an sub document, but we don't want to
-    // override the other attributes
-    return NS_OK;
-  }
-  return Accessible::GetAttributesInternal(aAttributes);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // nsIAccessible
 
@@ -148,13 +135,13 @@ OuterDocAccessible::Shutdown()
 void
 OuterDocAccessible::InvalidateChildren()
 {
-  // Do not invalidate children because nsAccDocManager is responsible for
+  // Do not invalidate children because DocManager is responsible for
   // document accessible lifetime when DOM document is created or destroyed. If
   // DOM document isn't destroyed but its presshell is destroyed (for example,
   // when DOM node of outerdoc accessible is hidden), then outerdoc accessible
-  // notifies nsAccDocManager about this. If presshell is created for existing
+  // notifies DocManager about this. If presshell is created for existing
   // DOM document (for example when DOM node of outerdoc accessible is shown)
-  // then allow nsAccDocManager to handle this case since the document
+  // then allow DocManager to handle this case since the document
   // accessible is created and appended as a child when it's requested.
 
   SetChildrenFlag(eChildrenUninitialized);

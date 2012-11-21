@@ -13,7 +13,15 @@ WebGLFramebuffer::WrapObject(JSContext *cx, JSObject *scope, bool *triedToWrap) 
     return dom::WebGLFramebufferBinding::Wrap(cx, scope, this, triedToWrap);
 }
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLFramebuffer)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_8(WebGLFramebuffer,
+  mColorAttachment.mTexturePtr,
+  mColorAttachment.mRenderbufferPtr,
+  mDepthAttachment.mTexturePtr,
+  mDepthAttachment.mRenderbufferPtr,
+  mStencilAttachment.mTexturePtr,
+  mStencilAttachment.mRenderbufferPtr,
+  mDepthStencilAttachment.mTexturePtr,
+  mDepthStencilAttachment.mRenderbufferPtr)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WebGLFramebuffer)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebGLFramebuffer)

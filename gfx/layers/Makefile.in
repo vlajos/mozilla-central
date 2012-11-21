@@ -40,6 +40,7 @@ EXPORTS = \
         Compositor.h \
         CompositorOGL.h \
         ContentHost.h \
+		Composer2D.h \
         GonkIOSurfaceImage.h \
         FrameMetrics.h \
         CompositorChild.h \

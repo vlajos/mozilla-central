@@ -57,7 +57,6 @@ XPIDLSRCS = \
     nsICMSMessage.idl \
     nsICMSMessage2.idl \
     nsINSSCertCache.idl \
-    nsIOCSPResponder.idl \
     nsIPK11Token.idl \
     nsIPKCS11ModuleDB.idl \
     nsIPKCS11Module.idl \
@@ -67,6 +66,8 @@ XPIDLSRCS = \
     nsIKeyModule.idl \
     nsIProtectedAuthThread.idl \
     nsIDataSignatureVerifier.idl \
+    nsISignatureVerifier.idl \
+    nsICertificatePrincipal.idl \
     $(NULL)
 
 ifdef MOZ_XUL

@@ -82,6 +82,8 @@ using namespace js;
 using namespace js::gc;
 using namespace js::types;
 
+using mozilla::DebugOnly;
+
 /* Some objects (e.g., With) delegate 'this' to another object. */
 static inline JSObject *
 CallThisObjectHook(JSContext *cx, HandleObject obj, Value *argv)
@@ -291,7 +293,7 @@ js::RunScript(JSContext *cx, HandleScript script, StackFrame *fp)
 #endif
 
     SPSEntryMarker marker(cx->runtime);
-	
+
 #ifdef JS_ION
     if (ion::IsEnabled(cx)) {
         ion::MethodStatus status = ion::CanEnter(cx, script, fp, false);
@@ -299,13 +301,13 @@ js::RunScript(JSContext *cx, HandleScript script, StackFrame *fp)
             return false;
         if (status == ion::Method_Compiled) {
             ion::IonExecStatus status = ion::Cannon(cx, fp);
-            
+
             // Note that if we bailed out, new inline frames may have been
             // pushed, so we interpret with the current fp.
             if (status == ion::IonExec_Bailout)
                 return Interpret(cx, fp, JSINTERP_REJOIN);
 
-            return status != ion::IonExec_Error;
+            return !IsErrorStatus(status);
         }
     }
 #endif
@@ -375,7 +377,8 @@ js::InvokeKernel(JSContext *cx, CallArgs args, MaybeConstruct construct)
         return false;
 
     /* Run function until JSOP_STOP, JSOP_RETURN or error. */
-    JSBool ok = RunScript(cx, fun->script(), ifg.fp());
+    RootedScript script(cx, fun->script());
+    JSBool ok = RunScript(cx, script, ifg.fp());
 
     /* Propagate the return value out. */
     args.rval().set(ifg.fp()->returnValue());
@@ -791,9 +794,9 @@ js::UnwindScope(JSContext *cx, uint32_t stackDepth)
 void
 js::UnwindForUncatchableException(JSContext *cx, const FrameRegs &regs)
 {
-
     /* c.f. the regular (catchable) TryNoteIter loop in Interpret. */
-    for (TryNoteIter tni(regs); !tni.done(); ++tni) {
+    AutoAssertNoGC nogc;
+    for (TryNoteIter tni(cx, regs); !tni.done(); ++tni) {
         JSTryNote *tn = *tni;
         if (tn->kind == JSTRY_ITER) {
             Value *sp = regs.spForStackDepth(tn->stackDepth);
@@ -802,9 +805,9 @@ js::UnwindForUncatchableException(JSContext *cx, const FrameRegs &regs)
     }
 }
 
-TryNoteIter::TryNoteIter(const FrameRegs &regs)
+TryNoteIter::TryNoteIter(JSContext *cx, const FrameRegs &regs)
   : regs(regs),
-    script(regs.fp()->script()),
+    script(cx, regs.fp()->script()),
     pcOffset(regs.pc - script->main())
 {
     if (script->hasTrynotes()) {
@@ -859,38 +862,6 @@ TryNoteIter::settle()
         if (tn->stackDepth <= regs.stackDepth())
             break;
     }
-}
-
-/*
- * Increment/decrement the value 'v'. The resulting value is stored in *slot.
- * The result of the expression (taking into account prefix/postfix) is stored
- * in *expr.
- */
-static bool
-DoIncDec(JSContext *cx, HandleScript script, jsbytecode *pc, const Value &v, Value *slot, Value *expr)
-{
-    const JSCodeSpec &cs = js_CodeSpec[*pc];
-
-    if (v.isInt32()) {
-        int32_t i = v.toInt32();
-        if (i > JSVAL_INT_MIN && i < JSVAL_INT_MAX) {
-            int32_t sum = i + (cs.format & JOF_INC ? 1 : -1);
-            *slot = Int32Value(sum);
-            *expr = (cs.format & JOF_POST) ? Int32Value(i) : *slot;
-            return true;
-        }
-    }
-
-    double d;
-    if (!ToNumber(cx, v, &d))
-        return false;
-
-    double sum = d + (cs.format & JOF_INC ? 1 : -1);
-    *slot = NumberValue(sum);
-    *expr = (cs.format & JOF_POST) ? NumberValue(d) : *slot;
-
-    TypeScript::MonitorOverflow(cx, script, pc);
-    return true;
 }
 
 #define PUSH_COPY(v)             do { *regs.sp++ = v; assertSameCompartment(cx, regs.sp[-1]); } while (0)
@@ -1030,15 +1001,11 @@ IteratorNext(JSContext *cx, HandleObject iterobj, MutableHandleValue rval)
  * types of the pushed values are consistent with type inference information.
  */
 static inline void
-TypeCheckNextBytecode(JSContext *cx, JSScript *script_, unsigned n, const FrameRegs &regs)
+TypeCheckNextBytecode(JSContext *cx, HandleScript script, unsigned n, const FrameRegs &regs)
 {
 #ifdef DEBUG
-    if (cx->typeInferenceEnabled() &&
-        n == GetBytecodeLength(regs.pc))
-    {
-        RootedScript script(cx, script_);
+    if (cx->typeInferenceEnabled() && n == GetBytecodeLength(regs.pc))
         TypeScript::CheckBytecode(cx, script, regs.pc, regs.sp);
-    }
 #endif
 }
 
@@ -1133,11 +1100,13 @@ js::Interpret(JSContext *cx, StackFrame *entryFrame, InterpMode interpMode)
 
 #define SET_SCRIPT(s)                                                         \
     JS_BEGIN_MACRO                                                            \
+        EnterAssertNoGCScope();                                               \
         script = (s);                                                         \
         if (script->hasAnyBreakpointsOrStepMode() || script->hasScriptCounts) \
             interrupts.enable();                                              \
         JS_ASSERT_IF(interpMode == JSINTERP_SKIP_TRAP,                        \
                      script->hasAnyBreakpointsOrStepMode());                  \
+        LeaveAssertNoGCScope();                                               \
     JS_END_MACRO
 
     /* Repoint cx->regs to a local variable for faster access. */
@@ -1152,11 +1121,13 @@ js::Interpret(JSContext *cx, StackFrame *entryFrame, InterpMode interpMode)
 
     /* Copy in hot values that change infrequently. */
     JSRuntime *const rt = cx->runtime;
-    Rooted<JSScript*> script(cx);
+    RootedScript script(cx);
     SET_SCRIPT(regs.fp()->script());
 
+#ifdef JS_METHODJIT
     /* Reset the loop count on the script we're entering. */
     script->resetLoopCount();
+#endif
 
 #if JS_TRACE_LOGGING
     AutoTraceLog logger(TraceLogging::defaultLogger(),
@@ -1254,6 +1225,7 @@ js::Interpret(JSContext *cx, StackFrame *entryFrame, InterpMode interpMode)
         JS_ASSERT(js_CodeSpec[op].length == 1);
         len = 1;
       advance_pc:
+        TypeCheckNextBytecode(cx, script, len, regs);
         js::gc::MaybeVerifyBarriers(cx);
         regs.pc += len;
         op = (JSOp) *regs.pc;
@@ -1368,8 +1340,9 @@ END_EMPTY_CASES
 
 BEGIN_CASE(JSOP_LOOPHEAD)
 
+#ifdef JS_METHODJIT
     script->incrLoopCount();
-
+#endif
 END_CASE(JSOP_LOOPHEAD)
 
 BEGIN_CASE(JSOP_LABEL)
@@ -1430,6 +1403,10 @@ BEGIN_CASE(JSOP_LOOPENTRY)
                 op = JSOp(*regs.pc);
                 DO_OP();
             }
+
+            // We failed to call into Ion at all, so treat as an error.
+            if (maybeOsr == ion::IonExec_Aborted)
+                goto error;
 
             interpReturnOK = (maybeOsr == ion::IonExec_Ok);
 
@@ -2202,19 +2179,7 @@ BEGIN_CASE(JSOP_ARGDEC)
 BEGIN_CASE(JSOP_INCARG)
 BEGIN_CASE(JSOP_ARGINC)
 {
-    unsigned i = GET_ARGNO(regs.pc);
-    if (script->argsObjAliasesFormals()) {
-        const Value &arg = regs.fp()->argsObj().arg(i);
-        Value v;
-        if (!DoIncDec(cx, script, regs.pc, arg, &v, &regs.sp[0]))
-            goto error;
-        regs.fp()->argsObj().setArg(i, v);
-    } else {
-        Value &arg = regs.fp()->unaliasedFormal(i);
-        if (!DoIncDec(cx, script, regs.pc, arg, &arg, &regs.sp[0]))
-            goto error;
-    }
-    regs.sp++;
+    /* No-op */
 }
 END_CASE(JSOP_ARGINC);
 
@@ -2223,11 +2188,7 @@ BEGIN_CASE(JSOP_LOCALDEC)
 BEGIN_CASE(JSOP_INCLOCAL)
 BEGIN_CASE(JSOP_LOCALINC)
 {
-    unsigned i = GET_SLOTNO(regs.pc);
-    Value &local = regs.fp()->unaliasedLocal(i);
-    if (!DoIncDec(cx, script, regs.pc, local, &local, &regs.sp[0]))
-        goto error;
-    regs.sp++;
+    /* No-op */
 }
 END_CASE(JSOP_LOCALINC)
 
@@ -2382,13 +2343,14 @@ BEGIN_CASE(JSOP_FUNCALL)
 
     InitialFrameFlags initial = construct ? INITIAL_CONSTRUCT : INITIAL_NONE;
     bool newType = cx->typeInferenceEnabled() && UseNewType(cx, script, regs.pc);
-    JSScript *newScript = fun->script();
-
-    if (!cx->stack.pushInlineFrame(cx, regs, args, *fun, newScript, initial))
+    RawScript funScript = fun->script().unsafeGet();
+    if (!cx->stack.pushInlineFrame(cx, regs, args, *fun, funScript, initial))
         goto error;
 
     SET_SCRIPT(regs.fp()->script());
+#ifdef JS_METHODJIT
     script->resetLoopCount();
+#endif
 
 #ifdef JS_ION
     if (!newType && ion::IsEnabled(cx)) {
@@ -2403,7 +2365,7 @@ BEGIN_CASE(JSOP_FUNCALL)
                 op = JSOp(*regs.pc);
                 DO_OP();
             }
-            interpReturnOK = (exec == ion::IonExec_Error) ? false : true;
+            interpReturnOK = !IsErrorStatus(exec);
             goto jit_return;
         }
     }
@@ -3739,7 +3701,7 @@ END_CASE(JSOP_ARRAYPUSH)
             }
         }
 
-        for (TryNoteIter tni(regs); !tni.done(); ++tni) {
+        for (TryNoteIter tni(cx, regs); !tni.done(); ++tni) {
             JSTryNote *tn = *tni;
 
             UnwindScope(cx, tn->stackDepth);
@@ -3849,7 +3811,7 @@ js::Throw(JSContext *cx, HandleValue v)
 }
 
 bool
-js::GetProperty(JSContext *cx, HandleValue v, PropertyName *name, MutableHandleValue vp)
+js::GetProperty(JSContext *cx, HandleValue v, HandlePropertyName name, MutableHandleValue vp)
 {
     if (name == cx->names().length) {
         // Fast path for strings, arrays and arguments.

@@ -16,6 +16,10 @@
 #include "nsIScriptGlobalObject.h"
 #include "xpcpublic.h"
 
+#ifdef XP_WIN
+#undef GetClassName
+#endif
+
 namespace mozilla {
 class DOMSVGLengthList;
 class DOMSVGNumberList;
@@ -273,7 +277,8 @@ protected:
   static JSPropertyOp sXrayWrapperPropertyHolderGetPropertyOp;
 };
 
-
+// THIS ONE ISN'T SAFE!! It assumes that the private of the JSObject is
+// an nsISupports.
 inline
 const nsQueryInterface
 do_QueryWrappedNative(nsIXPConnectWrappedNative *wrapper, JSObject *obj)
@@ -281,6 +286,8 @@ do_QueryWrappedNative(nsIXPConnectWrappedNative *wrapper, JSObject *obj)
   return nsQueryInterface(nsDOMClassInfo::GetNative(wrapper, obj));
 }
 
+// THIS ONE ISN'T SAFE!! It assumes that the private of the JSObject is
+// an nsISupports.
 inline
 const nsQueryInterfaceWithError
 do_QueryWrappedNative(nsIXPConnectWrappedNative *wrapper, JSObject *obj,
@@ -518,13 +525,6 @@ protected:
   {
   }
 
-  // Helper to check whether a capability is enabled
-  bool IsCapabilityEnabled(const char* aCapability);
-
-  inline bool IsPrivilegedScript() {
-    return IsCapabilityEnabled("UniversalXPConnect");
-  }
-
 public:
   NS_IMETHOD PreCreate(nsISupports *nativeObj, JSContext *cx,
                        JSObject *globalObj, JSObject **parentObj);
@@ -691,45 +691,6 @@ public:
     return new nsNamedNodeMapSH(aData);
   }
 };
-
-
-// DOMStringMap helper for .dataset property on elements.
-
-class nsDOMStringMapSH : public nsDOMGenericSH
-{
-public:
-  nsDOMStringMapSH(nsDOMClassInfoData* aData) : nsDOMGenericSH(aData)
-  {
-  }
-
-  virtual ~nsDOMStringMapSH()
-  {
-  }
-
-public:
-  NS_IMETHOD NewResolve(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                        JSObject *obj, jsid id, uint32_t flags,
-                        JSObject **objp, bool *_retval);
-  NS_IMETHOD Enumerate(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                       JSObject *obj, bool *_retval);
-  NS_IMETHOD PreCreate(nsISupports *nativeObj, JSContext *cx,
-                       JSObject *globalObj, JSObject **parentObj);
-  NS_IMETHOD DelProperty(nsIXPConnectWrappedNative *wrapper,
-                         JSContext *cx, JSObject *obj, jsid id,
-                         jsval *vp, bool *_retval);
-  NS_IMETHOD GetProperty(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                         JSObject *obj, jsid id, jsval *vp, bool *_retval);
-  NS_IMETHOD SetProperty(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                         JSObject *obj, jsid id, jsval *vp, bool *_retval);
-
-  bool JSIDToProp(const jsid& aId, nsAString& aResult);
-
-  static nsIClassInfo *doCreate(nsDOMClassInfoData* aData)
-  {
-    return new nsDOMStringMapSH(aData);
-  }
-};
-
 
 // Document helper, for document.location and document.on*
 
@@ -1165,34 +1126,6 @@ public:
     return new nsCSSValueListSH(aData);
   }
 };
-
-
-// CSSStyleDeclaration helper
-
-class nsCSSStyleDeclSH : public nsStringArraySH
-{
-protected:
-  nsCSSStyleDeclSH(nsDOMClassInfoData* aData) : nsStringArraySH(aData)
-  {
-  }
-
-  virtual ~nsCSSStyleDeclSH()
-  {
-  }
-
-  virtual nsresult GetStringAt(nsISupports *aNative, int32_t aIndex,
-                               nsAString& aResult);
-
-public:
-  NS_IMETHOD PreCreate(nsISupports *nativeObj, JSContext *cx,
-                       JSObject *globalObj, JSObject **parentObj);
-
-  static nsIClassInfo *doCreate(nsDOMClassInfoData* aData)
-  {
-    return new nsCSSStyleDeclSH(aData);
-  }
-};
-
 
 // CSSRuleList helper
 

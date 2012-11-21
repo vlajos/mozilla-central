@@ -28,7 +28,7 @@ void
 nsWindowMemoryReporter::Init()
 {
   // The memory reporter manager will own this object.
-  nsWindowMemoryReporter *windowReporter = new nsWindowMemoryReporter();
+  nsRefPtr<nsWindowMemoryReporter> windowReporter = new nsWindowMemoryReporter();
   NS_RegisterMemoryMultiReporter(windowReporter);
 
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
@@ -41,11 +41,11 @@ nsWindowMemoryReporter::Init()
                     /* weakRef = */ true);
   }
 
-  GhostURLsReporter *ghostMultiReporter =
+  nsRefPtr<GhostURLsReporter> ghostMultiReporter =
     new GhostURLsReporter(windowReporter);
   NS_RegisterMemoryMultiReporter(ghostMultiReporter);
 
-  NumGhostsReporter *ghostReporter =
+  nsRefPtr<NumGhostsReporter> ghostReporter =
     new NumGhostsReporter(windowReporter);
   NS_RegisterMemoryReporter(ghostReporter);
 }
@@ -237,7 +237,9 @@ CollectWindowReports(nsGlobalWindow *aWindow,
   // There are many different kinds of frames, but it is very likely
   // that only a few matter.  Implement a cutoff so we don't bloat
   // about:memory with many uninteresting entries.
-  static const size_t FRAME_SUNDRIES_THRESHOLD = 8192;
+  const size_t FRAME_SUNDRIES_THRESHOLD =
+    js::MemoryReportingSundriesThreshold();
+
   size_t frameSundriesSize = 0;
 #define FRAME_ID(classname)                                             \
   {                                                                     \
@@ -302,10 +304,6 @@ nsWindowMemoryReporter::CollectReports(nsIMemoryMultiReporterCallback* aCb,
   nsTHashtable<nsUint64HashKey> ghostWindows;
   ghostWindows.Init();
   CheckForGhostWindows(&ghostWindows);
-
-  nsCOMPtr<nsIEffectiveTLDService> tldService = do_GetService(
-    NS_EFFECTIVETLDSERVICE_CONTRACTID);
-  NS_ENSURE_STATE(tldService);
 
   WindowPaths windowPaths;
   windowPaths.Init();

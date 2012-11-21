@@ -91,6 +91,7 @@
     <command id="Tools:DevToolbar" oncommand="DeveloperToolbar.toggle();" disabled="true" hidden="true"/>
     <command id="Tools:DevToolbarFocus" oncommand="DeveloperToolbar.focusToggle();" disabled="true"/>
     <command id="Tools:WebConsole" oncommand="HUDConsoleUI.toggleHUD();"/>
+    <command id="Tools:RemoteWebConsole" oncommand="HUDConsoleUI.toggleRemoteHUD();" disabled="true" hidden="true"/>
     <command id="Tools:Inspect" oncommand="InspectorUI.toggleInspectorUI();"/>
     <command id="Tools:Debugger" oncommand="DebuggerUI.toggleDebugger();" disabled="true" hidden="true"/>
     <command id="Tools:RemoteDebugger" oncommand="DebuggerUI.toggleRemoteDebugger();" disabled="true" hidden="true"/>
@@ -99,7 +100,7 @@
     <command id="Tools:StyleEditor" oncommand="StyleEditor.toggle();" disabled="true" hidden="true"/>
     <command id="Tools:ResponsiveUI" oncommand="ResponsiveUI.toggle();" disabled="true" hidden="true"/>
     <command id="Tools:Addons" oncommand="BrowserOpenAddonsMgr();"/>
-    <command id="Tools:ErrorConsole" oncommand="toJavaScriptConsole()" hidden="true"/>
+    <command id="Tools:ErrorConsole" oncommand="toJavaScriptConsole()" disabled="true" hidden="true"/>
     <command id="Tools:Sanitize"
      oncommand="Cc['@mozilla.org/browser/browserglue;1'].getService(Ci.nsIBrowserGlue).sanitize(window);"/>
     <command id="Tools:PrivateBrowsing"
@@ -116,6 +117,7 @@
     <command id="Social:ToggleSidebar" oncommand="Social.toggleSidebar();"/>
     <command id="Social:ToggleNotifications" oncommand="Social.toggleNotifications();"/>
     <command id="Social:Toggle" oncommand="Social.toggle();" hidden="true"/>
+    <command id="Social:Remove" oncommand="SocialUI.disableWithConfirmation();"/>
   </commandset>
 
   <commandset id="placesCommands">
@@ -203,6 +205,10 @@
                  type="checkbox" autocheck="false"
                  key="key_webConsole"
                  command="Tools:WebConsole"/>
+    <broadcaster id="devtoolsMenuBroadcaster_RemoteWebConsole"
+                 label="&remoteWebConsoleCmd.label;"
+                 type="checkbox" autocheck="false"
+                 command="Tools:RemoteWebConsole"/>
     <broadcaster id="devtoolsMenuBroadcaster_Inspect"
                  label="&inspectMenu.label;"
                  type="checkbox" autocheck="false"
@@ -244,6 +250,10 @@
     <broadcaster id="devtoolsMenuBroadcaster_GetMoreTools"
                  label="&getMoreDevtoolsCmd.label;"
                  oncommand="openUILinkIn('https://addons.mozilla.org/firefox/collections/mozilla/webdeveloper/', 'tab');"/>
+
+    <!-- SocialAPI broadcasters -->
+    <broadcaster id="socialBroadcaster_userDetails"
+                 notLoggedInLabel="&social.notLoggedIn.label;"/>
   </broadcasterset>
 
   <keyset id="mainKeyset">
@@ -402,7 +412,9 @@
 # overridden for other purposes there.
     <key id="viewBookmarksSidebarWinKb" key="&bookmarksWinCmd.commandkey;" command="viewBookmarksSidebar" modifiers="accel"/>
 #endif
+    
     <key id="sharePage" key="&sharePageCmd.commandkey;" command="Social:SharePage" modifiers="accel,shift"/>
+    <key id="focusChatBar" key="&social.chatBar.commandkey;" oncommand="SocialChatBar.focus();" modifiers="accel,shift"/>
 
 # don't use |command="Browser:Stop"|, ESC is being used to freeze animated gifs,
 # even if the stop button and menuitem are disabled (see Bug 284140)

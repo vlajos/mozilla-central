@@ -206,6 +206,9 @@ NS_IMETHODIMP nsWebBrowserFind::FindNext(bool *outDidFind)
         curItem = do_QueryInterface(curSupports, &rv);
         if (NS_FAILED(rv)) break;
 
+        searchFrame = do_GetInterface(curItem, &rv);
+        if (NS_FAILED(rv)) break;
+
         if (curItem.get() == startingItem.get())
         {
             // Beware! This may flush notifications via synchronous
@@ -216,9 +219,6 @@ NS_IMETHODIMP nsWebBrowserFind::FindNext(bool *outDidFind)
                 return OnFind(searchFrame);        // we are done
             break;
         }
-
-        searchFrame = do_GetInterface(curItem, &rv);
-        if (NS_FAILED(rv)) break;
 
         OnStartSearchFrame(searchFrame);
 
@@ -704,11 +704,7 @@ nsresult nsWebBrowserFind::SearchInFrame(nsIDOMWindow* aWindow,
         rv = subject->Subsumes(theDoc->NodePrincipal(), &subsumes);
         NS_ENSURE_SUCCESS(rv, rv);
         if (!subsumes) {
-            bool hasCap = false;
-            secMan->IsCapabilityEnabled("UniversalXPConnect", &hasCap);
-            if (!hasCap) {
-                return NS_ERROR_DOM_PROP_ACCESS_DENIED;
-            }
+            return NS_ERROR_DOM_PROP_ACCESS_DENIED;
         }
     }
 
@@ -801,18 +797,13 @@ nsWebBrowserFind::GetFrameSelection(nsIDOMWindow* aWindow,
     // that we must use when they have focus.
     nsPresContext *presContext = presShell->GetPresContext();
 
-    nsIFrame *frame = nullptr;
-    nsCOMPtr<nsIFocusManager> fm = do_GetService(FOCUSMANAGER_CONTRACTID);
-    if (fm) {
-      nsCOMPtr<nsIDOMElement> focusedElement;
-      fm->GetFocusedElement(getter_AddRefs(focusedElement));
-      nsCOMPtr<nsIContent> focusedContent(do_QueryInterface(focusedElement));
-      if (focusedContent) {
-        frame = focusedContent->GetPrimaryFrame();
-        if (frame && frame->PresContext() != presContext)
-          frame = nullptr;
-      }
-    }
+    nsCOMPtr<nsPIDOMWindow> window(do_QueryInterface(aWindow));
+
+    nsCOMPtr<nsPIDOMWindow> focusedWindow;
+    nsCOMPtr<nsIContent> focusedContent =
+      nsFocusManager::GetFocusedDescendant(window, false, getter_AddRefs(focusedWindow));
+
+    nsIFrame *frame = focusedContent ? focusedContent->GetPrimaryFrame() : nullptr;
 
     nsCOMPtr<nsISelectionController> selCon;
     if (frame) {

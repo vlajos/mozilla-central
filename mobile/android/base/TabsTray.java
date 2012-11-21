@@ -29,6 +29,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class TabsTray extends LinearLayout 
                       implements TabsPanel.PanelView {
@@ -39,7 +40,9 @@ public class TabsTray extends LinearLayout
 
     private static ListView mList;
     private TabsAdapter mTabsAdapter;
-    private boolean mWaitingForClose;
+
+    private List<View> mPendingClosedTabs;
+    private int mCloseAnimationCount;
 
     private TabSwipeGestureListener mSwipeListener;
 
@@ -53,6 +56,9 @@ public class TabsTray extends LinearLayout
         mContext = context;
 
         LayoutInflater.from(context).inflate(R.layout.tabs_tray, this);
+
+        mCloseAnimationCount = 0;
+        mPendingClosedTabs = new ArrayList<View>();
 
         mList = (ListView) findViewById(R.id.list);
         mList.setItemsCanFocus(true);
@@ -85,7 +91,6 @@ public class TabsTray extends LinearLayout
 
     @Override
     public void show() {
-        mWaitingForClose = false;
         Tabs.getInstance().refreshThumbnails();
         Tabs.registerOnTabsChangedListener(mTabsAdapter);
         mTabsAdapter.refreshTabsData();
@@ -145,7 +150,6 @@ public class TabsTray extends LinearLayout
                     break;
 
                 case CLOSED:
-                    mWaitingForClose = false;
                     removeTab(tab);
                     break;
 
@@ -240,7 +244,6 @@ public class TabsTray extends LinearLayout
             row.title.setText(tab.getDisplayTitle());
 
             row.close.setTag(row);
-            row.close.setVisibility(mTabs.size() > 1 ? View.VISIBLE : View.INVISIBLE);
         }
 
         public View getView(int position, View convertView, ViewGroup parent) {
@@ -264,25 +267,26 @@ public class TabsTray extends LinearLayout
         }
     }
 
-    private boolean hasOnlyOneTab() {
-        return (mTabsAdapter != null && mTabsAdapter.getCount() == 1);
-    }
-
     private void animateClose(final View view, int x) {
-        // Just bail out, if we're already closing
-        if (mWaitingForClose)
-            return;
-
         PropertyAnimator animator = new PropertyAnimator(ANIMATION_DURATION);
         animator.attach(view, Property.ALPHA, 0);
         animator.attach(view, Property.TRANSLATION_X, x);
 
-        mWaitingForClose = true;
+        mCloseAnimationCount++;
+        mPendingClosedTabs.add(view);
 
         animator.setPropertyAnimationListener(new PropertyAnimator.PropertyAnimationListener() {
             public void onPropertyAnimationStart() { }
             public void onPropertyAnimationEnd() {
-                animateFinishClose(view);
+                mCloseAnimationCount--;
+                if (mCloseAnimationCount > 0)
+                    return;
+
+                for (View pendingView : mPendingClosedTabs) {
+                    animateFinishClose(pendingView);
+                }
+
+                mPendingClosedTabs.clear();
             }
         });
 
@@ -324,10 +328,8 @@ public class TabsTray extends LinearLayout
         animator.setPropertyAnimationListener(new PropertyAnimator.PropertyAnimationListener() {
             public void onPropertyAnimationStart() { }
             public void onPropertyAnimationEnd() {
-                if (!hasOnlyOneTab()) {
-                    TabRow tab = (TabRow) view.getTag();
-                    tab.close.setVisibility(View.VISIBLE);
-                }
+                TabRow tab = (TabRow) view.getTag();
+                tab.close.setVisibility(View.VISIBLE);
             }
         });
 
@@ -417,6 +419,7 @@ public class TabsTray extends LinearLayout
                     if (mSwipeView == null)
                         break;
 
+                    cancelCheckForTap();
                     mSwipeView.setPressed(false);
 
                     if (!mSwiping) {
@@ -442,7 +445,7 @@ public class TabsTray extends LinearLayout
                         dismissRight = (deltaX > 0);
                     } else if (mMinFlingVelocity <= velocityX && velocityX <= mMaxFlingVelocity
                             && velocityY < velocityX) {
-                        dismiss = mSwiping && !hasOnlyOneTab() && (deltaX * mVelocityTracker.getXVelocity() > 0);
+                        dismiss = mSwiping && (deltaX * mVelocityTracker.getXVelocity() > 0);
                         dismissRight = (mVelocityTracker.getXVelocity() > 0);
                     }
 
@@ -491,13 +494,9 @@ public class TabsTray extends LinearLayout
                     }
 
                     if (mSwiping) {
-                        if (hasOnlyOneTab()) {
-                            mSwipeProxy.setTranslationX(deltaX / 4);
-                        } else {
-                            mSwipeProxy.setTranslationX(deltaX);
-                            mSwipeProxy.setAlpha(Math.max(0.1f, Math.min(1f,
-                                    1f - 2f * Math.abs(deltaX) / mListWidth)));
-                        }
+                        mSwipeProxy.setTranslationX(deltaX);
+                        mSwipeProxy.setAlpha(Math.max(0.1f, Math.min(1f,
+                                1f - 2f * Math.abs(deltaX) / mListWidth)));
 
                         return true;
                     }

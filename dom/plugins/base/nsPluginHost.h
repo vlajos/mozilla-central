@@ -38,10 +38,6 @@ class nsPluginNativeWindow;
 class nsObjectLoadingContent;
 class nsPluginInstanceOwner;
 
-#if defined(XP_MACOSX) && !defined(NP_NO_CARBON)
-#define MAC_CARBON_PLUGINS
-#endif
-
 class nsInvalidPluginTag : public nsISupports
 {
 public:
@@ -85,7 +81,6 @@ public:
                                nsPluginInstanceOwner *aOwner);
   nsresult IsPluginEnabledForType(const char* aMimeType);
   nsresult IsPluginEnabledForExtension(const char* aExtension, const char* &aMimeType);
-  bool     IsPluginClickToPlayForType(const char *aMimeType);
   bool     IsPluginPlayPreviewForType(const char *aMimeType);
   nsresult GetBlocklistStateForType(const char *aMimeType, uint32_t *state);
 
@@ -320,13 +315,6 @@ private:
   // We need to hold a global ptr to ourselves because we register for
   // two different CIDs for some reason...
   static nsPluginHost* sInst;
-
-#ifdef MAC_CARBON_PLUGINS
-  nsCOMPtr<nsITimer> mVisiblePluginTimer;
-  nsTObserverArray<nsIPluginInstanceOwner*> mVisibleTimerTargets;
-  nsCOMPtr<nsITimer> mHiddenPluginTimer;
-  nsTObserverArray<nsIPluginInstanceOwner*> mHiddenTimerTargets;
-#endif
 };
 
 class NS_STACK_CLASS PluginDestructionGuard : protected PRCList

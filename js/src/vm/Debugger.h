@@ -118,7 +118,7 @@ class Debugger {
      * do some things in the debugger compartment and some things in the
      * debuggee compartment.
      */
-    JSTrapStatus handleUncaughtException(Maybe<AutoCompartment> &ac, Value *vp, bool callHook);
+    JSTrapStatus handleUncaughtException(mozilla::Maybe<AutoCompartment> &ac, Value *vp, bool callHook);
 
     /*
      * Handle the result of a hook that is expected to return a resumption
@@ -145,7 +145,7 @@ class Debugger {
      *     anything else - Make a new TypeError the pending exception and
      *         return handleUncaughtException(ac, vp, callHook).
      */
-    JSTrapStatus parseResumptionValue(Maybe<AutoCompartment> &ac, bool ok, const Value &rv,
+    JSTrapStatus parseResumptionValue(mozilla::Maybe<AutoCompartment> &ac, bool ok, const Value &rv,
                                       Value *vp, bool callHook = true);
 
     GlobalObject *unwrapDebuggeeArgument(JSContext *cx, const Value &v);
@@ -176,6 +176,7 @@ class Debugger {
     static JSBool setUncaughtExceptionHook(JSContext *cx, unsigned argc, Value *vp);
     static JSBool addDebuggee(JSContext *cx, unsigned argc, Value *vp);
     static JSBool removeDebuggee(JSContext *cx, unsigned argc, Value *vp);
+    static JSBool removeAllDebuggees(JSContext *cx, unsigned argc, Value *vp);
     static JSBool hasDebuggee(JSContext *cx, unsigned argc, Value *vp);
     static JSBool getDebuggees(JSContext *cx, unsigned argc, Value *vp);
     static JSBool getNewestFrame(JSContext *cx, unsigned argc, Value *vp);
@@ -192,7 +193,7 @@ class Debugger {
 
     static JSTrapStatus slowPathOnEnterFrame(JSContext *cx, Value *vp);
     static bool slowPathOnLeaveFrame(JSContext *cx, bool ok);
-    static void slowPathOnNewScript(JSContext *cx, JSScript *script,
+    static void slowPathOnNewScript(JSContext *cx, HandleScript script,
                                     GlobalObject *compileAndGoGlobal);
     static bool slowPathOnNewGlobalObject(JSContext *cx, Handle<GlobalObject *> global);
     static JSTrapStatus dispatchHook(JSContext *cx, Value *vp, Hook which);
@@ -256,7 +257,7 @@ class Debugger {
     static inline bool onLeaveFrame(JSContext *cx, bool ok);
     static inline JSTrapStatus onDebuggerStatement(JSContext *cx, Value *vp);
     static inline JSTrapStatus onExceptionUnwind(JSContext *cx, Value *vp);
-    static inline void onNewScript(JSContext *cx, JSScript *script,
+    static inline void onNewScript(JSContext *cx, HandleScript script,
                                    GlobalObject *compileAndGoGlobal);
     static inline bool onNewGlobalObject(JSContext *cx, Handle<GlobalObject *> global);
     static JSTrapStatus onTrap(JSContext *cx, Value *vp);
@@ -350,7 +351,7 @@ class Debugger {
      * pending exception. (This ordinarily returns true even if the ok argument
      * is false.)
      */
-    bool receiveCompletionValue(Maybe<AutoCompartment> &ac, bool ok, Value val, Value *vp);
+    bool receiveCompletionValue(mozilla::Maybe<AutoCompartment> &ac, bool ok, Value val, Value *vp);
 
     /*
      * Return the Debugger.Script object for |script|, or create a new one if
@@ -544,7 +545,7 @@ Debugger::onExceptionUnwind(JSContext *cx, Value *vp)
 }
 
 void
-Debugger::onNewScript(JSContext *cx, JSScript *script, GlobalObject *compileAndGoGlobal)
+Debugger::onNewScript(JSContext *cx, HandleScript script, GlobalObject *compileAndGoGlobal)
 {
     JS_ASSERT_IF(script->compileAndGo, compileAndGoGlobal);
     JS_ASSERT_IF(!script->compileAndGo, !compileAndGoGlobal);

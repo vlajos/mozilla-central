@@ -151,6 +151,17 @@ public:
    */
   bool SetNonblockFlags();
 
+  void GetSocketAddr(nsAString& aAddrStr)
+  {
+    if (!mConnector)
+    {
+      NS_WARNING("No connector to get socket address from!");
+      aAddrStr = nsString();
+      return;
+    }
+    mConnector->GetSocketAddr(mAddr, aAddrStr);
+  }
+
   /**
    * Consumer pointer. Non-thread safe RefPtr, so should only be manipulated
    * directly from main thread. All non-main-thread accesses should happen with
@@ -227,6 +238,17 @@ private:
    * Address we are connecting to, assuming we are creating a client connection.
    */
   nsCString mAddress;
+
+  /**
+   * Size of the socket address struct
+   */
+  socklen_t mAddrSize;
+
+  /**
+   * Address struct of the socket currently in use
+   */
+  sockaddr mAddr;
+
 };
 
 static void
@@ -404,8 +426,6 @@ void SocketConnectTask::Run() {
 void
 UnixSocketImpl::Accept()
 {
-  socklen_t addr_sz;
-  struct sockaddr addr;
 
   if (!mConnector) {
     NS_WARNING("No connector object available!");
@@ -414,7 +434,7 @@ UnixSocketImpl::Accept()
 
   // This will set things we don't particularly care about, but it will hand
   // back the correct structure size which is what we do care about.
-  mConnector->CreateAddr(true, addr_sz, &addr, nullptr);
+  mConnector->CreateAddr(true, mAddrSize, &mAddr, nullptr);
 
   if(mFd.get() < 0)
   {
@@ -427,7 +447,7 @@ UnixSocketImpl::Accept()
       return;
     }
 
-    if (bind(mFd.get(), &addr, addr_sz)) {
+    if (bind(mFd.get(), &mAddr, mAddrSize)) {
 #ifdef DEBUG
       LOG("...bind(%d) gave errno %d", mFd.get(), errno);
 #endif
@@ -444,7 +464,7 @@ UnixSocketImpl::Accept()
   }
 
   int client_fd;
-  client_fd = accept(mFd.get(), &addr, &addr_sz);
+  client_fd = accept(mFd.get(), &mAddr, &mAddrSize);
   if (client_fd < 0) {
     EnqueueTask(SOCKET_RETRY_TIME_MS, new SocketAcceptTask(this));
     return;
@@ -479,12 +499,10 @@ UnixSocketImpl::Connect()
   }
 
   int ret;
-  socklen_t addr_sz;
-  struct sockaddr addr;
 
-  mConnector->CreateAddr(false, addr_sz, &addr, mAddress.get());
+  mConnector->CreateAddr(false, mAddrSize, &mAddr, mAddress.get());
 
-  ret = connect(mFd.get(), &addr, addr_sz);
+  ret = connect(mFd.get(), &mAddr, mAddrSize);
 
   if (ret) {
 #if DEBUG
@@ -694,6 +712,17 @@ UnixSocketImpl::OnFileCanWriteWithoutBlocking(int aFd)
 }
 
 void
+UnixSocketConsumer::GetSocketAddr(nsAString& aAddrStr)
+{
+  if (!mImpl || mConnectionStatus != SOCKET_CONNECTED) {
+    NS_WARNING("No socket currently open!");
+    aAddrStr = nsString();
+    return;
+  }
+  mImpl->GetSocketAddr(aAddrStr);
+}
+
+void
 UnixSocketConsumer::NotifySuccess()
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -749,7 +778,7 @@ UnixSocketConsumer::ListenSocket(UnixSocketConnector* aConnector)
   mImpl = new UnixSocketImpl(this, aConnector, addr);
   XRE_GetIOMessageLoop()->PostTask(FROM_HERE,
                                    new SocketAcceptTask(mImpl));
-  mConnectionStatus = SOCKET_CONNECTING;
+  mConnectionStatus = SOCKET_LISTENING;
   return true;
 }
 

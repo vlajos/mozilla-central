@@ -23,11 +23,11 @@ DOMCI_DATA(CameraControl, nsICameraControl)
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMCameraControl)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsDOMCameraControl)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mDOMCapabilities)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDOMCapabilities)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsDOMCameraControl)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mDOMCapabilities)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mDOMCapabilities)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMCameraControl)
@@ -229,11 +229,33 @@ nsDOMCameraControl::SetOnClosed(nsICameraClosedCallback* aOnClosed)
   return mCameraControl->Set(aOnClosed);
 }
 
-/* [implicit_jscontext] void startRecording (in nsIDOMDeviceStorage storageArea, in DOMString filename, in nsICameraStartRecordingCallback onSuccess, [optional] in nsICameraErrorCallback onError); */
+/* attribute nsICameraRecorderStateChange onRecorderStateChange; */
 NS_IMETHODIMP
-nsDOMCameraControl::StartRecording(nsIDOMDeviceStorage* storageArea, const nsAString& filename, nsICameraStartRecordingCallback* onSuccess, nsICameraErrorCallback* onError, JSContext* cx)
+nsDOMCameraControl::GetOnRecorderStateChange(nsICameraRecorderStateChange** aOnRecorderStateChange)
+{
+  return mCameraControl->Get(aOnRecorderStateChange);
+}
+NS_IMETHODIMP
+nsDOMCameraControl::SetOnRecorderStateChange(nsICameraRecorderStateChange* aOnRecorderStateChange)
+{
+  return mCameraControl->Set(aOnRecorderStateChange);
+}
+
+/* [implicit_jscontext] void startRecording (in jsval aOptions, in nsIDOMDeviceStorage storageArea, in DOMString filename, in nsICameraStartRecordingCallback onSuccess, [optional] in nsICameraErrorCallback onError); */
+NS_IMETHODIMP
+nsDOMCameraControl::StartRecording(const JS::Value& aOptions, nsIDOMDeviceStorage* storageArea, const nsAString& filename, nsICameraStartRecordingCallback* onSuccess, nsICameraErrorCallback* onError, JSContext* cx)
 {
   NS_ENSURE_TRUE(onSuccess, NS_ERROR_INVALID_ARG);
+  NS_ENSURE_TRUE(storageArea, NS_ERROR_INVALID_ARG);
+
+  CameraStartRecordingOptions options;
+
+  // Default values, until the dictionary parser can handle them.
+  options.rotation = 0;
+  options.maxFileSizeBytes = 0;
+  options.maxVideoLengthMs = 0;
+  nsresult rv = options.Init(cx, &aOptions);
+  NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (!obs) {
@@ -245,7 +267,9 @@ nsDOMCameraControl::StartRecording(nsIDOMDeviceStorage* storageArea, const nsASt
                        "recording-device-events",
                        NS_LITERAL_STRING("starting").get());
 
-  return mCameraControl->StartRecording(storageArea, filename, onSuccess, onError);
+  nsCOMPtr<nsIFile> folder;
+  storageArea->GetRootDirectory(getter_AddRefs(folder));
+  return mCameraControl->StartRecording(&options, folder, filename, onSuccess, onError);
 }
 
 /* void stopRecording (); */
@@ -329,7 +353,7 @@ nsDOMCameraControl::GetPreviewStreamVideoMode(const JS::Value& aOptions, nsICame
 {
   NS_ENSURE_TRUE(onSuccess, NS_ERROR_INVALID_ARG);
 
-  CameraRecordingOptions options;
+  CameraRecorderOptions options;
   nsresult rv = options.Init(cx, &aOptions);
   NS_ENSURE_SUCCESS(rv, rv);
 

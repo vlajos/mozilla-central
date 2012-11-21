@@ -21,6 +21,7 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "WindowIdentifier.h"
 #include "mozilla/dom/ScreenOrientation.h"
+#include "mozilla/dom/ContentChild.h"
 
 #ifdef XP_WIN
 #include <process.h>
@@ -55,7 +56,15 @@ using namespace mozilla::services;
 namespace mozilla {
 namespace hal {
 
-PRLogModuleInfo *sHalLog = PR_LOG_DEFINE("hal");
+PRLogModuleInfo *
+GetHalLog()
+{
+  static PRLogModuleInfo *sHalLog;
+  if (!sHalLog) {
+    sHalLog = PR_NewLogModule("hal");
+  }
+  return sHalLog;
+}
 
 namespace {
 
@@ -87,7 +96,7 @@ WindowIsActive(nsIDOMWindow *window)
   NS_ENSURE_TRUE(doc, false);
 
   bool hidden = true;
-  doc->GetMozHidden(&hidden);
+  doc->GetHidden(&hidden);
   return !hidden;
 }
 
@@ -123,20 +132,17 @@ Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier &id)
     return;
   }
 
-  if (InSandbox()) {
-    hal_sandbox::Vibrate(pattern, id);
-  }
-  else {
-    if (!gLastIDToVibrate)
+  if (!InSandbox()) {
+    if (!gLastIDToVibrate) {
       InitLastIDToVibrate();
+    }
     *gLastIDToVibrate = id.AsArray();
-
-    HAL_LOG(("Vibrate: Forwarding to hal_impl."));
-
-    // hal_impl doesn't need |id|. Send it an empty id, which will
-    // assert if it's used.
-    hal_impl::Vibrate(pattern, WindowIdentifier());
   }
+
+  // Don't forward our ID if we are not in the sandbox, because hal_impl 
+  // doesn't need it, and we don't want it to be tempted to read it.  The
+  // empty identifier will assert if it's used.
+  PROXY_IF_SANDBOXED(Vibrate(pattern, InSandbox() ? id : WindowIdentifier()));
 }
 
 void
@@ -167,15 +173,11 @@ CancelVibrate(const WindowIdentifier &id)
   // to start a vibration, and only accepts cancellation requests from
   // the same window.  All other cancellation requests are ignored.
 
-  if (InSandbox()) {
-    hal_sandbox::CancelVibrate(id);
-  }
-  else if (gLastIDToVibrate && *gLastIDToVibrate == id.AsArray()) {
-    // Don't forward our ID to hal_impl. It doesn't need it, and we
-    // don't want it to be tempted to read it.  The empty identifier
-    // will assert if it's used.
-    HAL_LOG(("CancelVibrate: Forwarding to hal_impl."));
-    hal_impl::CancelVibrate(WindowIdentifier());
+  if (InSandbox() || (gLastIDToVibrate && *gLastIDToVibrate == id.AsArray())) {
+    // Don't forward our ID if we are not in the sandbox, because hal_impl 
+    // doesn't need it, and we don't want it to be tempted to read it.  The
+    // empty identifier will assert if it's used.
+    PROXY_IF_SANDBOXED(CancelVibrate(InSandbox() ? id : WindowIdentifier()));
   }
 }
 
@@ -405,52 +407,86 @@ void SetScreenBrightness(double brightness)
   PROXY_IF_SANDBOXED(SetScreenBrightness(clamped(brightness, 0.0, 1.0)));
 }
 
-bool SetLight(LightType light, const hal::LightConfiguration& aConfig)
+bool SetLight(LightType light, const LightConfiguration& aConfig)
 {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(SetLight(light, aConfig), false);
 }
 
-bool GetLight(LightType light, hal::LightConfiguration* aConfig)
+bool GetLight(LightType light, LightConfiguration* aConfig)
 {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(GetLight(light, aConfig), false);
 }
 
-class SystemTimeObserversManager : public ObserversManager<SystemTimeChange>
+class SystemClockChangeObserversManager : public ObserversManager<int64_t>
 {
 protected:
   void EnableNotifications() {
-    PROXY_IF_SANDBOXED(EnableSystemTimeChangeNotifications());
+    PROXY_IF_SANDBOXED(EnableSystemClockChangeNotifications());
   }
 
   void DisableNotifications() {
-    PROXY_IF_SANDBOXED(DisableSystemTimeChangeNotifications());
+    PROXY_IF_SANDBOXED(DisableSystemClockChangeNotifications());
   }
 };
 
-static SystemTimeObserversManager sSystemTimeObservers;
+static SystemClockChangeObserversManager sSystemClockChangeObservers;
 
 void
-RegisterSystemTimeChangeObserver(SystemTimeObserver *aObserver)
+RegisterSystemClockChangeObserver(SystemClockChangeObserver* aObserver)
 {
   AssertMainThread();
-  sSystemTimeObservers.AddObserver(aObserver);
+  sSystemClockChangeObservers.AddObserver(aObserver);
 }
 
 void
-UnregisterSystemTimeChangeObserver(SystemTimeObserver *aObserver)
+UnregisterSystemClockChangeObserver(SystemClockChangeObserver* aObserver)
 {
   AssertMainThread();
-  sSystemTimeObservers.RemoveObserver(aObserver);
+  sSystemClockChangeObservers.RemoveObserver(aObserver);
 }
 
 void
-NotifySystemTimeChange(const hal::SystemTimeChange& aReason)
+NotifySystemClockChange(const int64_t& aClockDeltaMS)
 {
-  sSystemTimeObservers.BroadcastInformation(aReason);
+  sSystemClockChangeObservers.BroadcastInformation(aClockDeltaMS);
 }
- 
+
+class SystemTimezoneChangeObserversManager : public ObserversManager<SystemTimezoneChangeInformation>
+{
+protected:
+  void EnableNotifications() {
+    PROXY_IF_SANDBOXED(EnableSystemTimezoneChangeNotifications());
+  }
+
+  void DisableNotifications() {
+    PROXY_IF_SANDBOXED(DisableSystemTimezoneChangeNotifications());
+  }
+};
+
+static SystemTimezoneChangeObserversManager sSystemTimezoneChangeObservers;
+
+void
+RegisterSystemTimezoneChangeObserver(SystemTimezoneChangeObserver* aObserver)
+{
+  AssertMainThread();
+  sSystemTimezoneChangeObservers.AddObserver(aObserver);
+}
+
+void
+UnregisterSystemTimezoneChangeObserver(SystemTimezoneChangeObserver* aObserver)
+{
+  AssertMainThread();
+  sSystemTimezoneChangeObservers.RemoveObserver(aObserver);
+}
+
+void
+NotifySystemTimezoneChange(const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
+{
+  sSystemTimezoneChangeObservers.BroadcastInformation(aSystemTimezoneChangeInfo);
+}
+
 void 
 AdjustSystemClock(int64_t aDeltaMilliseconds)
 {
@@ -606,16 +642,29 @@ UnregisterWakeLockObserver(WakeLockObserver* aObserver)
 }
 
 void
-ModifyWakeLock(const nsAString &aTopic,
-               hal::WakeLockControl aLockAdjust,
-               hal::WakeLockControl aHiddenAdjust)
+ModifyWakeLock(const nsAString& aTopic,
+               WakeLockControl aLockAdjust,
+               WakeLockControl aHiddenAdjust)
 {
   AssertMainThread();
-  PROXY_IF_SANDBOXED(ModifyWakeLock(aTopic, aLockAdjust, aHiddenAdjust));
+  uint64_t processID = InSandbox() ? dom::ContentChild::GetSingleton()->GetID() : 0;
+  PROXY_IF_SANDBOXED(ModifyWakeLockInternal(aTopic, aLockAdjust, aHiddenAdjust, processID));
 }
 
 void
-GetWakeLockInfo(const nsAString &aTopic, WakeLockInformation *aWakeLockInfo)
+ModifyWakeLockInternal(const nsAString& aTopic,
+                       WakeLockControl aLockAdjust,
+                       WakeLockControl aHiddenAdjust,
+                       uint64_t aProcessID)
+{
+  AssertMainThread();
+  // TODO: Bug 812403 - support wake locks in nested content processes.
+  AssertMainProcess();
+  PROXY_IF_SANDBOXED(ModifyWakeLockInternal(aTopic, aLockAdjust, aHiddenAdjust, aProcessID));
+}
+
+void
+GetWakeLockInfo(const nsAString& aTopic, WakeLockInformation* aWakeLockInfo)
 {
   AssertMainThread();
   PROXY_IF_SANDBOXED(GetWakeLockInfo(aTopic, aWakeLockInfo));
@@ -671,18 +720,18 @@ UnlockScreenOrientation()
 }
 
 void
-EnableSwitchNotifications(hal::SwitchDevice aDevice) {
+EnableSwitchNotifications(SwitchDevice aDevice) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(EnableSwitchNotifications(aDevice));
 }
 
 void
-DisableSwitchNotifications(hal::SwitchDevice aDevice) {
+DisableSwitchNotifications(SwitchDevice aDevice) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(DisableSwitchNotifications(aDevice));
 }
 
-hal::SwitchState GetCurrentSwitchState(hal::SwitchDevice aDevice)
+SwitchState GetCurrentSwitchState(SwitchDevice aDevice)
 {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(GetCurrentSwitchState(aDevice), SWITCH_STATE_UNKNOWN);
@@ -693,7 +742,7 @@ typedef mozilla::ObserverList<SwitchEvent> SwitchObserverList;
 static SwitchObserverList *sSwitchObserverLists = NULL;
 
 static SwitchObserverList&
-GetSwitchObserverList(hal::SwitchDevice aDevice) {
+GetSwitchObserverList(SwitchDevice aDevice) {
   MOZ_ASSERT(0 <= aDevice && aDevice < NUM_SWITCH_DEVICE); 
   if (sSwitchObserverLists == NULL) {
     sSwitchObserverLists = new SwitchObserverList[NUM_SWITCH_DEVICE];
@@ -714,7 +763,7 @@ ReleaseObserversIfNeeded() {
 }
 
 void
-RegisterSwitchObserver(hal::SwitchDevice aDevice, hal::SwitchObserver *aObserver)
+RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver)
 {
   AssertMainThread();
   SwitchObserverList& observer = GetSwitchObserverList(aDevice);
@@ -725,7 +774,7 @@ RegisterSwitchObserver(hal::SwitchDevice aDevice, hal::SwitchObserver *aObserver
 }
 
 void
-UnregisterSwitchObserver(hal::SwitchDevice aDevice, hal::SwitchObserver *aObserver)
+UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver)
 {
   AssertMainThread();
 
@@ -743,7 +792,7 @@ UnregisterSwitchObserver(hal::SwitchDevice aDevice, hal::SwitchObserver *aObserv
 }
 
 void
-NotifySwitchChange(const hal::SwitchEvent& aEvent)
+NotifySwitchChange(const SwitchEvent& aEvent)
 {
   // When callback this notification, main thread may call unregister function
   // first. We should check if this pointer is valid.
@@ -998,6 +1047,12 @@ GetFMBandSettings(FMRadioCountry aCountry) {
       break;
     };
     return settings;
+}
+
+void FactoryReset()
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(FactoryReset());
 }
 
 } // namespace hal

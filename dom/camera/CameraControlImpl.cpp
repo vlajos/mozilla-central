@@ -4,10 +4,38 @@
 
 #include "base/basictypes.h"
 #include "DOMCameraPreview.h"
+#include "CameraRecorderProfiles.h"
 #include "CameraControlImpl.h"
 #include "CameraCommon.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
+
+CameraControlImpl::CameraControlImpl(uint32_t aCameraId, nsIThread* aCameraThread, uint64_t aWindowId)
+  : mCameraId(aCameraId)
+  , mCameraThread(aCameraThread)
+  , mWindowId(aWindowId)
+  , mFileFormat()
+  , mMaxMeteringAreas(0)
+  , mMaxFocusAreas(0)
+  , mDOMPreview(nullptr)
+  , mAutoFocusOnSuccessCb(nullptr)
+  , mAutoFocusOnErrorCb(nullptr)
+  , mTakePictureOnSuccessCb(nullptr)
+  , mTakePictureOnErrorCb(nullptr)
+  , mStartRecordingOnSuccessCb(nullptr)
+  , mStartRecordingOnErrorCb(nullptr)
+  , mOnShutterCb(nullptr)
+  , mOnClosedCb(nullptr)
+  , mOnRecorderStateChangeCb(nullptr)
+{
+  DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
+}
+
+CameraControlImpl::~CameraControlImpl()
+{
+  DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
+}
 
 // Helpers for string properties.
 nsresult
@@ -195,6 +223,26 @@ CameraControlImpl::Get(nsICameraClosedCallback** aOnClosed)
   return NS_OK;
 }
 
+nsresult
+CameraControlImpl::Set(nsICameraRecorderStateChange* aOnRecorderStateChange)
+{
+  mOnRecorderStateChangeCb = aOnRecorderStateChange;
+  return NS_OK;
+}
+
+nsresult
+CameraControlImpl::Get(nsICameraRecorderStateChange** aOnRecorderStateChange)
+{
+  *aOnRecorderStateChange = mOnRecorderStateChangeCb;
+  return NS_OK;
+}
+
+already_AddRefed<RecorderProfileManager>
+CameraControlImpl::GetRecorderProfileManager()
+{
+  return GetRecorderProfileManagerImpl();
+}
+
 void
 CameraControlImpl::Shutdown()
 {
@@ -207,6 +255,7 @@ CameraControlImpl::Shutdown()
   mStartRecordingOnErrorCb = nullptr;
   mOnShutterCb = nullptr;
   mOnClosedCb = nullptr;
+  mOnRecorderStateChangeCb = nullptr;
 }
 
 void
@@ -247,6 +296,18 @@ CameraControlImpl::OnClosed()
   }
 }
 
+void
+CameraControlImpl::OnRecorderStateChange(const nsString& aStateMsg, int32_t aStatus, int32_t aTrackNumber)
+{
+  DOM_CAMERA_LOGI("OnRecorderStateChange: '%s'\n", NS_ConvertUTF16toUTF8(aStateMsg).get());
+
+  nsCOMPtr<nsIRunnable> onRecorderStateChange = new CameraRecorderStateChange(mOnRecorderStateChangeCb, aStateMsg, aStatus, aTrackNumber, mWindowId);
+  nsresult rv = NS_DispatchToMainThread(onRecorderStateChange);
+  if (NS_FAILED(rv)) {
+    DOM_CAMERA_LOGE("Failed to dispatch onRecorderStateChange event to main thread (%d)\n", rv);
+  }
+}
+
 nsresult
 CameraControlImpl::GetPreviewStream(CameraSize aSize, nsICameraPreviewStreamCallback* onSuccess, nsICameraErrorCallback* onError)
 {
@@ -276,9 +337,12 @@ CameraControlImpl::TakePicture(CameraSize aSize, int32_t aRotation, const nsAStr
 }
 
 nsresult
-CameraControlImpl::StartRecording(nsIDOMDeviceStorage* aStorageArea, const nsAString& aFilename, nsICameraStartRecordingCallback* onSuccess, nsICameraErrorCallback* onError)
+CameraControlImpl::StartRecording(CameraStartRecordingOptions* aOptions, nsIFile* aFolder, const nsAString& aFilename, nsICameraStartRecordingCallback* onSuccess, nsICameraErrorCallback* onError)
 {
-  nsCOMPtr<nsIRunnable> startRecordingTask = new StartRecordingTask(this, aStorageArea, aFilename, onSuccess, onError);
+  nsCOMPtr<nsIFile> clone;
+  aFolder->Clone(getter_AddRefs(clone));
+
+  nsCOMPtr<nsIRunnable> startRecordingTask = new StartRecordingTask(this, *aOptions, clone, aFilename, onSuccess, onError, mWindowId);
   return mCameraThread->Dispatch(startRecordingTask, NS_DISPATCH_NORMAL);
 }
 
@@ -304,7 +368,7 @@ CameraControlImpl::StopPreview()
 }
 
 nsresult
-CameraControlImpl::GetPreviewStreamVideoMode(CameraRecordingOptions* aOptions, nsICameraPreviewStreamCallback* onSuccess, nsICameraErrorCallback* onError)
+CameraControlImpl::GetPreviewStreamVideoMode(CameraRecorderOptions* aOptions, nsICameraPreviewStreamCallback* onSuccess, nsICameraErrorCallback* onError)
 {
   nsCOMPtr<nsIRunnable> getPreviewStreamVideoModeTask = new GetPreviewStreamVideoModeTask(this, *aOptions, onSuccess, onError);
   return mCameraThread->Dispatch(getPreviewStreamVideoModeTask, NS_DISPATCH_NORMAL);

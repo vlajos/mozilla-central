@@ -139,7 +139,31 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
     mThebesLayerCallbackData = aCallbackData;
     SetCompositingDisabled(aFlags & END_NO_COMPOSITE);
 
-    Render();
+    bool needGLRender = true;
+    if (mComposer2D && mComposer2D->TryRender(mRoot, mWorldMatrix)) {
+      needGLRender = false;
+
+      if (sDrawFPS) {
+        if (!mFPS) {
+          mFPS = new FPSState();
+        }
+        double fps = mFPS->mCompositionFps.AddFrameAndGetFps(TimeStamp::Now());
+        printf_stderr("HWComposer: FPS is %g\n", fps);
+      }
+
+      // This lets us reftest and screenshot content rendered by the
+      // 2d composer.
+      if (mTarget) {
+        MakeCurrent();
+        CopyToTarget(mTarget);
+        mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
+      }
+      MOZ_ASSERT(!needGLRender);
+    }
+
+    if (needGLRender) {
+      Render();
+    }
 
     mThebesLayerCallback = nullptr;
     mThebesLayerCallbackData = nullptr;
@@ -231,6 +255,41 @@ LayerManagerOGL::RootLayer() const
   return static_cast<LayerOGL*>(mRoot->ImplData());
 }
 
+static LayerOGL*
+ToLayerOGL(Layer* aLayer)
+{
+  return static_cast<LayerOGL*>(aLayer->ImplData());
+}
+
+static void ClearSubtree(Layer* aLayer)
+{
+  ToLayerOGL(aLayer)->CleanupResources();
+  for (Layer* child = aLayer->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    ClearSubtree(child);
+  }
+}
+
+void
+LayerManagerOGL::ClearCachedResources(Layer* aSubtree)
+{
+  MOZ_ASSERT(!aSubtree || aSubtree->Manager() == this);
+  Layer* subtree = aSubtree ? aSubtree : mRoot.get();
+  if (!subtree) {
+    return;
+  }
+
+  ClearSubtree(subtree);
+#ifdef DEBUG
+  // If this subtree is reachable from the root layer, then it's
+  // possibly onscreen, and the resource clear means that composites
+  // until the next received transaction may draw garbage to the
+  // framebuffer.
+  for(; subtree && subtree != mRoot; subtree = subtree->GetParent());
+  mMaybeInvalidTree = (subtree == mRoot);
+#endif  // DEBUG
+}
+
 void
 LayerManagerOGL::Render()
 {
@@ -306,6 +365,88 @@ LayerManagerOGL::CreateDrawTarget(const IntSize &aSize,
   }
 #endif
   return LayerManager::CreateDrawTarget(aSize, aFormat);
+}
+
+/* static */ void
+LayerManagerOGL::ComputeRenderIntegrityInternal(Layer* aLayer,
+                                                nsIntRegion& aScreenRegion,
+                                                const gfx3DMatrix& aTransform)
+{
+  if (aScreenRegion.IsEmpty() || aLayer->GetOpacity() <= 0.f) {
+    return;
+  }
+
+  // If the layer's a container, recurse into all of its children
+  ContainerLayer* container = aLayer->AsContainerLayer();
+  if (container) {
+    // Accumulate the transform of intermediate surfaces
+    gfx3DMatrix transform = aTransform;
+    if (container->UseIntermediateSurface()) {
+      transform = aLayer->GetEffectiveTransform();
+      transform.PreMultiply(aTransform);
+    }
+    for (Layer* child = aLayer->GetFirstChild(); child;
+         child = child->GetNextSibling()) {
+      ComputeRenderIntegrityInternal(child, aScreenRegion, transform);
+    }
+    return;
+  }
+
+  // Only thebes layers can be incomplete
+  ThebesLayer* thebesLayer = aLayer->AsThebesLayer();
+  if (!thebesLayer) {
+    return;
+  }
+
+  // See if there's any incomplete rendering
+  nsIntRegion incompleteRegion = aLayer->GetEffectiveVisibleRegion();
+  incompleteRegion.Sub(incompleteRegion, thebesLayer->GetValidRegion());
+
+  if (!incompleteRegion.IsEmpty()) {
+    // Calculate the transform to get between screen and layer space
+    gfx3DMatrix transformToScreen = aLayer->GetEffectiveTransform();
+    transformToScreen.PreMultiply(aTransform);
+
+    // For each rect in the region, find out its bounds in screen space and
+    // subtract it from the screen region.
+    nsIntRegionRectIterator it(incompleteRegion);
+    while (const nsIntRect* rect = it.Next()) {
+      gfxRect incompleteRect = transformToScreen.TransformBounds(gfxRect(*rect));
+      aScreenRegion.Sub(aScreenRegion, nsIntRect(incompleteRect.x,
+                                                 incompleteRect.y,
+                                                 incompleteRect.width,
+                                                 incompleteRect.height));
+    }
+  }
+}
+
+float
+LayerManagerOGL::ComputeRenderIntegrity()
+{
+  // We only ever have incomplete rendering when progressive tiles are enabled.
+  if (!gfxPlatform::UseProgressiveTilePainting() || !GetRoot()) {
+    return 1.f;
+  }
+
+  // XXX We assume that mWidgetSize represents the 'screen' area.
+  gfx3DMatrix transform;
+  nsIntRect screenRect(0, 0, mWidgetSize.width, mWidgetSize.height);
+  nsIntRegion screenRegion(screenRect);
+  ComputeRenderIntegrityInternal(GetRoot(), screenRegion, transform);
+
+  if (!screenRegion.IsEqual(screenRect)) {
+    // Calculate the area of the region. All rects in an nsRegion are
+    // non-overlapping.
+    int area = 0;
+    nsIntRegionRectIterator it(screenRegion);
+    while (const nsIntRect* rect = it.Next()) {
+      area += rect->width * rect->height;
+    }
+
+    return area / (float)(screenRect.width * screenRect.height);
+  }
+
+  return 1.f;
 }
 
 } /* layers */

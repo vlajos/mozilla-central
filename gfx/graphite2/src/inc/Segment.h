@@ -123,7 +123,7 @@ public:
     int addFeatures(const Features& feats) { m_feats.push_back(feats); return m_feats.size() - 1; }
     uint32 getFeature(int index, uint8 findex) const { const FeatureRef* pFR=m_face->theSill().theFeatureMap().featureRef(findex); if (!pFR) return 0; else return pFR->getFeatureVal(m_feats[index]); }
     void dir(int8 val) { m_dir = val; }
-    uint16 glyphAttr(uint16 gid, uint16 gattr) const { return m_face->glyphs().glyphAttr(gid, gattr); }
+    uint16 glyphAttr(uint16 gid, uint16 gattr) const { const GlyphFace * p = m_face->glyphs().glyphSafe(gid); return p ? p->attrs()[gattr] : 0; }
     uint16 getGlyphMetric(Slot *iSlot, uint8 metric, uint8 attrLevel) const;
     float glyphAdvance(uint16 gid) const { return m_face->glyphs().glyph(gid)->theAdvance().x; }
     const Rect &theGlyphBBoxTemporary(uint16 gid) const { return m_face->glyphs().glyph(gid)->theBBox(); }   //warning value may become invalid when another glyph is accessed
@@ -150,8 +150,8 @@ public:       //only used by: GrSegment* makeAndInitialize(const GrFont *font, c
 private:
     Rect            m_bbox;             // ink box of the segment
     Position        m_advance;          // whole segment advance
-    SlotRope        m_slots;            // std::vector of slot buffers
-    AttributeRope   m_userAttrs;        // std::vector of userAttrs buffers
+    SlotRope        m_slots;            // Vector of slot buffers
+    AttributeRope   m_userAttrs;        // Vector of userAttrs buffers
     JustifyRope     m_justifies;        // Slot justification info buffers
     FeatureList     m_feats;            // feature settings referenced by charinfos in this segment
     Slot          * m_freeSlots;        // linked list of free slots

@@ -84,9 +84,12 @@ nsDOMDesktopNotification::nsDOMDesktopNotification(const nsAString & title,
   if (Preferences::GetBool("notification.prompt.testing", false) &&
       Preferences::GetBool("notification.prompt.testing.allow", true)) {
     mAllow = true;
-    return;
   }
+}
 
+void
+nsDOMDesktopNotification::Init()
+{
   nsRefPtr<nsDesktopNotificationRequest> request = new nsDesktopNotificationRequest(this);
 
   // if we are in the content process, then remote it to the parent.
@@ -106,8 +109,10 @@ nsDOMDesktopNotification::nsDOMDesktopNotification(const nsAString & title,
     // Corresponding release occurs in DeallocPContentPermissionRequest.
     nsRefPtr<nsDesktopNotificationRequest> copy = request;
 
-    nsCString type = NS_LITERAL_CSTRING("desktop-notification");
-    child->SendPContentPermissionRequestConstructor(copy.forget().get(), type, IPC::Principal(mPrincipal));
+    child->SendPContentPermissionRequestConstructor(copy.forget().get(),
+                                                    NS_LITERAL_CSTRING("desktop-notification"),
+                                                    NS_LITERAL_CSTRING("unused"),
+                                                    IPC::Principal(mPrincipal));
 
     request->Sendprompt();
     return;
@@ -115,7 +120,6 @@ nsDOMDesktopNotification::nsDOMDesktopNotification(const nsAString & title,
 
   // otherwise, dispatch it
   NS_DispatchToMainThread(request);
-
 }
 
 nsDOMDesktopNotification::~nsDOMDesktopNotification()
@@ -202,11 +206,12 @@ nsDesktopNotificationCenter::CreateNotification(const nsAString & title,
                                                 nsIDOMDesktopNotification **aResult)
 {
   NS_ENSURE_STATE(mOwner);
-  nsRefPtr<nsIDOMDesktopNotification> notification = new nsDOMDesktopNotification(title, 
-                                                                                  description,
-                                                                                  iconURL,
-                                                                                  mOwner,
-                                                                                  mPrincipal);
+  nsRefPtr<nsDOMDesktopNotification> notification = new nsDOMDesktopNotification(title, 
+                                                                                 description,
+                                                                                 iconURL,
+                                                                                 mOwner,
+                                                                                 mPrincipal);
+  notification->Init();
   notification.forget(aResult);
   return NS_OK;
 }
@@ -271,3 +276,9 @@ nsDesktopNotificationRequest::GetType(nsACString & aType)
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsDesktopNotificationRequest::GetAccess(nsACString & aAccess)
+{
+  aAccess = "unused";
+  return NS_OK;
+}

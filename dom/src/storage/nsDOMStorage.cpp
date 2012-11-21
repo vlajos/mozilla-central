@@ -331,7 +331,7 @@ nsDOMStorageManager::Observe(nsISupports *aSubject,
     rv = params->GetBrowserOnly(&browserOnly);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    MOZ_ASSERT(appId != nsIScriptSecurityManager::NO_APP_ID);
+    MOZ_ASSERT(appId != nsIScriptSecurityManager::UNKNOWN_APP_ID);
 
     return DOMStorageImpl::gStorageDB->RemoveAllForApp(appId, browserOnly);
   }
@@ -1466,10 +1466,10 @@ nsDOMStorage::StorageType()
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMStorage2)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsDOMStorage2)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mStorage)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mStorage)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsDOMStorage2)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mStorage, nsIDOMStorageObsolete)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStorage)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 DOMCI_DATA(Storage, nsDOMStorage2)

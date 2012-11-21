@@ -9,10 +9,9 @@ const Ci = Components.interfaces;
 const Cu = Components.utils;
 const Cr = Components.results;
 
-var EXPORTED_SYMBOLS = ['AccessFu'];
+this.EXPORTED_SYMBOLS = ['AccessFu'];
 
 Cu.import('resource://gre/modules/Services.jsm');
-Cu.import('resource://gre/modules/Geometry.jsm');
 
 Cu.import('resource://gre/modules/accessibility/Utils.jsm');
 Cu.import('resource://gre/modules/accessibility/TouchAdapter.jsm');
@@ -21,7 +20,7 @@ const ACCESSFU_DISABLE = 0;
 const ACCESSFU_ENABLE = 1;
 const ACCESSFU_AUTO = 2;
 
-var AccessFu = {
+this.AccessFu = {
   /**
    * Initialize chrome-layer accessibility functionality.
    * If accessibility is enabled on the platform, then a special accessibility
@@ -32,33 +31,25 @@ var AccessFu = {
       // XXX: only supports attaching to one window now.
       throw new Error('Only one window could be attached to AccessFu');
 
-    Logger.info('attach');
     this.chromeWin = aWindow;
 
     this.prefsBranch = Cc['@mozilla.org/preferences-service;1']
       .getService(Ci.nsIPrefService).getBranch('accessibility.accessfu.');
     this.prefsBranch.addObserver('activate', this, false);
 
-    this.touchAdapter = TouchAdapter;
-
-    switch (Utils.MozBuildApp) {
-      case 'mobile/android':
-        Services.obs.addObserver(this, 'Accessibility:Settings', false);
-        Cc['@mozilla.org/android/bridge;1'].
-          getService(Ci.nsIAndroidBridge).handleGeckoMessage(
-            JSON.stringify({ gecko: { type: 'Accessibility:Ready' } }));
-        this.touchAdapter = AndroidTouchAdapter;
-        break;
-      case 'b2g':
-        aWindow.addEventListener(
-          'ContentStart',
-          (function(event) {
-             let content = aWindow.shell.contentBrowser.contentWindow;
-             content.addEventListener('mozContentEvent', this, false, true);
-           }).bind(this), false);
-        break;
-      default:
-        break;
+    try {
+      Cc['@mozilla.org/android/bridge;1'].
+        getService(Ci.nsIAndroidBridge).handleGeckoMessage(
+          JSON.stringify({ gecko: { type: 'Accessibility:Ready' } }));
+      Services.obs.addObserver(this, 'Accessibility:Settings', false);
+    } catch (x) {
+      // Not on Android
+      aWindow.addEventListener(
+        'ContentStart',
+        (function(event) {
+           let content = aWindow.shell.contentBrowser.contentWindow;
+           content.addEventListener('mozContentEvent', this, false, true);
+         }).bind(this), false);
     }
 
     try {
@@ -79,7 +70,13 @@ var AccessFu = {
       return;
     this._enabled = true;
 
+    Cu.import('resource://gre/modules/accessibility/Utils.jsm');
+    Cu.import('resource://gre/modules/accessibility/TouchAdapter.jsm');
+
     Logger.info('enable');
+
+    this.touchAdapter = (Utils.MozBuildApp == 'mobile/android') ?
+      AndroidTouchAdapter : TouchAdapter;
 
     for each (let mm in Utils.getAllMessageManagers(this.chromeWin))
       this._loadFrameScript(mm);
@@ -98,7 +95,9 @@ var AccessFu = {
     Services.obs.addObserver(this, 'remote-browser-frame-shown', false);
     Services.obs.addObserver(this, 'Accessibility:NextObject', false);
     Services.obs.addObserver(this, 'Accessibility:PreviousObject', false);
-    Services.obs.addObserver(this, 'Accessibility:CurrentObject', false);
+    Services.obs.addObserver(this, 'Accessibility:Focus', false);
+    this.chromeWin.addEventListener('TabOpen', this);
+    this.chromeWin.addEventListener('TabSelect', this);
   },
 
   /**
@@ -117,11 +116,15 @@ var AccessFu = {
       mm.sendAsyncMessage('AccessFu:Stop');
 
     Input.detach();
+    this.touchAdapter.detach(this.chromeWin);
+
+    this.chromeWin.removeEventListener('TabOpen', this);
+    this.chromeWin.removeEventListener('TabSelect', this);
 
     Services.obs.removeObserver(this, 'remote-browser-frame-shown');
     Services.obs.removeObserver(this, 'Accessibility:NextObject');
     Services.obs.removeObserver(this, 'Accessibility:PreviousObject');
-    Services.obs.removeObserver(this, 'Accessibility:CurrentObject');
+    Services.obs.removeObserver(this, 'Accessibility:Focus');
   },
 
   _enableOrDisable: function _enableOrDisable() {
@@ -132,7 +135,7 @@ var AccessFu = {
       else
         this._disable();
     } catch (x) {
-      Logger.error(x);
+      dump('Error ' + x.message + ' ' + x.fileName + ':' + x.lineNumber);
     }
   },
 
@@ -152,7 +155,7 @@ var AccessFu = {
           Output[presenter.type](presenter.details, aMessage.target);
         }
       } catch (x) {
-        Logger.error(x);
+        Logger.logException(x);
       }
       break;
       case 'AccessFu:Input':
@@ -171,7 +174,6 @@ var AccessFu = {
   },
 
   observe: function observe(aSubject, aTopic, aData) {
-    Logger.debug('observe', aTopic);
     switch (aTopic) {
       case 'Accessibility:Settings':
         this._systemPref = JSON.parse(aData).enabled;
@@ -183,11 +185,13 @@ var AccessFu = {
       case 'Accessibility:PreviousObject':
         Input.moveCursor('movePrevious', 'Simple', 'gesture');
         break;
-      case 'Accessibility:CurrentObject':
-        let mm = Utils.getCurrentBrowser(this.chromeWin).
-          frameLoader.messageManager;
-        mm.sendAsyncMessage('AccessFu:VirtualCursor',
-                            {action: 'presentLastPivot'});
+      case 'Accessibility:Focus':
+        this._focused = JSON.parse(aData);
+        if (this._focused) {
+          let mm = Utils.getMessageManager(Utils.getCurrentBrowser(this.chromeWin));
+          mm.sendAsyncMessage('AccessFu:VirtualCursor',
+                              {action: 'whereIsIt', move: true});
+        }
         break;
       case 'nsPref:changed':
         if (aData == 'activate') {
@@ -205,20 +209,48 @@ var AccessFu = {
   },
 
   handleEvent: function handleEvent(aEvent) {
-    if (aEvent.type == 'mozContentEvent' &&
-        aEvent.detail.type == 'accessibility-screenreader') {
-      this._systemPref = aEvent.detail.enabled;
-      this._enableOrDisable();
+    switch (aEvent.type) {
+      case 'mozContentEvent':
+      {
+        if (aEvent.detail.type == 'accessibility-screenreader') {
+          this._systemPref = aEvent.detail.enabled;
+          this._enableOrDisable();
+        }
+        break;
+      }
+      case 'TabOpen':
+      {
+        this._loadFrameScript(Utils.getMessageManager(aEvent.target));
+        break;
+      }
+      case 'TabSelect':
+      {
+        if (this._focused) {
+          let mm = Utils.getMessageManager(Utils.getCurrentBrowser(this.chromeWin));
+          // We delay this for half a second so the awesomebar could close,
+          // and we could use the current coordinates for the content item.
+          // XXX TODO figure out how to avoid magic wait here.
+          this.chromeWin.setTimeout(
+            function () {
+              mm.sendAsyncMessage('AccessFu:VirtualCursor', {action: 'whereIsIt'});
+            }, 500);
+        }
+        break;
+      }
     }
   },
 
   // So we don't enable/disable twice
-  _enabled: false
+  _enabled: false,
+
+  // Layerview is focused
+  _focused: false
 };
 
 var Output = {
   attach: function attach(aWindow) {
     this.chromeWin = aWindow;
+    Cu.import('resource://gre/modules/Geometry.jsm');
   },
 
   Speech: function Speech(aDetails, aBrowser) {
@@ -270,6 +302,10 @@ var Output = {
     }
   },
 
+  Haptic: function Haptic(aDetails, aBrowser) {
+    this.chromeWin.navigator.vibrate(aDetails.pattern);
+  },
+
   _adjustBounds: function(aJsonBounds, aBrowser) {
     let bounds = new Rect(aJsonBounds.left, aJsonBounds.top,
                           aJsonBounds.right - aJsonBounds.left,
@@ -307,7 +343,7 @@ var Input = {
         break;
       }
     } catch (x) {
-      Logger.error(x);
+      Logger.logException(x);
     }
   },
 
@@ -448,36 +484,39 @@ var Input = {
     mm.sendAsyncMessage('AccessFu:Scroll', {page: aPage, horizontal: aHorizontal, origin: 'top'});
   },
 
-  keyMap: {
-    a: ['moveNext', 'Anchor'],
-    A: ['movePrevious', 'Anchor'],
-    b: ['moveNext', 'Button'],
-    B: ['movePrevious', 'Button'],
-    c: ['moveNext', 'Combobox'],
-    C: ['movePrevious', 'Combobox'],
-    e: ['moveNext', 'Entry'],
-    E: ['movePrevious', 'Entry'],
-    f: ['moveNext', 'FormElement'],
-    F: ['movePrevious', 'FormElement'],
-    g: ['moveNext', 'Graphic'],
-    G: ['movePrevious', 'Graphic'],
-    h: ['moveNext', 'Heading'],
-    H: ['movePrevious', 'Heading'],
-    i: ['moveNext', 'ListItem'],
-    I: ['movePrevious', 'ListItem'],
-    k: ['moveNext', 'Link'],
-    K: ['movePrevious', 'Link'],
-    l: ['moveNext', 'List'],
-    L: ['movePrevious', 'List'],
-    p: ['moveNext', 'PageTab'],
-    P: ['movePrevious', 'PageTab'],
-    r: ['moveNext', 'RadioButton'],
-    R: ['movePrevious', 'RadioButton'],
-    s: ['moveNext', 'Separator'],
-    S: ['movePrevious', 'Separator'],
-    t: ['moveNext', 'Table'],
-    T: ['movePrevious', 'Table'],
-    x: ['moveNext', 'Checkbox'],
-    X: ['movePrevious', 'Checkbox']
+  get keyMap() {
+    delete this.keyMap;
+    this.keyMap = {
+      a: ['moveNext', 'Anchor'],
+      A: ['movePrevious', 'Anchor'],
+      b: ['moveNext', 'Button'],
+      B: ['movePrevious', 'Button'],
+      c: ['moveNext', 'Combobox'],
+      C: ['movePrevious', 'Combobox'],
+      e: ['moveNext', 'Entry'],
+      E: ['movePrevious', 'Entry'],
+      f: ['moveNext', 'FormElement'],
+      F: ['movePrevious', 'FormElement'],
+      g: ['moveNext', 'Graphic'],
+      G: ['movePrevious', 'Graphic'],
+      h: ['moveNext', 'Heading'],
+      H: ['movePrevious', 'Heading'],
+      i: ['moveNext', 'ListItem'],
+      I: ['movePrevious', 'ListItem'],
+      k: ['moveNext', 'Link'],
+      K: ['movePrevious', 'Link'],
+      l: ['moveNext', 'List'],
+      L: ['movePrevious', 'List'],
+      p: ['moveNext', 'PageTab'],
+      P: ['movePrevious', 'PageTab'],
+      r: ['moveNext', 'RadioButton'],
+      R: ['movePrevious', 'RadioButton'],
+      s: ['moveNext', 'Separator'],
+      S: ['movePrevious', 'Separator'],
+      t: ['moveNext', 'Table'],
+      T: ['movePrevious', 'Table'],
+      x: ['moveNext', 'Checkbox'],
+      X: ['movePrevious', 'Checkbox']
+    };
   }
 };

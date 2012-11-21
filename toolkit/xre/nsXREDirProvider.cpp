@@ -44,6 +44,9 @@
 #endif
 #ifdef XP_MACOSX
 #include "nsILocalFileMac.h"
+// for chflags()
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 #ifdef XP_UNIX
 #include <ctype.h>
@@ -131,6 +134,30 @@ nsXREDirProvider::SetProfile(nsIFile* aDir, nsIFile* aLocalDir)
   rv = EnsureDirectoryExists(aLocalDir);
   if (NS_FAILED(rv))
     return rv;
+
+#ifdef XP_MACOSX
+  bool same;
+  if (NS_SUCCEEDED(aDir->Equals(aLocalDir, &same)) && !same) {
+    // Ensure that the cache directory is not indexed by Spotlight
+    // (bug 718910).  At least on OS X, the cache directory (under
+    // ~/Library/Caches/) is always the "local" user profile
+    // directory.  This is confusing, since *both* user profile
+    // directories are "local" (they both exist under the user's
+    // home directory).  But this usage dates back at least as far
+    // as the patch for bug 291033, where "local" seems to mean
+    // "suitable for temporary storage".  Don't hide the cache
+    // directory if by some chance it and the "non-local" profile
+    // directory are the same -- there are bad side effects from
+    // hiding a profile directory under /Library/Application Support/
+    // (see bug 801883).
+    nsAutoCString cacheDir;
+    if (NS_SUCCEEDED(aLocalDir->GetNativePath(cacheDir))) {
+      if (chflags(cacheDir.get(), UF_HIDDEN)) {
+        NS_WARNING("Failed to set Cache directory to HIDDEN.");
+      }
+    }
+  }
+#endif
 
   mProfileDir = aDir;
   mProfileLocalDir = aLocalDir;
@@ -332,7 +359,11 @@ nsXREDirProvider::GetFile(const char* aProperty, bool* aPersistent,
 #if defined(XP_UNIX) && !defined(XP_MACOSX)
   else if (!strcmp(aProperty, XRE_SYS_SHARE_EXTENSION_PARENT_DIR)) {
 #ifdef ENABLE_SYSTEM_EXTENSION_DIRS
+#if defined(__OpenBSD__) || defined(__FreeBSD__)
+    static const char *const sysLExtDir = "/usr/local/share/mozilla/extensions";
+#else
     static const char *const sysLExtDir = "/usr/share/mozilla/extensions";
+#endif
     return NS_NewNativeLocalFile(nsDependentCString(sysLExtDir),
                                  false, aFile);
 #else
@@ -1204,6 +1235,8 @@ nsXREDirProvider::GetSystemExtensionsDirectory(nsIFile** aFile)
   static const char *const sysSExtDir = 
 #ifdef HAVE_USR_LIB64_DIR
     "/usr/lib64/mozilla/extensions";
+#elif defined(__OpenBSD__) || defined(__FreeBSD__)
+    "/usr/local/lib/mozilla/extensions";
 #else
     "/usr/lib/mozilla/extensions";
 #endif

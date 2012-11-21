@@ -18,9 +18,9 @@ XPCOMUtils.defineLazyGetter(this, "PlatformKeys", function() {
     "chrome://global-platform/locale/platformKeys.properties");
 });
 
-var EXPORTED_SYMBOLS = ["LayoutHelpers"];
+this.EXPORTED_SYMBOLS = ["LayoutHelpers"];
 
-LayoutHelpers = {
+this.LayoutHelpers = LayoutHelpers = {
 
   /**
    * Compute the position and the dimensions for the visible portion
@@ -363,7 +363,7 @@ LayoutHelpers = {
       elemString += PlatformKeys.GetStringFromName("VK_ALT") +
                     PlatformKeys.GetStringFromName("MODIFIER_SEPARATOR");
     }
-    if (elemMod.match("ctrl")) {
+    if (elemMod.match("ctrl") || elemMod.match("control")) {
       elemString += PlatformKeys.GetStringFromName("VK_CONTROL") +
                     PlatformKeys.GetStringFromName("MODIFIER_SEPARATOR");
     }

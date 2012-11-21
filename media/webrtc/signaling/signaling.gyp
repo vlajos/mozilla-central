@@ -39,7 +39,6 @@
         './include',
         './src/sipcc/include',
         './src/sipcc/cpr/include',
-        '../../../nsprpub/pr/include',
         '../../../ipc/chromium/src',
         '../../../ipc/chromium/src/base/third_party/nspr',
         '../../../xpcom/base',
@@ -80,6 +79,7 @@
         './src/common/csf_common.h',
         './src/common/NullDeleter.h',
         './src/common/Wrapper.h',
+        './src/common/NullTransport.h',
         # Browser Logging
         './src/common/browser_logging/CSFLog.cpp',
         './src/common/browser_logging/CSFLog.h',
@@ -128,10 +128,15 @@
         './src/softphonewrapper/CC_SIPCCLineInfo.h',
         './src/softphonewrapper/CC_SIPCCService.h',
         # PeerConnection
+        './src/peerconnection/MediaStreamList.cpp',
+        './src/peerconnection/MediaStreamList.h',
         './src/peerconnection/PeerConnectionCtx.cpp',
         './src/peerconnection/PeerConnectionCtx.h',
         './src/peerconnection/PeerConnectionImpl.cpp',
         './src/peerconnection/PeerConnectionImpl.h',
+        './src/peerconnection/PeerConnectionMedia.cpp',
+        './src/peerconnection/PeerConnectionMedia.h',
+
         # Media pipeline
         './src/mediapipeline/MediaPipeline.h',
         './src/mediapipeline/MediaPipeline.cpp',
@@ -151,6 +156,17 @@
         'WEBRTC_RELATIVE_PATH',
       	'HAVE_WEBRTC_VIDEO',
         'HAVE_WEBRTC_VOICE',
+        'HAVE_STDLIB_H=1',
+        'INTEGER_TYPES_H="\\"mozilla/StandardInteger.h\\""',
+        'HAVE_UINT8_T=1',
+        'HAVE_UINT16_T=1',
+        'HAVE_UINT32_T=1',
+        'HAVE_UINT64_T=1',
+      ],
+
+      'cflags_mozilla': [
+        '$(NSPR_CFLAGS)',
+        '$(NSS_CFLAGS)',
       ],
 
       #
@@ -237,7 +253,6 @@
         './src/sipcc/core/sdp',
         './src/sipcc/core/gsm/h',
         './src/sipcc/plat/common',
-        '../../../nsprpub/pr/include',
         '../../../media/mtransport',
         '../../../dom/base',
         '../trunk/third_party/libsrtp/srtp/include',
@@ -569,6 +584,10 @@
       #
       
       'defines' : [
+      ],
+
+      'cflags_mozilla': [
+        '$(NSPR_CFLAGS)',
       ],
 
       #

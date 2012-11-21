@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if BOOTSTRAP
-var EXPORTED_SYMBOLS = ["OnRefTestLoad"];
+this.EXPORTED_SYMBOLS = ["OnRefTestLoad"];
 #endif
 
 
@@ -202,7 +202,7 @@ function IDForEventTarget(event)
     }
 }
 
-function OnRefTestLoad(win)
+this.OnRefTestLoad = function OnRefTestLoad(win)
 {
     gCrashDumpDir = CC[NS_DIRECTORY_SERVICE_CONTRACTID]
                     .getService(CI.nsIProperties)
@@ -503,6 +503,11 @@ function BuildConditionSandbox(aURL) {
         sandbox.xulRuntime.XPCOMABI = "";
     }
 
+    var testRect = gBrowser.getBoundingClientRect();
+    sandbox.smallScreen = false;
+    if (gContainingWindow.innerWidth < 800 || gContainingWindow.innerHeight < 1000) {
+        sandbox.smallScreen = true;
+    }
 
 #if REFTEST_B2G
     // XXX nsIGfxInfo isn't available in B2G

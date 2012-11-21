@@ -872,9 +872,10 @@ nsBidiPresUtils::ResolveParagraph(nsBlockFrame* aBlockFrame,
       if (child) {
         parent = child->GetParent();
         if (parent && IsBidiSplittable(parent)) {
-          // no need to null-check the result of GetPrevSibling, because
-          // SplitInlineAncestors accepts a null parameter
-          SplitInlineAncestors(parent, child->GetPrevSibling());
+          nsIFrame* prev = child->GetPrevSibling();
+          if (prev) {
+            SplitInlineAncestors(parent, prev);
+          }
         }
       }
     }
@@ -2102,7 +2103,8 @@ bool nsBidiPresUtils::WriteLogicalToVisual(const PRUnichar* aSrc,
     }
   }
 
-  NS_ASSERTION(dest - aDest == aSrcLength, "whole string not copied");
+  NS_ASSERTION(static_cast<uint32_t>(dest - aDest) == aSrcLength,
+               "whole string not copied");
   return true;
 }
 

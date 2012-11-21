@@ -81,6 +81,7 @@ MOCHITEST_FILES = \
 		test_delay_load.html \
 		test_error_on_404.html \
 		test_info_leak.html \
+		test_invalid_reject.html \
 		test_load.html \
 		test_load_candidates.html \
 		test_load_same_resource.html \
@@ -111,7 +112,6 @@ MOCHITEST_FILES = \
 		test_source_write.html \
 	        test_source_null.html \
 		test_standalone.html \
-		test_timeupdate_small_files.html \
 		test_too_many_elements.html \
 		test_volume.html \
 		test_video_to_canvas.html \
@@ -139,9 +139,12 @@ ifneq ($(OS_ARCH), WINNT)
 MOCHITEST_FILES += \
 		test_streams_element_capture.html \
 		test_streams_element_capture_reset.html \
+		test_streams_element_capture_createObjectURL.html \
+		test_timeupdate_small_files.html \
 		$(NULL)
 else
 $(warning test_streams_element_capture{,_reset}.html is disabled on Windows for timeouts. Bug 752796)
+$(warning test_timeupdate_small_files.html is disabled on Windows for timeouts. Bug 786539)
 endif
 
 # Don't run in suite
@@ -244,6 +247,16 @@ MOCHITEST_FILES += \
 # Other files
 MOCHITEST_FILES += \
 		bogus.duh \
+		invalid-m0c0.opus \
+		invalid-m0c3.opus \
+		invalid-m1c0.opus \
+		invalid-m1c9.opus \
+		invalid-m2c0.opus \
+		invalid-m2c1.opus \
+		invalid-cmap-short.opus \
+		invalid-cmap-s0c0.opus \
+		invalid-cmap-s0c2.opus \
+		invalid-cmap-s1c2.opus \
 		$(NULL)
 
 # These tests contain backend-specific tests. Try to write backend

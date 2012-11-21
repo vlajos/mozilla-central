@@ -105,7 +105,6 @@ public:
     mMaxContainerLayerGeneration(0)
   {
     MOZ_COUNT_CTOR(FrameLayerBuilder);
-    mNewDisplayItemData.Init();
     mThebesLayerItems.Init();
   }
   ~FrameLayerBuilder()
@@ -298,7 +297,11 @@ public:
    * and each subsequent merged frame if no layer is found for the underlying
    * frame.
    */
-  Layer* GetOldLayerFor(nsDisplayItem* aItem, nsDisplayItemGeometry** aOldGeometry = nullptr, Clip** aOldClip = nullptr);
+  Layer* GetOldLayerFor(nsDisplayItem* aItem, 
+                        nsDisplayItemGeometry** aOldGeometry = nullptr, 
+                        Clip** aOldClip = nullptr,
+                        nsTArray<nsIFrame*>* aChangedFrames = nullptr,
+                        bool *aIsInvalid = nullptr);
 
   static Layer* GetDebugOldLayerFor(nsIFrame* aFrame, uint32_t aDisplayItemKey);
 
@@ -319,20 +322,15 @@ public:
   LayerManager* GetRetainingLayerManager() { return mRetainingManager; }
 
   /**
-   * Returns true if the given item (which we assume here is
-   * background-attachment:fixed) needs to be repainted as we scroll in its
-   * document.
-   * Returns false if it doesn't need to be repainted because the layer system
-   * is ensuring its fixed-ness for us.
-   */
-  static bool NeedToInvalidateFixedDisplayItem(nsDisplayListBuilder* aBuilder,
-                                                 nsDisplayItem* aItem);
-
-  /**
    * Returns true if the given display item was rendered during the previous
    * paint. Returns false otherwise.
    */
   static bool HasRetainedDataFor(nsIFrame* aFrame, uint32_t aDisplayItemKey);
+
+  class DisplayItemData;
+  typedef void (*DisplayItemDataCallback)(nsIFrame *aFrame, DisplayItemData* aItem);
+
+  static void IterateRetainedDataFor(nsIFrame* aFrame, DisplayItemDataCallback aCallback);
 
   /**
    * Save transform that was in aLayer when we last painted, and the position
@@ -362,7 +360,7 @@ public:
    * Used when we optimize a ThebesLayer into an ImageLayer and want to retroactively update the 
    * DisplayItemData so we can retrieve the layer from within layout.
    */
-  void StoreOptimizedLayerForFrame(nsIFrame* aFrame, uint32_t aDisplayItemKey, Layer* aImage);
+  void StoreOptimizedLayerForFrame(nsDisplayItem* aItem, Layer* aLayer);
 
   /**
    * Clip represents the intersection of an optional rectangle with a
@@ -438,6 +436,10 @@ public:
     // Intersection of all rects in this clip ignoring any rounded corners.
     nsRect NonRoundedIntersection() const;
 
+    // Intersect the given rects with all rects in this clip, ignoring any
+    // rounded corners.
+    nsRect ApplyNonRoundedIntersection(const nsRect& aRect) const;
+
     // Gets rid of any rounded corners in this clip.
     void RemoveRoundedCorners();
 
@@ -460,75 +462,60 @@ public:
   NS_DECLARE_FRAME_PROPERTY_WITH_FRAME_IN_DTOR(LayerManagerDataProperty,
                                                RemoveFrameFromLayerManager)
 
-protected:
   /**
    * Retained data storage:
    *
    * Each layer manager (widget, and inactive) stores a LayerManagerData object
    * that keeps a hash-set of DisplayItemData items that were drawn into it.
    * Each frame also keeps a list of DisplayItemData pointers that were
-   * created for that frame.
+   * created for that frame. DisplayItemData objects manage these lists automatically.
    *
-   * During layer construction we build a hashtable of DisplayItemHashData items, keyed
-   * using (frame,display item key). Since some display items can be associated with multiple
-   * frames (because of merging), multiple entries in this hashtable can refer to the same
-   * DisplayItemData.
-   *
-   * Once layer building is complete, we sync the new items into the retained storage and update
-   * any frames that have changed lists.
+   * During layer construction we update the data in the LayerManagerData object, marking
+   * items that are modified. At the end we sweep the LayerManagerData hash-set and remove
+   * all items that haven't been modified.
    */
-
-  /**
-   * nsIFrame/display item 'per frame key' pair used to key  our hashtable of DisplayItemHashData items.
-   */
-  class DisplayItemKey {
-  public:
-    DisplayItemKey(nsIFrame* aFrame, uint32_t aKey)
-      : mFrame(aFrame)
-      , mKey(aKey)
-    { }
-
-    bool operator==(const DisplayItemKey& aOther) const {
-      return mFrame == aOther.mFrame &&
-             mKey == aOther.mKey;
-    }
-
-    nsIFrame* mFrame;
-    uint32_t mKey;
-  };
 
   /**
    * Retained data for a display item.
    */
   class DisplayItemData {
   public:
+    friend class FrameLayerBuilder;
 
-    DisplayItemData(LayerManagerData* aParent, nsIFrame* aFrame, uint32_t aKey, Layer* aLayer, LayerState aLayerState, uint32_t aGeneration);
+    uint32_t GetDisplayItemKey() { return mDisplayItemKey; }
+    Layer* GetLayer() { return mLayer; }
+    void Invalidate() { mIsInvalid = true; }
+  protected:
+
+    DisplayItemData(LayerManagerData* aParent, uint32_t aKey, Layer* aLayer, LayerState aLayerState, uint32_t aGeneration);
     DisplayItemData(DisplayItemData &toCopy);
+
+    /**
+     * Removes any references to this object from frames
+     * in mFrameList.
+     */
     ~DisplayItemData();
 
     NS_INLINE_DECL_REFCOUNTING(DisplayItemData)
 
-    void AddFrame(nsIFrame* aFrame)
-    {
-      mFrameList.AppendElement(aFrame);
-    }
-
-    /** 
-     * Check for this item stored under the LayerManagerDataProperty
-     * for every frame in mFrameList and remove it.
-     * Optionally skips aSkip
-     */
-    void RemoveFrameData(nsIFrame* aSkip = nullptr);
-
-    bool FrameListMatches(nsDisplayItem* aOther);
-    bool FrameListMatches(DisplayItemData* aOther);
 
     /**
-     * Copies the contents of this item into aDest and
-     * leaves this item invalid.
+     * Associates this DisplayItemData with a frame, and adds it
+     * to the LayerManagerDataProperty list on the frame.
      */
-    void CopyInto(DisplayItemData* aDest);
+    void AddFrame(nsIFrame* aFrame);
+    void RemoveFrame(nsIFrame* aFrame);
+    void GetFrameListChanges(nsDisplayItem* aOther, nsTArray<nsIFrame*>& aOut);
+
+    /**
+     * Updates the contents of this item to a new set of data, instead of allocating a new
+     * object.
+     * Set the passed in parameters, and clears the opt layer, inactive manager, geometry
+     * and clip.
+     * Parent, frame list and display item key are assumed to be the same.
+     */
+    void UpdateContents(Layer* aLayer, LayerState aState,
+                        uint32_t aContainerLayerGeneration, nsDisplayItem* aItem = nullptr);
 
     LayerManagerData* mParent;
     nsRefPtr<Layer> mLayer;
@@ -543,54 +530,13 @@ protected:
 
     /**
      * Used to track if data currently stored in mFramesWithLayers (from an existing
-     * paint) is also used in the current paint and has an equivalent data object
-     * in mNewDisplayItemData.
+     * paint) has been updated in the current paint.
      */
     bool            mUsed;
-    DisplayItemData *mCopiedInto;
+    bool            mIsInvalid;
   };
 
-  /**
-   * Hashtable entry wrapping a DisplayItemData.
-   * 
-   * Implemented as a separate class so that we can have multiple entries
-   * for a single DisplayItemData (in the case of merged display items).
-   */
-  class DisplayItemHashData : public PLDHashEntryHdr {
-  public:
-    typedef const DisplayItemKey& KeyType;
-    typedef const DisplayItemKey* KeyTypePointer;
-
-    DisplayItemHashData(KeyTypePointer aKey)
-      : mKey(*aKey)
-      , mContainerLayerGeneration(0)
-    { }
-    DisplayItemHashData(DisplayItemHashData &toCopy)
-      : mKey(toCopy.mKey)
-      , mData(toCopy.mData)
-      , mContainerLayerGeneration(toCopy.mContainerLayerGeneration)
-    { 
-      toCopy.mData = nullptr;
-    }
-
-    KeyType GetKey() const { 
-      return mKey; 
-    }
-    bool KeyEquals(KeyTypePointer aKey) const { 
-      return *aKey == mKey; 
-    }
-    static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
-
-    static PLDHashNumber HashKey(const KeyTypePointer aKey) {
-      return mozilla::HashGeneric(aKey->mFrame, aKey->mKey);
-    }
-                                       
-    enum { ALLOW_MEMMOVE = false };
-
-    DisplayItemKey mKey;
-    nsRefPtr<DisplayItemData> mData;
-    uint32_t mContainerLayerGeneration;
-  };
+protected:
 
   friend class LayerManagerData;
 
@@ -609,7 +555,11 @@ protected:
    * Stores DisplayItemData associated with aFrame, stores the data in
    * mNewDisplayItemData.
    */
-  void StoreDataForFrame(nsDisplayItem* aItem, DisplayItemData* data);
+  DisplayItemData* StoreDataForFrame(nsDisplayItem* aItem, Layer* aLayer, LayerState aState);
+  void StoreDataForFrame(nsIFrame* aFrame,
+                         uint32_t aDisplayItemKey,
+                         Layer* aLayer,
+                         LayerState aState);
 
   // Flash the area within the context clip if paint flashing is enabled.
   static void FlashPaint(gfxContext *aContext);
@@ -636,14 +586,6 @@ protected:
   static DisplayItemData* GetDisplayItemDataForManager(nsIFrame* aFrame, 
                                                        uint32_t aDisplayItemKey, 
                                                        LayerManagerData* aData);
-
-  /**
-   * A useful hashtable iteration function that removes the
-   * DisplayItemData property for the frame and returns PL_DHASH_REMOVE.
-   * aClosure is ignored.
-   */
-  static PLDHashOperator RemoveDisplayItemDataForFrame(nsRefPtrHashKey<DisplayItemData>* aEntry,
-                                                       void* aClosure);
 
   static PLDHashOperator DumpDisplayItemDataForFrame(nsRefPtrHashKey<DisplayItemData>* aEntry,
                                                      void* aClosure);
@@ -672,7 +614,7 @@ protected:
      * layer, then this stores the layer manager being
      * used for the inactive transaction.
      */
-    nsRefPtr<LayerManager> mInactiveLayer;
+    nsRefPtr<LayerManager> mInactiveLayerManager;
 
     Clip mClip;
     uint32_t mContainerLayerGeneration;
@@ -729,9 +671,7 @@ protected:
 
   static PLDHashOperator UpdateDisplayItemDataForFrame(nsRefPtrHashKey<DisplayItemData>* aEntry,
                                                        void* aUserArg);
-  static PLDHashOperator StoreNewDisplayItemData(DisplayItemHashData* aEntry,
-                                                 void* aUserArg);
-  static PLDHashOperator RestoreDisplayItemData(DisplayItemHashData* aEntry,
+  static PLDHashOperator RestoreDisplayItemData(nsRefPtrHashKey<DisplayItemData>* aEntry,
                                                 void *aUserArg);
 
   static PLDHashOperator RestoreThebesLayerItemEntries(ThebesLayerItemsEntry* aEntry,
@@ -758,11 +698,6 @@ protected:
    * The display list builder being used.
    */
   nsDisplayListBuilder*               mDisplayListBuilder;
-  /**
-   * A map from frames to a list of (display item key, layer) pairs that
-   * describes what layers various parts of the frame are assigned to.
-   */
-  nsTHashtable<DisplayItemHashData>  mNewDisplayItemData;
   /**
    * A map from ThebesLayers to the list of display items (plus
    * clipping data) to be rendered in the layer.

@@ -14,12 +14,15 @@
 #include "jsprf.h"
 #include "jswrapper.h"
 
+#include "builtin/TestingFunctions.h"
 #include "methodjit/MethodJIT.h"
 
 #include "vm/Stack-inl.h"
 
 using namespace js;
 using namespace JS;
+
+using mozilla::ArrayLength;
 
 static JSBool
 GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
@@ -167,8 +170,8 @@ GC(JSContext *cx, unsigned argc, jsval *vp)
     /*
      * If the first argument is 'compartment', we collect any compartments
      * previously scheduled for GC via schedulegc. If the first argument is an
-     * object, we collect the object's compartment (any any other compartments
-     * scheduled for GC). Otherwise, we collect call compartments.
+     * object, we collect the object's compartment (and any other compartments
+     * scheduled for GC). Otherwise, we collect all compartments.
      */
     JSBool compartment = false;
     if (argc == 1) {
@@ -650,7 +653,7 @@ static unsigned finalizeCount = 0;
 static void
 finalize_counter_finalize(JSFreeOp *fop, JSObject *obj)
 {
-    JS_ATOMIC_INCREMENT(&finalizeCount);
+    ++finalizeCount;
 }
 
 static JSClass FinalizeCounterClass = {
@@ -684,6 +687,40 @@ static JSBool
 FinalizeCount(JSContext *cx, unsigned argc, jsval *vp)
 {
     *vp = INT_TO_JSVAL(finalizeCount);
+    return true;
+}
+
+static JSBool
+DumpHeapComplete(JSContext *cx, unsigned argc, jsval *vp)
+{
+    const char *fileName = NULL;
+    JSAutoByteString fileNameBytes;
+    if (argc > 0) {
+        Value v = JS_ARGV(cx, vp)[0];
+        if (v.isString()) {
+            JSString *str = v.toString();
+            if (!fileNameBytes.encode(cx, str))
+                return false;
+            fileName = fileNameBytes.ptr();
+        }
+    }
+
+    FILE *dumpFile;
+    if (!fileName) {
+        dumpFile = stdout;
+    } else {
+        dumpFile = fopen(fileName, "w");
+        if (!dumpFile) {
+            JS_ReportError(cx, "can't open %s", fileName);
+            return false;
+        }
+    }
+
+    js::DumpHeapComplete(JS_GetRuntime(cx), dumpFile);
+
+    fclose(dumpFile);
+
+    JS_SET_RVAL(cx, vp, JSVAL_VOID);
     return true;
 }
 
@@ -860,6 +897,10 @@ static JSFunctionSpecWithHelp TestingFunctions[] = {
 "isProxy(obj)",
 "  If true, obj is a proxy of some sort"),
 
+    JS_FN_HELP("dumpHeapComplete", DumpHeapComplete, 1, 0,
+"dumpHeapComplete([filename])",
+"  Dump reachable and unreachable objects to a file."),
+
     JS_FN_HELP("mjitChunkLimit", MJitChunkLimit, 1, 0,
 "mjitChunkLimit(N)",
 "  Specify limit on compiled chunk size during mjit compilation."),
@@ -885,12 +926,8 @@ static JSFunctionSpecWithHelp TestingFunctions[] = {
     JS_FS_HELP_END
 };
 
-namespace js {
-
 bool
-DefineTestingFunctions(JSContext *cx, HandleObject obj)
+js::DefineTestingFunctions(JSContext *cx, HandleObject obj)
 {
     return JS_DefineFunctionsWithHelp(cx, obj, TestingFunctions);
 }
-
-} /* namespace js */

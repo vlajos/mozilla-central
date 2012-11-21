@@ -3,14 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Code that is shared between clients and workers.
-const EXPORTED_SYMBOLS = ["AbstractPort"];
+this.EXPORTED_SYMBOLS = ["AbstractPort"];
 
-function AbstractPort(portid) {
+this.AbstractPort = function AbstractPort(portid) {
   this._portid = portid;
   this._handler = undefined;
   // pending messages sent to this port before it has a message handler.
   this._pendingMessagesIncoming = [];
-}
+};
 
 AbstractPort.prototype = {
   _portType: null, // set by a subclass.
@@ -44,10 +44,10 @@ AbstractPort.prototype = {
     // Further, we allow the workers to override exactly how the JSON parsing
     // is done - we try and do such parsing in the client window so things
     // like prototype overrides on Array work as expected.
-    data = this._JSONParse(data);
     if (!this._handler) {
       this._pendingMessagesIncoming.push(data);
     } else {
+      data = this._JSONParse(data);
       try {
         this._handler({
           data: data,
@@ -103,4 +103,4 @@ AbstractPort.prototype = {
     this._pendingMessagesIncoming = [];
     this._portid = null;
   }
-}
+};

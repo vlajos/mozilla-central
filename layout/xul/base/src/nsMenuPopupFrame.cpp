@@ -271,6 +271,7 @@ nsMenuPopupFrame::CreateWidgetForView(nsIView* aView)
   nsIAtom *tag = nullptr;
   if (parentContent)
     tag = parentContent->Tag();
+  widgetData.mSupportTranslucency = mode == eTransparencyTransparent;
   widgetData.mDropShadow = !(viewHasTransparentContent || tag == nsGkAtoms::menulist);
   widgetData.mPopupLevel = PopupLevel(widgetData.mNoAutoHide);
 
@@ -384,6 +385,8 @@ nsMenuPopupFrame::LayoutPopup(nsBoxLayoutState& aState, nsIFrame* aParentMenu, b
 {
   if (!mGeneratedChildren)
     return;
+
+  SchedulePaint();
 
   bool shouldPosition = true;
   bool isOpen = IsOpen();
@@ -1318,10 +1321,11 @@ nsMenuPopupFrame::GetConstraintRect(const nsRect& aAnchorRect,
     // so we should use the same screen. Otherwise, use the screen where the
     // anchor is located.
     nsRect rect = mInContentShell ? aRootScreenRect : aAnchorRect;
-    int32_t width = rect.width > 0 ? presContext->AppUnitsToDevPixels(rect.width) : 1;
-    int32_t height = rect.height > 0 ? presContext->AppUnitsToDevPixels(rect.height) : 1;
-    sm->ScreenForRect(presContext->AppUnitsToDevPixels(rect.x),
-                      presContext->AppUnitsToDevPixels(rect.y),
+    // nsIScreenManager::ScreenForRect wants the coordinates in CSS pixels
+    int32_t width = NS_MAX(1, nsPresContext::AppUnitsToIntCSSPixels(rect.width));
+    int32_t height = NS_MAX(1, nsPresContext::AppUnitsToIntCSSPixels(rect.height));
+    sm->ScreenForRect(nsPresContext::AppUnitsToIntCSSPixels(rect.x),
+                      nsPresContext::AppUnitsToIntCSSPixels(rect.y),
                       width, height, getter_AddRefs(screen));
     if (screen) {
       // get the total screen area if the popup is allowed to overlap it.
@@ -1864,6 +1868,23 @@ nsMenuPopupFrame::MoveTo(int32_t aLeft, int32_t aTop, bool aUpdateAttrs)
     popup->SetAttr(kNameSpaceID_None, nsGkAtoms::left, left, false);
     popup->SetAttr(kNameSpaceID_None, nsGkAtoms::top, top, false);
   }
+}
+
+void
+nsMenuPopupFrame::MoveToAnchor(nsIContent* aAnchorContent,
+                               const nsAString& aPosition,
+                               int32_t aXPos, int32_t aYPos,
+                               bool aAttributesOverride)
+{
+  NS_ASSERTION(mPopupState == ePopupOpenAndVisible, "popup must be open to move it");
+
+  InitializePopup(aAnchorContent, mTriggerContent, aPosition,
+                  aXPos, aYPos, aAttributesOverride);
+  // InitializePopup changed the state so reset it.
+  mPopupState = ePopupOpenAndVisible;
+
+  // Pass false here so that flipping and adjusting to fit on the screen happen.
+  SetPopupPosition(nullptr, false);
 }
 
 bool

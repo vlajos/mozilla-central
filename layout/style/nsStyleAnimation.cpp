@@ -19,6 +19,8 @@
 #include "nsCSSParser.h"
 #include "mozilla/css/Declaration.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/FloatingPoint.h"
+#include "mozilla/Likely.h"
 #include "prlog.h"
 #include <math.h>
 #include "gfxMatrix.h"
@@ -863,11 +865,34 @@ inline uint8_t ClampColor(double aColor)
   return NSToIntRound(aColor);
 }
 
+// Ensure that a float/double value isn't NaN by returning zero instead
+// (NaN doesn't have a sign) as a general restriction for floating point
+// values in RestrictValue.
+template<typename T>
+MOZ_ALWAYS_INLINE T
+EnsureNotNan(T aValue)
+{
+  return aValue;
+}
+template<>
+MOZ_ALWAYS_INLINE float
+EnsureNotNan(float aValue)
+{
+  // This would benefit from a MOZ_FLOAT_IS_NaN if we had one.
+  return MOZ_LIKELY(!MOZ_DOUBLE_IS_NaN(aValue)) ? aValue : 0;
+}
+template<>
+MOZ_ALWAYS_INLINE double
+EnsureNotNan(double aValue)
+{
+  return MOZ_LIKELY(!MOZ_DOUBLE_IS_NaN(aValue)) ? aValue : 0;
+}
+
 template <typename T>
 T
 RestrictValue(uint32_t aRestrictions, T aValue)
 {
-  T result = aValue;
+  T result = EnsureNotNan(aValue);
   switch (aRestrictions) {
     case 0:
       break;
@@ -2192,10 +2217,6 @@ BuildStyleRule(nsCSSProperty aProperty,
   nsCOMPtr<nsIURI> baseURI = aTargetElement->GetBaseURI();
   nsCSSParser parser(doc->CSSLoader());
 
-  if (aUseSVGMode) {
-    parser.SetSVGMode(true);
-  }
-
   nsCSSProperty propertyToCheck = nsCSSProps::IsShorthand(aProperty) ?
     nsCSSProps::SubpropertyEntryFor(aProperty)[0] : aProperty;
 
@@ -2204,7 +2225,8 @@ BuildStyleRule(nsCSSProperty aProperty,
   if (NS_FAILED(parser.ParseProperty(aProperty, aSpecifiedValue,
                                      doc->GetDocumentURI(), baseURI,
                                      aTargetElement->NodePrincipal(),
-                                     declaration, &changed, false)) ||
+                                     declaration, &changed, false,
+                                     aUseSVGMode)) ||
       // check whether property parsed without CSS parsing errors
       !declaration->HasNonImportantValueFor(propertyToCheck)) {
     NS_WARNING("failure in BuildStyleRule");
@@ -2316,12 +2338,9 @@ nsStyleAnimation::ComputeValue(nsCSSProperty aProperty,
 
 bool
 nsStyleAnimation::UncomputeValue(nsCSSProperty aProperty,
-                                 nsPresContext* aPresContext,
                                  const Value& aComputedValue,
                                  nsCSSValue& aSpecifiedValue)
 {
-  NS_ABORT_IF_FALSE(aPresContext, "null pres context");
-
   switch (aComputedValue.GetUnit()) {
     case eUnit_Normal:
       aSpecifiedValue.SetNormalValue();
@@ -2408,11 +2427,9 @@ nsStyleAnimation::UncomputeValue(nsCSSProperty aProperty,
 
 bool
 nsStyleAnimation::UncomputeValue(nsCSSProperty aProperty,
-                                 nsPresContext* aPresContext,
                                  const Value& aComputedValue,
                                  nsAString& aSpecifiedValue)
 {
-  NS_ABORT_IF_FALSE(aPresContext, "null pres context");
   aSpecifiedValue.Truncate(); // Clear outparam, if it's not already empty
 
   if (aComputedValue.GetUnit() == eUnit_UnparsedString) {
@@ -2420,8 +2437,7 @@ nsStyleAnimation::UncomputeValue(nsCSSProperty aProperty,
     return true;
   }
   nsCSSValue val;
-  if (!nsStyleAnimation::UncomputeValue(aProperty, aPresContext,
-                                        aComputedValue, val)) {
+  if (!nsStyleAnimation::UncomputeValue(aProperty, aComputedValue, val)) {
     return false;
   }
 
@@ -3178,12 +3194,14 @@ nsStyleAnimation::Value::Value(float aPercent, PercentConstructorType)
 {
   mUnit = eUnit_Percent;
   mValue.mFloat = aPercent;
+  MOZ_ASSERT(!MOZ_DOUBLE_IS_NaN(mValue.mFloat));
 }
 
 nsStyleAnimation::Value::Value(float aFloat, FloatConstructorType)
 {
   mUnit = eUnit_Float;
   mValue.mFloat = aFloat;
+  MOZ_ASSERT(!MOZ_DOUBLE_IS_NaN(mValue.mFloat));
 }
 
 nsStyleAnimation::Value::Value(nscolor aColor, ColorConstructorType)
@@ -3215,6 +3233,7 @@ nsStyleAnimation::Value::operator=(const Value& aOther)
     case eUnit_Percent:
     case eUnit_Float:
       mValue.mFloat = aOther.mValue.mFloat;
+      MOZ_ASSERT(!MOZ_DOUBLE_IS_NaN(mValue.mFloat));
       break;
     case eUnit_Color:
       mValue.mColor = aOther.mValue.mColor;
@@ -3326,6 +3345,7 @@ nsStyleAnimation::Value::SetPercentValue(float aPercent)
   FreeValue();
   mUnit = eUnit_Percent;
   mValue.mFloat = aPercent;
+  MOZ_ASSERT(!MOZ_DOUBLE_IS_NaN(mValue.mFloat));
 }
 
 void
@@ -3334,6 +3354,7 @@ nsStyleAnimation::Value::SetFloatValue(float aFloat)
   FreeValue();
   mUnit = eUnit_Float;
   mValue.mFloat = aFloat;
+  MOZ_ASSERT(!MOZ_DOUBLE_IS_NaN(mValue.mFloat));
 }
 
 void
@@ -3350,7 +3371,7 @@ nsStyleAnimation::Value::SetUnparsedStringValue(const nsString& aString)
   FreeValue();
   mUnit = eUnit_UnparsedString;
   mValue.mString = nsCSSValue::BufferFromString(aString).get();
-  if (NS_UNLIKELY(!mValue.mString)) {
+  if (MOZ_UNLIKELY(!mValue.mString)) {
     // not much we can do here; just make sure that our promise of a
     // non-null mValue.mString holds for string units.
     mUnit = eUnit_Null;

@@ -29,6 +29,7 @@
 #include "gfxPlatform.h"
 #include "gfxUtils.h"
 #include "GLContextProvider.h"
+#include "HwcComposer2D.h"
 #include "LayerManagerOGL.h"
 #include "nsAutoPtr.h"
 #include "nsAppShell.h"
@@ -66,6 +67,7 @@ static nsWindow *gFocusedWindow = nullptr;
 static android::FramebufferNativeWindow *gNativeWindow = nullptr;
 static bool sFramebufferOpen;
 static bool sUsingOMTC;
+static bool sUsingHwc;
 static bool sScreenInitialized;
 static nsRefPtr<gfxASurface> sOMTCSurface;
 static pthread_t sFramebufferWatchThread;
@@ -215,6 +217,7 @@ nsWindow::nsWindow()
         // This has to happen after other init has finished.
         gfxPlatform::GetPlatform();
         sUsingOMTC = UseOffMainThreadCompositing();
+        sUsingHwc = Preferences::GetBool("layers.composer2d.enabled", false);
 
         if (sUsingOMTC) {
           sOMTCSurface = new gfxImageSurface(gfxIntSize(1, 1),
@@ -250,7 +253,7 @@ nsWindow::DoDraw(void)
         oglm->SetWorldTransform(sRotationMatrix);
 
         if (nsIWidgetListener* listener = gWindowToRedraw->GetWidgetListener())
-          listener->PaintWindow(gWindowToRedraw, region, false, false);
+          listener->PaintWindow(gWindowToRedraw, region, 0);
     } else if (mozilla::layers::LAYERS_BASIC == lm->GetBackendType()) {
         MOZ_ASSERT(sFramebufferOpen || sUsingOMTC);
         nsRefPtr<gfxASurface> targetSurface;
@@ -271,7 +274,7 @@ nsWindow::DoDraw(void)
                 ScreenRotation(EffectiveScreenRotation()));
 
             if (nsIWidgetListener* listener = gWindowToRedraw->GetWidgetListener())
-              listener->PaintWindow(gWindowToRedraw, region, false, false);
+              listener->PaintWindow(gWindowToRedraw, region, 0);
         }
 
         if (!sUsingOMTC) {
@@ -517,6 +520,8 @@ nsWindow::SetInputContext(const InputContext& aContext,
 NS_IMETHODIMP_(InputContext)
 nsWindow::GetInputContext()
 {
+    // There is only one IME context on Gonk.
+    mInputContext.mNativeIMEContext = nullptr;
     return mInputContext;
 }
 
@@ -574,9 +579,9 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
         return mLayerManager;
     }
 
-    // Set mUseAcceleratedRendering here to make it consistent with
+    // Set mUseLayersAcceleration here to make it consistent with
     // nsBaseWidget::GetLayerManager
-    mUseAcceleratedRendering = GetShouldAccelerate();
+    mUseLayersAcceleration = ComputeShouldAccelerate(mUseLayersAcceleration);
     nsWindow *topWindow = sTopWindows[0];
 
     if (!topWindow) {
@@ -590,7 +595,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
             return mLayerManager;
     }
 
-    if (mUseAcceleratedRendering) {
+    if (mUseLayersAcceleration) {
         DebugOnly<nsIntRect> fbBounds = gScreenBounds;
         if (!sGLContext) {
             sGLContext = GLContextProvider::CreateForWindow(this);
@@ -621,7 +626,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
     }
 
     mLayerManager = new BasicShadowLayerManager(this);
-    mUseAcceleratedRendering = false;
+    mUseLayersAcceleration = false;
 
     return mLayerManager;
 }
@@ -691,6 +696,18 @@ nsWindow::NeedsPaint()
     return false;
   }
   return nsIWidget::NeedsPaint();
+}
+
+Composer2D*
+nsWindow::GetComposer2D()
+{
+    if (!sUsingHwc) {
+        return nullptr;
+    }
+    if (HwcComposer2D* hwc = HwcComposer2D::GetInstance()) {
+        return hwc->Initialized() ? hwc : nullptr;
+    }
+    return nullptr;
 }
 
 // nsScreenGonk.cpp

@@ -124,14 +124,8 @@ MOZ_UNICHARUTIL_LIBS = $(LIBXUL_DIST)/lib/$(LIB_PREFIX)unicharutil_s.$(LIB_SUFFI
 MOZ_WIDGET_SUPPORT_LIBS    = $(DIST)/lib/$(LIB_PREFIX)widgetsupport_s.$(LIB_SUFFIX)
 
 ifdef _MSC_VER
-ifdef .PYMAKE
-PYCOMMANDPATH += $(topsrcdir)/build
-CC_WRAPPER ?= %cl InvokeClWithDependencyGeneration
-CXX_WRAPPER ?= %cl InvokeClWithDependencyGeneration
-else
 CC_WRAPPER ?= $(PYTHON) -O $(topsrcdir)/build/cl.py
 CXX_WRAPPER ?= $(PYTHON) -O $(topsrcdir)/build/cl.py
-endif # .PYMAKE
 endif # _MSC_VER
 
 CC := $(CC_WRAPPER) $(CC)
@@ -358,11 +352,6 @@ endif
 TAR_CREATE_FLAGS = -cvhf
 TAR_CREATE_FLAGS_QUIET = -chf
 
-ifeq ($(OS_ARCH),BSD_OS)
-TAR_CREATE_FLAGS = -cvLf
-TAR_CREATE_FLAGS_QUIET = -cLf
-endif
-
 ifeq ($(OS_ARCH),OS2)
 TAR_CREATE_FLAGS = -cvf
 TAR_CREATE_FLAGS_QUIET = -cf
@@ -385,14 +374,17 @@ JAVA_GEN_DIR  = _javagen
 JAVA_DIST_DIR = $(DEPTH)/$(JAVA_GEN_DIR)
 JAVA_IFACES_PKG_NAME = org/mozilla/interfaces
 
-OS_INCLUDES += $(NSPR_CFLAGS) $(NSS_CFLAGS) $(MOZ_JPEG_CFLAGS) $(MOZ_PNG_CFLAGS) $(MOZ_ZLIB_CFLAGS)
+OS_INCLUDES += $(MOZ_JPEG_CFLAGS) $(MOZ_PNG_CFLAGS) $(MOZ_ZLIB_CFLAGS)
 
+# NSPR_CFLAGS and NSS_CFLAGS must appear ahead of OS_INCLUDES to avoid Linux
+# builds wrongly picking up system NSPR/NSS header files.
 INCLUDES = \
   $(LOCAL_INCLUDES) \
   -I$(srcdir) \
   -I. \
   -I$(DIST)/include \
   $(if $(LIBXUL_SDK),-I$(LIBXUL_SDK)/include) \
+  $(NSPR_CFLAGS) $(NSS_CFLAGS) \
   $(OS_INCLUDES) \
   $(NULL)
 
@@ -709,17 +701,21 @@ ifdef relativesrcdir
 LOCALE_SRCDIR = $(call EXPAND_LOCALE_SRCDIR,$(relativesrcdir))
 endif
 
-ifdef LOCALE_SRCDIR
-# if LOCALE_MERGEDIR is set, use mergedir first, then the localization,
-# and finally en-US
+ifdef relativesrcdir
+MAKE_JARS_FLAGS += --relativesrcdir=$(relativesrcdir)
+ifneq (en-US,$(AB_CD))
 ifdef LOCALE_MERGEDIR
-MAKE_JARS_FLAGS += -c $(LOCALE_MERGEDIR)/$(subst /locales,,$(relativesrcdir))
+MAKE_JARS_FLAGS += --locale-mergedir=$(LOCALE_MERGEDIR)
 endif
+ifdef IS_LANGUAGE_REPACK
+MAKE_JARS_FLAGS += --l10n-base=$(L10NBASEDIR)/$(AB_CD)
+endif
+else
 MAKE_JARS_FLAGS += -c $(LOCALE_SRCDIR)
-ifdef LOCALE_MERGEDIR
-MAKE_JARS_FLAGS += -c $(topsrcdir)/$(relativesrcdir)/en-US
-endif
-endif
+endif # en-US
+else
+MAKE_JARS_FLAGS += -c $(LOCALE_SRCDIR)
+endif # ! relativesrcdir
 
 ifdef LOCALE_MERGEDIR
 MERGE_FILE = $(firstword \
@@ -829,3 +825,5 @@ export CL_INCLUDES_PREFIX
 ifeq ($(MOZ_WIDGET_GTK),2)
 MOZ_GTK2_CFLAGS := -I$(topsrcdir)/widget/gtk2/compat $(MOZ_GTK2_CFLAGS)
 endif
+
+DEFINES += -DNO_NSPR_10_SUPPORT

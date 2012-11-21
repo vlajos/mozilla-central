@@ -6,6 +6,7 @@
 #include "ContainerLayerOGL.h"
 #include "gfxUtils.h"
 #include "Compositor.h"
+#include "gfxPlatform.h"
 
 namespace mozilla {
 namespace layers {
@@ -67,6 +68,7 @@ void
 ContainerLayerOGL::CleanupResources()
 {
   ContainerCleanupResources(this);
+  MOZ_ASSERT(!mFirstChild);
 }
 
 } /* layers */

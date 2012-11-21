@@ -101,12 +101,24 @@ public:
    * @return true is successful, false otherwise
    */
   virtual bool SetUp(int aFd) = 0;
+
+  /** 
+   * Get address of socket we're currently connected to. Return null string if
+   * not connected.
+   *
+   * @param aAddr Address struct
+   * @param aAddrStr String to store address to
+   */
+  virtual void GetSocketAddr(const sockaddr& aAddr,
+                             nsAString& aAddrStr) = 0;
+
 };
 
 enum SocketConnectionStatus {
   SOCKET_DISCONNECTED = 0,
-  SOCKET_CONNECTING = 1,
-  SOCKET_CONNECTED = 2
+  SOCKET_LISTENING = 1,
+  SOCKET_CONNECTING = 2,
+  SOCKET_CONNECTED = 3
 };
 
 class UnixSocketConsumer : public RefCounted<UnixSocketConsumer>
@@ -212,6 +224,12 @@ public:
    * Called by implementation to notify consumer of disconnect.
    */
   void NotifyDisconnect();
+
+  /**
+   * Get the current sockaddr for the socket
+   */
+  void GetSocketAddr(nsAString& aAddrStr);
+
 private:
   UnixSocketImpl* mImpl;
   SocketConnectionStatus mConnectionStatus;

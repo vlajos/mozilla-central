@@ -21,7 +21,6 @@ class Matrix;
 
 namespace CanvasUtils {
 
-using namespace gfx;
 
 // Check that the rectangle [x,y,w,h] is a subrectangle of [0,0,realWidth,realHeight]
 
@@ -49,18 +48,6 @@ void DoDrawImageSecurityCheck(nsHTMLCanvasElement *aCanvasElement,
 // the sake of sparse arrays).  Return true iff coercion
 // succeeded.
 bool CoerceDouble(jsval v, double* d);
-
-// Return true iff the conversion succeeded, false otherwise.  *rv is
-// the value to return to script if this returns false.
-bool JSValToMatrix(JSContext* cx, const jsval& val,
-                   gfxMatrix* matrix, nsresult* rv);
-bool JSValToMatrix(JSContext* cx, const jsval& val,
-                   Matrix* matrix, nsresult* rv);
-
-nsresult MatrixToJSVal(const gfxMatrix& matrix,
-                       JSContext* cx, jsval* val);
-nsresult MatrixToJSVal(const Matrix& matrix,
-                       JSContext* cx, jsval* val);
 
     /* Float validation stuff */
 #define VALIDATE(_f)  if (!NS_finite(_f)) return false

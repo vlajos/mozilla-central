@@ -36,9 +36,6 @@
 #include "nsGUIEvent.h"
 #include "nsIServiceManager.h"
 #include "nsINodeInfo.h"
-#ifdef ACCESSIBILITY
-#include "nsAccessibilityService.h"
-#endif
 #include "nsHTMLSelectElement.h"
 #include "nsCSSRendering.h"
 #include "nsITheme.h"
@@ -267,16 +264,10 @@ NS_QUERYFRAME_HEAD(nsListControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsHTMLScrollFrame)
 
 #ifdef ACCESSIBILITY
-already_AddRefed<Accessible>
-nsListControlFrame::CreateAccessible()
+a11y::AccType
+nsListControlFrame::AccessibleType()
 {
-  nsAccessibilityService* accService = nsIPresShell::AccService();
-  if (accService) {
-    return accService->CreateHTMLListboxAccessible(mContent,
-                                                   PresContext()->PresShell());
-  }
-
-  return nullptr;
+  return a11y::eHTMLSelectListAccessible;
 }
 #endif
 
@@ -364,6 +355,8 @@ nsListControlFrame::Reflow(nsPresContext*           aPresContext,
   NS_PRECONDITION(aReflowState.ComputedWidth() != NS_UNCONSTRAINEDSIZE,
                   "Must have a computed width");
 
+  SchedulePaint();
+
   mHasPendingInterruptAtStartOfReflow = aPresContext->HasPendingInterrupt();
 
   // If all the content and frames are here 
@@ -410,7 +403,7 @@ nsListControlFrame::Reflow(nsPresContext*           aPresContext,
     (NS_SUBTREE_DIRTY(this) || aReflowState.ShouldReflowAllKids());
   
   nsHTMLReflowState state(aReflowState);
-  int32_t length = GetNumberOfOptions();  
+  int32_t length = GetNumberOfRows();
 
   nscoord oldHeightOfARow = HeightOfARow();
 
@@ -472,7 +465,8 @@ nsListControlFrame::Reflow(nsPresContext*           aPresContext,
   // or anything like that?  We might need to, per the letter of the reflow
   // protocol, but things seem to work fine without it...  Is that just an
   // implementation detail of nsHTMLScrollFrame that we're depending on?
-  nsHTMLScrollFrame::DidReflow(aPresContext, &state, aStatus);
+  nsHTMLScrollFrame::DidReflow(aPresContext, &state,
+                               nsDidReflowStatus::FINISHED);
 
   // Now compute the height we want to have
   nscoord computedHeight = CalcIntrinsicHeight(HeightOfARow(), length); 
@@ -553,7 +547,8 @@ nsListControlFrame::ReflowAsDropdown(nsPresContext*           aPresContext,
   // or anything like that?  We might need to, per the letter of the reflow
   // protocol, but things seem to work fine without it...  Is that just an
   // implementation detail of nsHTMLScrollFrame that we're depending on?
-  nsHTMLScrollFrame::DidReflow(aPresContext, &state, aStatus);
+  nsHTMLScrollFrame::DidReflow(aPresContext, &state,
+                               nsDidReflowStatus::FINISHED);
 
   // Now compute the height we want to have.
   // Note: no need to apply min/max constraints, since we have no such
@@ -572,7 +567,7 @@ nsListControlFrame::ReflowAsDropdown(nsPresContext*           aPresContext,
     if (above <= 0 && below <= 0) {
       state.SetComputedHeight(heightOfARow);
       mNumDisplayRows = 1;
-      mDropdownCanGrow = GetNumberOfOptions() > 1;
+      mDropdownCanGrow = GetNumberOfRows() > 1;
     } else {
       nscoord bp = aReflowState.mComputedBorderPadding.TopBottom();
       nscoord availableHeight = NS_MAX(above, below) - bp;
@@ -580,7 +575,7 @@ nsListControlFrame::ReflowAsDropdown(nsPresContext*           aPresContext,
       uint32_t rows;
       if (visibleHeight <= availableHeight) {
         // The dropdown fits in the available height.
-        rows = GetNumberOfOptions();
+        rows = GetNumberOfRows();
         mNumDisplayRows = clamped<uint32_t>(rows, 1, kMaxDropDownRows);
         if (mNumDisplayRows == rows) {
           newHeight = visibleHeight;  // use the exact height
@@ -754,6 +749,39 @@ nsListControlFrame::InitSelectionRange(int32_t aClickedIndex)
       mEndSelectionIndex = i-1;
     }
   }
+}
+
+static uint32_t
+CountOptionsAndOptgroups(nsIFrame* aFrame)
+{
+  uint32_t count = 0;
+  nsFrameList::Enumerator e(aFrame->PrincipalChildList());
+  for (; !e.AtEnd(); e.Next()) {
+    nsIFrame* child = e.get();
+    nsIContent* content = child->GetContent();
+    if (content) {
+      if (content->IsHTML(nsGkAtoms::option)) {
+        ++count;
+      } else {
+        nsCOMPtr<nsIDOMHTMLOptGroupElement> optgroup = do_QueryInterface(content);
+        if (optgroup) {
+          nsAutoString label;
+          optgroup->GetLabel(label);
+          if (label.Length() > 0) {
+            ++count;
+          }
+          count += CountOptionsAndOptgroups(child);
+        }
+      }
+    }
+  }
+  return count;
+}
+
+uint32_t
+nsListControlFrame::GetNumberOfRows()
+{
+  return ::CountOptionsAndOptgroups(GetContentInsertionFrame());
 }
 
 //---------------------------------------------------------

@@ -221,6 +221,10 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
       return actor->DoRequest(aRequest.get_SendFileRequest());
     case Request::TStopSendingFileRequest:
       return actor->DoRequest(aRequest.get_StopSendingFileRequest());
+    case Request::TConfirmReceivingFileRequest:
+      return actor->DoRequest(aRequest.get_ConfirmReceivingFileRequest());
+    case Request::TDenyReceivingFileRequest:
+      return actor->DoRequest(aRequest.get_DenyReceivingFileRequest());
     default:
       MOZ_NOT_REACHED("Unknown type!");
       return false;
@@ -501,10 +505,12 @@ BluetoothRequestParent::DoRequest(const ConnectRequest& aRequest)
   MOZ_ASSERT(mService);
   MOZ_ASSERT(mRequestType == Request::TConnectRequest);
 
-  return mService->Connect(aRequest.address(),
-                           aRequest.adapterPath(),
-                           aRequest.profileId(),
-                           mReplyRunnable.get());
+  mService->Connect(aRequest.address(),
+                    aRequest.adapterPath(),
+                    aRequest.profileId(),
+                    mReplyRunnable.get());
+
+  return true;
 }
 
 bool
@@ -525,10 +531,12 @@ BluetoothRequestParent::DoRequest(const SendFileRequest& aRequest)
   MOZ_ASSERT(mService);
   MOZ_ASSERT(mRequestType == Request::TSendFileRequest);
 
-  return mService->SendFile(aRequest.devicePath(),
-                            (BlobParent*)aRequest.blobParent(),
-                            (BlobChild*)aRequest.blobChild(),
-                            mReplyRunnable.get());
+  mService->SendFile(aRequest.devicePath(),
+                     (BlobParent*)aRequest.blobParent(),
+                     (BlobChild*)aRequest.blobChild(),
+                     mReplyRunnable.get());
+
+  return true;
 }
 
 bool
@@ -537,6 +545,32 @@ BluetoothRequestParent::DoRequest(const StopSendingFileRequest& aRequest)
   MOZ_ASSERT(mService);
   MOZ_ASSERT(mRequestType == Request::TStopSendingFileRequest);
 
-  return mService->StopSendingFile(aRequest.devicePath(),
-                                   mReplyRunnable.get());
+  mService->StopSendingFile(aRequest.devicePath(),
+                            mReplyRunnable.get());
+
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const ConfirmReceivingFileRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TConfirmReceivingFileRequest);
+
+  mService->ConfirmReceivingFile(aRequest.devicePath(),
+                                 true,
+                                 mReplyRunnable.get());
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TDenyReceivingFileRequest);
+
+  mService->ConfirmReceivingFile(aRequest.devicePath(),
+                                 false,
+                                 mReplyRunnable.get());
+  return true;
 }

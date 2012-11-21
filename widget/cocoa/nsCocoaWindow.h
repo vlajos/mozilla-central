@@ -243,7 +243,8 @@ public:
     NS_IMETHOD              SetCursor(imgIContainer* aCursor, uint32_t aHotspotX, uint32_t aHotspotY);
 
     CGFloat                 BackingScaleFactor();
-    virtual double          GetDefaultScale();
+    void                    BackingScaleFactorChanged();
+    virtual double          GetDefaultScaleInternal();
 
     NS_IMETHOD              SetTitle(const nsAString& aTitle);
 
@@ -254,7 +255,7 @@ public:
                                           LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
                                           bool* aAllowRetaining = nullptr);
     NS_IMETHOD DispatchEvent(nsGUIEvent* event, nsEventStatus & aStatus) ;
-    NS_IMETHOD CaptureRollupEvents(nsIRollupListener * aListener, bool aDoCapture, bool aConsumeRollupEvent);
+    NS_IMETHOD CaptureRollupEvents(nsIRollupListener * aListener, bool aDoCapture);
     NS_IMETHOD GetAttention(int32_t aCycleCount);
     virtual bool HasPendingInputEvent();
     virtual nsTransparencyMode GetTransparencyMode();
@@ -290,6 +291,16 @@ public:
     }
     NS_IMETHOD_(InputContext) GetInputContext()
     {
+      NSView* view = mWindow ? [mWindow contentView] : nil;
+      if (view) {
+        mInputContext.mNativeIMEContext = [view inputContext];
+      }
+      // If inputContext isn't available on this window, returns this window's
+      // pointer since nullptr means the platform has only one context per
+      // process.
+      if (!mInputContext.mNativeIMEContext) {
+        mInputContext.mNativeIMEContext = this;
+      }
       return mInputContext;
     }
     NS_IMETHOD BeginSecureKeyboardInput();
@@ -313,6 +324,9 @@ protected:
   void                 SetUpWindowFilter();
   void                 CleanUpWindowFilter();
   void                 UpdateBounds();
+
+  nsresult             DoResize(int32_t aX, int32_t aY, int32_t aWidth, int32_t aHeight,
+                                bool aRepaint, bool aConstrainToCurrentScreen);
 
   virtual already_AddRefed<nsIWidget>
   AllocateChildPopupWidget()

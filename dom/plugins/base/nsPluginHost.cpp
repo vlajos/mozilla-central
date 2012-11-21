@@ -368,11 +368,6 @@ nsPluginHost::nsPluginHost()
   PLUGIN_LOG(PLUGIN_LOG_ALWAYS,("nsPluginHost::ctor\n"));
   PR_LogFlush();
 #endif
-
-#ifdef MAC_CARBON_PLUGINS
-  mVisiblePluginTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
-  mHiddenPluginTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
-#endif
 }
 
 nsPluginHost::~nsPluginHost()
@@ -1300,17 +1295,28 @@ nsPluginHost::IsPluginEnabledForType(const char* aMimeType)
   return NS_OK;
 }
  
-bool
-nsPluginHost::IsPluginClickToPlayForType(const char* aMimeType)
+NS_IMETHODIMP
+nsPluginHost::IsPluginClickToPlayForType(const nsACString &aMimeType, bool *aResult)
 {
-  nsPluginTag *plugin = FindPluginForType(aMimeType, true);
-  if (plugin && 
-      (plugin->HasFlag(NS_PLUGIN_FLAG_CLICKTOPLAY) || mPluginsClickToPlay)) {
-    return true;
+  nsPluginTag *plugin = FindPluginForType(aMimeType.Data(), true);
+  if (!plugin) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  uint32_t blocklistState = nsIBlocklistService::STATE_NOT_BLOCKED;
+  nsresult rv = GetBlocklistStateForType(aMimeType.Data(), &blocklistState);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (mPluginsClickToPlay ||
+      blocklistState == nsIBlocklistService::STATE_VULNERABLE_NO_UPDATE ||
+      blocklistState == nsIBlocklistService::STATE_VULNERABLE_UPDATE_AVAILABLE) {
+    *aResult = true;
   }
   else {
-    return false;
+    *aResult = false;
   }
+
+  return NS_OK;
 }
 
 bool
@@ -1959,7 +1965,7 @@ namespace {
 
 int64_t GetPluginLastModifiedTime(const nsCOMPtr<nsIFile>& localfile)
 {
-  PRTime fileModTime = LL_ZERO;
+  PRTime fileModTime = 0;
 
 #if defined(XP_MACOSX)
   // On OS X the date of a bundle's "contents" (i.e. of its Info.plist file)
@@ -2158,10 +2164,6 @@ nsresult nsPluginHost::ScanPluginsDirectory(nsIFile *pluginsDir,
           }
           if (state == nsIBlocklistService::STATE_OUTDATED && !seenBefore) {
              warnOutdated = true;
-          }
-          if (state == nsIBlocklistService::STATE_VULNERABLE_UPDATE_AVAILABLE ||
-              state == nsIBlocklistService::STATE_VULNERABLE_NO_UPDATE) {
-            pluginTag->Mark(NS_PLUGIN_FLAG_CLICKTOPLAY);
           }
         }
       }
@@ -3810,74 +3812,8 @@ nsPluginHost::GetPluginTagForInstance(nsNPAPIPluginInstance *aPluginInstance,
   return NS_OK;
 }
 
-#ifdef MAC_CARBON_PLUGINS
-// Flash requires a minimum of 8 events per second to avoid audio skipping.
-// Since WebKit uses a hidden plugin event rate of 4 events per second Flash
-// uses a Carbon timer for WebKit which fires at 8 events per second.
-#define HIDDEN_PLUGIN_DELAY 125
-#define VISIBLE_PLUGIN_DELAY 20
-#endif
-
-void nsPluginHost::AddIdleTimeTarget(nsIPluginInstanceOwner* objectFrame, bool isVisible)
-{
-#ifdef MAC_CARBON_PLUGINS
-  nsTObserverArray<nsIPluginInstanceOwner*> *targetArray;
-  if (isVisible) {
-    targetArray = &mVisibleTimerTargets;
-  } else {
-    targetArray = &mHiddenTimerTargets;
-  }
-
-  if (targetArray->Contains(objectFrame)) {
-    return;
-  }
-
-  targetArray->AppendElement(objectFrame);
-  if (targetArray->Length() == 1) {
-    if (isVisible) {
-      mVisiblePluginTimer->InitWithCallback(this, VISIBLE_PLUGIN_DELAY, nsITimer::TYPE_REPEATING_SLACK);
-    } else {
-      mHiddenPluginTimer->InitWithCallback(this, HIDDEN_PLUGIN_DELAY, nsITimer::TYPE_REPEATING_SLACK);
-    }
-  }
-#endif
-}
-
-void nsPluginHost::RemoveIdleTimeTarget(nsIPluginInstanceOwner* objectFrame)
-{
-#ifdef MAC_CARBON_PLUGINS
-  bool visibleRemoved = mVisibleTimerTargets.RemoveElement(objectFrame);
-  if (visibleRemoved && mVisibleTimerTargets.IsEmpty()) {
-    mVisiblePluginTimer->Cancel();
-  }
-
-  bool hiddenRemoved = mHiddenTimerTargets.RemoveElement(objectFrame);
-  if (hiddenRemoved && mHiddenTimerTargets.IsEmpty()) {
-    mHiddenPluginTimer->Cancel();
-  }
-
-  NS_ASSERTION(!(hiddenRemoved && visibleRemoved), "Plugin instance received visible and hidden idle event notifications");
-#endif
-}
-
 NS_IMETHODIMP nsPluginHost::Notify(nsITimer* timer)
 {
-#ifdef MAC_CARBON_PLUGINS
-  if (timer == mVisiblePluginTimer) {
-    nsTObserverArray<nsIPluginInstanceOwner*>::ForwardIterator iter(mVisibleTimerTargets);
-    while (iter.HasMore()) {
-      iter.GetNext()->SendIdleEvent();
-    }
-    return NS_OK;
-  } else if (timer == mHiddenPluginTimer) {
-    nsTObserverArray<nsIPluginInstanceOwner*>::ForwardIterator iter(mHiddenTimerTargets);
-    while (iter.HasMore()) {
-      iter.GetNext()->SendIdleEvent();
-    }
-    return NS_OK;
-  }
-#endif
-
   nsRefPtr<nsPluginTag> pluginTag = mPlugins;
   while (pluginTag) {
     if (pluginTag->mUnloadTimer == timer) {

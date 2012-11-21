@@ -24,7 +24,6 @@ typedef int cc_causes_t;
 #define  CC_CALL_NONE       CC_CALL_TYPE_NONE
 #define  CC_CALL_INCOMING   CC_CALL_TYPE_INCOMING
 #define  SDP_SIZE           4096   /* must increase this */
-#define  PC_HANDLE_SIZE     17 /* 8 random bytes in hex plus null */
 #define  CANDIDATE_SIZE     150
 #define  MID_SIZE           150
 
@@ -835,6 +834,10 @@ typedef struct cc_feature_candidate_t_ {
   char        mid[MID_SIZE];
 } cc_feature_candidate_t;
 
+typedef struct cc_feature_session_t_ {
+  unsigned int  sessionid;
+  cc_boolean    has_constraints;
+} cc_feature_session_t;
 
 
 typedef union cc_feature_data_t {
@@ -861,6 +864,7 @@ typedef union cc_feature_data_t {
     cc_feature_data_pc_t        pc;
     cc_feature_data_track_t     track;
     cc_feature_candidate_t      candidate;
+    cc_feature_session_t        session;
 } cc_feature_data_t;
 
 typedef struct cc_setup_t_ {

@@ -58,7 +58,7 @@ class TestElements(MarionetteTestCase):
         self.assertEqual(HTMLElement, type(found_el));
         self.assertEqual(el, found_el)
 
-    def test_name(self):
+    def test_by_name(self):
         test_html = self.marionette.absolute_url("test.html")
         self.marionette.navigate(test_html)
         el = self.marionette.execute_script("return window.document.getElementsByName('myInput')[0];")
@@ -128,6 +128,14 @@ class TestElements(MarionetteTestCase):
         self.assertTrue(True, self.marionette.set_search_timeout(4000))
         self.marionette.navigate(test_html)
         self.assertEqual(HTMLElement, type(self.marionette.find_element("id", "newDiv")))
+
+    def test_css_selector_scope_doesnt_start_at_rootnode(self):
+        test_html = self.marionette.absolute_url("test.html")
+        self.marionette.navigate(test_html)
+        el = self.marionette.find_element("id","mozLink")
+        nav_el = self.marionette.find_element("id","testDiv")
+        found_els = nav_el.find_elements("css selector", "a")
+        self.assertFalse(el.id in [found_el.id for found_el in found_els])
 
 class TestElementsChrome(MarionetteTestCase):
     def setUp(self):

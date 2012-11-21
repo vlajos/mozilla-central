@@ -6,12 +6,17 @@
 #ifndef WEBGLCONTEXT_H_
 #define WEBGLCONTEXT_H_
 
+#include "WebGLElementArrayCache.h"
+#include "WebGLObjectModel.h"
+#include "WebGLBuffer.h"
+
 #include <stdarg.h>
 #include <vector>
 
 #include "nsTArray.h"
 #include "nsDataHashtable.h"
 #include "nsHashKeys.h"
+#include "nsCycleCollectionNoteChild.h"
 
 #include "nsIDocShell.h"
 
@@ -41,8 +46,6 @@
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingUtils.h"
 
-#include "WebGLElementArrayCache.h"
-
 /* 
  * Minimum value constants defined in 6.2 State Tables of OpenGL ES - 2.0.25
  *   https://bugzilla.mozilla.org/show_bug.cgi?id=686732
@@ -61,30 +64,16 @@
 #define MINVALUE_GL_MAX_RENDERBUFFER_SIZE             1024  // Different from the spec, which sets it to 1 on page 164
 #define MINVALUE_GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS  8     // Page 164
 
-#define DECL_WEBGL_TYPEDEF(type) typedef type Web##type;
-DECL_WEBGL_TYPEDEF(GLenum)
-DECL_WEBGL_TYPEDEF(GLbitfield)
-DECL_WEBGL_TYPEDEF(GLint)
-DECL_WEBGL_TYPEDEF(GLsizei)
-DECL_WEBGL_TYPEDEF(GLsizeiptr)
-DECL_WEBGL_TYPEDEF(GLintptr)
-DECL_WEBGL_TYPEDEF(GLuint)
-DECL_WEBGL_TYPEDEF(GLfloat)
-DECL_WEBGL_TYPEDEF(GLclampf)
-typedef realGLboolean WebGLboolean;
-
 class nsIPropertyBag;
 
 namespace mozilla {
 
 class WebGLTexture;
-class WebGLBuffer;
 class WebGLProgram;
 class WebGLShader;
 class WebGLFramebuffer;
-class WebGLRenderbuffer;
 class WebGLUniformLocation;
-class WebGLContext;
+class WebGLRenderbuffer;
 struct WebGLVertexAttribData;
 class WebGLMemoryPressureObserver;
 class WebGLRectangleObject;
@@ -92,6 +81,10 @@ class WebGLContextBoundObject;
 class WebGLActiveInfo;
 class WebGLShaderPrecisionFormat;
 class WebGLExtensionBase;
+
+namespace dom {
+struct WebGLContextAttributes;
+}
 
 enum FakeBlackStatus { DoNotNeedFakeBlack, DoNeedFakeBlack, DontKnowIfNeedFakeBlack };
 
@@ -157,246 +150,6 @@ inline bool is_pot_assuming_nonnegative(WebGLsizei x)
 {
     return x && (x & (x-1)) == 0;
 }
-
-/* Each WebGL object class WebGLFoo wants to:
- *  - inherit WebGLRefCountedObject<WebGLFoo>
- *  - implement a Delete() method
- *  - have its destructor call DeleteOnce()
- * 
- * This base class provides two features to WebGL object types:
- * 1. support for OpenGL object reference counting
- * 2. support for OpenGL deletion statuses
- *
- ***** 1. OpenGL object reference counting *****
- *
- * WebGL objects such as WebGLTexture's really have two different refcounts:
- * the XPCOM refcount, that is directly exposed to JavaScript, and the OpenGL
- * refcount.
- *
- * For example, when in JavaScript one does: var newname = existingTexture;
- * that increments the XPCOM refcount, but doesn't affect the OpenGL refcount.
- * When one attaches the texture to a framebuffer object, that does increment
- * its OpenGL refcount (and also its XPCOM refcount, to prevent the regular
- * XPCOM refcounting mechanism from destroying objects prematurely).
- *
- * The actual OpenGL refcount is opaque to us (it's internal to the OpenGL
- * implementation) but is affects the WebGL semantics that we have to implement:
- * for example, a WebGLTexture that is attached to a WebGLFramebuffer must not
- * be actually deleted, even if deleteTexture has been called on it, and even
- * if JavaScript doesn't have references to it anymore. We can't just rely on
- * OpenGL to keep alive the underlying OpenGL texture for us, for a variety of
- * reasons, most importantly: we'd need to know when OpenGL objects are actually
- * deleted, and OpenGL doesn't notify us about that, so we would have to query
- * status very often with glIsXxx calls which isn't practical.
- *
- * This means that we have to keep track of the OpenGL refcount ourselves,
- * in addition to the XPCOM refcount.
- *
- * This class implements such a refcount, see the mWebGLRefCnt
- * member. In order to avoid name clashes (with regular XPCOM refcounting)
- * in the derived class, we prefix members with 'WebGL', whence the names
- * WebGLAddRef, WebGLRelease, etc.
- *
- * In practice, WebGLAddRef and WebGLRelease are only called from the
- * WebGLRefPtr class.
- *
- ***** 2. OpenGL deletion statuses *****
- *
- * In OpenGL, an object can go through 3 different deletion statuses during its
- * lifetime, which correspond to the 3 enum values for DeletionStatus in this class:
- *  - the Default status, which it has from its creation to when the
- *    suitable glDeleteXxx function is called on it;
- *  - the DeleteRequested status, which is has from when the suitable glDeleteXxx
- *    function is called on it to when it is no longer referenced by other OpenGL
- *    objects. For example, a texture that is attached to a non-current FBO
- *    will enter that status when glDeleteTexture is called on it. For objects
- *    with that status, GL_DELETE_STATUS queries return true, but glIsXxx
- *    functions still return true.
- *  - the Deleted status, which is the status of objects on which the
- *    suitable glDeleteXxx function has been called, and that are not referenced
- *    by other OpenGL objects.
- *
- * This state is stored in the mDeletionStatus member of this class.
- *
- * When the GL refcount hits zero, if the status is DeleteRequested then we call
- * the Delete() method on the derived class and the status becomes Deleted. This is
- * what the MaybeDelete() function does.
- * 
- * The DeleteOnce() function implemented here is a helper to ensure that we don't
- * call Delete() twice on the same object. Since the derived class' destructor
- * needs to call DeleteOnce() which calls Delete(), we can't allow either to be
- * virtual. Strictly speaking, we could let them be virtual if the derived class
- * were final, but that would be impossible to enforce and would lead to strange
- * bugs if it were subclassed.
- *
- * This WebGLRefCountedObject class takes the Derived type
- * as template parameter, as a means to allow DeleteOnce to call Delete()
- * on the Derived class, without either method being virtual. This is a common
- * C++ pattern known as the "curiously recursive template pattern (CRTP)".
- */
-template<typename Derived>
-class WebGLRefCountedObject
-{
-public:
-    enum DeletionStatus { Default, DeleteRequested, Deleted };
-
-    WebGLRefCountedObject()
-      : mDeletionStatus(Default)
-    { }
-
-    ~WebGLRefCountedObject() {
-        NS_ABORT_IF_FALSE(mWebGLRefCnt == 0, "destroying WebGL object still referenced by other WebGL objects");
-        NS_ABORT_IF_FALSE(mDeletionStatus == Deleted, "Derived class destructor must call DeleteOnce()");
-    }
-
-    // called by WebGLRefPtr
-    void WebGLAddRef() {
-        ++mWebGLRefCnt;
-    }
-
-    // called by WebGLRefPtr
-    void WebGLRelease() {
-        NS_ABORT_IF_FALSE(mWebGLRefCnt > 0, "releasing WebGL object with WebGL refcnt already zero");
-        --mWebGLRefCnt;
-        MaybeDelete();
-    }
-
-    // this is the function that WebGL.deleteXxx() functions want to call
-    void RequestDelete() {
-        if (mDeletionStatus == Default)
-            mDeletionStatus = DeleteRequested;
-        MaybeDelete();
-    }
-
-    bool IsDeleted() const {
-        return mDeletionStatus == Deleted;
-    }
-
-    bool IsDeleteRequested() const {
-        return mDeletionStatus != Default;
-    }
-
-    void DeleteOnce() {
-        if (mDeletionStatus != Deleted) {
-            static_cast<Derived*>(this)->Delete();
-            mDeletionStatus = Deleted;
-        }
-    }
-
-private:
-    void MaybeDelete() {
-        if (mWebGLRefCnt == 0 &&
-            mDeletionStatus == DeleteRequested)
-        {
-            DeleteOnce();
-        }
-    }
-
-protected:
-    nsAutoRefCnt mWebGLRefCnt;
-    DeletionStatus mDeletionStatus;
-};
-
-/* This WebGLRefPtr class is meant to be used for references between WebGL objects.
- * For example, a WebGLProgram holds WebGLRefPtr's to the WebGLShader's attached
- * to it.
- *
- * Why the need for a separate refptr class? The only special thing that WebGLRefPtr
- * does is that it increments and decrements the WebGL refcount of
- * WebGLRefCountedObject's, in addition to incrementing and decrementing the
- * usual XPCOM refcount.
- *
- * This means that by using a WebGLRefPtr instead of a nsRefPtr, you ensure that
- * the WebGL refcount is incremented, which means that the object will be kept
- * alive by this reference even if the matching webgl.deleteXxx() function is
- * called on it.
- */
-template<typename T>
-class WebGLRefPtr
-{
-public:
-    WebGLRefPtr()
-        : mRawPtr(0)
-    { }
-
-    WebGLRefPtr(const WebGLRefPtr<T>& aSmartPtr)
-        : mRawPtr(aSmartPtr.mRawPtr)
-    {
-        AddRefOnPtr(mRawPtr);
-    }
-
-    WebGLRefPtr(T *aRawPtr)
-        : mRawPtr(aRawPtr)
-    {
-        AddRefOnPtr(mRawPtr);
-    }
-
-    ~WebGLRefPtr() {
-        ReleasePtr(mRawPtr);
-    }
-
-    WebGLRefPtr<T>&
-    operator=(const WebGLRefPtr<T>& rhs)
-    {
-        assign_with_AddRef(rhs.mRawPtr);
-        return *this;
-    }
-
-    WebGLRefPtr<T>&
-    operator=(T* rhs)
-    {
-        assign_with_AddRef(rhs);
-        return *this;
-    }
-
-    T* get() const {
-        return static_cast<T*>(mRawPtr);
-    }
-
-    operator T*() const {
-        return get();
-    }
-
-    T* operator->() const {
-        NS_ABORT_IF_FALSE(mRawPtr != 0, "You can't dereference a NULL WebGLRefPtr with operator->()!");
-        return get();
-    }
-
-    T& operator*() const {
-        NS_ABORT_IF_FALSE(mRawPtr != 0, "You can't dereference a NULL WebGLRefPtr with operator*()!");
-        return *get();
-    }
-
-private:
-
-    static void AddRefOnPtr(T* rawPtr) {
-        if (rawPtr) {
-            rawPtr->WebGLAddRef();
-            rawPtr->AddRef();
-        }
-    }
-
-    static void ReleasePtr(T* rawPtr) {
-        if (rawPtr) {
-            rawPtr->WebGLRelease(); // must be done first before Release(), as Release() might actually destroy the object
-            rawPtr->Release();
-        }
-    }
-
-    void assign_with_AddRef(T* rawPtr) {
-        AddRefOnPtr(rawPtr);
-        assign_assuming_AddRef(rawPtr);
-    }
-
-    void assign_assuming_AddRef(T* newPtr) {
-        T* oldPtr = mRawPtr;
-        mRawPtr = newPtr;
-        ReleasePtr(oldPtr);
-    }
-
-protected:
-    T *mRawPtr;
-};
 
 // this class is a mixin for GL objects that have dimensions
 // that we need to track.
@@ -469,7 +222,6 @@ class WebGLContext :
     public nsIDOMWebGLRenderingContext,
     public nsICanvasRenderingContextInternal,
     public nsSupportsWeakReference,
-    public nsITimerCallback,
     public WebGLRectangleObject,
     public nsWrapperCache
 {
@@ -487,7 +239,9 @@ class WebGLContext :
         UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241,
         CONTEXT_LOST_WEBGL = 0x9242,
         UNPACK_COLORSPACE_CONVERSION_WEBGL = 0x9243,
-        BROWSER_DEFAULT_WEBGL = 0x9244
+        BROWSER_DEFAULT_WEBGL = 0x9244,
+        UNMASKED_VENDOR_WEBGL = 0x9245,
+        UNMASKED_RENDERER_WEBGL = 0x9246
     };
 
 public:
@@ -503,8 +257,6 @@ public:
                                  bool *triedToWrap);
 
     NS_DECL_NSIDOMWEBGLRENDERINGCONTEXT
-
-    NS_DECL_NSITIMERCALLBACK
 
     // nsICanvasRenderingContextInternal
     NS_IMETHOD SetDimensions(int32_t width, int32_t height);
@@ -601,6 +353,12 @@ public:
         return mMinCapability;
     }
 
+    void RobustnessTimerCallback(nsITimer* timer);
+
+    static void RobustnessTimerCallbackStatic(nsITimer* timer, void *thisPointer) {
+        static_cast<WebGLContext*>(thisPointer)->RobustnessTimerCallback(timer);
+    }
+
     void SetupContextLossTimer() {
         // If the timer was already running, don't restart it here. Instead,
         // wait until the previous call is done, then fire it one more time.
@@ -610,10 +368,11 @@ public:
             mDrawSinceContextLossTimerSet = true;
             return;
         }
-        
-        mContextRestorer->InitWithCallback(static_cast<nsITimerCallback*>(this),
-                                           PR_MillisecondsToInterval(1000),
-                                           nsITimer::TYPE_ONE_SHOT);
+
+        mContextRestorer->InitWithFuncCallback(RobustnessTimerCallbackStatic,
+                                               static_cast<void*>(this),
+                                               1000,
+                                               nsITimer::TYPE_ONE_SHOT);
         mContextLossTimerRunning = true;
         mDrawSinceContextLossTimerSet = false;
     }
@@ -640,10 +399,10 @@ public:
         return mHeight;
     }
         
-    JSObject *GetContextAttributes(ErrorResult &rv);
+    void GetContextAttributes(dom::WebGLContextAttributes& retval);
     bool IsContextLost() const { return !IsContextStable(); }
-    void GetSupportedExtensions(dom::Nullable< nsTArray<nsString> > &retval);
-    JSObject* GetExtension(JSContext* ctx, const nsAString& aName, ErrorResult& rv);
+    void GetSupportedExtensions(JSContext *cx, dom::Nullable< nsTArray<nsString> > &retval);
+    JSObject* GetExtension(JSContext* cx, const nsAString& aName, ErrorResult& rv);
     void ActiveTexture(WebGLenum texture);
     void AttachShader(WebGLProgram* program, WebGLShader* shader);
     void BindAttribLocation(WebGLProgram* program, WebGLuint location,
@@ -831,18 +590,18 @@ public:
     void StencilOp(WebGLenum sfail, WebGLenum dpfail, WebGLenum dppass);
     void StencilOpSeparate(WebGLenum face, WebGLenum sfail, WebGLenum dpfail,
                            WebGLenum dppass);
-    void TexImage2D(JSContext* cx, WebGLenum target, WebGLint level,
+    void TexImage2D(WebGLenum target, WebGLint level,
                     WebGLenum internalformat, WebGLsizei width,
                     WebGLsizei height, WebGLint border, WebGLenum format,
                     WebGLenum type, dom::ArrayBufferView *pixels,
                     ErrorResult& rv);
-    void TexImage2D(JSContext* cx, WebGLenum target, WebGLint level,
+    void TexImage2D(WebGLenum target, WebGLint level,
                     WebGLenum internalformat, WebGLenum format, WebGLenum type,
                     dom::ImageData* pixels, ErrorResult& rv);
     // Allow whatever element types the bindings are willing to pass
     // us in TexImage2D
     template<class ElementType>
-    void TexImage2D(JSContext* /* unused */, WebGLenum target, WebGLint level,
+    void TexImage2D(WebGLenum target, WebGLint level,
                     WebGLenum internalformat, WebGLenum format, WebGLenum type,
                     ElementType* elt, ErrorResult& rv) {
         if (!IsContextStable())
@@ -868,18 +627,18 @@ public:
         TexParameter_base(target, pname, &param, nullptr);
     }
     
-    void TexSubImage2D(JSContext* cx, WebGLenum target, WebGLint level,
+    void TexSubImage2D(WebGLenum target, WebGLint level,
                        WebGLint xoffset, WebGLint yoffset,
                        WebGLsizei width, WebGLsizei height, WebGLenum format,
                        WebGLenum type, dom::ArrayBufferView* pixels,
                        ErrorResult& rv);
-    void TexSubImage2D(JSContext* cx, WebGLenum target, WebGLint level,
+    void TexSubImage2D(WebGLenum target, WebGLint level,
                        WebGLint xoffset, WebGLint yoffset, WebGLenum format,
                        WebGLenum type, dom::ImageData* pixels, ErrorResult& rv);
     // Allow whatever element types the bindings are willing to pass
     // us in TexSubImage2D
     template<class ElementType>
-    void TexSubImage2D(JSContext* /* unused */, WebGLenum target, WebGLint level,
+    void TexSubImage2D(WebGLenum target, WebGLint level,
                        WebGLint xoffset, WebGLint yoffset, WebGLenum format,
                        WebGLenum type, ElementType* elt, ErrorResult& rv) {
         if (!IsContextStable())
@@ -1041,7 +800,15 @@ public:
                                const float* data);
 
     void UseProgram(WebGLProgram *prog);
+    bool ValidateAttribArraySetter(const char* name, uint32_t cnt, uint32_t arrayLength);
+    bool ValidateUniformArraySetter(const char* name, uint32_t expectedElemSize, WebGLUniformLocation *location_object,
+                                    GLint& location, uint32_t& numElementsToUpload, uint32_t arrayLength);
+    bool ValidateUniformMatrixArraySetter(const char* name, int dim, WebGLUniformLocation *location_object,
+                                          GLint& location, uint32_t& numElementsToUpload, uint32_t arrayLength,
+                                          WebGLboolean aTranspose);
+    bool ValidateUniformSetter(const char* name, WebGLUniformLocation *location_object, GLint& location);
     void ValidateProgram(WebGLProgram *prog);
+    bool ValidateUniformLocation(const char* info, WebGLUniformLocation *location_object);
 
     void VertexAttrib1f(WebGLuint index, WebGLfloat x0);
     void VertexAttrib2f(WebGLuint index, WebGLfloat x0, WebGLfloat x1);
@@ -1151,11 +918,13 @@ protected:
 
     // Cache the max number of elements that can be read from bound VBOs
     // (result of ValidateBuffers).
-    int32_t mMinInUseAttribArrayLength;
+    bool mMinInUseAttribArrayLengthCached;
+    uint32_t mMinInUseAttribArrayLength;
 
     inline void InvalidateCachedMinInUseAttribArrayLength()
     {
-        mMinInUseAttribArrayLength = -1;
+        mMinInUseAttribArrayLengthCached = false;
+        mMinInUseAttribArrayLength = 0;
     }
 
     // Represents current status, or state, of the context. That is, is it lost
@@ -1179,14 +948,15 @@ protected:
 
     // extensions
     enum WebGLExtensionID {
-        OES_texture_float,
-        OES_standard_derivatives,
         EXT_texture_filter_anisotropic,
-        WEBGL_lose_context,
-        WEBGL_compressed_texture_s3tc,
+        OES_standard_derivatives,
+        OES_texture_float,
         WEBGL_compressed_texture_atc,
         WEBGL_compressed_texture_pvrtc,
+        WEBGL_compressed_texture_s3tc,
+        WEBGL_debug_renderer_info,
         WEBGL_depth_texture,
+        WEBGL_lose_context,
         WebGLExtensionID_unknown_extension
     };
     nsTArray<nsRefPtr<WebGLExtensionBase> > mExtensions;
@@ -1194,13 +964,13 @@ protected:
     // returns true if the extension has been enabled by calling getExtension.
     bool IsExtensionEnabled(WebGLExtensionID ext) const;
 
-    // returns true if the extension is supported (as returned by getSupportedExtensions)
-    bool IsExtensionSupported(WebGLExtensionID ext) const;
+    // returns true if the extension is supported for this JSContext (this decides what getSupportedExtensions exposes)
+    bool IsExtensionSupported(JSContext *cx, WebGLExtensionID ext) const;
 
     nsTArray<WebGLenum> mCompressedTextureFormats;
 
     bool InitAndValidateGL();
-    bool ValidateBuffers(int32_t *maxAllowedCount, const char *info);
+    bool ValidateBuffers(uint32_t *maxAllowedCount, const char *info);
     bool ValidateCapabilityEnum(WebGLenum cap, const char *info);
     bool ValidateBlendEquationEnum(WebGLenum cap, const char *info);
     bool ValidateBlendFuncDstEnum(WebGLenum mode, const char *info);
@@ -1441,29 +1211,6 @@ ToSupports(WebGLContext* context)
   return static_cast<nsICanvasRenderingContextInternal*>(context);
 }
 
-// This class is a mixin for objects that are tied to a specific
-// context (which is to say, all of them).  They provide initialization
-// as well as comparison with the current context.
-class WebGLContextBoundObject
-{
-public:
-    WebGLContextBoundObject(WebGLContext *context) {
-        mContext = context;
-        mContextGeneration = context->Generation();
-    }
-
-    bool IsCompatibleWithContext(WebGLContext *other) {
-        return mContext == other &&
-            mContextGeneration == other->Generation();
-    }
-
-    WebGLContext *Context() const { return mContext; }
-
-protected:
-    WebGLContext *mContext;
-    uint32_t mContextGeneration;
-};
-
 struct WebGLVertexAttribData {
     // note that these initial values are what GL initializes vertex attribs to
     WebGLVertexAttribData()
@@ -1509,90 +1256,6 @@ struct WebGLVertexAttribData {
     }
 };
 
-class WebGLBuffer MOZ_FINAL
-    : public nsISupports
-    , public WebGLRefCountedObject<WebGLBuffer>
-    , public LinkedListElement<WebGLBuffer>
-    , public WebGLContextBoundObject
-    , public nsWrapperCache
-{
-public:
-    WebGLBuffer(WebGLContext *context)
-        : WebGLContextBoundObject(context)
-        , mHasEverBeenBound(false)
-        , mByteLength(0)
-        , mTarget(LOCAL_GL_NONE)
-    {
-        SetIsDOMBinding();
-        mContext->MakeContextCurrent();
-        mContext->gl->fGenBuffers(1, &mGLName);
-        mContext->mBuffers.insertBack(this);
-    }
-
-    ~WebGLBuffer() {
-        DeleteOnce();
-    }
-
-    void Delete() {
-        mContext->MakeContextCurrent();
-        mContext->gl->fDeleteBuffers(1, &mGLName);
-        mByteLength = 0;
-        mCache = nullptr;
-        LinkedListElement<WebGLBuffer>::remove(); // remove from mContext->mBuffers
-    }
-
-    size_t SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const {
-        size_t sizeOfCache = mCache ? mCache->SizeOfIncludingThis(aMallocSizeOf) : 0;
-        return aMallocSizeOf(this) + sizeOfCache;
-    }
-
-    bool HasEverBeenBound() { return mHasEverBeenBound; }
-    void SetHasEverBeenBound(bool x) { mHasEverBeenBound = x; }
-    GLuint GLName() const { return mGLName; }
-    GLuint ByteLength() const { return mByteLength; }
-    GLenum Target() const { return mTarget; }
-
-    void SetByteLength(GLuint byteLength) { mByteLength = byteLength; }
-
-    void SetTarget(GLenum target) {
-        mTarget = target;
-        if (!mCache && mTarget == LOCAL_GL_ELEMENT_ARRAY_BUFFER)
-            mCache = new WebGLElementArrayCache;
-     }
-
-    bool ElementArrayCacheBufferData(const void* ptr, size_t buffer_size_in_bytes) {
-        if (mTarget == LOCAL_GL_ELEMENT_ARRAY_BUFFER)
-            return mCache->BufferData(ptr, buffer_size_in_bytes);
-        return true;
-    }
-
-    void ElementArrayCacheBufferSubData(size_t pos, const void* ptr, size_t update_size_in_bytes) {
-        if (mTarget == LOCAL_GL_ELEMENT_ARRAY_BUFFER)
-            mCache->BufferSubData(pos, ptr, update_size_in_bytes);
-    }
-
-    bool Validate(WebGLenum type, uint32_t max_allowed, size_t first, size_t count) {
-        return mCache->Validate(type, max_allowed, first, count);
-    }
-
-    WebGLContext *GetParentObject() const {
-        return Context();
-    }
-
-    virtual JSObject* WrapObject(JSContext *cx, JSObject *scope, bool *triedToWrap);
-
-    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-    NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(WebGLBuffer)
-
-protected:
-
-    WebGLuint mGLName;
-    bool mHasEverBeenBound;
-    GLuint mByteLength;
-    GLenum mTarget;
-
-    nsAutoPtr<WebGLElementArrayCache> mCache;
-};
 
 // NOTE: When this class is switched to new DOM bindings, update the (then-slow)
 // WrapObject calls in GetParameter and GetFramebufferAttachmentParameter.
@@ -1631,7 +1294,7 @@ public:
         mImageInfos.Clear();
         mContext->MakeContextCurrent();
         mContext->gl->fDeleteTextures(1, &mGLName);
-        LinkedListElement<WebGLTexture>::remove(); // remove from mContext->mTextures
+        LinkedListElement<WebGLTexture>::removeFrom(mContext->mTextures);
     }
 
     bool HasEverBeenBound() { return mHasEverBeenBound; }
@@ -2149,7 +1812,7 @@ public:
         mTranslationLog.Truncate();
         mContext->MakeContextCurrent();
         mContext->gl->fDeleteShader(mGLName);
-        LinkedListElement<WebGLShader>::remove(); // remove from mContext->mShaders
+        LinkedListElement<WebGLShader>::removeFrom(mContext->mShaders);
     }
 
     WebGLuint GLName() { return mGLName; }
@@ -2271,7 +1934,7 @@ public:
         DetachShaders();
         mContext->MakeContextCurrent();
         mContext->gl->fDeleteProgram(mGLName);
-        LinkedListElement<WebGLProgram>::remove(); // remove from mContext->mPrograms
+        LinkedListElement<WebGLProgram>::removeFrom(mContext->mPrograms);
     }
 
     void DetachShaders() {
@@ -2554,7 +2217,7 @@ public:
     void Delete() {
         mContext->MakeContextCurrent();
         mContext->gl->fDeleteRenderbuffers(1, &mGLName);
-        LinkedListElement<WebGLRenderbuffer>::remove(); // remove from mContext->mRenderbuffers
+        LinkedListElement<WebGLRenderbuffer>::removeFrom(mContext->mRenderbuffers);
     }
 
     bool HasEverBeenBound() { return mHasEverBeenBound; }
@@ -2627,6 +2290,8 @@ class WebGLFramebufferAttachment
     WebGLenum mAttachmentPoint;
     WebGLint mTextureLevel;
     WebGLenum mTextureCubeMapFace;
+
+    friend class WebGLFramebuffer;
 
 public:
     WebGLFramebufferAttachment(WebGLenum aAttachmentPoint)
@@ -2797,7 +2462,7 @@ public:
         mDepthStencilAttachment.Reset();
         mContext->MakeContextCurrent();
         mContext->gl->fDeleteFramebuffers(1, &mGLName);
-        LinkedListElement<WebGLFramebuffer>::remove(); // remove from mContext->mFramebuffers
+        LinkedListElement<WebGLFramebuffer>::removeFrom(mContext->mFramebuffers);
     }
 
     bool HasEverBeenBound() { return mHasEverBeenBound; }
@@ -2840,11 +2505,21 @@ public:
         }
 
         mContext->MakeContextCurrent();
-        WebGLuint renderbuffername = wrb ? wrb->GLName() : 0;
+        WebGLuint parambuffername = wrb ? wrb->GLName() : 0;
         if (attachment == LOCAL_GL_DEPTH_STENCIL_ATTACHMENT) {
-            mContext->gl->fFramebufferRenderbuffer(target, LOCAL_GL_DEPTH_ATTACHMENT, rbtarget, renderbuffername);
-            mContext->gl->fFramebufferRenderbuffer(target, LOCAL_GL_STENCIL_ATTACHMENT, rbtarget, renderbuffername);
+            WebGLuint depthbuffername = parambuffername;
+            WebGLuint stencilbuffername = parambuffername;
+            if (!parambuffername){
+                depthbuffername   = mDepthAttachment.Renderbuffer()   ? mDepthAttachment.Renderbuffer()->GLName()   : 0;
+                stencilbuffername = mStencilAttachment.Renderbuffer() ? mStencilAttachment.Renderbuffer()->GLName() : 0;
+            }
+            mContext->gl->fFramebufferRenderbuffer(target, LOCAL_GL_DEPTH_ATTACHMENT, rbtarget, depthbuffername);
+            mContext->gl->fFramebufferRenderbuffer(target, LOCAL_GL_STENCIL_ATTACHMENT, rbtarget, stencilbuffername);
         } else {
+            WebGLuint renderbuffername = parambuffername;
+            if(!parambuffername && (attachment == LOCAL_GL_DEPTH_ATTACHMENT || attachment == LOCAL_GL_STENCIL_ATTACHMENT)){
+                renderbuffername = mDepthStencilAttachment.Renderbuffer() ? mDepthStencilAttachment.Renderbuffer()->GLName() : 0;
+            }
             mContext->gl->fFramebufferRenderbuffer(target, attachment, rbtarget, renderbuffername);
         }
     }
@@ -2892,11 +2567,21 @@ public:
         }
 
         mContext->MakeContextCurrent();
-        WebGLuint texturename = wtex ? wtex->GLName() : 0;
+        WebGLuint paramtexturename = wtex ? wtex->GLName() : 0;
         if (attachment == LOCAL_GL_DEPTH_STENCIL_ATTACHMENT) {
-            mContext->gl->fFramebufferTexture2D(target, LOCAL_GL_DEPTH_ATTACHMENT, textarget, texturename, level);
-            mContext->gl->fFramebufferTexture2D(target, LOCAL_GL_STENCIL_ATTACHMENT, textarget, texturename, level);
+            WebGLuint depthtexturename = paramtexturename;
+            WebGLuint stenciltexturename = paramtexturename;
+            if(!paramtexturename){
+                depthtexturename   = mDepthAttachment.Texture()   ? mDepthAttachment.Texture()->GLName()   : 0;
+                stenciltexturename = mStencilAttachment.Texture() ? mStencilAttachment.Texture()->GLName() : 0;
+            }
+            mContext->gl->fFramebufferTexture2D(target, LOCAL_GL_DEPTH_ATTACHMENT, textarget, depthtexturename, level);
+            mContext->gl->fFramebufferTexture2D(target, LOCAL_GL_STENCIL_ATTACHMENT, textarget, stenciltexturename, level);
         } else {
+            WebGLuint texturename = paramtexturename;
+            if(!paramtexturename && (attachment == LOCAL_GL_DEPTH_ATTACHMENT || attachment == LOCAL_GL_STENCIL_ATTACHMENT)){
+                texturename = mDepthStencilAttachment.Texture() ? mDepthStencilAttachment.Texture()->GLName() : 0;
+            }
             mContext->gl->fFramebufferTexture2D(target, attachment, textarget, texturename, level);
         }
 
@@ -3090,7 +2775,9 @@ public:
 
     virtual JSObject* WrapObject(JSContext *cx, JSObject *scope);
 
-    NS_DECL_ISUPPORTS
+    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+    NS_DECL_CYCLE_COLLECTION_CLASS(WebGLUniformLocation)
+
 protected:
     // nsRefPtr, not WebGLRefPtr, so that we don't prevent the program from being explicitly deleted.
     // we just want to avoid having a dangling pointer.
@@ -3404,6 +3091,21 @@ private:
   WebGLContext *mContext;
 };
 
+} // namespace mozilla
+
+inline void ImplCycleCollectionUnlink(mozilla::WebGLVertexAttribData& aField)
+{
+  aField.buf = nullptr;
+}
+
+inline void
+ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
+                            mozilla::WebGLVertexAttribData& aField,
+                            const char* aName,
+                            uint32_t aFlags = 0)
+{
+  CycleCollectionNoteEdgeName(aCallback, aName, aFlags);
+  aCallback.NoteXPCOMChild(aField.buf);
 }
 
 #endif

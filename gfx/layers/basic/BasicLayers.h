@@ -93,7 +93,7 @@ public:
   virtual void EndTransaction(DrawThebesLayerCallback aCallback,
                               void* aCallbackData,
                               EndTransactionFlags aFlags = END_DEFAULT);
-  virtual bool AreComponentAlphaLayersEnabled() { return HasShadowManager(); }
+  virtual bool AreComponentAlphaLayersEnabled() { return HasShadowManager() || !IsWidgetLayerManager(); }
 
   void AbortTransaction();
 
@@ -138,8 +138,8 @@ public:
   virtual const char* Name() const { return "Basic"; }
 #endif // MOZ_LAYERS_HAVE_LOG
 
-  // Clear the cached contents of this layer.
-  void ClearCachedResources();
+  // Clear the cached contents of this layer tree.
+  virtual void ClearCachedResources(Layer* aSubtree = nullptr) MOZ_OVERRIDE;
 
   void SetTransactionIncomplete() { mTransactionIncomplete = true; }
   bool IsTransactionIncomplete() { return mTransactionIncomplete; }
@@ -154,6 +154,7 @@ public:
   virtual bool IsCompositingCheap() { return false; }
   virtual int32_t GetMaxTextureSize() const { return INT32_MAX; }
   bool CompositorMightResample() { return mCompositorMightResample; }
+  bool HasShadowTarget() { return !!mShadowTarget; }
 
 protected:
   enum TransactionPhase {
@@ -270,15 +271,28 @@ public:
 
   virtual void SetIsFirstPaint() MOZ_OVERRIDE;
 
+  // Drop cached resources and ask our shadow manager to do the same,
+  // if we have one.
+  virtual void ClearCachedResources(Layer* aSubtree = nullptr) MOZ_OVERRIDE;
+
   void SetRepeatTransaction() { mRepeatTransaction = true; }
 
+  bool IsRepeatTransaction() { return mIsRepeatTransaction; }
+
   /**
-   * Determines if a progressive update should be cancelled. This is only called
-   * if gfxPlatform::UseProgressiveTilePainting() returns true.
-   * aHasPendingNewThebesContent is true if there is a Thebes layer update
-   * that will cause its valid region to expand.
+   * Called for each iteration of a progressive tile update. Fills
+   * aViewport, aScaleX and aScaleY with the current scale and viewport
+   * being used to composite the layers in this manager, to determine what area
+   * intersects with the target render rectangle.
+   * Returns true if the update should continue, or false if it should be
+   * cancelled.
+   * This is only called if gfxPlatform::UseProgressiveTilePainting() returns
+   * true.
    */
-  bool ShouldAbortProgressiveUpdate(bool aHasPendingNewThebesContent);
+  bool ProgressiveUpdateCallback(bool aHasPendingNewThebesContent,
+                                 gfx::Rect& aViewport,
+                                 float& aScaleX,
+                                 float& aScaleY);
 
 private:
   /**
@@ -300,6 +314,7 @@ private:
   // Used to repeat the transaction right away (to avoid rebuilding
   // a display list) to support progressive drawing.
   bool mRepeatTransaction;
+  bool mIsRepeatTransaction;
 };
 
 class BasicShadowableThebesLayer;

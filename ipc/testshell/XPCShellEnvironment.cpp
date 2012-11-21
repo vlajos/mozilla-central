@@ -300,8 +300,12 @@ Load(JSContext *cx,
             JS_ReportError(cx, "cannot open file '%s' for reading", filename.ptr());
             return JS_FALSE;
         }
-        script = JS_CompileUTF8FileHandleForPrincipals(cx, obj, filename.ptr(), file,
-                                                       Environment(cx)->GetPrincipal());
+        JS::CompileOptions options(cx);
+        options.setUTF8(true)
+               .setFileAndLine(filename.ptr(), 1)
+               .setPrincipals(Environment(cx)->GetPrincipal());
+        js::RootedObject rootedObj(cx, obj);
+        JSScript *script = JS::Compile(cx, rootedObj, options, file);
         fclose(file);
         if (!script)
             return JS_FALSE;
@@ -564,9 +568,12 @@ ProcessFile(JSContext *cx,
         JSAutoRequest ar(cx);
         JSAutoCompartment ac(cx, obj);
 
-        JSScript* script =
-            JS_CompileUTF8FileHandleForPrincipals(cx, obj, filename, file,
-                                                  env->GetPrincipal());
+        JS::CompileOptions options(cx);
+        options.setUTF8(true)
+               .setFileAndLine(filename, 1)
+               .setPrincipals(env->GetPrincipal());
+        js::RootedObject rootedObj(cx, obj);
+        JSScript* script = JS::Compile(cx, rootedObj, options, file);
         if (script && !env->ShouldCompileOnly())
             (void)JS_ExecuteScript(cx, obj, script, &result);
 
@@ -597,7 +604,7 @@ ProcessFile(JSContext *cx,
             }
             bufp += strlen(bufp);
             lineno++;
-        } while (!JS_BufferIsCompilableUnit(cx, JS_FALSE, obj, buffer, strlen(buffer)));
+        } while (!JS_BufferIsCompilableUnit(cx, obj, buffer, strlen(buffer)));
 
         /* Clear any pending exception from previous failed compiles.  */
         JS_ClearPendingException(cx);
@@ -743,18 +750,6 @@ FullTrustSecMan::GetSystemPrincipal(nsIPrincipal **_retval)
 }
 
 NS_IMETHODIMP
-FullTrustSecMan::GetCertificatePrincipal(const nsACString & aCertFingerprint,
-                                         const nsACString & aSubjectName,
-                                         const nsACString & aPrettyName,
-                                         nsISupports *aCert,
-                                         nsIURI *aURI,
-                                         nsIPrincipal **_retval)
-{
-    NS_IF_ADDREF(*_retval = mSystemPrincipal);
-    return *_retval ? NS_OK : NS_ERROR_FAILURE;
-}
-
-NS_IMETHODIMP
 FullTrustSecMan::GetSimpleCodebasePrincipal(nsIURI *aURI,
                                             nsIPrincipal **_retval)
 {
@@ -765,6 +760,12 @@ FullTrustSecMan::GetSimpleCodebasePrincipal(nsIURI *aURI,
 NS_IMETHODIMP
 FullTrustSecMan::GetNoAppCodebasePrincipal(nsIURI *aURI,
                                            nsIPrincipal **_retval)
+{
+    return GetSimpleCodebasePrincipal(aURI, _retval);
+}
+
+NS_IMETHODIMP
+FullTrustSecMan::GetCodebasePrincipal(nsIURI *aURI, nsIPrincipal **_retval)
 {
     return GetSimpleCodebasePrincipal(aURI, _retval);
 }
@@ -784,29 +785,6 @@ FullTrustSecMan::GetDocShellCodebasePrincipal(nsIURI *aURI,
                                               nsIPrincipal **_retval)
 {
     return GetSimpleCodebasePrincipal(aURI, _retval);
-}
-
-NS_IMETHODIMP
-FullTrustSecMan::RequestCapability(nsIPrincipal *principal,
-                                   const char *capability,
-                                   int16_t *_retval)
-{
-    *_retval = nsIPrincipal::ENABLE_GRANTED;
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-FullTrustSecMan::IsCapabilityEnabled(const char *capability,
-                                     bool *_retval)
-{
-    *_retval = true;
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-FullTrustSecMan::EnableCapability(const char *capability)
-{
-    return NS_OK;;
 }
 
 NS_IMETHODIMP
@@ -838,14 +816,6 @@ FullTrustSecMan::CheckSameOriginURI(nsIURI *aSourceURI,
                                     bool reportError)
 {
     return NS_OK;
-}
-
-NS_IMETHODIMP
-FullTrustSecMan::GetPrincipalFromContext(JSContext * cx,
-                                         nsIPrincipal **_retval)
-{
-    NS_IF_ADDREF(*_retval = mSystemPrincipal);
-    return *_retval ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP

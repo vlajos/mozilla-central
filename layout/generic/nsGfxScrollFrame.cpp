@@ -38,9 +38,6 @@
 #include "nsEventDispatcher.h"
 #include "nsContentUtils.h"
 #include "nsLayoutUtils.h"
-#ifdef ACCESSIBILITY
-#include "nsAccessibilityService.h"
-#endif
 #include "nsBidiUtils.h"
 #include "nsFrameManager.h"
 #include "mozilla/Preferences.h"
@@ -94,8 +91,8 @@ nsHTMLScrollFrame::AppendAnonymousContentTo(nsBaseContentList& aElements,
 void
 nsHTMLScrollFrame::DestroyFrom(nsIFrame* aDestructRoot)
 {
-  mInner.Destroy();
   DestroyAbsoluteFrames(aDestructRoot);
+  mInner.Destroy();
   nsContainerFrame::DestroyFrom(aDestructRoot);
 }
 
@@ -856,24 +853,18 @@ nsHTMLScrollFrame::GetFrameName(nsAString& aResult) const
 #endif
 
 #ifdef ACCESSIBILITY
-already_AddRefed<Accessible>
-nsHTMLScrollFrame::CreateAccessible()
+a11y::AccType
+nsHTMLScrollFrame::AccessibleType()
 {
   // Create an accessible regardless of focusable state because the state can be
   // changed during frame life cycle without any notifications to accessibility.
   if (mContent->IsRootOfNativeAnonymousSubtree() ||
       GetScrollbarStyles() == nsIScrollableFrame::
         ScrollbarStyles(NS_STYLE_OVERFLOW_HIDDEN, NS_STYLE_OVERFLOW_HIDDEN) ) {
-    return nullptr;
+    return a11y::eNoAccessible;
   }
 
-  nsAccessibilityService* accService = nsIPresShell::AccService();
-  if (accService) {
-    return accService->CreateHyperTextAccessible(mContent,
-                                                 PresContext()->PresShell());
-  }
-
-  return nullptr;
+  return a11y::eHyperTextAccessible;
 }
 #endif
 
@@ -1464,6 +1455,7 @@ nsGfxScrollFrameInner::nsGfxScrollFrameInner(nsContainerFrame* aOuter,
   , mUpdateScrollbarAttributes(false)
   , mCollapsedResizer(false)
   , mShouldBuildLayer(false)
+  , mHasBeenScrolled(false)
 {
   mScrollingActive = IsAlwaysActive();
 
@@ -1679,56 +1671,6 @@ CanScrollWithBlitting(nsIFrame* aFrame)
   return true;
 }
 
-static void
-InvalidateFixedBackgroundFramesFromList(nsDisplayListBuilder* aBuilder,
-                                        nsIFrame* aMovingFrame,
-                                        const nsDisplayList& aList)
-{
-  for (nsDisplayItem* item = aList.GetBottom(); item; item = item->GetAbove()) {
-    nsDisplayList* sublist = item->GetList();
-    if (sublist) {
-      InvalidateFixedBackgroundFramesFromList(aBuilder, aMovingFrame, *sublist);
-      continue;
-    }
-    nsIFrame* f = item->GetUnderlyingFrame();
-    if (f &&
-        item->IsVaryingRelativeToMovingFrame(aBuilder, aMovingFrame)) {
-      if (FrameLayerBuilder::NeedToInvalidateFixedDisplayItem(aBuilder, item)) {
-        // FrameLayerBuilder does not take care of scrolling this one
-        f->InvalidateFrame();
-      }
-    }
-  }
-}
-
-static void
-InvalidateFixedBackgroundFrames(nsIFrame* aRootFrame,
-                                nsIFrame* aMovingFrame,
-                                const nsRect& aUpdateRect)
-{
-  if (!aMovingFrame->PresContext()->MayHaveFixedBackgroundFrames())
-    return;
-
-  NS_ASSERTION(aRootFrame != aMovingFrame,
-               "The root frame shouldn't be the one that's moving, that makes no sense");
-
-  // Build the 'after' display list over the whole area of interest.
-  nsDisplayListBuilder builder(aRootFrame, nsDisplayListBuilder::OTHER, true);
-  builder.EnterPresShell(aRootFrame, aUpdateRect);
-  nsDisplayList list;
-  nsresult rv =
-    aRootFrame->BuildDisplayListForStackingContext(&builder, aUpdateRect, &list);
-  builder.LeavePresShell(aRootFrame, aUpdateRect);
-  if (NS_FAILED(rv))
-    return;
-
-  nsRegion visibleRegion(aUpdateRect);
-  list.ComputeVisibilityForRoot(&builder, &visibleRegion);
-
-  InvalidateFixedBackgroundFramesFromList(&builder, aMovingFrame, list);
-  list.DeleteAll();
-}
-
 bool nsGfxScrollFrameInner::IsIgnoringViewportClipping() const
 {
   if (!mIsRoot)
@@ -1749,11 +1691,23 @@ bool nsGfxScrollFrameInner::ShouldClampScrollPosition() const
 
 bool nsGfxScrollFrameInner::IsAlwaysActive() const
 {
-  // The root scrollframe for a non-chrome document which is the direct
-  // child of a chrome document is always treated as "active".
-  // XXX maybe we should extend this so that IFRAMEs which are fill the
-  // entire viewport (like GMail!) are always active
-  return mIsRoot && mOuter->PresContext()->IsRootContentDocument();
+  // Unless this is the root scrollframe for a non-chrome document 
+  // which is the direct child of a chrome document, we default to not
+  // being "active".
+  if (!(mIsRoot && mOuter->PresContext()->IsRootContentDocument())) {
+     return false;
+  }
+
+  // If we have scrolled before, then we should stay active.
+  if (mHasBeenScrolled) {
+    return true;
+  }
+ 
+  // If we're overflow:hidden, then start as inactive until
+  // we get scrolled manually.
+  ScrollbarStyles styles = GetScrollbarStylesFromFrame();
+  return (styles.mHorizontal != NS_STYLE_OVERFLOW_HIDDEN &&
+          styles.mVertical != NS_STYLE_OVERFLOW_HIDDEN);
 }
 
 void nsGfxScrollFrameInner::MarkInactive()
@@ -1767,10 +1721,10 @@ void nsGfxScrollFrameInner::MarkInactive()
 
 void nsGfxScrollFrameInner::MarkActive()
 {
+  mScrollingActive = true;
   if (IsAlwaysActive())
     return;
 
-  mScrollingActive = true;
   if (mActivityExpirationState.IsTracked()) {
     gScrollFrameActivityTracker->MarkUsed(this);
   } else {
@@ -1783,17 +1737,20 @@ void nsGfxScrollFrameInner::MarkActive()
 
 void nsGfxScrollFrameInner::ScrollVisual(nsPoint aOldScrolledFramePos)
 {
+  // Mark this frame as having been scrolled. If this is the root
+  // scroll frame of a content document, then IsAlwaysActive()
+  // will return true from now on and MarkInactive() won't
+  // have any effect.
+  mHasBeenScrolled = true;
+
   AdjustViews(mScrolledFrame);
   // We need to call this after fixing up the view positions
   // to be consistent with the frame hierarchy.
-  bool invalidate = false;
   bool canScrollWithBlitting = CanScrollWithBlitting(mOuter);
   mOuter->RemoveStateBits(NS_SCROLLFRAME_INVALIDATE_CONTENTS_ON_SCROLL);
   if (IsScrollingActive()) {
     if (!canScrollWithBlitting) {
       MarkInactive();
-    } else {
-      invalidate = true;
     }
   }
   if (canScrollWithBlitting) {
@@ -1801,16 +1758,6 @@ void nsGfxScrollFrameInner::ScrollVisual(nsPoint aOldScrolledFramePos)
   }
 
   mOuter->SchedulePaint();
-
-  if (invalidate) {
-    nsIFrame* displayRoot = nsLayoutUtils::GetDisplayRootFrame(mOuter);
-    nsRect update =
-      GetScrollPortRect() + mOuter->GetOffsetToCrossDoc(displayRoot);
-    nsRect displayRootUpdate = update.ConvertAppUnitsRoundOut(
-      mOuter->PresContext()->AppUnitsPerDevPixel(),
-      displayRoot->PresContext()->AppUnitsPerDevPixel());
-    InvalidateFixedBackgroundFrames(displayRoot, mScrolledFrame, displayRootUpdate);
-  }
 }
 
 /**
@@ -2204,7 +2151,10 @@ static void HandleScrollPref(nsIScrollable *aScrollable, int32_t aOrientation,
 nsGfxScrollFrameInner::ScrollbarStyles
 nsGfxScrollFrameInner::GetScrollbarStylesFromFrame() const
 {
-  ScrollbarStyles result;
+  // XXX EVIL COMPILER BUG BE CAREFUL WHEN CHANGING THIS METHOD
+  //     There's bugs in the Android compiler :(
+  //     It was first worked around in bug 642205, then it failed
+  //     on armv6 (bug 790624) *in a different way*.
 
   nsPresContext* presContext = mOuter->PresContext();
   if (!presContext->IsDynamic() &&
@@ -2212,28 +2162,20 @@ nsGfxScrollFrameInner::GetScrollbarStylesFromFrame() const
     return ScrollbarStyles(NS_STYLE_OVERFLOW_HIDDEN, NS_STYLE_OVERFLOW_HIDDEN);
   }
 
-  if (mIsRoot) {
-    result = presContext->GetViewportOverflowOverride();
-
-    nsCOMPtr<nsISupports> container = presContext->GetContainer();
-    nsCOMPtr<nsIScrollable> scrollable = do_QueryInterface(container);
-    if (scrollable) {
-      HandleScrollPref(scrollable, nsIScrollable::ScrollOrientation_X,
-                       result.mHorizontal);
-      HandleScrollPref(scrollable, nsIScrollable::ScrollOrientation_Y,
-                       result.mVertical);
-      // XXX EVIL COMPILER BUG BE CAREFUL WHEN CHANGING
-      //     There is a bug in the Android compiler :(
-      //     It seems that the compiler optimizes something out and uses
-      //     a bad value for result if we don't directly return here.
-      return result;
-    }
-  } else {
-    const nsStyleDisplay *disp = mOuter->GetStyleDisplay();
-    result.mHorizontal = disp->mOverflowX;
-    result.mVertical = disp->mOverflowY;
+  if (!mIsRoot) {
+    const nsStyleDisplay* disp = mOuter->GetStyleDisplay();
+    return ScrollbarStyles(disp->mOverflowX, disp->mOverflowY);
   }
 
+  ScrollbarStyles result = presContext->GetViewportOverflowOverride();
+  nsCOMPtr<nsISupports> container = presContext->GetContainer();
+  nsCOMPtr<nsIScrollable> scrollable = do_QueryInterface(container);
+  if (scrollable) {
+    HandleScrollPref(scrollable, nsIScrollable::ScrollOrientation_X,
+                     result.mHorizontal);
+    HandleScrollPref(scrollable, nsIScrollable::ScrollOrientation_Y,
+                     result.mVertical);
+  }
   return result;
 }
 
@@ -2399,13 +2341,12 @@ nsGfxScrollFrameInner::GetLineScrollAmount() const
                                 "mousewheel.min_line_scroll_amount", 1);
   }
   uint32_t appUnitsPerDevPixel = mOuter->PresContext()->AppUnitsPerDevPixel();
-  nscoord fontHeight =
+  nscoord minScrollAmountInAppUnits =
     NS_MAX(1, sMinLineScrollAmountInPixels) * appUnitsPerDevPixel;
-  if (fm) {
-    fontHeight = NS_MAX(fm->MaxHeight(), fontHeight);
-  }
-
-  return nsSize(fontHeight, fontHeight);
+  nscoord horizontalAmount = fm ? fm->AveCharWidth() : 0;
+  nscoord verticalAmount = fm ? fm->MaxHeight() : 0;
+  return nsSize(NS_MAX(horizontalAmount, minScrollAmountInAppUnits),
+                NS_MAX(verticalAmount, minScrollAmountInAppUnits));
 }
 
 /**
@@ -3436,27 +3377,33 @@ nsGfxScrollFrameInner::ReflowFinished()
   if (vScroll || hScroll) {
     nsWeakFrame weakFrame(mOuter);
     nsPoint scrollPos = GetScrollPosition();
-    // XXX shouldn't we use GetPageScrollAmount/GetLineScrollAmount here?
+    nsSize lineScrollAmount = GetLineScrollAmount();
     if (vScroll) {
-      const double kScrollMultiplier = Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
-                                                           NS_DEFAULT_VERTICAL_SCROLL_DISTANCE);
-      nscoord fontHeight = GetLineScrollAmount().height * kScrollMultiplier;
-      // We normally use (scrollArea.height - fontHeight) for height
+      const double kScrollMultiplier =
+        Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
+                            NS_DEFAULT_VERTICAL_SCROLL_DISTANCE);
+      nscoord increment = lineScrollAmount.height * kScrollMultiplier;
+      // We normally use (scrollArea.height - increment) for height
       // of page scrolling.  However, it is too small when
-      // fontHeight is very large. (If fontHeight is larger than
+      // increment is very large. (If increment is larger than
       // scrollArea.height, direction of scrolling will be opposite).
       // To avoid it, we use (float(scrollArea.height) * 0.8) as
       // lower bound value of height of page scrolling. (bug 383267)
-      nscoord pageincrement = nscoord(mScrollPort.height - fontHeight);
+      // XXX shouldn't we use GetPageScrollAmount here?
+      nscoord pageincrement = nscoord(mScrollPort.height - increment);
       nscoord pageincrementMin = nscoord(float(mScrollPort.height) * 0.8);
       FinishReflowForScrollbar(vScroll, minY, maxY, scrollPos.y,
                                NS_MAX(pageincrement, pageincrementMin),
-                               fontHeight);
+                               increment);
     }
     if (hScroll) {
+      const double kScrollMultiplier =
+        Preferences::GetInt("toolkit.scrollbox.horizontalScrollDistance",
+                            NS_DEFAULT_HORIZONTAL_SCROLL_DISTANCE);
+      nscoord increment = lineScrollAmount.width * kScrollMultiplier;
       FinishReflowForScrollbar(hScroll, minX, maxX, scrollPos.x,
                                nscoord(float(mScrollPort.width) * 0.8),
-                               nsPresContext::CSSPixelsToAppUnits(10));
+                               increment);
     }
     NS_ENSURE_TRUE(weakFrame.IsAlive(), false);
   }
@@ -3852,14 +3799,8 @@ nsGfxScrollFrameInner::GetCoordAttribute(nsIFrame* aBox, nsIAtom* aAtom,
 }
 
 nsPresState*
-nsGfxScrollFrameInner::SaveState(nsIStatefulFrame::SpecialStateID aStateID)
+nsGfxScrollFrameInner::SaveState()
 {
-  // Don't save "normal" state for the root scrollframe; that's
-  // handled via the eDocumentScrollState state id
-  if (mIsRoot && aStateID == nsIStatefulFrame::eNoID) {
-    return nullptr;
-  }
-
   nsIScrollbarMediator* mediator = do_QueryFrame(GetScrolledFrame());
   if (mediator) {
     // child handles its own scroll state, so don't bother saving state here

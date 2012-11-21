@@ -106,7 +106,7 @@ public:
 
     // for accessibility purposes
 #ifdef ACCESSIBILITY
-  virtual already_AddRefed<Accessible> CreateAccessible() MOZ_OVERRIDE;
+  virtual mozilla::a11y::AccType AccessibleType() MOZ_OVERRIDE;
 #endif
 
     // nsContainerFrame
@@ -389,6 +389,11 @@ protected:
   nscoord HeightOfARow() {
     return GetOptionsContainer()->HeightOfARow();
   }
+
+  /**
+   * @return how many displayable options/optgroups this frame has.
+   */
+  uint32_t GetNumberOfRows();
   
   // Data Members
   int32_t      mStartSelectionIndex;

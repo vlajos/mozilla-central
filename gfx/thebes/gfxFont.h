@@ -128,14 +128,17 @@ struct THEBES_API gfxFontStyle {
     int8_t ComputeWeight() const;
 
     bool Equals(const gfxFontStyle& other) const {
-        return (size == other.size) &&
+        return
+            (*reinterpret_cast<const uint64_t*>(&size) ==
+             *reinterpret_cast<const uint64_t*>(&other.size)) &&
             (style == other.style) &&
             (systemFont == other.systemFont) &&
             (printerFont == other.printerFont) &&
             (weight == other.weight) &&
             (stretch == other.stretch) &&
             (language == other.language) &&
-            (sizeAdjust == other.sizeAdjust) &&
+            (*reinterpret_cast<const uint32_t*>(&sizeAdjust) ==
+             *reinterpret_cast<const uint32_t*>(&other.sizeAdjust)) &&
             (featureSettings == other.featureSettings) &&
             (languageOverride == other.languageOverride);
     }
@@ -1259,7 +1262,7 @@ public:
     const nsString& GetName() const { return mFontEntry->Name(); }
     const gfxFontStyle *GetStyle() const { return &mStyle; }
 
-    cairo_scaled_font_t* GetCairoScaledFont() { return mScaledFont; }
+    virtual cairo_scaled_font_t* GetCairoScaledFont() { return mScaledFont; }
 
     virtual gfxFont* CopyWithAntialiasOption(AntialiasOption anAAOption) {
         // platforms where this actually matters should override

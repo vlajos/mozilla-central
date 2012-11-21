@@ -16,10 +16,6 @@
 #include "nsDisplayList.h"
 #include "nsIReflowCallback.h"
 
-#ifdef ACCESSIBILITY
-class nsIAccessible;
-#endif
-
 class nsPluginHost;
 class nsPresContext;
 class nsRootPresContext;
@@ -52,6 +48,7 @@ public:
   friend nsIFrame* NS_NewObjectFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
   NS_DECL_QUERYFRAME
+  NS_DECL_QUERYFRAME_TARGET(nsObjectFrame)
 
   NS_IMETHOD Init(nsIContent* aContent,
                   nsIFrame* aParent,
@@ -123,6 +120,14 @@ public:
   void GetWidgetConfiguration(nsTArray<nsIWidget::Configuration>* aConfigurations)
   {
     if (mWidget) {
+      if (!mWidget->GetParent()) {
+        // Plugin widgets should not be toplevel except when they're out of the
+        // document, in which case the plugin should not be registered for
+        // geometry updates and this should not be called. But apparently we
+        // have bugs where mWidget sometimes is toplevel here. Bail out.
+        NS_ERROR("Plugin widgets registered for geometry updates should not be toplevel");
+        return;
+      }
       nsIWidget::Configuration* configuration = aConfigurations->AppendElement();
       configuration->mChild = mWidget;
       configuration->mBounds = mNextConfigurationBounds;
@@ -137,7 +142,7 @@ public:
 
   // accessibility support
 #ifdef ACCESSIBILITY
-  virtual already_AddRefed<Accessible> CreateAccessible();
+  virtual mozilla::a11y::AccType AccessibleType() MOZ_OVERRIDE;
 #ifdef XP_WIN
   NS_IMETHOD GetPluginPort(HWND *aPort);
 #endif
@@ -168,7 +173,6 @@ public:
   LayerState GetLayerState(nsDisplayListBuilder* aBuilder,
                            LayerManager* aManager);
 
-  already_AddRefed<ImageContainer> GetImageContainer();
   /**
    * Get the rectangle (relative to this frame) which it will paint. Normally
    * the frame's content-box but may be smaller if the plugin is rendering
@@ -285,10 +289,6 @@ private:
 
   bool mReflowCallbackPosted;
 
-  // A reference to the ImageContainer which contains the current frame
-  // of plugin to display.
-  nsRefPtr<ImageContainer> mImageContainer;
-
   // We keep this reference to ensure we can always unregister the
   // plugins we register on the root PresContext.
   // This is only non-null while we have a plugin registered for geometry
@@ -302,6 +302,7 @@ public:
     : nsDisplayItem(aBuilder, aFrame)
   {
     MOZ_COUNT_CTOR(nsDisplayPlugin);
+    aBuilder->SetContainsPluginItem();
   }
 #ifdef NS_BUILD_REFCNT_LOGGING
   virtual ~nsDisplayPlugin() {

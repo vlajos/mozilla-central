@@ -177,6 +177,7 @@ public:
   void SetTitle(const nsAString& aTitle) { mTitle = aTitle; }
   void SetMedia(nsMediaList* aMedia);
   void SetOwningNode(nsIDOMNode* aOwningNode) { mOwningNode = aOwningNode; /* Not ref counted */ }
+  nsIDOMNode* GetOwningNode() const { return mOwningNode; }
 
   void SetOwnerRule(mozilla::css::ImportRule* aOwnerRule) { mOwnerRule = aOwnerRule; /* Not ref counted */ }
   mozilla::css::ImportRule* GetOwnerRule() const { return mOwnerRule; }
@@ -293,7 +294,7 @@ protected:
   nsCSSStyleSheet*      mParent;    // weak ref
   mozilla::css::ImportRule* mOwnerRule; // weak ref
 
-  CSSRuleListImpl*      mRuleCollection;
+  nsRefPtr<CSSRuleListImpl> mRuleCollection;
   nsIDocument*          mDocument; // weak ref; parents maintain this for their children
   nsIDOMNode*           mOwningNode; // weak ref
   bool                  mDisabled;

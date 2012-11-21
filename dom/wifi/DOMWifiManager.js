@@ -26,6 +26,7 @@ function exposeCurrentNetwork(currentNetwork) {
 
 exposeCurrentNetwork.currentNetworkApi = {
   ssid: "r",
+  capabilities: "r",
   known: "r"
 };
 
@@ -393,7 +394,7 @@ DOMWifiManager.prototype = {
   }
 };
 
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([DOMWifiManager]);
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([DOMWifiManager]);
 
 let debug;
 if (DEBUG) {

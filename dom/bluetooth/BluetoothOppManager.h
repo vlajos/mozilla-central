@@ -10,7 +10,9 @@
 #include "BluetoothCommon.h"
 #include "mozilla/dom/ipc/Blob.h"
 #include "mozilla/ipc/UnixSocket.h"
-#include "nsIDOMFile.h"
+
+class nsIOutputStream;
+class nsIInputStream;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -46,10 +48,11 @@ public:
   bool Connect(const nsAString& aDeviceObjectPath,
                BluetoothReplyRunnable* aRunnable);
   void Disconnect();
+  bool Listen();
 
-  bool SendFile(BlobParent* aBlob,
-                BluetoothReplyRunnable* aRunnable);
-  bool StopSendingFile(BluetoothReplyRunnable* aRunnable);
+  bool SendFile(BlobParent* aBlob);
+  bool StopSendingFile();
+  bool ConfirmReceivingFile(bool aConfirm);
 
   void SendConnectRequest();
   void SendPutHeaderRequest(const nsAString& aFileName, int aFileSize);
@@ -58,6 +61,7 @@ public:
   void SendDisconnectRequest();
   void SendAbortRequest();
 
+  nsresult HandleShutdown();
 private:
   BluetoothOppManager();
   void StartFileTransfer(const nsString& aDeviceAddress,
@@ -75,9 +79,18 @@ private:
                       bool aReceived,
                       uint32_t aProcessedLength,
                       uint32_t aFileLength);
+  void ReceivingFileConfirmation(const nsString& aAddress,
+                                 const nsString& aFileName,
+                                 uint32_t aFileLength,
+                                 const nsString& aContentType);
+  bool CreateFile();
+  bool WriteToFile(const uint8_t* aData, int aDataLength);
+  void DeleteReceivedFile();
   void ReplyToConnect();
   void ReplyToDisconnect();
-  void ReplyToPut(bool aFinal);
+  void ReplyToPut(bool aFinal, bool aContinue);
+  void AfterOppConnected();
+  void AfterOppDisconnected();
   virtual void OnConnectSuccess() MOZ_OVERRIDE;
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;
@@ -90,10 +103,23 @@ private:
   int mRemoteMaxPacketLength;
   bool mAbortFlag;
   int mPacketLeftLength;
+  int mBodySegmentLength;
+  int mReceivedDataBufferOffset;
   nsString mConnectedDeviceAddress;
+  bool mPutFinal;
+  bool mWaitingForConfirmationFlag;
+  int mUpdateProgressCounter;
+  enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
+
+  nsAutoPtr<uint8_t> mBodySegment;
+  nsAutoPtr<uint8_t> mReceivedDataBuffer;
 
   nsCOMPtr<nsIDOMBlob> mBlob;
   nsCOMPtr<nsIThread> mReadFileThread;
+  nsCOMPtr<nsIOutputStream> mOutputStream;
+  nsCOMPtr<nsIInputStream> mInputStream;
+
+  nsRefPtr<BluetoothReplyRunnable> mRunnable;
 };
 
 END_BLUETOOTH_NAMESPACE

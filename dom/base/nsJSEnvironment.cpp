@@ -40,7 +40,6 @@
 #include "nsNetUtil.h"
 #include "nsXPCOMCIDInternal.h"
 #include "nsIXULRuntime.h"
-#include "nsScriptLoader.h"
 
 #include "xpcpublic.h"
 
@@ -56,6 +55,7 @@
 #include "nsScriptNameSpaceManager.h"
 #include "StructuredCloneTags.h"
 #include "mozilla/dom/ImageData.h"
+#include "mozilla/dom/ImageDataBinding.h"
 
 #include "nsJSPrincipals.h"
 #include "jsdbgapi.h"
@@ -174,7 +174,26 @@ static uint32_t sCleanupsSinceLastGC = UINT32_MAX;
 static bool sNeedsFullCC = false;
 static nsJSContext *sContextList = nullptr;
 
-nsScriptNameSpaceManager *gNameSpaceManager;
+static nsScriptNameSpaceManager *gNameSpaceManager;
+static nsIMemoryReporter *gReporter;
+
+NS_MEMORY_REPORTER_MALLOC_SIZEOF_FUN(ScriptNameSpaceManagerMallocSizeOf,
+                                     "script-namespace-manager")
+
+static int64_t
+GetScriptNameSpaceManagerSize()
+{
+  MOZ_ASSERT(gNameSpaceManager);
+  return gNameSpaceManager->SizeOfIncludingThis(
+             ScriptNameSpaceManagerMallocSizeOf);
+}
+
+NS_MEMORY_REPORTER_IMPLEMENT(ScriptNameSpaceManager,
+    "explicit/script-namespace-manager",
+    KIND_HEAP,
+    nsIMemoryReporter::UNITS_BYTES,
+    GetScriptNameSpaceManagerSize,
+    "Memory used for the script namespace manager.")
 
 static nsIJSRuntimeService *sRuntimeService;
 JSRuntime *nsJSRuntime::sRuntime;
@@ -933,7 +952,6 @@ static const char js_strict_option_str[] = JS_OPTIONS_DOT_STR "strict";
 static const char js_strict_debug_option_str[] = JS_OPTIONS_DOT_STR "strict.debug";
 #endif
 static const char js_werror_option_str[] = JS_OPTIONS_DOT_STR "werror";
-static const char js_relimit_option_str[]= JS_OPTIONS_DOT_STR "relimit";
 #ifdef JS_GC_ZEAL
 static const char js_zeal_option_str[]        = JS_OPTIONS_DOT_STR "gczeal";
 static const char js_zeal_frequency_str[]     = JS_OPTIONS_DOT_STR "gczeal.frequency";
@@ -1053,12 +1071,6 @@ nsJSContext::JSOptionChangedCallback(const char *pref, void *data)
   else
     newDefaultJSOptions &= ~JSOPTION_WERROR;
 
-  bool relimit = Preferences::GetBool(js_relimit_option_str);
-  if (relimit)
-    newDefaultJSOptions |= JSOPTION_RELIMIT;
-  else
-    newDefaultJSOptions &= ~JSOPTION_RELIMIT;
-
   ::JS_SetOptions(context->mContext,
                   newDefaultJSOptions & (JSRUNOPTION_MASK | JSOPTION_ALLOW_XML));
 
@@ -1078,10 +1090,12 @@ nsJSContext::JSOptionChangedCallback(const char *pref, void *data)
   return 0;
 }
 
-nsJSContext::nsJSContext(JSRuntime *aRuntime)
-  : mActive(false),
-    mGCOnDestruction(true),
-    mExecuteDepth(0)
+nsJSContext::nsJSContext(JSRuntime *aRuntime, bool aGCOnDestruction,
+                         nsIScriptGlobalObject* aGlobalObject)
+  : mActive(false)
+  , mGCOnDestruction(aGCOnDestruction)
+  , mExecuteDepth(0)
+  , mGlobalObjectRef(aGlobalObject)
 {
   mNext = sContextList;
   mPrev = &sContextList;
@@ -1118,7 +1132,6 @@ nsJSContext::nsJSContext(JSRuntime *aRuntime)
   mOperationCallbackTime = 0;
   mModalStateTime = 0;
   mModalStateDepth = 0;
-  mProcessingScriptTag = false;
 }
 
 nsJSContext::~nsJSContext()
@@ -1191,11 +1204,11 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsJSContext)
   tmp->mIsInitialized = false;
   tmp->mGCOnDestruction = false;
   tmp->DestroyJSContext();
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mGlobalObjectRef)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mGlobalObjectRef)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsJSContext)
   NS_IMPL_CYCLE_COLLECTION_DESCRIBE(nsJSContext, tmp->GetCCRefcnt())
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mGlobalObjectRef)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGlobalObjectRef)
   NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mContext");
   nsContentUtils::XPConnect()->NoteJSContext(tmp->mContext, cb);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -1553,6 +1566,7 @@ nsJSContext::CompileScript(const PRUnichar* aText,
                            nsScriptObjectHolder<JSScript>& aScriptObject,
                            bool aSaveSource /* = false */)
 {
+  SAMPLE_LABEL_PRINTF("JS", "Compile Script", "%s", aURL ? aURL : "");
   NS_ENSURE_TRUE(mIsInitialized, NS_ERROR_NOT_INITIALIZED);
 
   NS_ENSURE_ARG_POINTER(aPrincipal);
@@ -2468,10 +2482,7 @@ nsJSContext::AddSupportsPrimitiveTojsvals(nsISupports *aArg, jsval *aArgv)
 static JSBool
 CheckUniversalXPConnectForTraceMalloc(JSContext *cx)
 {
-    bool hasCap = false;
-    nsresult rv = nsContentUtils::GetSecurityManager()->
-                    IsCapabilityEnabled("UniversalXPConnect", &hasCap);
-    if (NS_SUCCEEDED(rv) && hasCap)
+    if (nsContentUtils::IsCallerChrome())
         return JS_TRUE;
     JS_ReportError(cx, "trace-malloc functions require UniversalXPConnect");
     return JS_FALSE;
@@ -2719,24 +2730,24 @@ static JSFunctionSpec JProfFunctions[] = {
 
 #endif /* defined(MOZ_JPROF) */
 
-#ifdef MOZ_DMD
+#ifdef MOZ_DMDV
 
 // See https://wiki.mozilla.org/Performance/MemShrink/DMD for instructions on
-// how to use DMD.
+// how to use DMDV.
 
 static JSBool
-DMDCheckJS(JSContext *cx, unsigned argc, jsval *vp)
+DMDVCheckAndDumpJS(JSContext *cx, unsigned argc, jsval *vp)
 {
-  mozilla::DMDCheckAndDump();
+  mozilla::DMDVCheckAndDump();
   return JS_TRUE;
 }
 
-static JSFunctionSpec DMDFunctions[] = {
-    JS_FS("DMD",                        DMDCheckJS,                 0, 0),
+static JSFunctionSpec DMDVFunctions[] = {
+    JS_FS("DMDV",                       DMDVCheckAndDumpJS,         0, 0),
     JS_FS_END
 };
 
-#endif /* defined(MOZ_DMD) */
+#endif /* defined(MOZ_DMDV) */
 
 nsresult
 nsJSContext::InitClasses(JSObject* aGlobalObj)
@@ -2761,9 +2772,9 @@ nsJSContext::InitClasses(JSObject* aGlobalObj)
   ::JS_DefineFunctions(mContext, aGlobalObj, JProfFunctions);
 #endif
 
-#ifdef MOZ_DMD
-  // Attempt to initialize DMD functions
-  ::JS_DefineFunctions(mContext, aGlobalObj, DMDFunctions);
+#ifdef MOZ_DMDV
+  // Attempt to initialize DMDV functions
+  ::JS_DefineFunctions(mContext, aGlobalObj, DMDVFunctions);
 #endif
 
   return rv;
@@ -2846,27 +2857,9 @@ nsJSContext::SetScriptsEnabled(bool aEnabled, bool aFireTimeouts)
 
 
 bool
-nsJSContext::GetProcessingScriptTag()
-{
-  return mProcessingScriptTag;
-}
-
-void
-nsJSContext::SetProcessingScriptTag(bool aFlag)
-{
-  mProcessingScriptTag = aFlag;
-}
-
-bool
 nsJSContext::GetExecutingScript()
 {
   return JS_IsRunning(mContext) || mExecuteDepth > 0;
-}
-
-void
-nsJSContext::SetGCOnDestruction(bool aGCOnDestruction)
-{
-  mGCOnDestruction = aGCOnDestruction;
 }
 
 NS_IMETHODIMP
@@ -3622,13 +3615,8 @@ nsJSContext::DropScriptObject(void* aScriptObject)
 void
 nsJSContext::ReportPendingException()
 {
-  // set aside the frame chain, since it has nothing to do with the
-  // exception we're reporting.
-  if (mIsInitialized && ::JS_IsExceptionPending(mContext)) {
-    bool saved = ::JS_SaveFrameChain(mContext);
-    ::JS_ReportPendingException(mContext);
-    if (saved)
-        ::JS_RestoreFrameChain(mContext);
+  if (mIsInitialized) {
+    nsJSUtils::ReportPendingException(mContext);
   }
 }
 
@@ -3646,9 +3634,11 @@ NS_IMPL_ADDREF(nsJSRuntime)
 NS_IMPL_RELEASE(nsJSRuntime)
 
 already_AddRefed<nsIScriptContext>
-nsJSRuntime::CreateContext()
+nsJSRuntime::CreateContext(bool aGCOnDestruction,
+                           nsIScriptGlobalObject* aGlobalObject)
 {
-  nsCOMPtr<nsIScriptContext> scriptContext = new nsJSContext(sRuntime);
+  nsCOMPtr<nsIScriptContext> scriptContext =
+    new nsJSContext(sRuntime, aGCOnDestruction, aGlobalObject);
   return scriptContext.forget();
 }
 
@@ -3668,6 +3658,7 @@ nsJSRuntime::Startup()
   sDisableExplicitCompartmentGC = false;
   sNeedsFullCC = false;
   gNameSpaceManager = nullptr;
+  gReporter = nullptr;
   sRuntimeService = nullptr;
   sRuntime = nullptr;
   sIsInitialized = false;
@@ -3688,7 +3679,7 @@ MaxScriptRunTimePrefChangedCallback(const char *aPrefName, void *aClosure)
   PRTime t;
   if (time <= 0) {
     // Let scripts run for a really, really long time.
-    t = LL_INIT(0x40000000, 0);
+    t = 0x40000000LL << 32;
   } else {
     t = time * PR_USEC_PER_SEC;
   }
@@ -3801,22 +3792,14 @@ NS_DOMReadStructuredClone(JSContext* cx,
     MOZ_ASSERT(dataArray.isObject());
 
     // Construct the ImageData.
-    nsCOMPtr<nsIDOMImageData> imageData = new ImageData(width, height,
-                                                        dataArray.toObject());
+    nsRefPtr<ImageData> imageData = new ImageData(width, height,
+                                                  dataArray.toObject());
     // Wrap it in a jsval.
     JSObject* global = JS_GetGlobalForScopeChain(cx);
     if (!global) {
       return nullptr;
     }
-    nsCOMPtr<nsIXPConnectJSObjectHolder> wrapper;
-    JS::Value val;
-    nsresult rv =
-      nsContentUtils::WrapNative(cx, global, imageData, &val,
-                                 getter_AddRefs(wrapper));
-    if (NS_FAILED(rv)) {
-      return nullptr;
-    }
-    return val.toObjectOrNull();
+    return imageData->WrapObject(cx, global);
   }
 
   // Don't know what this is. Bail.
@@ -3830,32 +3813,23 @@ NS_DOMWriteStructuredClone(JSContext* cx,
                            JSObject* obj,
                            void *closure)
 {
-  nsCOMPtr<nsIXPConnectWrappedNative> wrappedNative;
-  nsContentUtils::XPConnect()->
-    GetWrappedNativeOfJSObject(cx, obj, getter_AddRefs(wrappedNative));
-  nsISupports *native = wrappedNative ? wrappedNative->Native() : nullptr;
-
-  nsCOMPtr<nsIDOMImageData> imageData = do_QueryInterface(native);
-  if (imageData) {
-    // Prepare the ImageData internals.
-    uint32_t width, height;
-    JS::Value dataArray;
-    if (NS_FAILED(imageData->GetWidth(&width)) ||
-        NS_FAILED(imageData->GetHeight(&height)) ||
-        NS_FAILED(imageData->GetData(cx, &dataArray)))
-    {
-      return false;
-    }
-
-    // Write the internals to the stream.
-    return JS_WriteUint32Pair(writer, SCTAG_DOM_IMAGEDATA, 0) &&
-           JS_WriteUint32Pair(writer, width, height) &&
-           JS_WriteTypedArray(writer, dataArray);
+  ImageData* imageData;
+  nsresult rv = UnwrapObject<ImageData>(cx, obj, imageData);
+  if (NS_FAILED(rv)) {
+    // Don't know what this is. Bail.
+    xpc::Throw(cx, NS_ERROR_DOM_DATA_CLONE_ERR);
+    return JS_FALSE;
   }
 
-  // Don't know what this is. Bail.
-  xpc::Throw(cx, NS_ERROR_DOM_DATA_CLONE_ERR);
-  return JS_FALSE;
+  // Prepare the ImageData internals.
+  uint32_t width = imageData->Width();
+  uint32_t height = imageData->Height();
+  JS::Value dataArray = JS::ObjectValue(*imageData->GetDataObject());
+
+  // Write the internals to the stream.
+  return JS_WriteUint32Pair(writer, SCTAG_DOM_IMAGEDATA, 0) &&
+         JS_WriteUint32Pair(writer, width, height) &&
+         JS_WriteTypedArray(writer, dataArray);
 }
 
 void
@@ -3864,103 +3838,6 @@ NS_DOMStructuredCloneError(JSContext* cx,
 {
   // We don't currently support any extensions to structured cloning.
   xpc::Throw(cx, NS_ERROR_DOM_DATA_CLONE_ERR);
-}
-
-static nsresult
-ReadSourceFromFilename(JSContext *cx, const char *filename, jschar **src, uint32_t *len)
-{
-  nsresult rv;
-
-  // mozJSSubScriptLoader prefixes the filenames of the scripts it loads with
-  // the filename of its caller. Axe that if present.
-  const char *arrow;
-  while ((arrow = strstr(filename, " -> ")))
-    filename = arrow + strlen(" -> ");
-
-  // Get the URI.
-  nsCOMPtr<nsIURI> uri;
-  rv = NS_NewURI(getter_AddRefs(uri), filename);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsCOMPtr<nsIChannel> scriptChannel;
-  rv = NS_NewChannel(getter_AddRefs(scriptChannel), uri);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // Only allow local reading.
-  nsCOMPtr<nsIURI> actualUri;
-  rv = scriptChannel->GetURI(getter_AddRefs(actualUri));
-  NS_ENSURE_SUCCESS(rv, rv);
-  nsCString scheme;
-  rv = actualUri->GetScheme(scheme);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (!scheme.EqualsLiteral("file") && !scheme.EqualsLiteral("jar"))
-    return NS_OK;
-
-  nsCOMPtr<nsIInputStream> scriptStream;
-  rv = scriptChannel->Open(getter_AddRefs(scriptStream));
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  uint64_t rawLen;
-  rv = scriptStream->Available(&rawLen);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (!rawLen)
-    return NS_ERROR_FAILURE;
-  if (rawLen > UINT32_MAX)
-    return NS_ERROR_FILE_TOO_BIG;
-
-  // Allocate an internal buf the size of the file.
-  nsAutoArrayPtr<unsigned char> buf(new unsigned char[rawLen]);
-  if (!buf)
-    return NS_ERROR_OUT_OF_MEMORY;
-
-  unsigned char *ptr = buf, *end = ptr + rawLen;
-  while (ptr < end) {
-    uint32_t bytesRead;
-    rv = scriptStream->Read(reinterpret_cast<char *>(ptr), end - ptr, &bytesRead);
-    if (NS_FAILED(rv))
-      return rv;
-    NS_ASSERTION(bytesRead > 0, "stream promised more bytes before EOF");
-    ptr += bytesRead;
-  }
-
-  nsString decoded;
-  rv = nsScriptLoader::ConvertToUTF16(scriptChannel, buf, rawLen, EmptyString(), NULL, decoded);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // Copy to JS engine.
-  *len = decoded.Length();
-  *src = static_cast<jschar *>(JS_malloc(cx, decoded.Length()*sizeof(jschar)));
-  if (!*src)
-    return NS_ERROR_FAILURE;
-  memcpy(*src, decoded.get(), decoded.Length()*sizeof(jschar));
-
-  return NS_OK;
-}
-
-/*
-  The JS engine calls this function when it needs the source for a chrome JS
-  function. See the comment in nsJSRuntime::Init().
-*/
-static bool
-SourceHook(JSContext *cx, JSScript *script, jschar **src, uint32_t *length)
-{
-  *src = NULL;
-  *length = 0;
-
-  if (!nsContentUtils::IsCallerChrome())
-    return true;
-
-  const char *filename = JS_GetScriptFilename(cx, script);
-  if (!filename)
-    return true;
-
-  nsresult rv = ReadSourceFromFilename(cx, filename, src, length);
-  if (NS_FAILED(rv)) {
-    xpc::Throw(cx, rv);
-    return false;
-  }
-
-  return true;
 }
 
 //static
@@ -3984,24 +3861,6 @@ nsJSRuntime::Init()
 
   rv = sRuntimeService->GetRuntime(&sRuntime);
   NS_ENSURE_SUCCESS(rv, rv);
-
-  // The JS engine needs to keep the source code around in order to implement
-  // Function.prototype.toSource(). It'd be nice to not have to do this for
-  // chrome code and simply stub out requests for source on it. Life is not so
-  // easy, unfortunately. Nobody relies on chrome toSource() working in core
-  // browser code, but chrome tests use it. The worst offenders are addons,
-  // which like to monkeypatch chrome functions by calling toSource() on them
-  // and using regular expressions to modify them. We avoid keeping most browser
-  // JS source code in memory by setting LAZY_SOURCE on JS::CompileOptions when
-  // compiling some chrome code. This causes the JS engine not save the source
-  // code in memory. When the JS engine is asked to provide the source for a
-  // function compiled with LAZY_SOURCE, it calls SourceHook to load it.
-  ///
-  // Note we do have to retain the source code in memory for scripts compiled in
-  // compileAndGo mode and compiled function bodies (from
-  // JS_CompileFunction*). In practice, this means content scripts and event
-  // handlers.
-  JS_SetSourceHook(sRuntime, SourceHook);
 
   // Let's make sure that our main thread is the same as the xpcom main thread.
   NS_ASSERTION(NS_IsMainThread(), "bad");
@@ -4108,6 +3967,10 @@ nsJSRuntime::Init()
   SetMemoryGCPrefChangedCallback("javascript.options.mem.analysis_purge_mb",
                                  (void *)JSGC_ANALYSIS_PURGE_TRIGGER);
 
+  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
+                               "javascript.options.mem.gc_allocation_threshold_mb");
+  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_allocation_threshold_mb",
+                                (void *)JSGC_ALLOCATION_THRESHOLD);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (!obs)
     return NS_ERROR_FAILURE;
@@ -4138,6 +4001,9 @@ nsJSRuntime::GetNameSpaceManager()
 
     nsresult rv = gNameSpaceManager->Init();
     NS_ENSURE_SUCCESS(rv, nullptr);
+
+    gReporter = new NS_MEMORY_REPORTER_NAME(ScriptNameSpaceManager);
+    NS_RegisterMemoryReporter(gReporter);
   }
 
   return gNameSpaceManager;
@@ -4154,6 +4020,10 @@ nsJSRuntime::Shutdown()
   nsJSContext::KillInterSliceGCTimer();
 
   NS_IF_RELEASE(gNameSpaceManager);
+  if (gReporter) {
+    (void)::NS_UnregisterMemoryReporter(gReporter);
+    gReporter = nullptr;
+  }
 
   if (!sContextCount) {
     // We're being shutdown, and there are no more contexts

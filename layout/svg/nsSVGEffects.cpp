@@ -11,6 +11,7 @@
 #include "nsISupportsImpl.h"
 #include "nsSVGClipPathFrame.h"
 #include "nsSVGPaintServerFrame.h"
+#include "nsSVGPathGeometryElement.h"
 #include "nsSVGFilterFrame.h"
 #include "nsSVGMaskFrame.h"
 #include "nsSVGTextPathFrame.h"
@@ -252,7 +253,7 @@ nsSVGFilterProperty::DoUpdate()
 
   // Repaint asynchronously in case the filter frame is being torn down
   nsChangeHint changeHint =
-    nsChangeHint(nsChangeHint_RepaintFrame | nsChangeHint_UpdateEffects);
+    nsChangeHint(nsChangeHint_RepaintFrame);
 
   // Don't need to request UpdateOverflow if we're being reflowed.
   if (!(mFrame->GetStateBits() & NS_FRAME_IN_REFLOW)) {
@@ -271,9 +272,9 @@ nsSVGMarkerProperty::DoUpdate()
 
   NS_ASSERTION(mFrame->IsFrameOfType(nsIFrame::eSVG), "SVG frame expected");
 
-  // Repaint asynchronously in case the filter frame is being torn down
+  // Repaint asynchronously in case the marker frame is being torn down
   nsChangeHint changeHint =
-    nsChangeHint(nsChangeHint_RepaintFrame | nsChangeHint_UpdateEffects);
+    nsChangeHint(nsChangeHint_RepaintFrame);
   
   // Don't need to request ReflowFrame if we're being reflowed.
   if (!(mFrame->GetStateBits() & NS_FRAME_IN_REFLOW)) {
@@ -285,32 +286,6 @@ nsSVGMarkerProperty::DoUpdate()
     mFrame->GetContent()->AsElement(), nsRestyleHint(0), changeHint);
 }
 
-class nsAsyncNotifyGlyphMetricsChange MOZ_FINAL : public nsIReflowCallback
-{
-public:
-    nsAsyncNotifyGlyphMetricsChange(nsIFrame* aFrame) : mWeakFrame(aFrame)
-    {
-    }
-
-    virtual bool ReflowFinished()
-    {
-        nsSVGTextPathFrame* frame =
-            static_cast<nsSVGTextPathFrame*>(mWeakFrame.GetFrame());
-        if (frame) {
-            frame->NotifyGlyphMetricsChange();
-        }
-        delete this;
-        return true;
-    }
-
-    virtual void ReflowCallbackCanceled()
-    {
-        delete this;
-    }
-
-    nsWeakFrame mWeakFrame;
-};
-
 void
 nsSVGTextPathProperty::DoUpdate()
 {
@@ -321,13 +296,11 @@ nsSVGTextPathProperty::DoUpdate()
   NS_ASSERTION(mFrame->IsFrameOfType(nsIFrame::eSVG), "SVG frame expected");
 
   if (mFrame->GetType() == nsGkAtoms::svgTextPathFrame) {
-    if (mFrame->PresContext()->PresShell()->IsReflowLocked()) {
-      nsIReflowCallback* cb = new nsAsyncNotifyGlyphMetricsChange(mFrame);
-      mFrame->PresContext()->PresShell()->PostReflowCallback(cb);
-    } else {
-      nsSVGTextPathFrame* textPathFrame = static_cast<nsSVGTextPathFrame*>(mFrame);
-      textPathFrame->NotifyGlyphMetricsChange();
-    }
+    // Repaint asynchronously in case the path frame is being torn down
+    nsChangeHint changeHint =
+      nsChangeHint(nsChangeHint_RepaintFrame | nsChangeHint_UpdateTextPath);
+    mFramePresShell->FrameConstructor()->PostRestyleEvent(
+      mFrame->GetContent()->AsElement(), nsRestyleHint(0), changeHint);
   }
 }
 
@@ -386,6 +359,9 @@ nsSVGMarkerProperty *
 nsSVGEffects::GetMarkerProperty(nsIURI *aURI, nsIFrame *aFrame,
                                 const FramePropertyDescriptor *aProp)
 {
+  NS_ABORT_IF_FALSE(aFrame->GetType() == nsGkAtoms::svgPathGeometryFrame &&
+                      static_cast<nsSVGPathGeometryElement*>(aFrame->GetContent())->IsMarkable(),
+                    "Bad frame");
   return static_cast<nsSVGMarkerProperty*>(
           GetEffectProperty(aURI, aFrame, aProp, CreateMarkerProperty));
 }
@@ -527,7 +503,8 @@ nsSVGEffects::UpdateEffects(nsIFrame *aFrame)
   GetEffectProperty(aFrame->GetStyleSVGReset()->mFilter,
                     aFrame, FilterProperty(), CreateFilterProperty);
 
-  if (aFrame->IsFrameOfType(nsIFrame::eSVG)) {
+  if (aFrame->GetType() == nsGkAtoms::svgPathGeometryFrame &&
+      static_cast<nsSVGPathGeometryElement*>(aFrame->GetContent())->IsMarkable()) {
     // Set marker properties here to avoid reference loops
     const nsStyleSVG *style = aFrame->GetStyleSVG();
     GetEffectProperty(style->mMarkerStart, aFrame, MarkerBeginProperty(),

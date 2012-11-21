@@ -38,11 +38,12 @@ namespace mozilla {
 namespace layers {
 
 class LayerOGL;
+class Composer2D;
 struct FPSState;
 
 /**
  * This is the LayerManager used for OpenGL 2.1 and OpenGL ES 2.0.
- * This should only be used on the main thread.
+ * This can be used either on the main thread or the compositor.
  */
 class THEBES_API LayerManagerOGL : public LayerManager
 {
@@ -130,6 +131,8 @@ public:
 
   virtual already_AddRefed<gfxASurface>
     CreateOptimalMaskSurface(const gfxIntSize &aSize);
+
+  virtual void ClearCachedResources(Layer* aSubtree = nullptr) MOZ_OVERRIDE;
 
 
   DrawThebesLayerCallback GetThebesLayerCallback() const
@@ -327,8 +330,20 @@ public:
     CreateDrawTarget(const mozilla::gfx::IntSize &aSize,
                      mozilla::gfx::SurfaceFormat aFormat);
 
+  /**
+   * Calculates the 'completeness' of the rendering that intersected with the
+   * screen on the last render. This is only useful when progressive tile
+   * drawing is enabled, otherwise this will always return 1.0.
+   * This function's expense scales with the size of the layer tree and the
+   * complexity of individual layers' valid regions.
+   */
+  float ComputeRenderIntegrity();
 private:
   RefPtr<CompositorOGL> mCompositor;
+
+  /** Our more efficient but less powerful alter ego, if one is available. */
+  nsRefPtr<Composer2D> mComposer2D;
+
   
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;
@@ -345,11 +360,51 @@ private:
 
   void WorldTransformRect(nsIntRect& aRect);
   
+  /**
+   * Recursive helper method for use by ComputeRenderIntegrity. Subtracts
+   * any incomplete rendering on aLayer from aScreenRegion. aTransform is the
+   * accumulated transform of intermediate surfaces beneath aLayer.
+   */
+  static void ComputeRenderIntegrityInternal(Layer* aLayer,
+                                             nsIntRegion& aScreenRegion,
+                                             const gfx3DMatrix& aTransform);
+
   /* Thebes layer callbacks; valid at the end of a transaciton,
    * while rendering */
   DrawThebesLayerCallback mThebesLayerCallback;
   void *mThebesLayerCallbackData;
   gfxMatrix mWorldMatrix;
+#ifdef DEBUG
+  // NB: only interesting when this is a purely compositing layer
+  // manager.  True after possibly onscreen layers have had their
+  // cached resources cleared outside of a transaction, and before the
+  // next forwarded transaction that re-validates their buffers.
+  bool mMaybeInvalidTree;
+#endif
+};
+
+enum LayerRenderStateFlags {
+  LAYER_RENDER_STATE_Y_FLIPPED = 1 << 0,
+  LAYER_RENDER_STATE_BUFFER_ROTATION = 1 << 1
+};
+
+struct LayerRenderState {
+  LayerRenderState() : mSurface(nullptr), mFlags(0)
+  {}
+
+  LayerRenderState(SurfaceDescriptor* aSurface, uint32_t aFlags = 0)
+    : mSurface(aSurface)
+    , mFlags(aFlags)
+  {}
+
+  bool YFlipped() const
+  { return mFlags & LAYER_RENDER_STATE_Y_FLIPPED; }
+
+  bool BufferRotated() const
+  { return mFlags & LAYER_RENDER_STATE_BUFFER_ROTATION; }
+
+  SurfaceDescriptor* mSurface;
+  uint32_t mFlags;
 };
 
 /**
@@ -374,6 +429,8 @@ public:
   virtual void Destroy() = 0;
 
   virtual Layer* GetLayer() = 0;
+
+  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,

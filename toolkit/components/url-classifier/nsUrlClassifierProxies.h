@@ -7,12 +7,12 @@
 #define nsUrlClassifierProxies_h
 
 #include "nsIUrlClassifierDBService.h"
+#include "nsProxyRelease.h"
 #include "nsThreadUtils.h"
 #include "mozilla/Attributes.h"
 #include "nsIPrincipal.h"
 #include "LookupCache.h"
 
-using namespace mozilla::safebrowsing;
 
 /**
  * Thread proxy from the main thread to the worker thread.
@@ -123,7 +123,7 @@ public:
   {
   public:
     CacheCompletionsRunnable(nsIUrlClassifierDBServiceWorker* aTarget,
-                             CacheResultArray *aEntries)
+                             mozilla::safebrowsing::CacheResultArray *aEntries)
       : mTarget(aTarget)
       , mEntries(aEntries)
     { }
@@ -132,14 +132,14 @@ public:
 
   private:
     nsCOMPtr<nsIUrlClassifierDBServiceWorker> mTarget;
-     CacheResultArray *mEntries;
+     mozilla::safebrowsing::CacheResultArray *mEntries;
   };
 
   class CacheMissesRunnable : public nsRunnable
   {
   public:
     CacheMissesRunnable(nsIUrlClassifierDBServiceWorker* aTarget,
-                        PrefixArray *aEntries)
+                        mozilla::safebrowsing::PrefixArray *aEntries)
       : mTarget(aTarget)
       , mEntries(aEntries)
     { }
@@ -148,7 +148,7 @@ public:
 
   private:
     nsCOMPtr<nsIUrlClassifierDBServiceWorker> mTarget;
-    PrefixArray *mEntries;
+    mozilla::safebrowsing::PrefixArray *mEntries;
   };
 
 private:
@@ -162,7 +162,7 @@ class UrlClassifierLookupCallbackProxy MOZ_FINAL :
 {
 public:
   UrlClassifierLookupCallbackProxy(nsIUrlClassifierLookupCallback* aTarget)
-    : mTarget(aTarget)
+    : mTarget(new nsMainThreadPtrHolder<nsIUrlClassifierLookupCallback>(aTarget))
   { }
 
   NS_DECL_ISUPPORTS
@@ -171,8 +171,8 @@ public:
   class LookupCompleteRunnable : public nsRunnable
   {
   public:
-    LookupCompleteRunnable(nsIUrlClassifierLookupCallback* aTarget,
-                           LookupResultArray *aResults)
+    LookupCompleteRunnable(nsMainThreadPtrHolder<nsIUrlClassifierLookupCallback>* aTarget,
+                           mozilla::safebrowsing::LookupResultArray *aResults)
       : mTarget(aTarget)
       , mResults(aResults)
     { }
@@ -180,19 +180,19 @@ public:
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIUrlClassifierLookupCallback> mTarget;
-    LookupResultArray * mResults;
+    nsMainThreadPtrHandle<nsIUrlClassifierLookupCallback> mTarget;
+    mozilla::safebrowsing::LookupResultArray * mResults;
   };
 
 private:
-  nsCOMPtr<nsIUrlClassifierLookupCallback> mTarget;
+  nsMainThreadPtrHandle<nsIUrlClassifierLookupCallback> mTarget;
 };
 
 class UrlClassifierCallbackProxy MOZ_FINAL : public nsIUrlClassifierCallback
 {
 public:
   UrlClassifierCallbackProxy(nsIUrlClassifierCallback* aTarget)
-    : mTarget(aTarget)
+    : mTarget(new nsMainThreadPtrHolder<nsIUrlClassifierCallback>(aTarget))
   { }
 
   NS_DECL_ISUPPORTS
@@ -201,7 +201,7 @@ public:
   class HandleEventRunnable : public nsRunnable
   {
   public:
-    HandleEventRunnable(nsIUrlClassifierCallback* aTarget,
+    HandleEventRunnable(nsMainThreadPtrHolder<nsIUrlClassifierCallback>* aTarget,
                         const nsACString& aValue)
       : mTarget(aTarget)
       , mValue(aValue)
@@ -210,12 +210,12 @@ public:
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIUrlClassifierCallback> mTarget;
+    nsMainThreadPtrHandle<nsIUrlClassifierCallback> mTarget;
     nsCString mValue;
   };
 
 private:
-  nsCOMPtr<nsIUrlClassifierCallback> mTarget;
+  nsMainThreadPtrHandle<nsIUrlClassifierCallback> mTarget;
 };
 
 class UrlClassifierUpdateObserverProxy MOZ_FINAL :
@@ -223,7 +223,7 @@ class UrlClassifierUpdateObserverProxy MOZ_FINAL :
 {
 public:
   UrlClassifierUpdateObserverProxy(nsIUrlClassifierUpdateObserver* aTarget)
-    : mTarget(aTarget)
+    : mTarget(new nsMainThreadPtrHolder<nsIUrlClassifierUpdateObserver>(aTarget))
   { }
 
   NS_DECL_ISUPPORTS
@@ -232,7 +232,7 @@ public:
   class UpdateUrlRequestedRunnable : public nsRunnable
   {
   public:
-    UpdateUrlRequestedRunnable(nsIUrlClassifierUpdateObserver* aTarget,
+    UpdateUrlRequestedRunnable(nsMainThreadPtrHolder<nsIUrlClassifierUpdateObserver>* aTarget,
                                const nsACString& aURL,
                                const nsACString& aTable,
                                const nsACString& aServerMAC)
@@ -245,14 +245,27 @@ public:
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIUrlClassifierUpdateObserver> mTarget;
+    nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
     nsCString mURL, mTable, mServerMAC;
+  };
+
+  class RekeyRequestedRunnable : public nsRunnable
+  {
+  public:
+    RekeyRequestedRunnable(nsMainThreadPtrHolder<nsIUrlClassifierUpdateObserver>* aTarget)
+      : mTarget(aTarget)
+    { }
+
+    NS_DECL_NSIRUNNABLE
+
+  private:
+    nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
   };
 
   class StreamFinishedRunnable : public nsRunnable
   {
   public:
-    StreamFinishedRunnable(nsIUrlClassifierUpdateObserver* aTarget,
+    StreamFinishedRunnable(nsMainThreadPtrHolder<nsIUrlClassifierUpdateObserver>* aTarget,
                            nsresult aStatus, uint32_t aDelay)
       : mTarget(aTarget)
       , mStatus(aStatus)
@@ -262,7 +275,7 @@ public:
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIUrlClassifierUpdateObserver> mTarget;
+    nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
     nsresult mStatus;
     uint32_t mDelay;
   };
@@ -270,7 +283,7 @@ public:
   class UpdateErrorRunnable : public nsRunnable
   {
   public:
-    UpdateErrorRunnable(nsIUrlClassifierUpdateObserver* aTarget,
+    UpdateErrorRunnable(nsMainThreadPtrHolder<nsIUrlClassifierUpdateObserver>* aTarget,
                         nsresult aError)
       : mTarget(aTarget)
       , mError(aError)
@@ -279,14 +292,14 @@ public:
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIUrlClassifierUpdateObserver> mTarget;
+    nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
     nsresult mError;
   };
 
   class UpdateSuccessRunnable : public nsRunnable
   {
   public:
-    UpdateSuccessRunnable(nsIUrlClassifierUpdateObserver* aTarget,
+    UpdateSuccessRunnable(nsMainThreadPtrHolder<nsIUrlClassifierUpdateObserver>* aTarget,
                           uint32_t aRequestedTimeout)
       : mTarget(aTarget)
       , mRequestedTimeout(aRequestedTimeout)
@@ -295,12 +308,12 @@ public:
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIUrlClassifierUpdateObserver> mTarget;
+    nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
     uint32_t mRequestedTimeout;
   };
 
 private:
-  nsCOMPtr<nsIUrlClassifierUpdateObserver> mTarget;
+  nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
 };
 
 #endif // nsUrlClassifierProxies_h

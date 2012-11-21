@@ -32,6 +32,8 @@
 #include "imgIContainer.h"
 #include "prlog.h"
 
+#include "mozilla/Likely.h"
+
 MOZ_STATIC_ASSERT((((1 << nsStyleStructID_Length) - 1) &
                    ~(NS_STYLE_INHERIT_MASK)) == 0,
                   "Not enough bits in NS_STYLE_INHERIT_MASK");
@@ -384,7 +386,7 @@ nsBorderColors*
 nsBorderColors::Clone(bool aDeep) const
 {
   nsBorderColors* result = new nsBorderColors(mColor);
-  if (NS_UNLIKELY(!result))
+  if (MOZ_UNLIKELY(!result))
     return result;
   if (aDeep)
     NS_CSS_CLONE_LIST_MEMBER(nsBorderColors, this, mNext, result, (false));
@@ -1831,7 +1833,7 @@ nsStyleBackground::Position::SetInitialValues()
 }
 
 bool
-nsStyleBackground::Size::DependsOnFrameSize(const nsStyleImage& aImage) const
+nsStyleBackground::Size::DependsOnPositioningAreaSize(const nsStyleImage& aImage) const
 {
   NS_ABORT_IF_FALSE(aImage.GetType() != eStyleImageType_Null,
                     "caller should have handled this");
@@ -1961,14 +1963,15 @@ nsStyleBackground::Layer::SetInitialValues()
 }
 
 bool
-nsStyleBackground::Layer::RenderingMightDependOnFrameSize() const
+nsStyleBackground::Layer::RenderingMightDependOnPositioningAreaSizeChange() const
 {
   // Do we even have an image?
   if (mImage.IsEmpty()) {
     return false;
   }
 
-  return mPosition.DependsOnFrameSize() || mSize.DependsOnFrameSize(mImage);
+  return mPosition.DependsOnPositioningAreaSize() ||
+      mSize.DependsOnPositioningAreaSize(mImage);
 }
 
 bool
@@ -2087,6 +2090,7 @@ nsStyleDisplay::nsStyleDisplay()
   mFloats = NS_STYLE_FLOAT_NONE;
   mOriginalFloats = mFloats;
   mBreakType = NS_STYLE_CLEAR_NONE;
+  mBreakInside = NS_STYLE_PAGE_BREAK_AUTO;
   mBreakBefore = false;
   mBreakAfter = false;
   mOverflowX = NS_STYLE_OVERFLOW_VISIBLE;
@@ -2140,6 +2144,7 @@ nsStyleDisplay::nsStyleDisplay(const nsStyleDisplay& aSource)
   , mFloats(aSource.mFloats)
   , mOriginalFloats(aSource.mOriginalFloats)
   , mBreakType(aSource.mBreakType)
+  , mBreakInside(aSource.mBreakInside)
   , mBreakBefore(aSource.mBreakBefore)
   , mBreakAfter(aSource.mBreakAfter)
   , mOverflowX(aSource.mOverflowX)
@@ -2200,6 +2205,7 @@ nsChangeHint nsStyleDisplay::CalcDifference(const nsStyleDisplay& aOther) const
   // XXX the following is conservative, for now: changing float breaking shouldn't
   // necessarily require a repaint, reflow should suffice.
   if (mBreakType != aOther.mBreakType
+      || mBreakInside != aOther.mBreakInside
       || mBreakBefore != aOther.mBreakBefore
       || mBreakAfter != aOther.mBreakAfter
       || mAppearance != aOther.mAppearance

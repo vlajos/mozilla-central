@@ -10,7 +10,7 @@ var gSmallTests = [
   { name:"320x240.ogv", type:"video/ogg", width:320, height:240, duration:0.266 },
   { name:"seek.webm", type:"video/webm", width:320, height:240, duration:3.966 },
   { name:"detodos.opus", type:"audio/ogg; codecs=opus", duration:2.9135 },
-  { name:"gizmo.mp4", type:"video/mp4", duration:5.0 },
+  { name:"gizmo.mp4", type:"video/mp4", duration:5.56 },
   { name:"bogus.duh", type:"bogus/duh" }
 ];
 
@@ -22,7 +22,7 @@ var gProgressTests = [
   { name:"seek.ogv", type:"video/ogg", duration:3.966, size:285310 },
   { name:"320x240.ogv", type:"video/ogg", width:320, height:240, duration:0.266, size:28942 },
   { name:"seek.webm", type:"video/webm", duration:3.966, size:215529 },
-  { name:"gizmo.mp4", type:"video/mp4", duration:5.0, size:383631 },
+  { name:"gizmo.mp4", type:"video/mp4", duration:5.56, size:383631 },
   { name:"bogus.duh", type:"bogus/duh" }
 ];
 
@@ -32,7 +32,7 @@ var gPlayedTests = [
   { name:"sound.ogg", type:"audio/ogg", duration:4.0 },
   { name:"seek.ogv", type:"video/ogg", duration:3.966 },
   { name:"seek.webm", type:"video/webm", duration:3.966 },
-  { name:"gizmo.mp4", type:"video/mp4", duration:5.0 },
+  { name:"gizmo.mp4", type:"video/mp4", duration:5.56 },
 ];
 
 // Used by test_mozLoadFrom.  Need one test file per decoder backend, plus
@@ -150,7 +150,7 @@ var gPlayTests = [
   // Opus data in an ogg container
   { name:"detodos.opus", type:"audio/ogg; codecs=opus", duration:2.9135 },
 
-  { name:"gizmo.mp4", type:"video/mp4", duration:5.0 },
+  { name:"gizmo.mp4", type:"video/mp4", duration:5.56 },
 
   // Invalid file
   { name:"bogus.duh", type:"bogus/duh", duration:Number.NaN }
@@ -165,6 +165,20 @@ var gSnifferTests = [
   // A mp3 file with id3 tags.
   { name:"id3tags.mp3", type:"audio/mpeg", duration:0.28, size:3530},
   { name:"bogus.duh", type:"bogus/duh" }
+];
+
+// Files we must reject as invalid.
+var gInvalidTests = [
+  { name:"invalid-m0c0.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-m0c3.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-m1c0.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-m1c9.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-m2c0.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-m2c1.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-cmap-short.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-cmap-s0c0.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-cmap-s0c2.opus", type:"audio/ogg; codecs=opus"},
+  { name:"invalid-cmap-s1c2.opus", type:"audio/ogg; codecs=opus"},
 ];
 
 // Converts a path/filename to a file:// URI which we can load from disk.

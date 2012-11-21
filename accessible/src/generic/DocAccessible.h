@@ -24,22 +24,20 @@
 #include "nsIWeakReference.h"
 #include "nsIDocShellTreeNode.h"
 
-template<class Class, class Arg>
-class TNotification;
-class NotificationController;
+class nsAccessiblePivot;
 
 class nsIScrollableView;
-class nsAccessiblePivot;
 
 const uint32_t kDefaultCacheSize = 256;
 
 namespace mozilla {
 namespace a11y {
 
+class DocManager;
+class NotificationController;
 class RelatedAccIterator;
-
-} // namespace a11y
-} // namespace mozilla
+template<class Class, class Arg>
+class TNotification;
 
 class DocAccessible : public HyperTextAccessibleWrap,
                       public nsIAccessibleDocument,
@@ -68,7 +66,6 @@ public:
   virtual ~DocAccessible();
 
   // nsIAccessible
-  NS_IMETHOD GetAttributes(nsIPersistentProperties** aAttributes);
   NS_IMETHOD TakeFocus(void);
 
   // nsIScrollPositionListener
@@ -94,8 +91,7 @@ public:
   virtual uint64_t NativeInteractiveState() const;
   virtual bool NativelyUnavailable() const;
   virtual void ApplyARIAState(uint64_t* aState) const;
-
-  virtual void SetRoleMapEntry(nsRoleMapEntry* aRoleMapEntry);
+  virtual already_AddRefed<nsIPersistentProperties> Attributes();
 
 #ifdef A11Y_LOG
   virtual nsresult HandleAccEvent(AccEvent* aEvent);
@@ -177,22 +173,10 @@ public:
     { return mChildDocuments.SafeElementAt(aIndex, nullptr); }
 
   /**
-   * Non-virtual method to fire a delayed event after a 0 length timeout.
-   *
-   * @param aEventType   [in] the nsIAccessibleEvent event type
-   * @param aDOMNode     [in] DOM node the accesible event should be fired for
-   * @param aAllowDupes  [in] rule to process an event (see EEventRule constants)
+   * Fire accessible event asynchronously.
    */
-  nsresult FireDelayedAccessibleEvent(uint32_t aEventType, nsINode *aNode,
-                                      AccEvent::EEventRule aAllowDupes = AccEvent::eRemoveDupes,
-                                      EIsFromUserInput aIsFromUserInput = eAutoDetect);
-
-  /**
-   * Fire accessible event after timeout.
-   *
-   * @param aEvent  [in] the event to fire
-   */
-  nsresult FireDelayedAccessibleEvent(AccEvent* aEvent);
+  void FireDelayedEvent(AccEvent* aEvent);
+  void FireDelayedEvent(uint32_t aEventType, Accessible* aTarget);
 
   /**
    * Fire value change event on the given accessible if applicable.
@@ -269,7 +253,7 @@ public:
    */
   Accessible* GetContainerAccessible(nsINode* aNode)
   {
-    return aNode ? GetAccessibleOrContainer(aNode->GetNodeParent()) : nullptr;
+    return aNode ? GetAccessibleOrContainer(aNode->GetParentNode()) : nullptr;
   }
 
   /**
@@ -332,15 +316,10 @@ protected:
   /**
    * Marks this document as loaded or loading.
    */
-  void NotifyOfLoad(uint32_t aLoadEventType)
-  {
-    mLoadState |= eDOMLoaded;
-    mLoadEventType = aLoadEventType;
-  }
-
+  void NotifyOfLoad(uint32_t aLoadEventType);
   void NotifyOfLoading(bool aIsReloading);
 
-  friend class nsAccDocManager;
+  friend class DocManager;
 
   /**
    * Perform initial update (create accessible tree).
@@ -407,33 +386,28 @@ protected:
   bool UpdateAccessibleOnAttrChange(mozilla::dom::Element* aElement,
                                     nsIAtom* aAttribute);
 
-    /**
-     * Fires accessible events when attribute is changed.
-     *
-     * @param aContent - node that attribute is changed for
-     * @param aNameSpaceID - namespace of changed attribute
-     * @param aAttribute - changed attribute
-     */
-    void AttributeChangedImpl(nsIContent* aContent, int32_t aNameSpaceID, nsIAtom* aAttribute);
+  /**
+   * Fire accessible events when attribute is changed.
+   *
+   * @param aAccessible   [in] accessible the DOM attribute is changed for
+   * @param aNameSpaceID  [in] namespace of changed attribute
+   * @param aAttribute    [in] changed attribute
+   */
+  void AttributeChangedImpl(Accessible* aAccessible,
+                            int32_t aNameSpaceID, nsIAtom* aAttribute);
 
-    /**
-     * Fires accessible events when ARIA attribute is changed.
-     *
-     * @param aContent - node that attribute is changed for
-     * @param aAttribute - changed attribute
-     */
-    void ARIAAttributeChanged(nsIContent* aContent, nsIAtom* aAttribute);
+  /**
+   * Fire accessible events when ARIA attribute is changed.
+   *
+   * @param aAccessible  [in] accesislbe the DOM attribute is changed for
+   * @param aAttribute   [in] changed attribute
+   */
+  void ARIAAttributeChanged(Accessible* aAccessible, nsIAtom* aAttribute);
 
   /**
    * Process ARIA active-descendant attribute change.
    */
-  void ARIAActiveDescendantChanged(nsIContent* aElm);
-
-  /**
-   * Process the event when the queue of pending events is untwisted. Fire
-   * accessible events as result of the processing.
-   */
-  void ProcessPendingEvent(AccEvent* aEvent);
+  void ARIAActiveDescendantChanged(Accessible* aAccessible);
 
   /**
    * Update the accessible tree for inserted content.
@@ -466,7 +440,8 @@ protected:
     eAlertAccessible = 2
   };
 
-  uint32_t UpdateTreeInternal(Accessible* aChild, bool aIsInsert);
+  uint32_t UpdateTreeInternal(Accessible* aChild, bool aIsInsert,
+                              AccReorderEvent* aReorderEvent);
 
   /**
    * Create accessible tree.
@@ -575,7 +550,7 @@ protected:
   typedef nsTArray<nsAutoPtr<AttrRelProvider> > AttrRelProviderArray;
   nsClassHashtable<nsStringHashKey, AttrRelProviderArray> mDependentIDsHash;
 
-  friend class mozilla::a11y::RelatedAccIterator;
+  friend class RelatedAccIterator;
 
   /**
    * Used for our caching algorithm. We store the list of nodes that should be
@@ -602,5 +577,8 @@ Accessible::AsDoc()
   return mFlags & eDocAccessible ?
     static_cast<DocAccessible*>(this) : nullptr;
 }
+
+} // namespace a11y
+} // namespace mozilla
 
 #endif

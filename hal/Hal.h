@@ -47,10 +47,11 @@ typedef Observer<ScreenConfiguration> ScreenConfigurationObserver;
 
 class WindowIdentifier;
 
-extern PRLogModuleInfo *sHalLog;
-#define HAL_LOG(msg) PR_LOG(mozilla::hal::sHalLog, PR_LOG_DEBUG, msg)
+extern PRLogModuleInfo *GetHalLog();
+#define HAL_LOG(msg) PR_LOG(mozilla::hal::GetHalLog(), PR_LOG_DEBUG, msg)
 
-typedef Observer<SystemTimeChange> SystemTimeObserver;
+typedef Observer<int64_t> SystemClockChangeObserver;
+typedef Observer<SystemTimezoneChangeInformation> SystemTimezoneChangeObserver;
 
 } // namespace hal
 
@@ -258,22 +259,45 @@ void SetTimezone(const nsCString& aTimezoneSpec);
 nsCString GetTimezone();
 
 /**
- * Register observer for system time changed notification.
+ * Register observer for system clock changed notification.
  * @param aObserver The observer that should be added.
  */
-void RegisterSystemTimeChangeObserver(hal::SystemTimeObserver* aObserver);
+void RegisterSystemClockChangeObserver(
+  hal::SystemClockChangeObserver* aObserver);
 
 /**
- * Unregister the observer for system time changed.
+ * Unregister the observer for system clock changed.
  * @param aObserver The observer that should be removed.
  */
-void UnregisterSystemTimeChangeObserver(hal::SystemTimeObserver* aObserver);
+void UnregisterSystemClockChangeObserver(
+  hal::SystemClockChangeObserver* aObserver);
 
 /**
- * Notify of a change in the system cloeck or time zone.
- * @param aReason
+ * Notify of a change in the system clock.
+ * @param aClockDeltaMS
  */
-void NotifySystemTimeChange(const hal::SystemTimeChange& aReason);
+void NotifySystemClockChange(const int64_t& aClockDeltaMS);
+
+/**
+ * Register observer for system timezone changed notification.
+ * @param aObserver The observer that should be added.
+ */
+void RegisterSystemTimezoneChangeObserver(
+  hal::SystemTimezoneChangeObserver* aObserver);
+
+/**
+ * Unregister the observer for system timezone changed.
+ * @param aObserver The observer that should be removed.
+ */
+void UnregisterSystemTimezoneChangeObserver(
+  hal::SystemTimezoneChangeObserver* aObserver);
+
+/**
+ * Notify of a change in the system timezone.
+ * @param aSystemTimezoneChangeInfo
+ */
+void NotifySystemTimezoneChange(
+  const hal::SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo);
 
 /**
  * Reboot the device.
@@ -316,7 +340,7 @@ void RegisterWakeLockObserver(WakeLockObserver* aObserver);
 void UnregisterWakeLockObserver(WakeLockObserver* aObserver);
 
 /**
- * Adjust the internal wake lock counts.
+ * Adjust the wake lock counts.
  * @param aTopic        lock topic
  * @param aLockAdjust   to increase or decrease active locks
  * @param aHiddenAdjust to increase or decrease hidden locks
@@ -324,6 +348,18 @@ void UnregisterWakeLockObserver(WakeLockObserver* aObserver);
 void ModifyWakeLock(const nsAString &aTopic,
                     hal::WakeLockControl aLockAdjust,
                     hal::WakeLockControl aHiddenAdjust);
+
+/**
+ * Adjust the wake lock counts. Do not call this function directly.
+ * @param aTopic        lock topic
+ * @param aLockAdjust   to increase or decrease active locks
+ * @param aHiddenAdjust to increase or decrease hidden locks
+ * @param aProcessID    unique id per-ContentChild or 0 for chrome
+ */
+void ModifyWakeLockInternal(const nsAString &aTopic,
+                            hal::WakeLockControl aLockAdjust,
+                            hal::WakeLockControl aHiddenAdjust,
+                            uint64_t aProcessID);
 
 /**
  * Query the wake lock numbers of aTopic.
@@ -516,6 +552,11 @@ hal::FMRadioSettings GetFMBandSettings(hal::FMRadioCountry aCountry);
  * This API is currently only allowed to be used from the main process.
  */
 void StartForceQuitWatchdog(hal::ShutdownMode aMode, int32_t aTimeoutSecs);
+
+/**
+ * Perform Factory Reset to wipe out all user data.
+ */
+void FactoryReset();
 
 } // namespace MOZ_HAL_NAMESPACE
 } // namespace mozilla

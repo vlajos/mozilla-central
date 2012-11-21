@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
-Cu.import("resource://gre/modules/NetUtil.jsm");
+Components.utils.import("resource://gre/modules/NetUtil.jsm");
 
 /**
  * An adapter that handles data transfers between the debugger client and
@@ -14,7 +14,7 @@ Cu.import("resource://gre/modules/NetUtil.jsm");
  *
  * @param aInput nsIInputStream
  *        The input stream.
- * @param aOutput nsIOutputStream
+ * @param aOutput nsIAsyncOutputStream
  *        The output stream.
  *
  * Given a DebuggerTransport instance dt:
@@ -39,7 +39,7 @@ Cu.import("resource://gre/modules/NetUtil.jsm");
  * ([length]:[packet]). The contents of the JSON packet are specified in
  * the Remote Debugging Protocol specification.
  */
-function DebuggerTransport(aInput, aOutput)
+this.DebuggerTransport = function DebuggerTransport(aInput, aOutput)
 {
   this._input = aInput;
   this._output = aOutput;
@@ -202,9 +202,9 @@ LocalDebuggerTransport.prototype = {
    */
   send: function LDT_send(aPacket) {
     try {
-      // Avoid the cost of uneval() when logging is disabled.
+      // Avoid the cost of JSON.stringify() when logging is disabled.
       if (wantLogging) {
-        dumpn("Got: " + uneval(aPacket));
+        dumpn("Got: " + JSON.stringify(aPacket, null, 2));
       }
       this._deepFreeze(aPacket);
       let self = this;

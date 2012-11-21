@@ -47,11 +47,6 @@ static const int32_t FLING_REPAINT_INTERVAL = 75;
 static const float MIN_SKATE_SPEED = 0.7f;
 
 /**
- * Angle from axis within which we stay axis-locked.
- */
-static const float AXIS_LOCK_ANGLE = M_PI / 9.0;
-
-/**
  * Duration of a zoom to animation.
  */
 static const TimeDuration ZOOM_TO_DURATION = TimeDuration::FromSeconds(0.25);
@@ -542,7 +537,17 @@ nsEventStatus AsyncPanZoomController::OnScaleEnd(const PinchGestureInput& aEvent
 }
 
 nsEventStatus AsyncPanZoomController::OnLongPress(const TapGestureInput& aEvent) {
-  // XXX: Implement this.
+  if (mGeckoContentController) {
+    MonitorAutoLock monitor(mMonitor);
+
+    gfxFloat resolution = CalculateResolution(mFrameMetrics).width;
+    gfx::Point point = WidgetSpaceToCompensatedViewportSpace(
+      gfx::Point(aEvent.mPoint.x, aEvent.mPoint.y),
+      resolution);
+    mGeckoContentController->HandleLongTap(nsIntPoint(NS_lround(point.x),
+                                                      NS_lround(point.y)));
+    return nsEventStatus_eConsumeNoDefault;
+  }
   return nsEventStatus_eIgnore;
 }
 
@@ -610,12 +615,6 @@ void AsyncPanZoomController::StartPanning(const MultiTouchInput& aEvent) {
   angle = fabs(angle); // range [0, pi]
 
   SetState(PANNING);
-
-  if (angle < AXIS_LOCK_ANGLE || angle > (M_PI - AXIS_LOCK_ANGLE)) {
-    mY.LockPanning();
-  } else if (fabsf(angle - M_PI / 2) < AXIS_LOCK_ANGLE) {
-    mX.LockPanning();
-  }
 }
 
 void AsyncPanZoomController::UpdateWithTouchAtDevicePoint(const MultiTouchInput& aEvent) {

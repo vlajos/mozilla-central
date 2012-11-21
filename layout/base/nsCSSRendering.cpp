@@ -49,10 +49,13 @@
 #include "ImageContainer.h"
 #include "mozilla/HashFunctions.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/Types.h"
 #include <ctime>
 
 using namespace mozilla;
 using namespace mozilla::css;
+
+static int gFrameTreeLockCount = 0;
 
 // To avoid storing this data on nsInlineFrame (bloat) and to avoid
 // recalculating this for each frame in a continuation (perf), hold
@@ -161,6 +164,12 @@ protected:
   void SetFrame(nsIFrame* aFrame)
   {
     NS_PRECONDITION(aFrame, "Need a frame");
+    NS_ASSERTION(gFrameTreeLockCount > 0,
+                 "Can't call this when frame tree is not locked");
+
+    if (aFrame == mFrame) {
+      return;
+    }
 
     nsIFrame *prevContinuation = GetPrevContinuation(aFrame);
 
@@ -221,6 +230,19 @@ protected:
 
   void Init(nsIFrame* aFrame)
   {
+    mBidiEnabled = aFrame->PresContext()->BidiEnabled();
+    if (mBidiEnabled) {
+      // Find the containing block frame
+      nsIFrame* frame = aFrame;
+      do {
+        frame = frame->GetParent();
+        mBlockFrame = do_QueryFrame(frame);
+      }
+      while (frame && frame->IsFrameOfType(nsIFrame::eLineParticipant));
+
+      NS_ASSERTION(mBlockFrame, "Cannot find containing block.");
+    }
+
     // Start with the previous flow frame as our continuation point
     // is the total of the widths of the previous frames.
     nsIFrame* inlineFrame = GetPrevContinuation(aFrame);
@@ -228,6 +250,9 @@ protected:
     while (inlineFrame) {
       nsRect rect = inlineFrame->GetRect();
       mContinuationPoint += rect.width;
+      if (mBidiEnabled && !AreOnSameLine(aFrame, inlineFrame)) {
+        mLineContinuationPoint += rect.width;
+      }
       mUnbrokenWidth += rect.width;
       mBoundingBox.UnionRect(mBoundingBox, rect);
       inlineFrame = GetPrevContinuation(inlineFrame);
@@ -244,21 +269,6 @@ protected:
     }
 
     mFrame = aFrame;
-
-    mBidiEnabled = aFrame->PresContext()->BidiEnabled();
-    if (mBidiEnabled) {
-      // Find the containing block frame
-      nsIFrame* frame = aFrame;
-      do {
-        frame = frame->GetParent();
-        mBlockFrame = do_QueryFrame(frame);
-      }
-      while (frame && frame->IsFrameOfType(nsIFrame::eLineParticipant));
-
-      NS_ASSERTION(mBlockFrame, "Cannot find containing block.");
-
-      mLineContinuationPoint = mContinuationPoint;
-    }
   }
 
   bool AreOnSameLine(nsIFrame* aFrame1, nsIFrame* aFrame2) {
@@ -282,15 +292,17 @@ struct GradientCacheKey : public PLDHashEntryHdr {
   const gfxSize mGradientSize;
   enum { SINGLE_CELL = 0x01 };
   const uint32_t mFlags;
+  const gfx::BackendType mBackendType;
 
   GradientCacheKey(nsStyleGradient* aGradient, const gfxSize& aGradientSize,
-                   uint32_t aFlags)
-    : mGradient(aGradient), mGradientSize(aGradientSize), mFlags(aFlags)
+                   uint32_t aFlags, gfx::BackendType aBackendType)
+    : mGradient(aGradient), mGradientSize(aGradientSize), mFlags(aFlags),
+      mBackendType(aBackendType)
   { }
 
   GradientCacheKey(const GradientCacheKey* aOther)
     : mGradient(aOther->mGradient), mGradientSize(aOther->mGradientSize),
-      mFlags(aOther->mFlags)
+      mFlags(aOther->mFlags), mBackendType(aOther->mBackendType)
   { }
 
   static PLDHashNumber
@@ -300,6 +312,7 @@ struct GradientCacheKey : public PLDHashEntryHdr {
     hash = AddToHash(hash, aKey->mGradientSize.width);
     hash = AddToHash(hash, aKey->mGradientSize.height);
     hash = AddToHash(hash, aKey->mFlags);
+    hash = AddToHash(hash, aKey->mBackendType);
     hash = aKey->mGradient->Hash(hash);
     return hash;
   }
@@ -308,6 +321,7 @@ struct GradientCacheKey : public PLDHashEntryHdr {
   {
     return (*aKey->mGradient == *mGradient) &&
            (aKey->mGradientSize == mGradientSize) &&
+           (aKey->mBackendType == mBackendType) &&
            (aKey->mFlags == mFlags);
   }
   static KeyTypePointer KeyToPointer(KeyType aKey)
@@ -376,7 +390,7 @@ class GradientCache MOZ_FINAL : public nsExpirationTracker<GradientCacheData,4>
     }
 
     GradientCacheData* Lookup(nsStyleGradient* aKey, const gfxSize& aGradientSize,
-                              uint32_t aFlags)
+                              uint32_t aFlags, gfx::BackendType aBackendType)
     {
       // We don't cache gradient that have Calc value, because the Calc object
       // can be deallocated by the time we want to compute the hash, and thus we
@@ -387,7 +401,7 @@ class GradientCache MOZ_FINAL : public nsExpirationTracker<GradientCacheData,4>
       }
 
       GradientCacheData* gradient =
-        mHashEntries.Get(GradientCacheKey(aKey, aGradientSize, aFlags));
+        mHashEntries.Get(GradientCacheKey(aKey, aGradientSize, aFlags, aBackendType));
 
       if (gradient) {
         MarkUsed(gradient);
@@ -461,6 +475,7 @@ void nsCSSRendering::Init()
   NS_ASSERTION(!gInlineBGData, "Init called twice");
   gInlineBGData = new InlineBackgroundData();
   gGradientCache = new GradientCache();
+  nsCSSBorderRenderer::Init();
 }
 
 // Clean up any global variables used by nsCSSRendering.
@@ -470,6 +485,7 @@ void nsCSSRendering::Shutdown()
   gInlineBGData = nullptr;
   delete gGradientCache;
   gGradientCache = nullptr;
+  nsCSSBorderRenderer::Shutdown();
 }
 
 /**
@@ -1137,9 +1153,19 @@ nsCSSRendering::FindBackground(nsPresContext* aPresContext,
 }
 
 void
-nsCSSRendering::DidPaint()
+nsCSSRendering::BeginFrameTreesLocked()
 {
-  gInlineBGData->Reset();
+  ++gFrameTreeLockCount;
+}
+
+void
+nsCSSRendering::EndFrameTreesLocked()
+{
+  NS_ASSERTION(gFrameTreeLockCount > 0, "Unbalanced EndFrameTreeLocked");
+  --gFrameTreeLockCount;
+  if (gFrameTreeLockCount == 0) {
+    gInlineBGData->Reset();
+  }
 }
 
 void
@@ -1434,13 +1460,16 @@ nsCSSRendering::PaintBoxShadowInner(nsPresContext* aPresContext,
     // rendered shadow (even after blurring), so those pixels must be completely
     // transparent in the shadow, so drawing them changes nothing.
     gfxContext* renderContext = aRenderingContext.ThebesContext();
-    nsRefPtr<gfxContext> shadowContext;
     nsContextBoxBlur blurringArea;
-    shadowContext =
+    gfxContext* shadowContext =
       blurringArea.Init(shadowPaintRect, 0, blurRadius, twipsPerPixel,
                         renderContext, aDirtyRect, &skipGfxRect);
     if (!shadowContext)
       continue;
+
+    // shadowContext is owned by either blurringArea or aRenderingContext.
+    MOZ_ASSERT(shadowContext == renderContext ||
+               shadowContext == blurringArea.GetContext());
 
     // Set the shadow color; if not specified, use the foreground color
     nscolor shadowColor;
@@ -1505,7 +1534,7 @@ nsCSSRendering::PaintBackground(nsPresContext* aPresContext,
   if (!FindBackground(aPresContext, aForFrame, &sc)) {
     // We don't want to bail out if moz-appearance is set on a root
     // node. If it has a parent content node, bail because it's not
-    // a root, other wise keep going in order to let the theme stuff
+    // a root, otherwise keep going in order to let the theme stuff
     // draw the background. The canvas really should be drawing the
     // bg, but there's no way to hook that up via css.
     if (!aForFrame->GetStyleDisplay()->mAppearance) {
@@ -1524,6 +1553,42 @@ nsCSSRendering::PaintBackground(nsPresContext* aPresContext,
                         aDirtyRect, aBorderArea, sc,
                         *aForFrame->GetStyleBorder(), aFlags,
                         aBGClipRect, aLayer);
+}
+
+void
+nsCSSRendering::PaintBackgroundColor(nsPresContext* aPresContext,
+                                     nsRenderingContext& aRenderingContext,
+                                     nsIFrame* aForFrame,
+                                     const nsRect& aDirtyRect,
+                                     const nsRect& aBorderArea,
+                                     uint32_t aFlags)
+{
+  SAMPLE_LABEL("nsCSSRendering", "PaintBackgroundColor");
+  NS_PRECONDITION(aForFrame,
+                  "Frame is expected to be provided to PaintBackground");
+
+  nsStyleContext *sc;
+  if (!FindBackground(aPresContext, aForFrame, &sc)) {
+    // We don't want to bail out if moz-appearance is set on a root
+    // node. If it has a parent content node, bail because it's not
+    // a root, other wise keep going in order to let the theme stuff
+    // draw the background. The canvas really should be drawing the
+    // bg, but there's no way to hook that up via css.
+    if (!aForFrame->GetStyleDisplay()->mAppearance) {
+      return;
+    }
+
+    nsIContent* content = aForFrame->GetContent();
+    if (!content || content->GetParent()) {
+      return;
+    }
+
+    sc = aForFrame->GetStyleContext();
+  }
+
+  PaintBackgroundColorWithSC(aPresContext, aRenderingContext, aForFrame,
+                             aDirtyRect, aBorderArea, sc,
+                             *aForFrame->GetStyleBorder(), aFlags);
 }
 
 static bool
@@ -1759,26 +1824,26 @@ nsCSSRendering::DetermineBackgroundColor(nsPresContext* aPresContext,
     aDrawBackgroundColor = aPresContext->GetBackgroundColorDraw();
   }
 
+  const nsStyleBackground *bg = aStyleContext->GetStyleBackground();
   nscolor bgColor;
   if (aDrawBackgroundColor) {
     bgColor =
       aStyleContext->GetVisitedDependentColor(eCSSProperty_background_color);
-    if (NS_GET_A(bgColor) == 0)
+    if (NS_GET_A(bgColor) == 0) {
       aDrawBackgroundColor = false;
+    }
   } else {
     // If GetBackgroundColorDraw() is false, we are still expected to
     // draw color in the background of any frame that's not completely
     // transparent, but we are expected to use white instead of whatever
     // color was specified.
     bgColor = NS_RGB(255, 255, 255);
-    if (aDrawBackgroundImage ||
-        !aStyleContext->GetStyleBackground()->IsTransparent())
+    if (aDrawBackgroundImage || !bg->IsTransparent()) {
       aDrawBackgroundColor = true;
-    else
+    } else {
       bgColor = NS_RGBA(0,0,0,0);
+    }
   }
-
-  const nsStyleBackground *bg = aStyleContext->GetStyleBackground();
 
   // We can skip painting the background color if a background image is opaque.
   if (aDrawBackgroundColor &&
@@ -2029,8 +2094,18 @@ nsCSSRendering::PaintGradient(nsPresContext* aPresContext,
   if (aOneCellArea.Contains(aFillArea)) {
     flags |= GradientCacheKey::SINGLE_CELL;
   }
+
+  gfx::BackendType backendType = gfx::BACKEND_NONE;
+  if (ctx->IsCairo()) {
+    backendType = gfx::BACKEND_CAIRO;
+  } else {
+    gfx::DrawTarget* dt = ctx->GetDrawTarget();
+    NS_ASSERTION(dt, "If we are not using Cairo, we should have a draw target.");
+    backendType = dt->GetType();
+  }
+
   GradientCacheData* pattern =
-    gGradientCache->Lookup(aGradient, oneCellArea.Size(), flags);
+    gGradientCache->Lookup(aGradient, oneCellArea.Size(), flags, backendType);
 
   if (pattern == nullptr) {
     // Compute "gradient line" start and end relative to oneCellArea
@@ -2279,7 +2354,7 @@ nsCSSRendering::PaintGradient(nsPresContext* aPresContext,
     }
     // Register the gradient newly computed in the cache.
     pattern = new GradientCacheData(gradientPattern, forceRepeatToCoverTiles,
-      GradientCacheKey(aGradient, oneCellArea.Size(), flags));
+      GradientCacheKey(aGradient, oneCellArea.Size(), flags, backendType));
     gradientRegistered = gGradientCache->RegisterEntry(pattern);
   }
 
@@ -2404,11 +2479,10 @@ nsCSSRendering::PaintBackgroundWithSC(nsPresContext* aPresContext,
                                              drawBackgroundImage,
                                              drawBackgroundColor);
 
-  // If we're not drawing the back-most layer, we don't want to draw the
+  // If we're drawing a specific layer, we don't want to draw the
   // background color.
   const nsStyleBackground *bg = aBackgroundSC->GetStyleBackground();
-  if (drawBackgroundColor && aLayer >= 0 &&
-      static_cast<uint32_t>(aLayer) != bg->mImageCount - 1) {
+  if (drawBackgroundColor && aLayer >= 0) {
     drawBackgroundColor = false;
   }
 
@@ -2532,7 +2606,9 @@ nsCSSRendering::PaintBackgroundWithSC(nsPresContext* aPresContext,
 
   if (drawBackgroundImage) {
     bool clipSet = false;
-    NS_FOR_VISIBLE_BACKGROUND_LAYERS_BACK_TO_FRONT_WITH_RANGE(i, bg, startLayer, nLayers) {
+    NS_FOR_VISIBLE_BACKGROUND_LAYERS_BACK_TO_FRONT_WITH_RANGE(i, bg, bg->mImageCount - 1,
+                                                              nLayers + (bg->mImageCount -
+                                                                         startLayer - 1)) {
       const nsStyleBackground::Layer &layer = bg->mLayers[i];
       if (!aBGClipRect) {
         uint8_t newBackgroundClip = layer.mClip;
@@ -2555,7 +2631,8 @@ nsCSSRendering::PaintBackgroundWithSC(nsPresContext* aPresContext,
           clipSet = true;
         }
       }
-      if (!clipState.mDirtyRectGfx.IsEmpty()) {
+      if ((aLayer < 0 || i == (uint32_t)startLayer) &&
+          !clipState.mDirtyRectGfx.IsEmpty()) {
         nsBackgroundLayerState state = PrepareBackgroundLayer(aPresContext, aForFrame,
             aFlags, aBorderArea, clipState.mBGClipArea, *bg, layer);
         if (!state.mFillArea.IsEmpty()) {
@@ -2569,6 +2646,99 @@ nsCSSRendering::PaintBackgroundWithSC(nsPresContext* aPresContext,
   }
 }
 
+void
+nsCSSRendering::PaintBackgroundColorWithSC(nsPresContext* aPresContext,
+                                           nsRenderingContext& aRenderingContext,
+                                           nsIFrame* aForFrame,
+                                           const nsRect& aDirtyRect,
+                                           const nsRect& aBorderArea,
+                                           nsStyleContext* aBackgroundSC,
+                                           const nsStyleBorder& aBorder,
+                                           uint32_t aFlags)
+{
+  NS_PRECONDITION(aForFrame,
+                  "Frame is expected to be provided to PaintBackground");
+
+  // Check to see if we have an appearance defined.  If so, we let the theme
+  // renderer draw the background and bail out.
+  const nsStyleDisplay* displayData = aForFrame->GetStyleDisplay();
+  if (displayData->mAppearance) {
+    nsITheme *theme = aPresContext->GetTheme();
+    if (theme && theme->ThemeSupportsWidget(aPresContext, aForFrame,
+                                            displayData->mAppearance)) {
+      NS_ERROR("Shouldn't be trying to paint a background color if we are themed!");
+      return;
+    }
+  }
+
+  NS_ASSERTION(!IsCanvasFrame(aForFrame), "Should not be trying to paint a background color for canvas frames!");
+
+  // Determine whether we are drawing background images and/or
+  // background colors.
+  bool drawBackgroundImage;
+  bool drawBackgroundColor;
+
+  nscolor bgColor = DetermineBackgroundColor(aPresContext,
+                                             aBackgroundSC,
+                                             aForFrame,
+                                             drawBackgroundImage,
+                                             drawBackgroundColor);
+
+  NS_ASSERTION(drawBackgroundColor, "Should not be trying to paint a background color if we don't have one");
+
+  // Compute the outermost boundary of the area that might be painted.
+  gfxContext *ctx = aRenderingContext.ThebesContext();
+  nscoord appUnitsPerPixel = aPresContext->AppUnitsPerDevPixel();
+
+  // Same coordinate space as aBorderArea
+  gfxCornerSizes bgRadii;
+  bool haveRoundedCorners;
+  {
+    nscoord radii[8];
+    nsSize frameSize = aForFrame->GetSize();
+    if (&aBorder == aForFrame->GetStyleBorder() &&
+        frameSize == aBorderArea.Size()) {
+      haveRoundedCorners = aForFrame->GetBorderRadii(radii);
+    } else {
+      haveRoundedCorners = nsIFrame::ComputeBorderRadii(aBorder.mBorderRadius,
+                                   frameSize, aBorderArea.Size(),
+                                   aForFrame->GetSkipSides(), radii);
+    }
+    if (haveRoundedCorners)
+      ComputePixelRadii(radii, appUnitsPerPixel, &bgRadii);
+  }
+
+  // The background is rendered over the 'background-clip' area,
+  // which is normally equal to the border area but may be reduced
+  // to the padding area by CSS.  Also, if the border is solid, we
+  // don't need to draw outside the padding area.  In either case,
+  // if the borders are rounded, make sure we use the same inner
+  // radii as the border code will.
+  // The background-color is drawn based on the bottom
+  // background-clip.
+  const nsStyleBackground *bg = aBackgroundSC->GetStyleBackground();
+  uint8_t currentBackgroundClip = bg->BottomLayer().mClip;
+  bool isSolidBorder =
+    (aFlags & PAINTBG_WILL_PAINT_BORDER) && IsOpaqueBorder(aBorder);
+  if (isSolidBorder && currentBackgroundClip == NS_STYLE_BG_CLIP_BORDER) {
+    // If we have rounded corners, we need to inflate the background
+    // drawing area a bit to avoid seams between the border and
+    // background.
+    currentBackgroundClip = haveRoundedCorners ?
+      NS_STYLE_BG_CLIP_MOZ_ALMOST_PADDING : NS_STYLE_BG_CLIP_PADDING;
+  }
+
+  BackgroundClipState clipState;
+  GetBackgroundClip(ctx, currentBackgroundClip, aForFrame, aBorderArea,
+                    aDirtyRect, haveRoundedCorners, bgRadii, appUnitsPerPixel,
+                    &clipState);
+
+  ctx->SetColor(gfxRGBA(bgColor));
+
+  gfxContextAutoSaveRestore autoSR;
+  DrawBackgroundColor(clipState, ctx, haveRoundedCorners, appUnitsPerPixel);
+}
+
 static inline bool
 IsTransformed(nsIFrame* aForFrame, nsIFrame* aTopFrame)
 {
@@ -2578,6 +2748,103 @@ IsTransformed(nsIFrame* aForFrame, nsIFrame* aTopFrame)
     }
   }
   return false;
+}
+
+nsRect
+nsCSSRendering::ComputeBackgroundPositioningArea(nsPresContext* aPresContext,
+                                                 nsIFrame* aForFrame,
+                                                 const nsRect& aBorderArea,
+                                                 const nsStyleBackground& aBackground,
+                                                 const nsStyleBackground::Layer& aLayer,
+                                                 nsIFrame** aAttachedToFrame)
+{
+  // Compute background origin area relative to aBorderArea now as we may need
+  // it to compute the effective image size for a CSS gradient.
+  nsRect bgPositioningArea(0, 0, 0, 0);
+
+  nsIAtom* frameType = aForFrame->GetType();
+  nsIFrame* geometryFrame = aForFrame;
+  if (frameType == nsGkAtoms::inlineFrame) {
+    // XXXjwalden Strictly speaking this is not quite faithful to how
+    // background-break is supposed to interact with background-origin values,
+    // but it's a non-trivial amount of work to make it fully conformant, and
+    // until the specification is more finalized (and assuming background-break
+    // even makes the cut) it doesn't make sense to hammer out exact behavior.
+    switch (aBackground.mBackgroundInlinePolicy) {
+    case NS_STYLE_BG_INLINE_POLICY_EACH_BOX:
+      bgPositioningArea = nsRect(nsPoint(0,0), aBorderArea.Size());
+      break;
+    case NS_STYLE_BG_INLINE_POLICY_BOUNDING_BOX:
+      bgPositioningArea = gInlineBGData->GetBoundingRect(aForFrame);
+      break;
+    default:
+      NS_ERROR("Unknown background-inline-policy value!  "
+               "Please, teach me what to do.");
+    case NS_STYLE_BG_INLINE_POLICY_CONTINUOUS:
+      bgPositioningArea = gInlineBGData->GetContinuousRect(aForFrame);
+      break;
+    }
+  } else if (frameType == nsGkAtoms::canvasFrame) {
+    geometryFrame = aForFrame->GetFirstPrincipalChild();
+    // geometryFrame might be null if this canvas is a page created
+    // as an overflow container (e.g. the in-flow content has already
+    // finished and this page only displays the continuations of
+    // absolutely positioned content).
+    if (geometryFrame) {
+      bgPositioningArea = geometryFrame->GetRect();
+    }
+  } else {
+    bgPositioningArea = nsRect(nsPoint(0,0), aBorderArea.Size());
+  }
+
+  // Background images are tiled over the 'background-clip' area
+  // but the origin of the tiling is based on the 'background-origin' area
+  if (aLayer.mOrigin != NS_STYLE_BG_ORIGIN_BORDER && geometryFrame) {
+    nsMargin border = geometryFrame->GetUsedBorder();
+    if (aLayer.mOrigin != NS_STYLE_BG_ORIGIN_PADDING) {
+      border += geometryFrame->GetUsedPadding();
+      NS_ASSERTION(aLayer.mOrigin == NS_STYLE_BG_ORIGIN_CONTENT,
+                   "unknown background-origin value");
+    }
+    geometryFrame->ApplySkipSides(border);
+    bgPositioningArea.Deflate(border);
+  }
+
+  nsIFrame* attachedToFrame = aForFrame;
+  if (NS_STYLE_BG_ATTACHMENT_FIXED == aLayer.mAttachment) {
+    // If it's a fixed background attachment, then the image is placed
+    // relative to the viewport, which is the area of the root frame
+    // in a screen context or the page content frame in a print context.
+    attachedToFrame = aPresContext->PresShell()->FrameManager()->GetRootFrame();
+    NS_ASSERTION(attachedToFrame, "no root frame");
+    nsIFrame* pageContentFrame = nullptr;
+    if (aPresContext->IsPaginated()) {
+      pageContentFrame =
+        nsLayoutUtils::GetClosestFrameOfType(aForFrame, nsGkAtoms::pageContentFrame);
+      if (pageContentFrame) {
+        attachedToFrame = pageContentFrame;
+      }
+      // else this is an embedded shell and its root frame is what we want
+    }
+
+    // Set the background positioning area to the viewport's area
+    // (relative to aForFrame)
+    bgPositioningArea =
+      nsRect(-aForFrame->GetOffsetTo(attachedToFrame), attachedToFrame->GetSize());
+
+    if (!pageContentFrame) {
+      // Subtract the size of scrollbars.
+      nsIScrollableFrame* scrollableFrame =
+        aPresContext->PresShell()->GetRootScrollFrameAsScrollable();
+      if (scrollableFrame) {
+        nsMargin scrollbars = scrollableFrame->GetActualScrollbarSizes();
+        bgPositioningArea.Deflate(scrollbars);
+      }
+    }
+  }
+  *aAttachedToFrame = attachedToFrame;
+
+  return bgPositioningArea;
 }
 
 nsBackgroundLayerState
@@ -2655,57 +2922,13 @@ nsCSSRendering::PrepareBackgroundLayer(nsPresContext* aPresContext,
     return state;
   }
 
+  // The frame to which the background is attached
+  nsIFrame* attachedToFrame = aForFrame;
   // Compute background origin area relative to aBorderArea now as we may need
   // it to compute the effective image size for a CSS gradient.
-  nsRect bgPositioningArea(0, 0, 0, 0);
-
-  nsIAtom* frameType = aForFrame->GetType();
-  nsIFrame* geometryFrame = aForFrame;
-  if (frameType == nsGkAtoms::inlineFrame) {
-    // XXXjwalden Strictly speaking this is not quite faithful to how
-    // background-break is supposed to interact with background-origin values,
-    // but it's a non-trivial amount of work to make it fully conformant, and
-    // until the specification is more finalized (and assuming background-break
-    // even makes the cut) it doesn't make sense to hammer out exact behavior.
-    switch (aBackground.mBackgroundInlinePolicy) {
-    case NS_STYLE_BG_INLINE_POLICY_EACH_BOX:
-      bgPositioningArea = nsRect(nsPoint(0,0), aBorderArea.Size());
-      break;
-    case NS_STYLE_BG_INLINE_POLICY_BOUNDING_BOX:
-      bgPositioningArea = gInlineBGData->GetBoundingRect(aForFrame);
-      break;
-    default:
-      NS_ERROR("Unknown background-inline-policy value!  "
-               "Please, teach me what to do.");
-    case NS_STYLE_BG_INLINE_POLICY_CONTINUOUS:
-      bgPositioningArea = gInlineBGData->GetContinuousRect(aForFrame);
-      break;
-    }
-  } else if (frameType == nsGkAtoms::canvasFrame) {
-    geometryFrame = aForFrame->GetFirstPrincipalChild();
-    // geometryFrame might be null if this canvas is a page created
-    // as an overflow container (e.g. the in-flow content has already
-    // finished and this page only displays the continuations of
-    // absolutely positioned content).
-    if (geometryFrame) {
-      bgPositioningArea = geometryFrame->GetRect();
-    }
-  } else {
-    bgPositioningArea = nsRect(nsPoint(0,0), aBorderArea.Size());
-  }
-
-  // Background images are tiled over the 'background-clip' area
-  // but the origin of the tiling is based on the 'background-origin' area
-  if (aLayer.mOrigin != NS_STYLE_BG_ORIGIN_BORDER && geometryFrame) {
-    nsMargin border = geometryFrame->GetUsedBorder();
-    if (aLayer.mOrigin != NS_STYLE_BG_ORIGIN_PADDING) {
-      border += geometryFrame->GetUsedPadding();
-      NS_ASSERTION(aLayer.mOrigin == NS_STYLE_BG_ORIGIN_CONTENT,
-                   "unknown background-origin value");
-    }
-    geometryFrame->ApplySkipSides(border);
-    bgPositioningArea.Deflate(border);
-  }
+  nsRect bgPositioningArea =
+    ComputeBackgroundPositioningArea(aPresContext, aForFrame, aBorderArea,
+                                     aBackground, aLayer, &attachedToFrame);
 
   // For background-attachment:fixed backgrounds, we'll limit the area
   // where the background can be drawn to the viewport.
@@ -2717,40 +2940,8 @@ nsCSSRendering::PrepareBackgroundLayer(nsPresContext* aPresContext,
   // of aForFrame's border-box will be rendered)
   nsPoint imageTopLeft;
   if (NS_STYLE_BG_ATTACHMENT_FIXED == aLayer.mAttachment) {
-    aPresContext->SetHasFixedBackgroundFrame();
-
-    // If it's a fixed background attachment, then the image is placed
-    // relative to the viewport, which is the area of the root frame
-    // in a screen context or the page content frame in a print context.
-    nsIFrame* topFrame =
-      aPresContext->PresShell()->FrameManager()->GetRootFrame();
-    NS_ASSERTION(topFrame, "no root frame");
-    nsIFrame* pageContentFrame = nullptr;
-    if (aPresContext->IsPaginated()) {
-      pageContentFrame =
-        nsLayoutUtils::GetClosestFrameOfType(aForFrame, nsGkAtoms::pageContentFrame);
-      if (pageContentFrame) {
-        topFrame = pageContentFrame;
-      }
-      // else this is an embedded shell and its root frame is what we want
-    }
-
-    // Set the background positioning area to the viewport's area
-    // (relative to aForFrame)
-    bgPositioningArea = nsRect(-aForFrame->GetOffsetTo(topFrame), topFrame->GetSize());
-
-    if (!pageContentFrame) {
-      // Subtract the size of scrollbars.
-      nsIScrollableFrame* scrollableFrame =
-        aPresContext->PresShell()->GetRootScrollFrameAsScrollable();
-      if (scrollableFrame) {
-        nsMargin scrollbars = scrollableFrame->GetActualScrollbarSizes();
-        bgPositioningArea.Deflate(scrollbars);
-      }
-    }
-
-    if (aFlags & nsCSSRendering::PAINTBG_TO_WINDOW &&
-        !IsTransformed(aForFrame, topFrame)) {
+    if ((aFlags & nsCSSRendering::PAINTBG_TO_WINDOW) &&
+        !IsTransformed(aForFrame, attachedToFrame)) {
       // Clip background-attachment:fixed backgrounds to the viewport, if we're
       // painting to the screen and not transformed. This avoids triggering
       // tiling in common cases, without affecting output since drawing is
@@ -2834,8 +3025,8 @@ DrawBorderImage(nsPresContext*       aPresContext,
   // Get the actual image.
 
   nsCOMPtr<imgIContainer> imgContainer;
-  req->GetImage(getter_AddRefs(imgContainer));
-  NS_ASSERTION(imgContainer, "no image to draw");
+  DebugOnly<nsresult> rv = req->GetImage(getter_AddRefs(imgContainer));
+  NS_ASSERTION(NS_SUCCEEDED(rv) && imgContainer, "no image to draw");
 
   nsIntSize imageSize;
   if (NS_FAILED(imgContainer->GetWidth(&imageSize.width))) {
@@ -4033,7 +4224,7 @@ nsImageRenderer::PrepareImage()
       nsCOMPtr<imgIContainer> img;
       if (!((mFlags & FLAG_SYNC_DECODE_IMAGES) &&
             (mType == eStyleImageType_Image) &&
-            (NS_SUCCEEDED(mImage->GetImageData()->GetImage(getter_AddRefs(img))) && img)))
+            (NS_SUCCEEDED(mImage->GetImageData()->GetImage(getter_AddRefs(img))))))
         return false;
     }
   }
@@ -4042,9 +4233,11 @@ nsImageRenderer::PrepareImage()
     case eStyleImageType_Image:
     {
       nsCOMPtr<imgIContainer> srcImage;
-      mImage->GetImageData()->GetImage(getter_AddRefs(srcImage));
-      NS_ABORT_IF_FALSE(srcImage, "If srcImage is null, mImage->IsComplete() "
-                                  "should have returned false");
+      DebugOnly<nsresult> rv =
+        mImage->GetImageData()->GetImage(getter_AddRefs(srcImage));
+      NS_ABORT_IF_FALSE(NS_SUCCEEDED(rv) && srcImage,
+                        "If GetImage() is failing, mImage->IsComplete() "
+                        "should have returned false");
 
       if (!mImage->GetCropRect()) {
         mImageContainer.swap(srcImage);
@@ -4465,8 +4658,7 @@ nsImageRenderer::IsRasterImage()
   if (mType != eStyleImageType_Image)
     return false;
   nsCOMPtr<imgIContainer> img;
-  nsresult rv = mImage->GetImageData()->GetImage(getter_AddRefs(img));
-  if (NS_FAILED(rv) || !img)
+  if (NS_FAILED(mImage->GetImageData()->GetImage(getter_AddRefs(img))))
     return false;
   return img->GetType() == imgIContainer::TYPE_RASTER;
 }
@@ -4478,7 +4670,7 @@ nsImageRenderer::GetContainer()
     return nullptr;
   nsCOMPtr<imgIContainer> img;
   nsresult rv = mImage->GetImageData()->GetImage(getter_AddRefs(img));
-  if (NS_FAILED(rv) || !img)
+  if (NS_FAILED(rv))
     return nullptr;
   nsRefPtr<ImageContainer> container;
   rv = img->GetImageContainer(getter_AddRefs(container));

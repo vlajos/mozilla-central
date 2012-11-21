@@ -38,7 +38,7 @@ public:
   // Accessible
   virtual a11y::role NativeRole();
   virtual uint64_t NativeState();
-  virtual nsresult GetAttributesInternal(nsIPersistentProperties *aAttributes);
+  virtual already_AddRefed<nsIPersistentProperties> NativeAttributes() MOZ_OVERRIDE;
 
   // ActionAccessible
   virtual uint8_t ActionCount();
@@ -77,18 +77,17 @@ private:
 
 };
 
-} // namespace a11y
-} // namespace mozilla
-
 ////////////////////////////////////////////////////////////////////////////////
 // Accessible downcasting method
 
-inline mozilla::a11y::ImageAccessible*
+inline ImageAccessible*
 Accessible::AsImage()
 {
-  return IsImage() ?
-    static_cast<mozilla::a11y::ImageAccessible*>(this) : nullptr;
+  return IsImage() ? static_cast<ImageAccessible*>(this) : nullptr;
 }
+
+} // namespace a11y
+} // namespace mozilla
 
 #endif
 

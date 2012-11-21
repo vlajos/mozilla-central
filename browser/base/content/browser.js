@@ -18,7 +18,6 @@ var gLastValidURLStr = "";
 var gInPrintPreviewMode = false;
 var gDownloadMgr = null;
 var gContextMenu = null; // nsContextMenu instance
-var gDelayedStartupTimeoutId;
 var gStartupRan = false;
 
 #ifndef XP_MACOSX
@@ -149,7 +148,7 @@ XPCOMUtils.defineLazyModuleGetter(this, "PageThumbs",
 #ifdef MOZ_SAFE_BROWSING
 XPCOMUtils.defineLazyGetter(this, "SafeBrowsing", function() {
   let tmp = {};
-  Cu.import("resource:///modules/SafeBrowsing.jsm", tmp);
+  Cu.import("resource://gre/modules/SafeBrowsing.jsm", tmp);
   return tmp.SafeBrowsing;
 });
 #endif
@@ -1009,20 +1008,15 @@ var gBrowserInit = {
     if ("arguments" in window && window.arguments[0])
       var uriToLoad = window.arguments[0];
 
-    var isLoadingBlank = isBlankPageURL(uriToLoad);
     var mustLoadSidebar = false;
 
     gBrowser.addEventListener("DOMUpdatePageReport", gPopupBlockerObserver, false);
 
-    gBrowser.addEventListener("PluginNotFound",     gPluginHandler, true);
-    gBrowser.addEventListener("PluginCrashed",      gPluginHandler, true);
-    gBrowser.addEventListener("PluginBlocklisted",  gPluginHandler, true);
-    gBrowser.addEventListener("PluginOutdated",     gPluginHandler, true);
-    gBrowser.addEventListener("PluginDisabled",     gPluginHandler, true);
-    gBrowser.addEventListener("PluginClickToPlay",  gPluginHandler, true);
-    gBrowser.addEventListener("PluginPlayPreview",  gPluginHandler, true);
-    gBrowser.addEventListener("PluginVulnerableUpdatable", gPluginHandler, true);
-    gBrowser.addEventListener("PluginVulnerableNoUpdate", gPluginHandler, true);
+    // Note that the XBL binding is untrusted
+    gBrowser.addEventListener("PluginBindingAttached", gPluginHandler, true, true);
+    gBrowser.addEventListener("PluginCrashed",         gPluginHandler, true);
+    gBrowser.addEventListener("PluginOutdated",        gPluginHandler, true);
+
     gBrowser.addEventListener("NewPluginInstalled", gPluginHandler.newPluginInstalled, true);
 #ifdef XP_MACOSX
     gBrowser.addEventListener("npapi-carbon-event-model-failure", gPluginHandler, true);
@@ -1095,44 +1089,6 @@ var gBrowserInit = {
 
     // setup simple gestures support
     gGestureSupport.init(true);
-
-
-    if (uriToLoad && uriToLoad != "about:blank") {
-      if (uriToLoad instanceof Ci.nsISupportsArray) {
-        let count = uriToLoad.Count();
-        let specs = [];
-        for (let i = 0; i < count; i++) {
-          let urisstring = uriToLoad.GetElementAt(i).QueryInterface(Ci.nsISupportsString);
-          specs.push(urisstring.data);
-        }
-
-        // This function throws for certain malformed URIs, so use exception handling
-        // so that we don't disrupt startup
-        try {
-          gBrowser.loadTabs(specs, false, true);
-        } catch (e) {}
-      }
-      else if (uriToLoad instanceof XULElement) {
-        // swap the given tab with the default about:blank tab and then close
-        // the original tab in the other window.
-
-        // Stop the about:blank load
-        gBrowser.stop();
-        // make sure it has a docshell
-        gBrowser.docShell;
-
-        gBrowser.swapBrowsersAndCloseOther(gBrowser.selectedTab, uriToLoad);
-      }
-      else if (window.arguments.length >= 3) {
-        loadURI(uriToLoad, window.arguments[2], window.arguments[3] || null,
-                window.arguments[4] || false);
-        window.focus();
-      }
-      // Note: loadOneOrMoreURIs *must not* be called if window.arguments.length >= 3.
-      // Such callers expect that window.arguments[0] is handled as a single URI.
-      else
-        loadOneOrMoreURIs(uriToLoad);
-    }
 
     if (window.opener && !window.opener.closed) {
       let openerSidebarBox = window.opener.document.getElementById("sidebar-box");
@@ -1242,16 +1198,64 @@ var gBrowserInit = {
     gPrivateBrowsingUI.init();
     retrieveToolbarIconsizesFromTheme();
 
-    gDelayedStartupTimeoutId = setTimeout(this._delayedStartup.bind(this), 0, isLoadingBlank, mustLoadSidebar);
+    // Wait until chrome is painted before executing code not critical to making the window visible
+    this._boundDelayedStartup = this._delayedStartup.bind(this, uriToLoad, mustLoadSidebar);
+    window.addEventListener("MozAfterPaint", this._boundDelayedStartup);
+
     gStartupRan = true;
   },
 
-  _delayedStartup: function(isLoadingBlank, mustLoadSidebar) {
+  _cancelDelayedStartup: function () {
+    window.removeEventListener("MozAfterPaint", this._boundDelayedStartup);
+    this._boundDelayedStartup = null;
+  },
+
+  _delayedStartup: function(uriToLoad, mustLoadSidebar) {
     let tmp = {};
     Cu.import("resource:///modules/TelemetryTimestamps.jsm", tmp);
     let TelemetryTimestamps = tmp.TelemetryTimestamps;
     TelemetryTimestamps.add("delayedStartupStarted");
-    gDelayedStartupTimeoutId = null;
+
+    this._cancelDelayedStartup();
+
+    var isLoadingBlank = isBlankPageURL(uriToLoad);
+
+    if (uriToLoad && uriToLoad != "about:blank") {
+      if (uriToLoad instanceof Ci.nsISupportsArray) {
+        let count = uriToLoad.Count();
+        let specs = [];
+        for (let i = 0; i < count; i++) {
+          let urisstring = uriToLoad.GetElementAt(i).QueryInterface(Ci.nsISupportsString);
+          specs.push(urisstring.data);
+        }
+
+        // This function throws for certain malformed URIs, so use exception handling
+        // so that we don't disrupt startup
+        try {
+          gBrowser.loadTabs(specs, false, true);
+        } catch (e) {}
+      }
+      else if (uriToLoad instanceof XULElement) {
+        // swap the given tab with the default about:blank tab and then close
+        // the original tab in the other window.
+
+        // Stop the about:blank load
+        gBrowser.stop();
+        // make sure it has a docshell
+        gBrowser.docShell;
+
+        gBrowser.swapBrowsersAndCloseOther(gBrowser.selectedTab, uriToLoad);
+      }
+      else if (window.arguments.length >= 3) {
+        loadURI(uriToLoad, window.arguments[2], window.arguments[3] || null,
+                window.arguments[4] || false);
+        window.focus();
+      }
+      // Note: loadOneOrMoreURIs *must not* be called if window.arguments.length >= 3.
+      // Such callers expect that window.arguments[0] is handled as a single URI.
+      else
+        loadOneOrMoreURIs(uriToLoad);
+    }
 
 #ifdef MOZ_SAFE_BROWSING
     // Bug 778855 - Perf regression if we do this here. To be addressed in bug 779008.
@@ -1446,6 +1450,10 @@ var gBrowserInit = {
       let cmd = document.getElementById("Tools:RemoteDebugger");
       cmd.removeAttribute("disabled");
       cmd.removeAttribute("hidden");
+
+      cmd = document.getElementById("Tools:RemoteWebConsole");
+      cmd.removeAttribute("disabled");
+      cmd.removeAttribute("hidden");
     }
 
     // Enable Chrome Debugger?
@@ -1459,9 +1467,12 @@ var gBrowserInit = {
     }
 
     // Enable Error Console?
-    let consoleEnabled = gPrefService.getBoolPref("devtools.errorconsole.enabled");
+    // Temporarily enabled. See bug 798925.
+    let consoleEnabled = true || gPrefService.getBoolPref("devtools.errorconsole.enabled") ||
+                         gPrefService.getBoolPref("devtools.chrome.enabled");
     if (consoleEnabled) {
       let cmd = document.getElementById("Tools:ErrorConsole");
+      cmd.removeAttribute("disabled");
       cmd.removeAttribute("hidden");
     }
 
@@ -1582,8 +1593,8 @@ var gBrowserInit = {
 
     // Now either cancel delayedStartup, or clean up the services initialized from
     // it.
-    if (gDelayedStartupTimeoutId) {
-      clearTimeout(gDelayedStartupTimeoutId);
+    if (this._boundDelayedStartup) {
+      this._cancelDelayedStartup();
     } else {
       if (Win7Features)
         Win7Features.onCloseWindow();
@@ -1680,11 +1691,11 @@ var gBrowserInit = {
       }
     }
 
-    gDelayedStartupTimeoutId = setTimeout(this.nonBrowserWindowDelayedStartup.bind(this), 0);
+    this._delayedStartupTimeoutId = setTimeout(this.nonBrowserWindowDelayedStartup.bind(this), 0);
   },
 
   nonBrowserWindowDelayedStartup: function() {
-    gDelayedStartupTimeoutId = null;
+    this._delayedStartupTimeoutId = null;
 
     // initialise the offline listener
     BrowserOffline.init();
@@ -1706,8 +1717,8 @@ var gBrowserInit = {
   nonBrowserWindowShutdown: function() {
     // If nonBrowserWindowDelayedStartup hasn't run yet, we have no work to do -
     // just cancel the pending timeout and return;
-    if (gDelayedStartupTimeoutId) {
-      clearTimeout(gDelayedStartupTimeoutId);
+    if (this._delayedStartupTimeoutId) {
+      clearTimeout(this._delayedStartupTimeoutId);
       return;
     }
 
@@ -2549,7 +2560,7 @@ let BrowserOnClick = {
     switch (elmId) {
       case "exceptionDialogButton":
         secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_BAD_CERT_CLICK_ADD_EXCEPTION);
-        let params = { exceptionAdded : false, handlePrivateBrowsing : true };
+        let params = { exceptionAdded : false };
 
         try {
           switch (Services.prefs.getIntPref("browser.ssl_override_behavior")) {
@@ -3473,7 +3484,8 @@ function FillHistoryMenu(aParent) {
 }
 
 function addToUrlbarHistory(aUrlToAdd) {
-  if (aUrlToAdd &&
+  if (!PrivateBrowsingUtils.isWindowPrivate(window) &&
+      aUrlToAdd &&
       !aUrlToAdd.contains(" ") &&
       !/[\x00-\x1F]/.test(aUrlToAdd))
     PlacesUIUtils.markPageAsTyped(aUrlToAdd);
@@ -3524,15 +3536,18 @@ function OpenBrowserWindow(options)
   var wintype = document.documentElement.getAttribute('windowtype');
 
   var extraFeatures = "";
+  var forcePrivate = false;
 #ifdef MOZ_PER_WINDOW_PRIVATE_BROWSING
-  if (typeof options == "object" &&
-      "private" in options &&
-      options.private) {
+  forcePrivate = typeof options == "object" && "private" in options && options.private;
+#else
+  forcePrivate = gPrivateBrowsingUI.privateBrowsingEnabled;
+#endif
+
+  if (forcePrivate) {
     extraFeatures = ",private";
     // Force the new window to load about:privatebrowsing instead of the default home page
     defaultArgs = "about:privatebrowsing";
   }
-#endif
 
   // if and only if the current window is a browser window and it has a document with a character
   // set, then extract the current charset menu setting from the current document and use it to
@@ -3911,6 +3926,12 @@ var XULBrowserWindow = {
 
   // Called before links are navigated to to allow us to retarget them if needed.
   onBeforeLinkTraversal: function(originalTarget, linkURI, linkNode, isAppTab) {
+    let target = this._onBeforeLinkTraversal(originalTarget, linkURI, linkNode, isAppTab);
+    SocialUI.closeSocialPanelForLinkTraversal(target, linkNode);
+    return target;
+  },
+
+  _onBeforeLinkTraversal: function(originalTarget, linkURI, linkNode, isAppTab) {
     // Don't modify non-default targets or targets that aren't in top-level app
     // tab docshells (isAppTab will be false for app tab subframes).
     if (originalTarget != "" || !isAppTab)
@@ -4260,19 +4281,12 @@ var XULBrowserWindow = {
     const wpl = Components.interfaces.nsIWebProgressListener;
     const wpl_security_bits = wpl.STATE_IS_SECURE |
                               wpl.STATE_IS_BROKEN |
-                              wpl.STATE_IS_INSECURE |
-                              wpl.STATE_SECURE_HIGH |
-                              wpl.STATE_SECURE_MED |
-                              wpl.STATE_SECURE_LOW;
+                              wpl.STATE_IS_INSECURE;
     var level;
 
     switch (this._state & wpl_security_bits) {
-      case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_HIGH:
+      case wpl.STATE_IS_SECURE:
         level = "high";
-        break;
-      case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_MED:
-      case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_LOW:
-        level = "low";
         break;
       case wpl.STATE_IS_BROKEN:
         level = "broken";
@@ -5317,11 +5331,7 @@ function contentAreaClick(event, isPanelClick)
         return;
       }
 
-      let postData = {};
-      let url = getShortcutOrURI(href, postData);
-      if (!url)
-        return;
-      loadURI(url, null, postData.value, false);
+      loadURI(href, null, null, false);
       event.preventDefault();
       return;
     }
@@ -5351,7 +5361,8 @@ function contentAreaClick(event, isPanelClick)
   // pages loaded in frames are embed visits and lost with the session, while
   // visits across frames should be preserved.
   try {
-    PlacesUIUtils.markPageAsFollowedLink(href);
+    if (!PrivateBrowsingUtils.isWindowPrivate(window))
+      PlacesUIUtils.markPageAsFollowedLink(href);
   } catch (ex) { /* Skip invalid URIs. */ }
 }
 
@@ -5475,7 +5486,8 @@ function BrowserSetForcedCharacterSet(aCharset)
 {
   gBrowser.docShell.charset = aCharset;
   // Save the forced character-set
-  PlacesUtils.history.setCharsetForURI(gBrowser.currentURI, aCharset);
+  if (!PrivateBrowsingUtils.isWindowPrivate(window))
+    PlacesUtils.history.setCharsetForURI(getWebNavigation().currentURI, aCharset);
   BrowserCharsetReload();
 }
 
@@ -6660,7 +6672,7 @@ var gIdentityHandler = {
       this.setMode(this.IDENTITY_MODE_CHROMEUI);
     else if (state & nsIWebProgressListener.STATE_IDENTITY_EV_TOPLEVEL)
       this.setMode(this.IDENTITY_MODE_IDENTIFIED);
-    else if (state & nsIWebProgressListener.STATE_SECURE_HIGH)
+    else if (state & nsIWebProgressListener.STATE_IS_SECURE)
       this.setMode(this.IDENTITY_MODE_DOMAIN_VERIFIED);
     else if (state & nsIWebProgressListener.STATE_IS_BROKEN)
       this.setMode(this.IDENTITY_MODE_MIXED_CONTENT);
@@ -7121,7 +7133,7 @@ let gPrivateBrowsingUI = {
   },
 
   get _disableUIOnToggle() {
-    if (this._privateBrowsingService.autoStarted)
+    if (PrivateBrowsingUtils.permanentPrivateBrowsing)
       return false;
 
     try {
@@ -7217,7 +7229,7 @@ let gPrivateBrowsingUI = {
     document.getElementById("Tools:Sanitize").setAttribute("disabled", "true");
 
     let docElement = document.documentElement;
-    if (this._privateBrowsingService.autoStarted) {
+    if (PrivateBrowsingUtils.permanentPrivateBrowsing) {
       // Disable the menu item in auto-start mode
       document.getElementById("privateBrowsingItem")
               .setAttribute("disabled", "true");

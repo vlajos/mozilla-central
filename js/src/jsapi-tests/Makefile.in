@@ -57,20 +57,17 @@ CPPSRCS = \
   testScriptInfo.cpp \
   testScriptObject.cpp \
   testSetProperty.cpp \
+  testSourcePolicy.cpp \
   testStringBuffer.cpp \
   testTrap.cpp \
   testTypedArrays.cpp \
-  testUTF8.cpp \
-  testValueABI.cpp \
   testVersion.cpp \
   testXDR.cpp \
   testProfileStrings.cpp \
   testJSEvaluateScript.cpp \
   testErrorCopying.cpp \
+  testEnclosingFunction.cpp \
   $(NULL)
-
-CSRCS = \
-  valueABI.c
 
 # Disabled: an entirely unrelated test seems to cause this to fail.  Moreover,
 # given the test's dependence on interactions between the compiler, the GC, and
@@ -88,6 +85,10 @@ DEFINES         += -DIMPL_MFBT
 LIBS      = $(DEPTH)/$(LIB_PREFIX)js_static.$(LIB_SUFFIX) $(NSPR_LIBS) $(MOZ_ZLIB_LIBS)
 
 LOCAL_INCLUDES += -I$(topsrcdir) -I..
+
+ifdef QEMU_EXE
+MOZ_POST_PROGRAM_COMMAND = $(topsrcdir)/build/qemu-wrap --qemu $(QEMU_EXE) --libdir $(CROSS_LIB)
+endif
 
 include $(topsrcdir)/config/rules.mk
 

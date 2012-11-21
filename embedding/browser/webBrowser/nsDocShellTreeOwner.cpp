@@ -32,6 +32,7 @@
 #include "nsIDOMDocumentType.h"
 #include "nsIDOMElement.h"
 #include "Link.h"
+#include "mozilla/dom/Element.h"
 #include "nsIDOMSVGElement.h"
 #include "nsIDOMSVGTitleElement.h"
 #include "nsIDOMEvent.h"
@@ -468,6 +469,17 @@ nsDocShellTreeOwner::Destroy()
   }
 
   return NS_ERROR_NULL_POINTER;
+}
+
+NS_IMETHODIMP
+nsDocShellTreeOwner::GetUnscaledDevicePixelsPerCSSPixel(double *aScale)
+{
+  if (mWebBrowser) {
+    return mWebBrowser->GetUnscaledDevicePixelsPerCSSPixel(aScale);
+  }
+
+  *aScale = 1.0;
+  return NS_OK;
 }
 
 NS_IMETHODIMP

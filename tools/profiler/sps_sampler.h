@@ -64,6 +64,8 @@ extern bool stack_key_initialized;
 #define SAMPLE_LABEL_PRINTF(name_space, info, ...) mozilla::SamplerStackFramePrintfRAII SAMPLER_APPEND_LINE_NUMBER(sampler_raii)(name_space "::" info, __LINE__, __VA_ARGS__)
 #define SAMPLE_MARKER(info) mozilla_sampler_add_marker(info)
 
+#define SAMPLER_PRINT_LOCATION() mozilla_sampler_print_location()
+
 /* we duplicate this code here to avoid header dependencies
  * which make it more difficult to include in other places */
 #if defined(_M_X64) || defined(__x86_64__)
@@ -83,7 +85,7 @@ extern bool stack_key_initialized;
 # define PLATFORM_LIKELY_MEMORY_CONSTRAINED
 #endif
 
-#ifndef PLATFORM_LIKELY_MEMORY_CONSTRAINED
+#if !defined(PLATFORM_LIKELY_MEMORY_CONSTRAINED) && !defined(ARCH_ARMV6)
 # define PROFILE_DEFAULT_ENTRY 1000000
 #else
 # define PROFILE_DEFAULT_ENTRY 100000
@@ -170,6 +172,8 @@ char* mozilla_sampler_get_profile();
 JSObject *mozilla_sampler_get_profile_data(JSContext *aCx);
 const char** mozilla_sampler_get_features();
 void mozilla_sampler_init();
+
+void mozilla_sampler_print_location();
 
 namespace mozilla {
 
@@ -424,6 +428,9 @@ inline void mozilla_sampler_call_exit(void *aHandle)
 
 inline void mozilla_sampler_add_marker(const char *aMarker)
 {
+  if (!stack_key_initialized)
+    return;
+
   ProfileStack *stack = tlsStack.get();
   if (!stack) {
     return;

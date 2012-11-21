@@ -57,7 +57,7 @@ pref("extensions.update.autoUpdateDefault", true);
 
 pref("extensions.hotfix.id", "firefox-hotfix@mozilla.org");
 pref("extensions.hotfix.cert.checkAttributes", true);
-pref("extensions.hotfix.certs.1.sha1Fingerprint", "F1:DB:F9:6A:7B:B8:04:FA:48:3C:16:95:C7:2F:17:C6:5B:C2:9F:45");
+pref("extensions.hotfix.certs.1.sha1Fingerprint", "CA:C4:7D:BF:63:4D:24:E9:DC:93:07:2F:E3:C8:EA:6D:C3:94:6E:89");
 
 // Disable add-ons that are not installed by the user in all scopes by default.
 // See the SCOPE constants in AddonManager.jsm for values to use here.
@@ -115,8 +115,10 @@ pref("app.update.cert.maxErrors", 5);
 //    the value for the name must be the same as the value for the attribute name
 //    on the certificate.
 // If these conditions aren't met it will be treated the same as when there is
-// no update available. This validation will not be performed when using the
-// |app.update.url.override| preference for update checking.
+// no update available. This validation will not be performed when the
+// |app.update.url.override| user preference has been set for testing updates or
+// when the |app.update.cert.checkAttributes| preference is set to false. Also,
+// the |app.update.url.override| preference should ONLY be used for testing.
 pref("app.update.certs.1.issuerName", "OU=Equifax Secure Certificate Authority,O=Equifax,C=US");
 pref("app.update.certs.1.commonName", "aus3.mozilla.org");
 
@@ -222,6 +224,18 @@ pref("general.autoScroll", true);
 #endif
 
 pref("general.useragent.complexOverride.moodle", true); // bug 797703
+pref("general.useragent.override.bank.barclays.co.uk",   "Gecko/[^ ]*#Gecko/20100101"); // bug 804169
+pref("general.useragent.override.bankmillennium.pl",     "Gecko/[^ ]*#Gecko/20100101"); // bug 804103
+pref("general.useragent.override.becu.org",              "Gecko/[^ ]*#Gecko/20100101"); // bug 804170
+pref("general.useragent.override.becuonlinebanking.org", "Gecko/[^ ]*#Gecko/20100101"); // bug 804170
+pref("general.useragent.override.bfsfcu.org",            "Gecko/[^ ]*#Gecko/20100101"); // bug 804171
+pref("general.useragent.override.cenfedcu.org",          "Gecko/[^ ]*#Gecko/20100101"); // bug 804172
+pref("general.useragent.override.coastal24.com",         "Gecko/[^ ]*#Gecko/20100101"); // bug 804175
+pref("general.useragent.override.mtb.com",               "Gecko/[^ ]*#Gecko/20100101"); // bug 795350
+pref("general.useragent.override.mandtbank.com",         "Gecko/[^ ]*#Gecko/20100101"); // bug 795350
+pref("general.useragent.override.natweststockbrokers.co.uk", "Gecko/[^ ]*#Gecko/20100101"); // bug 804179
+pref("general.useragent.override.natweststockbrokers.com", "Gecko/[^ ]*#Gecko/20100101"); // bug 804179
+pref("general.useragent.override.raiffeisen.hu",         "Gecko/[^ ]*#Gecko/20100101"); // bug 795348
 
 // At startup, check if we're the default browser and prompt user if not.
 pref("browser.shell.checkDefaultBrowser", true);
@@ -326,6 +340,13 @@ pref("browser.download.useToolkitUI", false);
 
 // This controls retention behavior in the Downloads Panel only.
 pref("browser.download.panel.removeFinishedDownloads", false);
+
+// This records whether or not the panel has been shown at least once.
+pref("browser.download.panel.shown", false);
+
+// This records whether or not at least one session with the Downloads Panel
+// enabled has been completed already.
+pref("browser.download.panel.firstSessionCompleted", false);
 
 // search engines URL
 pref("browser.search.searchEnginesURL",      "https://addons.mozilla.org/%LOCALE%/firefox/search-engines/");
@@ -557,13 +578,6 @@ pref("network.protocol-handler.expose.news", false);
 pref("network.protocol-handler.expose.snews", false);
 pref("network.protocol-handler.expose.nntp", false);
 
-// Default security warning dialogs to show once.
-pref("security.warn_entering_secure.show_once", false);
-pref("security.warn_entering_weak.show_once", true);
-pref("security.warn_leaving_secure.show_once", false);
-pref("security.warn_viewing_mixed.show_once", true);
-pref("security.warn_submit_insecure.show_once", false);
-
 pref("accessibility.typeaheadfind", false);
 pref("accessibility.typeaheadfind.timeout", 5000);
 pref("accessibility.typeaheadfind.linksonly", false);
@@ -725,7 +739,7 @@ pref("urlclassifier.alternate_error_page", "blocked");
 pref("urlclassifier.gethashnoise", 4);
 
 // Randomize all UrlClassifier data with a per-client key.
-pref("urlclassifier.randomizeclient", true);
+pref("urlclassifier.randomizeclient", false);
 
 // The list of tables that use the gethash request to confirm partial results.
 pref("urlclassifier.gethashtables", "goog-phish-shavar,goog-malware-shavar");
@@ -982,11 +996,6 @@ pref("services.sync.prefs.sync.security.OCSP.require", true);
 pref("services.sync.prefs.sync.security.default_personal_cert", true);
 pref("services.sync.prefs.sync.security.enable_ssl3", true);
 pref("services.sync.prefs.sync.security.enable_tls", true);
-pref("services.sync.prefs.sync.security.warn_entering_secure", true);
-pref("services.sync.prefs.sync.security.warn_entering_weak", true);
-pref("services.sync.prefs.sync.security.warn_leaving_secure", true);
-pref("services.sync.prefs.sync.security.warn_submit_insecure", true);
-pref("services.sync.prefs.sync.security.warn_viewing_mixed", true);
 pref("services.sync.prefs.sync.signon.rememberSignons", true);
 pref("services.sync.prefs.sync.spellchecker.dictionary", true);
 pref("services.sync.prefs.sync.xpinstall.whitelist.required", true);
@@ -1018,7 +1027,7 @@ pref("devtools.responsiveUI.enabled", true);
 
 // Enable the Debugger
 pref("devtools.debugger.enabled", true);
-pref("devtools.debugger.chrome-enabled", false);
+pref("devtools.debugger.chrome-enabled", true);
 pref("devtools.debugger.remote-host", "localhost");
 pref("devtools.debugger.remote-autoconnect", false);
 pref("devtools.debugger.remote-connection-retries", 3);
@@ -1026,13 +1035,16 @@ pref("devtools.debugger.remote-timeout", 20000);
 
 // The default Debugger UI settings
 pref("devtools.debugger.ui.height", 250);
-pref("devtools.debugger.ui.remote-win.width", 900);
-pref("devtools.debugger.ui.remote-win.height", 400);
+pref("devtools.debugger.ui.win-x", 0);
+pref("devtools.debugger.ui.win-y", 0);
+pref("devtools.debugger.ui.win-width", 900);
+pref("devtools.debugger.ui.win-height", 400);
 pref("devtools.debugger.ui.stackframes-width", 200);
-pref("devtools.debugger.ui.stackframes-pane-visible", true);
 pref("devtools.debugger.ui.variables-width", 300);
-pref("devtools.debugger.ui.variables-pane-visible", true);
-pref("devtools.debugger.ui.non-enum-visible", true);
+pref("devtools.debugger.ui.panes-visible-on-startup", false);
+pref("devtools.debugger.ui.variables-sorting-enabled", true);
+pref("devtools.debugger.ui.variables-non-enum-visible", true);
+pref("devtools.debugger.ui.variables-searchbox-visible", false);
 
 // Enable the style inspector
 pref("devtools.styleinspector.enabled", true);
@@ -1170,11 +1182,12 @@ pref("pdfjs.previousHandler.alwaysAskBeforeHandling", false);
 pref("image.mem.max_decoded_image_kb", 256000);
 
 // Example social provider
-pref("social.manifest.motown", "{\"origin\":\"https://motown-dev.mozillalabs.com\",\"name\":\"MoTown\",\"workerURL\":\"https://motown-dev.mozillalabs.com/social/worker.js\",\"iconURL\":\"https://motown-dev.mozillalabs.com/images/motown-icon.png\",\"sidebarURL\":\"https://motown-dev.mozillalabs.com/social/sidebar\"}");
+pref("social.manifest.facebook", "{\"origin\":\"https://www.facebook.com\",\"name\":\"Facebook Messenger\",\"workerURL\":\"https://www.facebook.com/desktop/fbdesktop2/socialfox/fbworker.js.php\",\"iconURL\":\"data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8%2F9hAAAAX0lEQVQ4jWP4%2F%2F8%2FAyUYTFhHzjgDxP9JxGeQDSBVMxgTbUBCxer%2Fr999%2BQ8DJBuArJksA9A10s8AXIBoA0B%2BR%2FY%2FjD%2BEwoBoA1yT5v3PbdmCE8MAshhID%2FUMoDgzUYIBj0Cgi7ar4coAAAAASUVORK5CYII%3D\",\"sidebarURL\":\"https://www.facebook.com/desktop/fbdesktop2/?socialfox=true\"}");
 // Comma-separated list of nsIURI::prePaths that are allowed to activate
 // built-in social functionality.
-pref("social.activation.whitelist", "https://motown-dev.mozillalabs.com");
+pref("social.activation.whitelist", "https://www.facebook.com");
 pref("social.sidebar.open", true);
+pref("social.sidebar.unload_timeout_ms", 10000);
 pref("social.active", false);
 pref("social.toast-notifications.enabled", true);
 

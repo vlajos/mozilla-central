@@ -28,10 +28,10 @@ XPCOMUtils.defineLazyServiceGetter(this, "gActivityDistributor",
                                    "@mozilla.org/network/http-activity-distributor;1",
                                    "nsIHttpActivityDistributor");
 
-var EXPORTED_SYMBOLS = ["WebConsoleUtils", "JSPropertyProvider", "JSTermHelpers",
-                        "PageErrorListener", "ConsoleAPIListener",
-                        "NetworkResponseListener", "NetworkMonitor",
-                        "ConsoleProgressListener"];
+this.EXPORTED_SYMBOLS = ["WebConsoleUtils", "JSPropertyProvider", "JSTermHelpers",
+                         "PageErrorListener", "ConsoleAPIListener",
+                         "NetworkResponseListener", "NetworkMonitor",
+                         "ConsoleProgressListener"];
 
 // Match the function name from the result of toString() or toSource().
 //
@@ -44,7 +44,7 @@ const REGEX_MATCH_FUNCTION_NAME = /^\(?function\s+([^(\s]+)\s*\(/;
 // Match the function arguments from the result of toString() or toSource().
 const REGEX_MATCH_FUNCTION_ARGS = /^\(?function\s*[^\s(]*\s*\((.+?)\)/;
 
-var WebConsoleUtils = {
+this.WebConsoleUtils = {
   /**
    * Convenience function to unwrap a wrapped object.
    *
@@ -589,9 +589,10 @@ var WebConsoleUtils = {
     let type = typeof(aValue);
     switch (type) {
       case "boolean":
-      case "string":
       case "number":
         return aValue;
+      case "string":
+          return aObjectWrapper(aValue);
       case "object":
       case "function":
         if (aValue) {
@@ -686,13 +687,28 @@ var WebConsoleUtils = {
   {
     // Primitives like strings and numbers are not sent as objects.
     // But null and undefined are sent as objects with the type property
-    // telling which type of value we have.
+    // telling which type of value we have. We also have long strings which are
+    // sent using the LongStringActor.
+
     let type = typeof(aGrip);
+    if (type == "string" ||
+        (aGrip && type == "object" && aGrip.type == "longString")) {
+      let str = type == "string" ? aGrip : aGrip.initial;
+      if (aFormatString) {
+        return this.formatResultString(str);
+      }
+      return str;
+    }
+
     if (aGrip && type == "object") {
+      if (aGrip.displayString && typeof aGrip.displayString == "object" &&
+          aGrip.displayString.type == "longString") {
+        return aGrip.displayString.initial;
+      }
       return aGrip.displayString || aGrip.className || aGrip.type || type;
     }
-    return type == "string" && aFormatString ?
-           this.formatResultString(aGrip) : aGrip + "";
+
+    return aGrip + "";
   },
 
   /**
@@ -813,12 +829,21 @@ var WebConsoleUtils = {
       return val;
     }
 
+    if (val.type == "longString") {
+      return this.formatResultString(val.initial) + "\u2026";
+    }
+
     if (val.type == "function" && val.functionName) {
       return "function " + val.functionName + "(" +
              val.functionArguments.join(", ") + ")";
     }
     if (val.type == "object" && val.className) {
       return val.className;
+    }
+
+    if (val.displayString && typeof val.displayString == "object" &&
+        val.displayString.type == "longString") {
+      return val.displayString.initial;
     }
 
     return val.displayString || val.type;
@@ -914,7 +939,7 @@ WebConsoleUtils.l10n.prototype = {
 // JS Completer
 //////////////////////////////////////////////////////////////////////////
 
-var JSPropertyProvider = (function _JSPP(WCU) {
+this.JSPropertyProvider = (function _JSPP(WCU) {
 const STATE_NORMAL = 0;
 const STATE_QUOTE = 2;
 const STATE_DQUOTE = 3;
@@ -1225,7 +1250,7 @@ return JSPropertyProvider;
  *        invoked with one argument, the nsIScriptError, whenever a relevant
  *        page error is received.
  */
-function PageErrorListener(aWindow, aListener)
+this.PageErrorListener = function PageErrorListener(aWindow, aListener)
 {
   this.window = aWindow;
   this.listener = aListener;
@@ -1326,22 +1351,14 @@ PageErrorListener.prototype =
   {
     let innerWindowId = this.window ?
                         WebConsoleUtils.getInnerWindowId(this.window) : null;
-    let result = [];
-    let errors = {};
-    Services.console.getMessageArray(errors, {});
+    let errors = Services.console.getMessageArray() || [];
 
-    (errors.value || []).forEach(function(aError) {
-      if (!(aError instanceof Ci.nsIScriptError) ||
-          (innerWindowId &&
-           (aError.innerWindowID != innerWindowId ||
-            !this.isCategoryAllowed(aError.category)))) {
-        return;
-      }
-
-      result.push(aError);
+    return errors.filter(function(aError) {
+      return aError instanceof Ci.nsIScriptError &&
+             (!innerWindowId ||
+              (aError.innerWindowID == innerWindowId &&
+               this.isCategoryAllowed(aError.category)));
     }, this);
-
-    return result;
   },
 
   /**
@@ -1373,7 +1390,7 @@ PageErrorListener.prototype =
  *        Console API message that comes from the observer service, whenever
  *        a relevant console API call is received.
  */
-function ConsoleAPIListener(aWindow, aOwner)
+this.ConsoleAPIListener = function ConsoleAPIListener(aWindow, aOwner)
 {
   this.window = aWindow;
   this.owner = aOwner;
@@ -1475,7 +1492,7 @@ ConsoleAPIListener.prototype =
  * @param object aOwner
  *        The owning object.
  */
-function JSTermHelpers(aOwner)
+this.JSTermHelpers = function JSTermHelpers(aOwner)
 {
   /**
    * Find a node by ID.
@@ -1679,7 +1696,7 @@ function JSTermHelpers(aOwner)
     aOwner.helperResult = { rawOutput: true };
     return String(aString);
   };
-}
+};
 
 
 (function(_global, WCU) {
@@ -1923,12 +1940,17 @@ NetworkResponseListener.prototype = {
       text: aData || "",
     };
 
-    // TODO: Bug 787981 - use LongStringActor for strings that are too long.
+    response.size = response.text.length;
 
     try {
       response.mimeType = this.request.contentType;
     }
     catch (ex) { }
+
+    if (!response.mimeType || !NetworkHelper.isTextMimeType(response.mimeType)) {
+      response.encoding = "base64";
+      response.text = btoa(response.text);
+    }
 
     if (response.mimeType && this.request.contentCharset) {
       response.mimeType += "; charset=" + this.request.contentCharset;
@@ -2582,7 +2604,6 @@ _global.NetworkMonitor = NetworkMonitor;
 _global.NetworkResponseListener = NetworkResponseListener;
 })(this, WebConsoleUtils);
 
-
 /**
  * A WebProgressListener that listens for location changes.
  *
@@ -2590,16 +2611,17 @@ _global.NetworkResponseListener = NetworkResponseListener;
  * location changes.
  *
  * @constructor
- * @param object aBrowser
- *        The xul:browser for which we need to track location changes.
+ * @param object aWindow
+ *        The window for which we need to track location changes.
  * @param object aOwner
  *        The listener owner which needs to implement two methods:
  *        - onFileActivity(aFileURI)
  *        - onLocationChange(aState, aTabURI, aPageTitle)
  */
-function ConsoleProgressListener(aBrowser, aOwner)
+this.ConsoleProgressListener =
+ function ConsoleProgressListener(aWindow, aOwner)
 {
-  this.browser = aBrowser;
+  this.window = aWindow;
   this.owner = aOwner;
 }
 
@@ -2637,6 +2659,8 @@ ConsoleProgressListener.prototype = {
    */
   _initialized: false,
 
+  _webProgress: null,
+
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIWebProgressListener,
                                          Ci.nsISupportsWeakReference]),
 
@@ -2650,8 +2674,13 @@ ConsoleProgressListener.prototype = {
       return;
     }
 
+    this._webProgress = this.window.QueryInterface(Ci.nsIInterfaceRequestor)
+                        .getInterface(Ci.nsIWebNavigation)
+                        .QueryInterface(Ci.nsIWebProgress);
+    this._webProgress.addProgressListener(this,
+                                          Ci.nsIWebProgress.NOTIFY_STATE_ALL);
+
     this._initialized = true;
-    this.browser.addProgressListener(this, Ci.nsIWebProgress.NOTIFY_STATE_ALL);
   },
 
   /**
@@ -2768,8 +2797,7 @@ ConsoleProgressListener.prototype = {
     let isWindow = aState & Ci.nsIWebProgressListener.STATE_IS_WINDOW;
 
     // Skip non-interesting states.
-    if (!isNetwork || !isWindow ||
-        aProgress.DOMWindow != this.browser.contentWindow) {
+    if (!isNetwork || !isWindow || aProgress.DOMWindow != this.window) {
       return;
     }
 
@@ -2777,9 +2805,8 @@ ConsoleProgressListener.prototype = {
       this.owner.onLocationChange("start", aRequest.URI.spec, "");
     }
     else if (isStop) {
-      let window = this.browser.contentWindow;
-      this.owner.onLocationChange("stop", window.location.href,
-                                  window.document.title);
+      this.owner.onLocationChange("stop", this.window.location.href,
+                                  this.window.document.title);
     }
   },
 
@@ -2801,11 +2828,15 @@ ConsoleProgressListener.prototype = {
     this._fileActivity = false;
     this._locationChange = false;
 
-    if (this.browser.removeProgressListener) {
-      this.browser.removeProgressListener(this);
+    try {
+      this._webProgress.removeProgressListener(this);
+    }
+    catch (ex) {
+      // This can throw during browser shutdown.
     }
 
-    this.browser = null;
+    this._webProgress = null;
+    this.window = null;
     this.owner = null;
   },
 };

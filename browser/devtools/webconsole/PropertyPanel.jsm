@@ -15,7 +15,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "WebConsoleUtils",
                                   "resource://gre/modules/devtools/WebConsoleUtils.jsm");
 
-var EXPORTED_SYMBOLS = ["PropertyPanel", "PropertyTreeView"];
+this.EXPORTED_SYMBOLS = ["PropertyPanel", "PropertyTreeView"];
 
 ///////////////////////////////////////////////////////////////////////////
 //// PropertyTreeView.
@@ -25,7 +25,7 @@ var EXPORTED_SYMBOLS = ["PropertyPanel", "PropertyTreeView"];
  * interface properties, see the documentation:
  * https://developer.mozilla.org/en/XPCOM_Interface_Reference/nsITreeView
  */
-var PropertyTreeView = function() {
+this.PropertyTreeView = function() {
   this._rows = [];
   this._objectActors = [];
 };
@@ -147,6 +147,10 @@ PropertyTreeView.prototype = {
           let val = aItem[aProp];
           if (val && val.actor) {
             this._objectActors.push(val.actor);
+            if (typeof val.displayString == "object" &&
+                val.displayString.type == "longString") {
+              this._objectActors.push(val.displayString.actor);
+            }
           }
         }, this);
       }
@@ -404,7 +408,7 @@ function appendChild(aDocument, aParent, aTag, aAttributes)
  * @param array of objects aButtons
  *        Array with buttons to display at the bottom of the panel.
  */
-function PropertyPanel(aParent, aTitle, aObject, aButtons)
+this.PropertyPanel = function PropertyPanel(aParent, aTitle, aObject, aButtons)
 {
   let document = aParent.ownerDocument;
 

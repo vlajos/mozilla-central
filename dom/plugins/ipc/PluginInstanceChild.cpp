@@ -43,6 +43,7 @@ using mozilla::gfx::SharedDIBSurface;
 using namespace mozilla;
 using mozilla::ipc::ProcessChild;
 using namespace mozilla::plugins;
+using namespace mozilla::layers;
 using namespace std;
 
 #ifdef MOZ_WIDGET_GTK
@@ -454,7 +455,7 @@ PluginInstanceChild::NPN_GetValue(NPNVariable aVar,
 #endif
 
     default:
-        PR_LOG(gPluginLog, PR_LOG_WARNING,
+        PR_LOG(GetPluginLog(), PR_LOG_WARNING,
                ("In PluginInstanceChild::NPN_GetValue: Unhandled NPNVariable %i (%s)",
                 (int) aVar, NPNVariableToString(aVar)));
         return NPERR_GENERIC_ERROR;
@@ -483,7 +484,7 @@ PluginInstanceChild::Invalidate()
 NPError
 PluginInstanceChild::NPN_SetValue(NPPVariable aVar, void* aValue)
 {
-    PR_LOG(gPluginLog, PR_LOG_DEBUG, ("%s (aVar=%i, aValue=%p)",
+    PR_LOG(GetPluginLog(), PR_LOG_DEBUG, ("%s (aVar=%i, aValue=%p)",
                                       FULLFUNCTION, (int) aVar, aValue));
 
     AssertPluginThread();
@@ -587,7 +588,7 @@ PluginInstanceChild::NPN_SetValue(NPPVariable aVar, void* aValue)
 #endif
 
     default:
-        PR_LOG(gPluginLog, PR_LOG_WARNING,
+        PR_LOG(GetPluginLog(), PR_LOG_WARNING,
                ("In PluginInstanceChild::NPN_SetValue: Unhandled NPPVariable %i (%s)",
                 (int) aVar, NPPVariableToString(aVar)));
         return NPERR_GENERIC_ERROR;
@@ -1009,6 +1010,24 @@ PluginInstanceChild::RecvWindowPosChanged(const NPRemoteEvent& event)
     return AnswerNPP_HandleEvent(event, &dontcare);
 #else
     NS_RUNTIMEABORT("WindowPosChanged is a windows-only message");
+    return false;
+#endif
+}
+
+bool
+PluginInstanceChild::RecvContentsScaleFactorChanged(const double& aContentsScaleFactor)
+{
+#ifdef XP_MACOSX
+    mContentsScaleFactor = aContentsScaleFactor;
+    if (mShContext) {
+        // Release the shared context so that it is reallocated
+        // with the new size. 
+        ::CGContextRelease(mShContext);
+        mShContext = nullptr;
+    }
+    return true;
+#else
+    NS_RUNTIMEABORT("ContentsScaleFactorChanged is an OSX-only message");
     return false;
 #endif
 }
@@ -2157,7 +2176,7 @@ PluginInstanceChild::FlashThrottleMessage(HWND aWnd,
 bool
 PluginInstanceChild::AnswerSetPluginFocus()
 {
-    PR_LOG(gPluginLog, PR_LOG_DEBUG, ("%s", FULLFUNCTION));
+    PR_LOG(GetPluginLog(), PR_LOG_DEBUG, ("%s", FULLFUNCTION));
 
 #if defined(OS_WIN)
     // Parent is letting us know the dom set focus to the plugin. Note,
@@ -2180,7 +2199,7 @@ PluginInstanceChild::AnswerSetPluginFocus()
 bool
 PluginInstanceChild::AnswerUpdateWindow()
 {
-    PR_LOG(gPluginLog, PR_LOG_DEBUG, ("%s", FULLFUNCTION));
+    PR_LOG(GetPluginLog(), PR_LOG_DEBUG, ("%s", FULLFUNCTION));
 
 #if defined(OS_WIN)
     if (mPluginWindowHWND) {
@@ -3957,7 +3976,9 @@ PluginInstanceChild::SwapSurfaces()
         (mDoubleBufferCARenderer.GetFrontSurfaceWidth() != 
             mDoubleBufferCARenderer.GetBackSurfaceWidth() ||
         mDoubleBufferCARenderer.GetFrontSurfaceHeight() != 
-            mDoubleBufferCARenderer.GetBackSurfaceHeight())) {
+            mDoubleBufferCARenderer.GetBackSurfaceHeight() ||
+        mDoubleBufferCARenderer.GetFrontSurfaceContentsScaleFactor() != 
+            mDoubleBufferCARenderer.GetBackSurfaceContentsScaleFactor())) {
 
         mDoubleBufferCARenderer.ClearFrontSurface();
     }

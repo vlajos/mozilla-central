@@ -36,9 +36,12 @@
 
 #include "vm/String-inl.h"
 
-using namespace mozilla;
 using namespace js;
 using namespace js::gc;
+
+using mozilla::ArrayEnd;
+using mozilla::ArrayLength;
+using mozilla::RangedPtr;
 
 const char *
 js_AtomToPrintableString(JSContext *cx, JSAtom *atom, JSAutoByteString *bytes)
@@ -319,7 +322,7 @@ js::AtomizeString(JSContext *cx, JSString *str, InternBehavior ib)
 }
 
 JSAtom *
-js::Atomize(JSContext *cx, const char *bytes, size_t length, InternBehavior ib, FlationCoding fc)
+js::Atomize(JSContext *cx, const char *bytes, size_t length, InternBehavior ib)
 {
     CHECK_REQUEST(cx);
 
@@ -340,15 +343,12 @@ js::Atomize(JSContext *cx, const char *bytes, size_t length, InternBehavior ib, 
     const jschar *chars;
     OwnCharsBehavior ocb = CopyChars;
     if (length < ATOMIZE_BUF_MAX) {
-        if (fc == CESU8Encoding)
-            InflateUTF8StringToBuffer(cx, bytes, length, inflated, &inflatedLength, fc);
-        else
-            InflateStringToBuffer(cx, bytes, length, inflated, &inflatedLength);
+        InflateStringToBuffer(cx, bytes, length, inflated, &inflatedLength);
         inflated[inflatedLength] = 0;
         chars = inflated;
     } else {
         inflatedLength = length;
-        chars = InflateString(cx, bytes, &inflatedLength, fc);
+        chars = InflateString(cx, bytes, &inflatedLength);
         if (!chars)
             return NULL;
         ocb = TakeCharOwnership;
@@ -371,10 +371,8 @@ js::AtomizeChars(JSContext *cx, const jschar *chars, size_t length, InternBehavi
     return AtomizeInline(cx, &chars, length, ib);
 }
 
-namespace js {
-
 bool
-IndexToIdSlow(JSContext *cx, uint32_t index, jsid *idp)
+js::IndexToIdSlow(JSContext *cx, uint32_t index, jsid *idp)
 {
     JS_ASSERT(index > JSID_INT_MAX);
 
@@ -389,8 +387,6 @@ IndexToIdSlow(JSContext *cx, uint32_t index, jsid *idp)
     *idp = JSID_FROM_BITS((size_t)atom);
     return true;
 }
-
-} /* namespace js */
 
 bool
 js::InternNonIntElementId(JSContext *cx, JSObject *obj, const Value &idval,

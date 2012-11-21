@@ -27,6 +27,8 @@ static int gNotOptimized;
 #define ALOG(args...) __android_log_print(ANDROID_LOG_INFO, "GeckoJavaEnv", ## args)
 #endif
 
+using namespace mozilla::layers;
+
 namespace mozilla {
 #ifdef MOZ_WIDGET_ANDROID
 nsresult
@@ -275,6 +277,13 @@ PluginPRLibrary::IsRemoteDrawingCoreAnimation(NPP instance, bool *aDrawing)
   nsNPAPIPluginInstance* inst = (nsNPAPIPluginInstance*)instance->ndata;
   NS_ENSURE_TRUE(inst, NS_ERROR_NULL_POINTER);
   *aDrawing = false; 
+  return NS_OK;
+}
+nsresult
+PluginPRLibrary::ContentsScaleFactorChanged(NPP instance, double aContentsScaleFactor)
+{
+  nsNPAPIPluginInstance* inst = (nsNPAPIPluginInstance*)instance->ndata;
+  NS_ENSURE_TRUE(inst, NS_ERROR_NULL_POINTER);
   return NS_OK;
 }
 #endif

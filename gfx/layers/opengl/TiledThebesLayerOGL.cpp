@@ -130,6 +130,15 @@ TiledThebesLayerOGL::~TiledThebesLayerOGL()
 }
 
 void
+TiledThebesLayerOGL::MemoryPressure()
+{
+  if (mReusableTileStore) {
+    delete mReusableTileStore;
+    mReusableTileStore = new ReusableTileStoreOGL(gl(), 1);
+  }
+}
+
+void
 TiledThebesLayerOGL::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuffer)
 {
   mMainMemoryTiledBuffer.ReadUnlock();
@@ -137,7 +146,7 @@ TiledThebesLayerOGL::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiled
   // TODO: Remove me once Bug 747811 lands.
   delete mTiledBuffer;
   mRegionToUpload.Or(mRegionToUpload, mMainMemoryTiledBuffer.GetLastPaintRegion());
-
+  mMainMemoryTiledBuffer.ClearPaintedRegion();
 }
 
 void

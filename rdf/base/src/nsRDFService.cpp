@@ -240,12 +240,8 @@ struct DateHashEntry : public PLDHashEntryHdr {
     {
         // xor the low 32 bits with the high 32 bits.
         PRTime t = *static_cast<const PRTime *>(key);
-        int64_t h64, l64;
-        h64 = t >> 32;
-        l64 = LL_INIT(0, 0xffffffff);
-        l64 &= t;
-        int32_t h32 = int32_t(h64);
-        int32_t l32 = int32_t(l64);
+        int32_t h32 = int32_t(t >> 32);
+        int32_t l32 = int32_t(0xffffffff & t);
         return PLDHashNumber(l32 ^ h32);
     }
 
@@ -875,7 +871,7 @@ static inline bool
 IsLegalSchemeCharacter(const char aChar)
 {
     uint8_t mask = kLegalSchemeChars[aChar >> 3];
-    uint8_t bit = PR_BIT(aChar & 0x7);
+    uint8_t bit = 1u << (aChar & 0x7);
     return bool((mask & bit) != 0);
 }
 

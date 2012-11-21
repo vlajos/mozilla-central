@@ -32,41 +32,60 @@
 #define GIHM_TIMING_RECEIVEFRAME    0
 #define GIHM_TIMING_OVERALL         1
 
-using namespace mozilla;
-using namespace android;
 
 namespace mozilla {
 
 typedef class nsGonkCameraControl GonkCamera;
 
-class GonkCameraHardware : GonkNativeWindowNewFrameCallback
+class GonkCameraHardware : android::GonkNativeWindowNewFrameCallback
 {
 protected:
   GonkCameraHardware(GonkCamera* aTarget, uint32_t aCamera);
   ~GonkCameraHardware();
   void Init();
 
-  static void     DataCallback(int32_t aMsgType, const sp<IMemory> &aDataPtr, camera_frame_metadata_t* aMetadata, void* aUser);
+  static void     DataCallback(int32_t aMsgType, const android::sp<android::IMemory> &aDataPtr, camera_frame_metadata_t* aMetadata, void* aUser);
   static void     NotifyCallback(int32_t aMsgType, int32_t ext1, int32_t ext2, void* aUser);
-  static void     DataCallbackTimestamp(nsecs_t aTimestamp, int32_t aMsgType, const sp<IMemory>& aDataPtr, void* aUser);
+  static void     DataCallbackTimestamp(nsecs_t aTimestamp, int32_t aMsgType, const android::sp<android::IMemory>& aDataPtr, void* aUser);
 
 public:
   virtual void    OnNewFrame() MOZ_OVERRIDE;
 
   static void     ReleaseHandle(uint32_t aHwHandle);
   static uint32_t GetHandle(GonkCamera* aTarget, uint32_t aCamera);
+
+  /**
+   * The physical orientation of the camera sensor: 0, 90, 180, or 270.
+   *
+   * For example, suppose a device has a naturally tall screen. The
+   * back-facing camera sensor is mounted in landscape. You are looking at
+   * the screen. If the top side of the camera sensor is aligned with the
+   * right edge of the screen in natural orientation, the value should be
+   * 90. If the top side of a front-facing camera sensor is aligned with the
+   * right of the screen, the value should be 270.
+   *
+   * RAW_SENSOR_ORIENTATION is the uncorrected orientation returned directly
+   * by get_camera_info(); OFFSET_SENSOR_ORIENTATION is the offset adjusted
+   * orientation.
+   */
+  enum {
+    RAW_SENSOR_ORIENTATION,
+    OFFSET_SENSOR_ORIENTATION
+  };
+  static int      GetSensorOrientation(uint32_t aHwHandle, uint32_t aType = OFFSET_SENSOR_ORIENTATION);
+
   static int      AutoFocus(uint32_t aHwHandle);
   static void     CancelAutoFocus(uint32_t aHwHandle);
   static int      TakePicture(uint32_t aHwHandle);
   static void     CancelTakePicture(uint32_t aHwHandle);
   static int      StartPreview(uint32_t aHwHandle);
   static void     StopPreview(uint32_t aHwHandle);
-  static int      PushParameters(uint32_t aHwHandle, const CameraParameters& aParams);
-  static void     PullParameters(uint32_t aHwHandle, CameraParameters& aParams);
+  static int      PushParameters(uint32_t aHwHandle, const android::CameraParameters& aParams);
+  static void     PullParameters(uint32_t aHwHandle, android::CameraParameters& aParams);
   static int      StartRecording(uint32_t aHwHandle);
   static int      StopRecording(uint32_t aHwHandle);
-  static int      SetListener(uint32_t aHwHandle, const sp<GonkCameraListener>& aListener);
-  static void     ReleaseRecordingFrame(uint32_t aHwHandle, const sp<IMemory>& aFrame);
+  static int      SetListener(uint32_t aHwHandle, const android::sp<android::GonkCameraListener>& aListener);
+  static void     ReleaseRecordingFrame(uint32_t aHwHandle, const android::sp<android::IMemory>& aFrame);
   static int      StoreMetaDataInBuffers(uint32_t aHwHandle, bool aEnabled);
 
 protected:
@@ -93,16 +112,18 @@ protected:
   bool                          mClosing;
   mozilla::ReentrantMonitor     mMonitor;
   uint32_t                      mNumFrames;
-  sp<CameraHardwareInterface>   mHardware;
+  android::sp<android::CameraHardwareInterface>   mHardware;
   GonkCamera*                   mTarget;
   camera_module_t*              mModule;
-  sp<ANativeWindow>             mWindow;
+  android::sp<ANativeWindow>             mWindow;
 #if GIHM_TIMING_OVERALL
   struct timespec               mStart;
   struct timespec               mAutoFocusStart;
 #endif
-  sp<GonkCameraListener>        mListener;
+  android::sp<android::GonkCameraListener>        mListener;
   bool                          mInitialized;
+  int                           mRawSensorOrientation;
+  int                           mSensorOrientation;
 
   bool IsInitialized()
   {

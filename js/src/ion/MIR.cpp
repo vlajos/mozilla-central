@@ -921,7 +921,7 @@ MMul::foldsTo(bool useValueNumbers)
     if (specialization() != MIRType_Int32)
         return this;
 
-    if (lhs()->congruentTo(rhs()))
+    if (EqualValues(useValueNumbers, lhs(), rhs()))
         canBeNegativeZero_ = false;
 
     return this;
@@ -958,9 +958,20 @@ MMul::analyzeEdgeCasesBackward()
         canBeNegativeZero_ = NeedNegativeZeroCheck(this);
 }
 
-bool
-MMul::updateForReplacement(MDefinition *ins)
+void
+MMul::analyzeTruncateBackward()
 {
+    if (!isPossibleTruncated())
+        setPossibleTruncated(js::ion::EdgeCaseAnalysis::AllUsesTruncate(this));
+}
+
+bool
+MMul::updateForReplacement(MDefinition *ins_)
+{
+    JS_ASSERT(ins_->isMul());
+    MMul *ins = ins_->toMul();
+    if (isPossibleTruncated())
+        setPossibleTruncated(ins->isPossibleTruncated());
     return true;
 }
 

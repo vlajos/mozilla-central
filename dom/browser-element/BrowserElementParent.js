@@ -35,6 +35,15 @@ function getBoolPref(prefName, def) {
   }
 }
 
+function getIntPref(prefName, def) {
+  try {
+    return Services.prefs.getIntPref(prefName);
+  }
+  catch(err) {
+    return def;
+  }
+}
+
 function exposeAll(obj) {
   // Filter for Objects and Arrays.
   if (typeof obj !== "object" || !obj)
@@ -111,7 +120,7 @@ BrowserElementParentFactory.prototype = {
 
     var os = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
     os.addObserver(this, 'remote-browser-frame-shown', /* ownsWeak = */ true);
-    os.addObserver(this, 'in-process-browser-frame-shown', /* ownsWeak = */ true);
+    os.addObserver(this, 'in-process-browser-or-app-frame-shown', /* ownsWeak = */ true);
   },
 
   _browserFramesPrefEnabled: function() {
@@ -152,7 +161,7 @@ BrowserElementParentFactory.prototype = {
     case 'remote-browser-frame-shown':
       this._observeRemoteBrowserFrameShown(subject);
       break;
-    case 'in-process-browser-frame-shown':
+    case 'in-process-browser-or-app-frame-shown':
       this._observeInProcessBrowserFrameShown(subject);
       break;
     case 'content-document-global-created':
@@ -206,6 +215,7 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
   addMessageListener("firstpaint", this._fireEventFromMsg);
   addMessageListener("keyevent", this._fireKeyEvent);
   addMessageListener("showmodalprompt", this._handleShowModalPrompt);
+  addMessageListener('got-purge-history', this._gotDOMRequestResult);
   addMessageListener('got-screenshot', this._gotDOMRequestResult);
   addMessageListener('got-can-go-back', this._gotDOMRequestResult);
   addMessageListener('got-can-go-forward', this._gotDOMRequestResult);
@@ -236,20 +246,23 @@ function BrowserElementParent(frameLoader, hasRemoteFrame) {
   // Define methods on the frame element.
   defineMethod('setVisible', this._setVisible);
   defineMethod('sendMouseEvent', this._sendMouseEvent);
-  if (getBoolPref(TOUCH_EVENTS_ENABLED_PREF, false)) {
+
+  // 0 = disabled, 1 = enabled, 2 - auto detect
+  if (getIntPref(TOUCH_EVENTS_ENABLED_PREF, 0) != 0) {
     defineMethod('sendTouchEvent', this._sendTouchEvent);
   }
   defineMethod('goBack', this._goBack);
   defineMethod('goForward', this._goForward);
   defineMethod('reload', this._reload);
   defineMethod('stop', this._stop);
-  defineDOMRequestMethod('getScreenshot', 'get-screenshot');
+  defineMethod('purgeHistory', this._purgeHistory);
+  defineMethod('getScreenshot', this._getScreenshot);
   defineDOMRequestMethod('getCanGoBack', 'get-can-go-back');
   defineDOMRequestMethod('getCanGoForward', 'get-can-go-forward');
 
-  // Listen to mozvisibilitychange on the iframe's owner window, and forward it
+  // Listen to visibilitychange on the iframe's owner window, and forward it
   // down to the child.
-  this._window.addEventListener('mozvisibilitychange',
+  this._window.addEventListener('visibilitychange',
                                 this._ownerVisibilityChange.bind(this),
                                 /* useCapture = */ false,
                                 /* wantsUntrusted = */ false);
@@ -352,7 +365,7 @@ BrowserElementParent.prototype = {
     // that we must do so here, rather than in the BrowserElementParent
     // constructor, because the BrowserElementChild may not be initialized when
     // we run our constructor.
-    if (this._window.document.mozHidden) {
+    if (this._window.document.hidden) {
       this._ownerVisibilityChange();
     }
   },
@@ -360,9 +373,10 @@ BrowserElementParent.prototype = {
   _recvGetName: function(data) {
     return this._frameElement.getAttribute('name');
   },
-  
+
   _recvGetFullscreenAllowed: function(data) {
-    return this._frameElement.hasAttribute('mozallowfullscreen');
+    return this._frameElement.hasAttribute('allowfullscreen') ||
+           this._frameElement.hasAttribute('mozallowfullscreen');
   },
 
   _fireCtxMenuEvent: function(data) {
@@ -470,15 +484,18 @@ BrowserElementParent.prototype = {
    * Kick off a DOMRequest in the child process.
    *
    * We'll fire an event called |msgName| on the child process, passing along
-   * an object with a single field, id, containing the ID of this request.
+   * an object with two fields:
+   *
+   *  - id:  the ID of this request.
+   *  - arg: arguments to pass to the child along with this request.
    *
    * We expect the child to pass the ID back to us upon completion of the
-   * request; see _gotDOMRequestResult.
+   * request.  See _gotDOMRequestResult.
    */
-  _sendDOMRequest: function(msgName) {
+  _sendDOMRequest: function(msgName, args) {
     let id = 'req_' + this._domRequestCounter++;
     let req = Services.DOMRequest.createRequest(this._window);
-    if (this._sendAsyncMsg(msgName, {id: id})) {
+    if (this._sendAsyncMsg(msgName, {id: id, args: args})) {
       this._pendingDOMRequests[id] = req;
     } else {
       Services.DOMRequest.fireErrorAsync(req, "fail");
@@ -487,17 +504,30 @@ BrowserElementParent.prototype = {
   },
 
   /**
-   * Called when the child process finishes handling a DOMRequest.  We expect
-   * data.json to have two fields:
+   * Called when the child process finishes handling a DOMRequest.  data.json
+   * must have the fields [id, successRv], if the DOMRequest was successful, or
+   * [id, errorMsg], if the request was not successful.
    *
-   *  - id: the ID of the DOM request (see _sendDOMRequest), and
-   *  - rv: the request's return value.
+   * The fields have the following meanings:
+   *
+   *  - id:        the ID of the DOM request (see _sendDOMRequest)
+   *  - successRv: the request's return value, if the request succeeded
+   *  - errorMsg:  the message to pass to DOMRequest.fireError(), if the request
+   *               failed.
    *
    */
   _gotDOMRequestResult: function(data) {
     let req = this._pendingDOMRequests[data.json.id];
     delete this._pendingDOMRequests[data.json.id];
-    Services.DOMRequest.fireSuccess(req, data.json.rv);
+
+    if ('successRv' in data.json) {
+      debug("Successful gotDOMRequestResult.");
+      Services.DOMRequest.fireSuccess(req, data.json.successRv);
+    }
+    else {
+      debug("Got error in gotDOMRequestResult.");
+      Services.DOMRequest.fireErrorAsync(req, data.json.errorMsg);
+    }
   },
 
   _setVisible: function(visible) {
@@ -548,6 +578,22 @@ BrowserElementParent.prototype = {
     this._sendAsyncMsg('stop');
   },
 
+  _purgeHistory: function() {
+    return this._sendDOMRequest('purge-history');
+  },
+
+  _getScreenshot: function(_width, _height) {
+    let width = parseInt(_width);
+    let height = parseInt(_height);
+    if (isNaN(width) || isNaN(height) || width < 0 || height < 0) {
+      throw Components.Exception("Invalid argument",
+                                 Cr.NS_ERROR_INVALID_ARG);
+    }
+
+    return this._sendDOMRequest('get-screenshot',
+                                {width: width, height: height});
+  },
+
   _fireKeyEvent: function(data) {
     let evt = this._window.document.createEvent("KeyboardEvent");
     evt.initKeyEvent(data.json.type, true, true, this._window,
@@ -563,7 +609,7 @@ BrowserElementParent.prototype = {
    */
   _ownerVisibilityChange: function() {
     this._sendAsyncMsg('owner-visibility-change',
-                       {visible: !this._window.document.mozHidden});
+                       {visible: !this._window.document.hidden});
   },
 
   _exitFullscreen: function() {
@@ -606,4 +652,4 @@ BrowserElementParent.prototype = {
   },
 };
 
-var NSGetFactory = XPCOMUtils.generateNSGetFactory([BrowserElementParentFactory]);
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([BrowserElementParentFactory]);

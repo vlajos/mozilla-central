@@ -27,7 +27,7 @@ var lists = {
 
 // Temporary file names.
 let gFileName01 = "file01_ForBug651942.tmp"
-let gFileName02 = "file02_ForBug651942.tmp"
+let gFileName02 = "☕" // See bug 783858 for more information
 let gFileName03 = "file03_ForBug651942.tmp"
 let gFileName04 = "file04_ForBug651942.tmp"
 
@@ -133,9 +133,21 @@ function testChangedMaxRecent()
   // We now remove one file from the harddrive and use the recent-menuitem for
   // it to make sure the user is notified that the file no longer exists.
   // This is tested in testOpenDeletedFile().
-  gFile02.remove(false);
-  gFile02 = null;
-  gScratchpad.openFile(1);
+  gFile04.remove(false);
+
+  // Make sure the file has been deleted before continuing to avoid
+  // intermittent oranges.
+  waitForFileDeletion();
+}
+
+function waitForFileDeletion() {
+  if (gFile04.exists()) {
+    executeSoon(waitForFileDeletion);
+    return;
+  }
+
+  gFile04 = null;
+  gScratchpad.openFile(0);
 }
 
 // By now we should have two recent files stored in the list but one of the
@@ -307,11 +319,11 @@ function test()
   registerCleanupFunction(function () {
     gFile01.remove(false);
     gFile01 = null;
-    // gFile02 was removed earlier.
+    gFile02.remove(false);
+    gFile02 = null;
     gFile03.remove(false);
     gFile03 = null;
-    gFile04.remove(false);
-    gFile04 = null;
+    // gFile04 was removed earlier.
     lists.recentFiles01 = null;
     lists.recentFiles02 = null;
     lists.recentFiles03 = null;

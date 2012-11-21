@@ -64,7 +64,7 @@ XPCOMUtils.defineLazyGetter(this, "NetUtil", function () {
   return obj.NetUtil;
 });
 
-var EXPORTED_SYMBOLS = ["NetworkHelper"];
+this.EXPORTED_SYMBOLS = ["NetworkHelper"];
 
 /**
  * Helper object for networking stuff.
@@ -73,7 +73,7 @@ var EXPORTED_SYMBOLS = ["NetworkHelper"];
  * have been modified to match the Firefox coding rules.
  */
 
-var NetworkHelper =
+this.NetworkHelper =
 {
   /**
    * Converts aText with a given aCharset to unicode.
@@ -212,10 +212,9 @@ var NetworkHelper =
    */
   getWindowForRequest: function NH_getWindowForRequest(aRequest)
   {
-    let loadContext = this.getRequestLoadContext(aRequest);
-    if (loadContext) {
-      return loadContext.associatedWindow;
-    }
+    try {
+      return this.getRequestLoadContext(aRequest).associatedWindow;
+    } catch (ex) { }
     return null;
   },
 
@@ -227,18 +226,13 @@ var NetworkHelper =
    */
   getRequestLoadContext: function NH_getRequestLoadContext(aRequest)
   {
-    if (aRequest && aRequest.notificationCallbacks) {
-      try {
-        return aRequest.notificationCallbacks.getInterface(Ci.nsILoadContext);
-      } catch (ex) { }
-    }
+    try {
+      return aRequest.notificationCallbacks.getInterface(Ci.nsILoadContext);
+    } catch (ex) { }
 
-    if (aRequest && aRequest.loadGroup
-                 && aRequest.loadGroup.notificationCallbacks) {
-      try {
-        return aRequest.loadGroup.notificationCallbacks.getInterface(Ci.nsILoadContext);
-      } catch (ex) { }
-    }
+    try {
+      return aRequest.loadGroup.notificationCallbacks.getInterface(Ci.nsILoadContext);
+    } catch (ex) { }
 
     return null;
   },
@@ -425,5 +419,36 @@ var NetworkHelper =
     "application/x-json": "json",
     "application/json-rpc": "json",
     "application/x-web-app-manifest+json": "json",
-  }
+  },
+
+  /**
+   * Check if the given MIME type is a text-only MIME type.
+   *
+   * @param string aMimeType
+   * @return boolean
+   */
+  isTextMimeType: function NH_isTextMimeType(aMimeType)
+  {
+    if (aMimeType.indexOf("text/") == 0) {
+      return true;
+    }
+
+    if (/^application\/[a-z-]+\+xml$/.test(aMimeType)) {
+      return true;
+    }
+
+    switch (NetworkHelper.mimeCategoryMap[aMimeType]) {
+      case "txt":
+      case "js":
+      case "json":
+      case "css":
+      case "html":
+      case "svg":
+      case "xml":
+        return true;
+
+      default:
+        return false;
+    }
+  },
 }

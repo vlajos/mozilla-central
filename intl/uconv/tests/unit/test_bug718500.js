@@ -14,7 +14,7 @@ var detectList = [
 var encoderList = [
   "ISO-8859-1",
   "windows-1252",
-  "x-mac-roman",
+  "macintosh",
   "UTF-8",
   "us-ascii",
   "ISO-8859-2",
@@ -95,7 +95,6 @@ var encoderList = [
   "hkscs-1",
   "EUC-KR",
   "x-johab",
-  "x-windows-949",
   "GB2312",
   "gbk",
   "HZ-GB-2312",
@@ -105,7 +104,7 @@ var encoderList = [
 var decoderList = [
   "ISO-8859-1",
   "windows-1252",
-  "x-mac-roman",
+  "macintosh",
   "UTF-8",
   "us-ascii",
   "ISO-8859-2",
@@ -178,7 +177,6 @@ var decoderList = [
   "Big5-HKSCS",
   "EUC-KR",
   "x-johab",
-  "x-windows-949",
   "GB2312",
   "gbk",
   "HZ-GB-2312",

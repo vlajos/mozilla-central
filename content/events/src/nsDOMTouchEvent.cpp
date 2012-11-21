@@ -151,10 +151,10 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMTouchList)
 NS_INTERFACE_MAP_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsDOMTouchList)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSTARRAY_OF_NSCOMPTR(mPoints)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPoints)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsDOMTouchList)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSTARRAY(mPoints)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPoints)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMTouchList)
@@ -222,15 +222,15 @@ nsDOMTouchEvent::~nsDOMTouchEvent()
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMTouchEvent)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsDOMTouchEvent, nsDOMUIEvent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mTouches)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mTargetTouches)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mChangedTouches)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTouches)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTargetTouches)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mChangedTouches)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsDOMTouchEvent, nsDOMUIEvent)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mTouches)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mTargetTouches)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mChangedTouches)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTouches)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTargetTouches)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChangedTouches)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 DOMCI_DATA(TouchEvent, nsDOMTouchEvent)
@@ -380,6 +380,13 @@ nsDOMTouchEvent::GetShiftKey(bool* aShiftKey)
   return NS_OK;
 }
 
+#ifdef XP_WIN
+namespace mozilla {
+namespace widget {
+extern int32_t IsTouchDeviceSupportPresent();
+} }
+#endif
+
 bool
 nsDOMTouchEvent::PrefEnabled()
 {
@@ -387,7 +394,21 @@ nsDOMTouchEvent::PrefEnabled()
   static bool sPrefValue = false;
   if (!sDidCheckPref) {
     sDidCheckPref = true;
-    sPrefValue = Preferences::GetBool("dom.w3c_touch_events.enabled", false);
+    int32_t flag = 0;
+    if (NS_SUCCEEDED(Preferences::GetInt("dom.w3c_touch_events.enabled",
+                                         &flag))) {
+      if (flag == 2) {
+#ifdef XP_WIN
+        // On Windows we auto-detect based on device support.
+        sPrefValue = mozilla::widget::IsTouchDeviceSupportPresent();
+#else
+        NS_WARNING("dom.w3c_touch_events.enabled=2 not implemented!");
+        sPrefValue = false;
+#endif
+      } else {
+        sPrefValue = !!flag;
+      }
+    }
     if (sPrefValue) {
       nsContentUtils::InitializeTouchEventTable();
     }

@@ -30,6 +30,7 @@
 #include "nsDisplayList.h"
 #include "AnimationCommon.h"
 #include "nsAnimationManager.h"
+#include "TiledLayerBuffer.h"
 
 using namespace base;
 using namespace mozilla::ipc;
@@ -209,6 +210,37 @@ CompositorParent::Destroy()
 
   // Ensure that the layer manager is destructed on the compositor thread.
   mLayerManager = NULL;
+}
+
+static void
+DispatchMemoryPressureToLayers(Layer* aLayer)
+{
+  ShadowLayer* shadowLayer = aLayer->AsShadowLayer();
+  if (shadowLayer) {
+    TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
+    if (tileComposer) {
+      tileComposer->MemoryPressure();
+    }
+  }
+
+  for (Layer* child = aLayer->GetFirstChild();
+         child; child = child->GetNextSibling()) {
+    DispatchMemoryPressureToLayers(child);
+  }
+
+}
+
+bool
+CompositorParent::RecvMemoryPressure()
+{
+  if (!mLayerManager)
+    return true;
+
+  Layer* layer = mLayerManager->GetRoot();
+  if (layer)
+    DispatchMemoryPressureToLayers(layer);
+
+  return true;
 }
 
 bool
@@ -1152,6 +1184,9 @@ public:
   { return nullptr; }
   virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
   { return false; }
+
+  virtual bool RecvMemoryPressure()
+  { return true; }
 
 private:
   void DeferredDestroy();

@@ -29,7 +29,6 @@
 #include "nsIJSContextStack.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsWeakPtr.h"
-#include "nsCharsetAlias.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsDOMClassInfoID.h"
 #include "nsIDOMElement.h"
@@ -72,6 +71,7 @@
 #include "mozilla/Telemetry.h"
 #include "jsfriendapi.h"
 #include "sampler.h"
+#include "mozilla/dom/EncodingUtils.h"
 #include "mozilla/dom/XMLHttpRequestBinding.h"
 #include "nsIDOMFormData.h"
 #include "DictionaryHelpers.h"
@@ -172,15 +172,6 @@ static void AddLoadFlags(nsIRequest *request, nsLoadFlags newFlags)
   request->GetLoadFlags(&flags);
   flags |= newFlags;
   request->SetLoadFlags(flags);
-}
-
-static nsresult IsCapabilityEnabled(const char *capability, bool *enabled)
-{
-  nsIScriptSecurityManager *secMan = nsContentUtils::GetSecurityManager();
-  if (!secMan)
-    return NS_ERROR_FAILURE;
-
-  return secMan->IsCapabilityEnabled(capability, enabled);
 }
 
 // Helper proxy class to be used when expecting an
@@ -474,6 +465,8 @@ nsXMLHttpRequest::Init(nsIPrincipal* aPrincipal,
                        nsPIDOMWindow* aOwnerWindow,
                        nsIURI* aBaseURI)
 {
+  NS_ASSERTION(!aOwnerWindow || aOwnerWindow->IsOuterWindow(),
+               "Expecting an outer window here!");
   NS_ENSURE_ARG_POINTER(aPrincipal);
   Construct(aPrincipal,
             aOwnerWindow ? aOwnerWindow->GetCurrentInnerWindow() : nullptr,
@@ -583,7 +576,7 @@ NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_BEGIN(nsXMLHttpRequest)
   bool isBlack = tmp->IsBlack();
   if (isBlack || tmp->mWaitingForOnStopRequest) {
     if (tmp->mListenerManager) {
-      tmp->mListenerManager->UnmarkGrayJSListeners();
+      tmp->mListenerManager->MarkForCC();
     }
     if (!isBlack && tmp->PreservingWrapper()) {
       xpc_UnmarkGrayObject(tmp->GetWrapperPreserveColor());
@@ -603,37 +596,36 @@ NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsXMLHttpRequest,
                                                   nsXHREventTarget)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mContext)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mChannel)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mReadRequest)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mResponseXML)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mCORSPreflightChannel)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mContext)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChannel)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mReadRequest)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mResponseXML)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCORSPreflightChannel)
 
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mXMLParserStreamListener)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mXMLParserStreamListener)
 
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mChannelEventSink)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mProgressEventSink)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChannelEventSink)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mProgressEventSink)
 
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mUpload,
-                                                       nsIXMLHttpRequestUpload)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUpload)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsXMLHttpRequest,
                                                 nsXHREventTarget)
   tmp->mResultArrayBuffer = nullptr;
   tmp->mResultJSON = JSVAL_VOID;
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mContext)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mChannel)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mReadRequest)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mResponseXML)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mCORSPreflightChannel)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mContext)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mChannel)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mReadRequest)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mResponseXML)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mCORSPreflightChannel)
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mXMLParserStreamListener)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mXMLParserStreamListener)
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mChannelEventSink)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mProgressEventSink)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mChannelEventSink)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mProgressEventSink)
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mUpload)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mUpload)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(nsXMLHttpRequest,
@@ -753,13 +745,10 @@ nsXMLHttpRequest::DetectCharset()
   }
 
   nsAutoCString charsetVal;
-  nsresult rv = channel ? channel->GetContentCharset(charsetVal) :
-                NS_ERROR_FAILURE;
-  if (NS_SUCCEEDED(rv)) {
-    rv = nsCharsetAlias::GetPreferred(charsetVal, mResponseCharset);
-  }
-
-  if (NS_FAILED(rv) || mResponseCharset.IsEmpty()) {
+  bool ok = channel &&
+            NS_SUCCEEDED(channel->GetContentCharset(charsetVal)) &&
+            EncodingUtils::FindEncodingForLabel(charsetVal, mResponseCharset);
+  if (!ok || mResponseCharset.IsEmpty()) {
     // MS documentation states UTF-8 is default for responseText
     mResponseCharset.AssignLiteral("UTF-8");
   }
@@ -771,6 +760,7 @@ nsXMLHttpRequest::DetectCharset()
     mResponseCharset.AssignLiteral("UTF-8");
   }
 
+  nsresult rv;
   nsCOMPtr<nsICharsetConverterManager> ccm =
     do_GetService(NS_CHARSETCONVERTERMANAGER_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1241,12 +1231,36 @@ nsXMLHttpRequest::Status()
 
   uint16_t readyState;
   GetReadyState(&readyState);
-  if (readyState == UNSENT || readyState == OPENED || mErrorLoad) {
+  if (readyState == UNSENT || readyState == OPENED) {
+    return 0;
+  }
+
+  if (mErrorLoad) {
+    // Let's simulate the http protocol for jar/app requests:
+    nsCOMPtr<nsIJARChannel> jarChannel = GetCurrentJARChannel();
+    if (jarChannel) {
+      nsresult status;
+      mChannel->GetStatus(&status);
+
+      if (status == NS_ERROR_FILE_NOT_FOUND) {
+        return 404; // Not Found
+      } else {
+        return 500; // Internal Error
+      }
+    }
+
     return 0;
   }
 
   nsCOMPtr<nsIHttpChannel> httpChannel = GetCurrentHttpChannel();
   if (!httpChannel) {
+
+    // Let's simulate the http protocol for jar/app requests:
+    nsCOMPtr<nsIJARChannel> jarChannel = GetCurrentJARChannel();
+    if (jarChannel) {
+      return 200; // Ok
+    }
+
     return 0;
   }
 
@@ -1404,7 +1418,7 @@ nsXMLHttpRequest::GetAllResponseHeaders(nsString& aResponseHeaders)
     aResponseHeaders.AppendLiteral("\r\n");
   }
 
-  int32_t length;
+  int64_t length;
   if (NS_SUCCEEDED(mChannel->GetContentLength(&length))) {
     aResponseHeaders.AppendLiteral("Content-Length: ");
     aResponseHeaders.AppendInt(length);
@@ -1465,7 +1479,7 @@ nsXMLHttpRequest::GetResponseHeader(const nsACString& header,
 
     // Content Length:
     else if (header.LowerCaseEqualsASCII("content-length")) {
-      int32_t length;
+      int64_t length;
       if (NS_SUCCEEDED(mChannel->GetContentLength(&length))) {
         _retval.AppendInt(length);
       }
@@ -1475,9 +1489,7 @@ nsXMLHttpRequest::GetResponseHeader(const nsACString& header,
   }
 
   // See bug #380418. Hide "Set-Cookie" headers from non-chrome scripts.
-  bool chrome = false; // default to false in case IsCapabilityEnabled fails
-  IsCapabilityEnabled("UniversalXPConnect", &chrome);
-  if (!chrome &&
+  if (!nsContentUtils::IsCallerChrome() &&
        (header.LowerCaseEqualsASCII("set-cookie") ||
         header.LowerCaseEqualsASCII("set-cookie2"))) {
     NS_WARNING("blocked access to response header");
@@ -1638,17 +1650,21 @@ nsXMLHttpRequest::DispatchProgressEvent(nsDOMEventTargetHelper* aTarget,
 already_AddRefed<nsIHttpChannel>
 nsXMLHttpRequest::GetCurrentHttpChannel()
 {
-  nsIHttpChannel *httpChannel = nullptr;
-
-  if (mReadRequest) {
-    CallQueryInterface(mReadRequest, &httpChannel);
+  nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(mReadRequest);
+  if (!httpChannel) {
+    httpChannel = do_QueryInterface(mChannel);
   }
+  return httpChannel.forget();
+}
 
-  if (!httpChannel && mChannel) {
-    CallQueryInterface(mChannel, &httpChannel);
+already_AddRefed<nsIJARChannel>
+nsXMLHttpRequest::GetCurrentJARChannel()
+{
+  nsCOMPtr<nsIJARChannel> appChannel = do_QueryInterface(mReadRequest);
+  if (!appChannel) {
+    appChannel = do_QueryInterface(mChannel);
   }
-
-  return httpChannel;
+  return appChannel.forget();
 }
 
 bool
@@ -2246,7 +2262,7 @@ nsXMLHttpRequest::OnStartRequest(nsIRequest *request, nsISupports *ctxt)
   // events when starting the request - so maybe no need to start timer here.
   if (NS_SUCCEEDED(rv) &&
       (mState & XML_HTTP_REQUEST_ASYNC) &&
-      HasListenersFor(NS_LITERAL_STRING(PROGRESS_STR))) {
+      HasListenersFor(nsGkAtoms::onprogress)) {
     StartProgressEventTimer();
   }
 
@@ -2634,26 +2650,12 @@ GetRequestBody(nsIVariant* aBody, nsIInputStream** aResult, uint64_t* aContentLe
 
     // ArrayBuffer?
     jsval realVal;
-    nsCxPusher pusher;
-    Maybe<JSAutoCompartment> ac;
-
-    // If there's a context on the stack, we can just use it. Otherwise, we need
-    // to use the safe js context (and push it into the stack, so that it's
-    // visible to cx-less functions that we might call here).
-    JSContext* cx = nsContentUtils::GetCurrentJSContext();
-    if (!cx) {
-      cx = nsContentUtils::GetSafeJSContext();
-      if (!pusher.Push(cx)) {
-        return NS_ERROR_FAILURE;
-      }
-    }
 
     nsresult rv = aBody->GetAsJSVal(&realVal);
     if (NS_SUCCEEDED(rv) && !JSVAL_IS_PRIMITIVE(realVal)) {
       JSObject *obj = JSVAL_TO_OBJECT(realVal);
-      ac.construct(cx, obj);
-      if (JS_IsArrayBufferObject(obj, cx)) {
-          ArrayBuffer buf(cx, obj);
+      if (JS_IsArrayBufferObject(obj)) {
+          ArrayBuffer buf(obj);
           return GetRequestBody(&buf, aResult, aContentLength, aContentType, aCharset);
       }
     }
@@ -2770,8 +2772,8 @@ nsXMLHttpRequest::Send(nsIVariant* aVariant, const Nullable<RequestBody>& aBody)
   // in turn keeps STOP button from becoming active.  If the consumer passed in
   // a progress event handler we must load with nsIRequest::LOAD_NORMAL or
   // necko won't generate any progress notifications.
-  if (HasListenersFor(NS_LITERAL_STRING(PROGRESS_STR)) ||
-      (mUpload && mUpload->HasListenersFor(NS_LITERAL_STRING(PROGRESS_STR)))) {
+  if (HasListenersFor(nsGkAtoms::onprogress) ||
+      (mUpload && mUpload->HasListenersFor(nsGkAtoms::onprogress))) {
     nsLoadFlags loadFlags;
     mChannel->GetLoadFlags(&loadFlags);
     loadFlags &= ~nsIRequest::LOAD_BACKGROUND;
@@ -3021,6 +3023,9 @@ nsXMLHttpRequest::Send(nsIVariant* aVariant, const Nullable<RequestBody>& aBody)
   if (mIsAnon) {
     AddLoadFlags(mChannel, nsIRequest::LOAD_ANONYMOUS);
   }
+  else {
+    AddLoadFlags(mChannel, nsIChannel::LOAD_EXPLICIT_CREDENTIALS);
+  }
 
   NS_ASSERTION(listener != this,
                "Using an object as a listener that can't be exposed to JS");
@@ -3134,7 +3139,7 @@ nsXMLHttpRequest::Send(nsIVariant* aVariant, const Nullable<RequestBody>& aBody)
     // can run script that would try to restart this request, and that could end
     // up doing our AsyncOpen on a null channel if the reentered AsyncOpen fails.
     ChangeState(XML_HTTP_REQUEST_SENT);
-    if (mUpload && mUpload->HasListenersFor(NS_LITERAL_STRING(PROGRESS_STR))) {
+    if (mUpload && mUpload->HasListenersFor(nsGkAtoms::onprogress)) {
       StartProgressEventTimer();
     }
     DispatchProgressEvent(this, NS_LITERAL_STRING(LOADSTART_STR), false,
@@ -3192,13 +3197,9 @@ nsXMLHttpRequest::SetRequestHeader(const nsACString& header,
   }
 
   // Prevent modification to certain HTTP headers (see bug 302263), unless
-  // the executing script has UniversalXPConnect.
+  // the executing script is privileged.
 
-  bool privileged;
-  if (NS_FAILED(IsCapabilityEnabled("UniversalXPConnect", &privileged)))
-    return NS_ERROR_FAILURE;
-
-  if (!privileged) {
+  if (!nsContentUtils::IsCallerChrome()) {
     // Step 5: Check for dangerous headers.
     const char *kInvalidHeaders[] = {
       "accept-charset", "accept-encoding", "access-control-request-headers",
@@ -3423,13 +3424,7 @@ nsXMLHttpRequest::SetMozBackgroundRequest(bool aMozBackgroundRequest)
 void
 nsXMLHttpRequest::SetMozBackgroundRequest(bool aMozBackgroundRequest, nsresult& aRv)
 {
-  bool privileged;
-  aRv = IsCapabilityEnabled("UniversalXPConnect", &privileged);
-  if (NS_FAILED(aRv)) {
-    return;
-  }
-
-  if (!privileged) {
+  if (!nsContentUtils::IsCallerChrome()) {
     aRv = NS_ERROR_DOM_SECURITY_ERR;
     return;
   }
@@ -3555,11 +3550,11 @@ private:
 NS_IMPL_CYCLE_COLLECTION_CLASS(AsyncVerifyRedirectCallbackForwarder)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(AsyncVerifyRedirectCallbackForwarder)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mXHR, nsIXMLHttpRequest)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mXHR)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(AsyncVerifyRedirectCallbackForwarder)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mXHR)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mXHR)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AsyncVerifyRedirectCallbackForwarder)
@@ -3903,7 +3898,7 @@ nsXMLHttpRequest::GetInterface(const nsIID & aIID, void **aResult)
 }
 
 JS::Value
-nsXMLHttpRequest::GetInterface(JSContext* aCx, nsIJSIID* aIID, ErrorResult& aRv)
+nsXMLHttpRequest::GetInterface(JSContext* aCx, nsIJSID* aIID, ErrorResult& aRv)
 {
   const nsID* iid = aIID->GetID();
   nsCOMPtr<nsISupports> result;
@@ -4030,9 +4025,7 @@ NS_IMETHODIMP nsXMLHttpRequest::
 nsHeaderVisitor::VisitHeader(const nsACString &header, const nsACString &value)
 {
     // See bug #380418. Hide "Set-Cookie" headers from non-chrome scripts.
-    bool chrome = false; // default to false in case IsCapabilityEnabled fails
-    IsCapabilityEnabled("UniversalXPConnect", &chrome);
-    if (!chrome &&
+    if (!nsContentUtils::IsCallerChrome() &&
          (header.LowerCaseEqualsASCII("set-cookie") ||
           header.LowerCaseEqualsASCII("set-cookie2"))) {
         NS_WARNING("blocked access to response header");
@@ -4077,13 +4070,13 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(nsXMLHttpProgressEvent)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsXMLHttpProgressEvent)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsXMLHttpProgressEvent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mInner);
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mWindow);
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mInner);
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWindow);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsXMLHttpProgressEvent)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mInner)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mWindow);
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mInner)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindow);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMETHODIMP nsXMLHttpProgressEvent::GetInput(nsIDOMLSInput * *aInput)
@@ -4144,11 +4137,11 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsXMLHttpRequestXPCOMifier)
 if (tmp->mXHR) {
   tmp->mXHR->mXPCOMifier = nullptr;
 }
-NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mXHR)
+NS_IMPL_CYCLE_COLLECTION_UNLINK(mXHR)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsXMLHttpRequestXPCOMifier)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mXHR, nsIXMLHttpRequest)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mXHR)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMETHODIMP

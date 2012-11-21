@@ -339,6 +339,9 @@ PrivateBrowsingService.prototype = {
                       createInstance(Ci.nsISupportsPRBool);
     cancelLeave.data = false;
     this._obs.notifyObservers(cancelLeave, "private-browsing-cancel-vote", "exit");
+    if (!cancelLeave.data) {
+      this._obs.notifyObservers(cancelLeave, "last-pb-context-exiting", null);
+    }
     return !cancelLeave.data;
   },
 
@@ -441,11 +444,6 @@ PrivateBrowsingService.prototype = {
                   getService(Ci.nsISecretDecoderRing);
         sdr.logoutAndTeardown();
     
-        // clear plain HTTP auth sessions
-        let authMgr = Cc['@mozilla.org/network/http-auth-manager;1'].
-                      getService(Ci.nsIHttpAuthManager);
-        authMgr.clearAll();
-
         try {
           this._prefs.deleteBranch("geo.wifi.access_token.");
         } catch (ex) {}
@@ -461,6 +459,7 @@ PrivateBrowsingService.prototype = {
       case "command-line-startup":
         this._obs.removeObserver(this, "command-line-startup");
         aSubject.QueryInterface(Ci.nsICommandLine);
+#ifndef MOZ_PER_WINDOW_PRIVATE_BROWSING
         if (aSubject.findFlag("private", false) >= 0) {
           // Don't need to go into PB mode if it's already set to autostart
           if (this._autoStarted)
@@ -470,7 +469,9 @@ PrivateBrowsingService.prototype = {
           this._autoStarted = true;
           this._lastChangedByCommandLine = true;
         }
-        else if (aSubject.findFlag("private-toggle", false) >= 0) {
+        else
+#endif
+        if (aSubject.findFlag("private-toggle", false) >= 0) {
           this._lastChangedByCommandLine = true;
         }
         break;
@@ -486,9 +487,12 @@ PrivateBrowsingService.prototype = {
   // nsICommandLineHandler
 
   handle: function PBS_handle(aCmdLine) {
+#ifndef MOZ_PER_WINDOW_PRIVATE_BROWSING
     if (aCmdLine.handleFlag("private", false))
       aCmdLine.preventDefault = true; // It has already been handled
-    else if (aCmdLine.handleFlag("private-toggle", false)) {
+    else
+#endif
+    if (aCmdLine.handleFlag("private-toggle", false)) {
       if (this._autoStarted) {
         throw Cr.NS_ERROR_ABORT;
       }
@@ -595,4 +599,4 @@ PrivateBrowsingService.prototype = {
   }
 };
 
-var NSGetFactory = XPCOMUtils.generateNSGetFactory([PrivateBrowsingService]);
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([PrivateBrowsingService]);

@@ -30,7 +30,7 @@ NS_IMPL_ISUPPORTS3(imgStatusTrackerObserver,
 /* [noscript] void frameChanged (in nsIntRect dirtyRect); */
 NS_IMETHODIMP imgStatusTrackerObserver::FrameChanged(const nsIntRect *dirtyRect)
 {
-  LOG_SCOPE(gImgLog, "imgStatusTrackerObserver::FrameChanged");
+  LOG_SCOPE(GetImgLog(), "imgStatusTrackerObserver::FrameChanged");
   NS_ABORT_IF_FALSE(mTracker->GetImage(),
                     "FrameChanged callback before we've created our image");
 
@@ -48,11 +48,11 @@ NS_IMETHODIMP imgStatusTrackerObserver::FrameChanged(const nsIntRect *dirtyRect)
 
 NS_IMETHODIMP imgStatusTrackerObserver::OnStartDecode()
 {
-  LOG_SCOPE(gImgLog, "imgStatusTrackerObserver::OnStartDecode");
+  LOG_SCOPE(GetImgLog(), "imgStatusTrackerObserver::OnStartDecode");
   NS_ABORT_IF_FALSE(mTracker->GetImage(),
                     "OnStartDecode callback before we've created our image");
 
-  if (!mTracker->GetRequest()->GetMultipart()) {
+  if (mTracker->GetRequest() && !mTracker->GetRequest()->GetMultipart()) {
     MOZ_ASSERT(!mTracker->mBlockingOnload);
     mTracker->mBlockingOnload = true;
 
@@ -69,7 +69,9 @@ NS_IMETHODIMP imgStatusTrackerObserver::OnStartDecode()
      The cache entry's size therefore needs to be reset to 0 here.  If we do not do this,
      the code in imgStatusTrackerObserver::OnStopFrame will continue to increase the data size cumulatively.
   */
-  mTracker->GetRequest()->ResetCacheEntry();
+  if (mTracker->GetRequest()) {
+    mTracker->GetRequest()->ResetCacheEntry();
+  }
 
   return NS_OK;
 }
@@ -83,7 +85,7 @@ NS_IMETHODIMP imgStatusTrackerObserver::OnStartRequest()
 /* void onStartContainer (); */
 NS_IMETHODIMP imgStatusTrackerObserver::OnStartContainer()
 {
-  LOG_SCOPE(gImgLog, "imgStatusTrackerObserver::OnStartContainer");
+  LOG_SCOPE(GetImgLog(), "imgStatusTrackerObserver::OnStartContainer");
 
   NS_ABORT_IF_FALSE(mTracker->GetImage(),
                     "OnStartContainer callback before we've created our image");
@@ -100,7 +102,7 @@ NS_IMETHODIMP imgStatusTrackerObserver::OnStartContainer()
 /* [noscript] void onDataAvailable ([const] in nsIntRect rect); */
 NS_IMETHODIMP imgStatusTrackerObserver::OnDataAvailable(const nsIntRect * rect)
 {
-  LOG_SCOPE(gImgLog, "imgStatusTrackerObserver::OnDataAvailable");
+  LOG_SCOPE(GetImgLog(), "imgStatusTrackerObserver::OnDataAvailable");
   NS_ABORT_IF_FALSE(mTracker->GetImage(),
                     "OnDataAvailable callback before we've created our image");
 
@@ -117,7 +119,7 @@ NS_IMETHODIMP imgStatusTrackerObserver::OnDataAvailable(const nsIntRect * rect)
 /* void onStopFrame (); */
 NS_IMETHODIMP imgStatusTrackerObserver::OnStopFrame()
 {
-  LOG_SCOPE(gImgLog, "imgStatusTrackerObserver::OnStopFrame");
+  LOG_SCOPE(GetImgLog(), "imgStatusTrackerObserver::OnStopFrame");
   NS_ABORT_IF_FALSE(mTracker->GetImage(),
                     "OnStopFrame callback before we've created our image");
 
@@ -150,13 +152,15 @@ FireFailureNotification(imgRequest* aRequest)
 /* void onStopDecode (in nsresult status); */
 NS_IMETHODIMP imgStatusTrackerObserver::OnStopDecode(nsresult aStatus)
 {
-  LOG_SCOPE(gImgLog, "imgStatusTrackerObserver::OnStopDecode");
+  LOG_SCOPE(GetImgLog(), "imgStatusTrackerObserver::OnStopDecode");
   NS_ABORT_IF_FALSE(mTracker->GetImage(),
                     "OnStopDecode callback before we've created our image");
 
   // We finished the decode, and thus have the decoded frames. Update the cache
   // entry size to take this into account.
-  mTracker->GetRequest()->UpdateCacheEntrySize();
+  if (mTracker->GetRequest()) {
+    mTracker->GetRequest()->UpdateCacheEntrySize();
+  }
 
   bool preexistingError = mTracker->GetImageStatus() == imgIRequest::STATUS_ERROR;
 
@@ -171,7 +175,7 @@ NS_IMETHODIMP imgStatusTrackerObserver::OnStopDecode(nsresult aStatus)
   // block onload, but then hit an error before we get to our first frame.
   mTracker->MaybeUnblockOnload();
 
-  if (NS_FAILED(aStatus) && !preexistingError) {
+  if (NS_FAILED(aStatus) && !preexistingError && mTracker->GetRequest()) {
     FireFailureNotification(mTracker->GetRequest());
   }
 
@@ -193,7 +197,9 @@ NS_IMETHODIMP imgStatusTrackerObserver::OnDiscard()
   mTracker->RecordDiscard();
 
   // Update the cache entry size, since we just got rid of frame data
-  mTracker->GetRequest()->UpdateCacheEntrySize();
+  if (mTracker->GetRequest()) {
+    mTracker->GetRequest()->UpdateCacheEntrySize();
+  }
 
   nsTObserverArray<imgRequestProxy*>::ForwardIterator iter(mTracker->mConsumers);
   while (iter.HasMore()) {
@@ -307,7 +313,7 @@ imgStatusTracker::Notify(imgRequest* request, imgRequestProxy* proxy)
   request->GetURI(getter_AddRefs(uri));
   nsAutoCString spec;
   uri->GetSpec(spec);
-  LOG_FUNC_WITH_PARAM(gImgLog, "imgStatusTracker::Notify async", "uri", spec.get());
+  LOG_FUNC_WITH_PARAM(GetImgLog(), "imgStatusTracker::Notify async", "uri", spec.get());
 #endif
 
   proxy->SetNotificationsDeferred(true);
@@ -361,7 +367,7 @@ imgStatusTracker::NotifyCurrentState(imgRequestProxy* proxy)
   proxy->GetURI(getter_AddRefs(uri));
   nsAutoCString spec;
   uri->GetSpec(spec);
-  LOG_FUNC_WITH_PARAM(gImgLog, "imgStatusTracker::NotifyCurrentState", "uri", spec.get());
+  LOG_FUNC_WITH_PARAM(GetImgLog(), "imgStatusTracker::NotifyCurrentState", "uri", spec.get());
 #endif
 
   proxy->SetNotificationsDeferred(true);
@@ -374,15 +380,12 @@ imgStatusTracker::NotifyCurrentState(imgRequestProxy* proxy)
 void
 imgStatusTracker::SyncNotify(imgRequestProxy* proxy)
 {
-  NS_ABORT_IF_FALSE(!proxy->NotificationsDeferred(),
-    "Calling imgStatusTracker::Notify() on a proxy that doesn't want notifications!");
-
 #ifdef PR_LOGGING
   nsCOMPtr<nsIURI> uri;
   proxy->GetURI(getter_AddRefs(uri));
   nsAutoCString spec;
   uri->GetSpec(spec);
-  LOG_SCOPE_WITH_PARAM(gImgLog, "imgStatusTracker::SyncNotify", "uri", spec.get());
+  LOG_SCOPE_WITH_PARAM(GetImgLog(), "imgStatusTracker::SyncNotify", "uri", spec.get());
 #endif
 
   nsCOMPtr<imgIRequest> kungFuDeathGrip(proxy);
@@ -702,7 +705,7 @@ imgStatusTracker::OnStopRequest(bool aLastPart,
     SendStopRequest(srIter.GetNext(), aLastPart, aStatus);
   }
 
-  if (NS_FAILED(aStatus) && !preexistingError) {
+  if (NS_FAILED(aStatus) && !preexistingError && GetRequest()) {
     FireFailureNotification(GetRequest());
   }
 }
@@ -762,4 +765,10 @@ imgStatusTracker::MaybeUnblockOnload()
   while (iter.HasMore()) {
     SendUnblockOnload(iter.GetNext());
   }
+}
+
+void
+imgStatusTracker::ClearRequest()
+{
+  mRequest = nullptr;
 }

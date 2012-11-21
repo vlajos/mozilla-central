@@ -165,16 +165,6 @@
 
 
   /* ======================================================================= */
-  /* 4: NS_ERROR_MODULE_WIDGET */
-  /* ======================================================================= */
-#define MODULE NS_ERROR_MODULE_WIDGET
-  /* nsIWidget::OnIMEFocusChange should be called during blur, but other
-   * OnIME*Change methods should not be called */
-  ERROR(NS_SUCCESS_IME_NO_UPDATES,  SUCCESS(1)),
-#undef MODULE
-
-
-  /* ======================================================================= */
   /* 6: NS_ERROR_MODULE_NETWORK */
   /* ======================================================================= */
 #define MODULE NS_ERROR_MODULE_NETWORK
@@ -904,7 +894,6 @@
 
   /* see Accessible::GetAttrValue */
   ERROR(NS_OK_NO_ARIA_VALUE,           SUCCESS(33)),
-  ERROR(NS_OK_DEFUNCT_OBJECT,          SUCCESS(34)),
   /* see nsTextEquivUtils */
-  ERROR(NS_OK_NO_NAME_CLAUSE_HANDLED,  SUCCESS(35))
+  ERROR(NS_OK_NO_NAME_CLAUSE_HANDLED,  SUCCESS(34))
 #undef MODULE

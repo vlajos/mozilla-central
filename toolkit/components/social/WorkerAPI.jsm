@@ -13,9 +13,9 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "getFrameWorkerHandle", "resource://gre/modules/FrameWorker.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "openChatWindow", "resource://gre/modules/MozSocialAPI.jsm");
 
-const EXPORTED_SYMBOLS = ["WorkerAPI"];
+this.EXPORTED_SYMBOLS = ["WorkerAPI"];
 
-function WorkerAPI(provider, port) {
+this.WorkerAPI = function WorkerAPI(provider, port) {
   if (!port)
     throw new Error("Can't initialize WorkerAPI with a null port");
 
@@ -44,7 +44,7 @@ WorkerAPI.prototype = {
     try {
       handler.call(this, data);
     } catch (ex) {
-      Cu.reportError("WorkerAPI: failed to handle message '" + topic + "': " + ex);
+      Cu.reportError("WorkerAPI: failed to handle message '" + topic + "': " + ex + "\n" + ex.stack);
     }
   },
 
@@ -58,19 +58,23 @@ WorkerAPI.prototype = {
     },
     "social.user-profile": function (data) {
       this._provider.updateUserProfile(data);
+      // get the info we need for 'recommend' support.
+      this._port.postMessage({topic: "social.user-recommend-prompt"});
     },
     "social.ambient-notification": function (data) {
       this._provider.setAmbientNotification(data);
     },
+    "social.user-recommend-prompt-response": function(data) {
+      this._provider.recommendInfo = data;
+    },
     "social.cookies-get": function(data) {
-      let document = getFrameWorkerHandle(this._provider.workerURL, null).
-                        _worker.frame.contentDocument;
+      let document = this._port._window.document;
       let cookies = document.cookie.split(";");
       let results = [];
       cookies.forEach(function(aCookie) {
         let [name, value] = aCookie.split("=");
         results.push({name: unescape(name.trim()),
-                      value: unescape(value.trim())});
+                      value: value ? unescape(value.trim()) : ""});
       });
       this._port.postMessage({topic: "social.cookies-get-response",
                               data: results});

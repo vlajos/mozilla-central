@@ -13,21 +13,17 @@
 #include "Constants.h"
 #include "SmsEvent.h"
 #include "nsIDOMSmsMessage.h"
-#include "nsIDOMSmsRequest.h"
-#include "SmsRequestManager.h"
+#include "SmsRequest.h"
 #include "nsJSUtils.h"
 #include "nsContentUtils.h"
 #include "nsISmsDatabaseService.h"
 #include "nsIXPConnect.h"
 #include "nsIPermissionManager.h"
 
-/**
- * We have to use macros here because our leak analysis tool things we are
- * leaking strings when we have |static const nsString|. Sad :(
- */
-#define RECEIVED_EVENT_NAME  NS_LITERAL_STRING("received")
-#define SENT_EVENT_NAME      NS_LITERAL_STRING("sent")
-#define DELIVERED_EVENT_NAME NS_LITERAL_STRING("delivered")
+#define RECEIVED_EVENT_NAME         NS_LITERAL_STRING("received")
+#define SENT_EVENT_NAME             NS_LITERAL_STRING("sent")
+#define DELIVERY_SUCCESS_EVENT_NAME NS_LITERAL_STRING("deliverysuccess")
+#define DELIVERY_ERROR_EVENT_NAME   NS_LITERAL_STRING("deliveryerror")
 
 DOMCI_DATA(MozSmsManager, mozilla::dom::sms::SmsManager)
 
@@ -57,7 +53,8 @@ NS_IMPL_RELEASE_INHERITED(SmsManager, nsDOMEventTargetHelper)
 
 NS_IMPL_EVENT_HANDLER(SmsManager, received)
 NS_IMPL_EVENT_HANDLER(SmsManager, sent)
-NS_IMPL_EVENT_HANDLER(SmsManager, delivered)
+NS_IMPL_EVENT_HANDLER(SmsManager, deliverysuccess)
+NS_IMPL_EVENT_HANDLER(SmsManager, deliveryerror)
 
 /* static */already_AddRefed<SmsManager>
 SmsManager::CreateInstanceIfAllowed(nsPIDOMWindow* aWindow)
@@ -113,7 +110,8 @@ SmsManager::Init(nsPIDOMWindow *aWindow)
 
   obs->AddObserver(this, kSmsReceivedObserverTopic, false);
   obs->AddObserver(this, kSmsSentObserverTopic, false);
-  obs->AddObserver(this, kSmsDeliveredObserverTopic, false);
+  obs->AddObserver(this, kSmsDeliverySuccessObserverTopic, false);
+  obs->AddObserver(this, kSmsDeliveryErrorObserverTopic, false);
 }
 
 void
@@ -127,7 +125,8 @@ SmsManager::Shutdown()
 
   obs->RemoveObserver(this, kSmsReceivedObserverTopic);
   obs->RemoveObserver(this, kSmsSentObserverTopic);
-  obs->RemoveObserver(this, kSmsDeliveredObserverTopic);
+  obs->RemoveObserver(this, kSmsDeliverySuccessObserverTopic);
+  obs->RemoveObserver(this, kSmsDeliveryErrorObserverTopic);
 }
 
 NS_IMETHODIMP
@@ -151,24 +150,16 @@ SmsManager::Send(JSContext* aCx, JSObject* aGlobal, JSString* aNumber,
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIDOMMozSmsRequest> request;
-
-  nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
-
-  int32_t requestId;
-  nsresult rv = requestManager->CreateRequest(this, getter_AddRefs(request),
-                                              &requestId);
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Failed to create the request!");
-    return rv;
-  }
-
+  nsCOMPtr<nsIDOMMozSmsRequest> request = SmsRequest::Create(this);
   nsDependentJSString number;
   number.init(aCx, aNumber);
 
-  smsService->Send(number, aMessage, requestId, 0);
+  nsCOMPtr<nsISmsRequest> forwarder =
+    new SmsRequestForwarder(static_cast<SmsRequest*>(request.get()));
 
-  rv = nsContentUtils::WrapNative(aCx, aGlobal, request, aRequest);
+  smsService->Send(number, aMessage, forwarder);
+
+  nsresult rv = nsContentUtils::WrapNative(aCx, aGlobal, request, aRequest);
   if (NS_FAILED(rv)) {
     NS_ERROR("Failed to create the js value!");
     return rv;
@@ -228,42 +219,27 @@ SmsManager::Send(const jsval& aNumber, const nsAString& aMessage, jsval* aReturn
 NS_IMETHODIMP
 SmsManager::GetMessageMoz(int32_t aId, nsIDOMMozSmsRequest** aRequest)
 {
-  nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
-
-  int32_t requestId;
-  nsresult rv = requestManager->CreateRequest(this, aRequest, &requestId);
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Failed to create the request!");
-    return rv;
-  }
-
+  nsCOMPtr<nsIDOMMozSmsRequest> req = SmsRequest::Create(this);
   nsCOMPtr<nsISmsDatabaseService> smsDBService =
     do_GetService(SMS_DATABASE_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(smsDBService, NS_ERROR_FAILURE);
-
-  smsDBService->GetMessageMoz(aId, requestId, 0);
-
+  nsCOMPtr<nsISmsRequest> forwarder = new SmsRequestForwarder(static_cast<SmsRequest*>(req.get()));
+  smsDBService->GetMessageMoz(aId, forwarder);
+  req.forget(aRequest);
   return NS_OK;
 }
 
 nsresult
 SmsManager::Delete(int32_t aId, nsIDOMMozSmsRequest** aRequest)
 {
-  nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
-
-  int32_t requestId;
-  nsresult rv = requestManager->CreateRequest(this, aRequest, &requestId);
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Failed to create the request!");
-    return rv;
-  }
-
+  nsCOMPtr<nsIDOMMozSmsRequest> req = SmsRequest::Create(this);
   nsCOMPtr<nsISmsDatabaseService> smsDBService =
     do_GetService(SMS_DATABASE_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(smsDBService, NS_ERROR_FAILURE);
 
-  smsDBService->DeleteMessage(aId, requestId, 0);
-
+  nsCOMPtr<nsISmsRequest> forwarder = new SmsRequestForwarder(static_cast<SmsRequest*>(req.get()));
+  smsDBService->DeleteMessage(aId, forwarder);
+  req.forget(aRequest);
   return NS_OK;
 }
 
@@ -297,27 +273,18 @@ SmsManager::GetMessages(nsIDOMMozSmsFilter* aFilter, bool aReverse,
                         nsIDOMMozSmsRequest** aRequest)
 {
   nsCOMPtr<nsIDOMMozSmsFilter> filter = aFilter;
-
+  
   if (!filter) {
     filter = new SmsFilter();
   }
 
-  nsCOMPtr<nsISmsRequestManager> requestManager = do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
-
-  int32_t requestId;
-  nsresult rv = requestManager->CreateRequest(this, aRequest,
-                                              &requestId);
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Failed to create the request!");
-    return rv;
-  }
-
+  nsCOMPtr<nsIDOMMozSmsRequest> req = SmsRequest::Create(this);
   nsCOMPtr<nsISmsDatabaseService> smsDBService =
     do_GetService(SMS_DATABASE_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(smsDBService, NS_ERROR_FAILURE);
-
-  smsDBService->CreateMessageList(filter, aReverse, requestId, 0);
-
+  nsCOMPtr<nsISmsRequest> forwarder = new SmsRequestForwarder(static_cast<SmsRequest*>(req.get()));
+  smsDBService->CreateMessageList(filter, aReverse, forwarder);
+  req.forget(aRequest);
   return NS_OK;
 }
 
@@ -325,22 +292,28 @@ NS_IMETHODIMP
 SmsManager::MarkMessageRead(int32_t aId, bool aValue,
                             nsIDOMMozSmsRequest** aRequest)
 {
-  nsCOMPtr<nsISmsRequestManager> requestManager =
-    do_GetService(SMS_REQUEST_MANAGER_CONTRACTID);
-
-  int32_t requestId;
-  nsresult rv = requestManager->CreateRequest(this, aRequest, &requestId);
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Failed to create the request!");
-    return rv;
-  }
-
+  nsCOMPtr<nsIDOMMozSmsRequest> req = SmsRequest::Create(this);
   nsCOMPtr<nsISmsDatabaseService> smsDBService =
     do_GetService(SMS_DATABASE_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(smsDBService, NS_ERROR_FAILURE);
+  nsCOMPtr<nsISmsRequest> forwarder =
+    new SmsRequestForwarder(static_cast<SmsRequest*>(req.get()));
+  smsDBService->MarkMessageRead(aId, aValue, forwarder);
+  req.forget(aRequest);
+  return NS_OK;
+}
 
-  smsDBService->MarkMessageRead(aId, aValue, requestId, 0);
-
+NS_IMETHODIMP
+SmsManager::GetThreadList(nsIDOMMozSmsRequest** aRequest)
+{
+  nsCOMPtr<nsIDOMMozSmsRequest> req = SmsRequest::Create(this);
+  nsCOMPtr<nsISmsDatabaseService> smsDBService =
+    do_GetService(SMS_DATABASE_SERVICE_CONTRACTID);
+  NS_ENSURE_TRUE(smsDBService, NS_ERROR_FAILURE);
+  nsCOMPtr<nsISmsRequest> forwarder =
+    new SmsRequestForwarder(static_cast<SmsRequest*>(req.get()));
+  smsDBService->GetThreadList(forwarder);
+  req.forget(aRequest);
   return NS_OK;
 }
 
@@ -381,14 +354,25 @@ SmsManager::Observe(nsISupports* aSubject, const char* aTopic,
     return NS_OK;
   }
 
-  if (!strcmp(aTopic, kSmsDeliveredObserverTopic)) {
+  if (!strcmp(aTopic, kSmsDeliverySuccessObserverTopic)) {
     nsCOMPtr<nsIDOMMozSmsMessage> message = do_QueryInterface(aSubject);
     if (!message) {
-      NS_ERROR("Got a 'sms-delivered' topic without a valid message!");
+      NS_ERROR("Got a 'sms-delivery-success' topic without a valid message!");
       return NS_OK;
     }
 
-    DispatchTrustedSmsEventToSelf(DELIVERED_EVENT_NAME, message);
+    DispatchTrustedSmsEventToSelf(DELIVERY_SUCCESS_EVENT_NAME, message);
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, kSmsDeliveryErrorObserverTopic)) {
+    nsCOMPtr<nsIDOMMozSmsMessage> message = do_QueryInterface(aSubject);
+    if (!message) {
+      NS_ERROR("Got a 'sms-delivery-error' topic without a valid message!");
+      return NS_OK;
+    }
+
+    DispatchTrustedSmsEventToSelf(DELIVERY_ERROR_EVENT_NAME, message);
     return NS_OK;
   }
 

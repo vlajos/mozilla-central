@@ -28,6 +28,11 @@ pref("browser.chromeURL", "chrome://browser/content/");
 
 pref("browser.tabs.remote", false);
 
+// If a tab has not been active for this long (seconds), then it may be
+// turned into a zombie tab to preemptively free up memory. -1 disables time-based
+// expiration (but low-memory conditions may still require the tab to be zombified).
+pref("browser.tabs.expireTime", 3600);
+
 // From libpref/src/init/all.js, extended to allow a slightly wider zoom range.
 pref("zoom.minPercent", 20);
 pref("zoom.maxPercent", 400);
@@ -102,8 +107,7 @@ pref("browser.sessionhistory.max_entries", 50);
 
 /* session store */
 pref("browser.sessionstore.resume_session_once", false);
-pref("browser.sessionstore.resume_from_crash", false);
-pref("browser.sessionstore.resume_from_crash_timeout", 60); // minutes
+pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.interval", 10000); // milliseconds
 pref("browser.sessionstore.max_tabs_undo", 1);
 pref("browser.sessionstore.max_resumed_crashes", 1);
@@ -338,7 +342,7 @@ pref("gfx.displayport.strategy_vb.danger_y_incr", -1); // additional danger zone
 // prediction bias strategy options
 pref("gfx.displayport.strategy_pb.threshold", -1); // velocity threshold in inches/frame
 
-pref("gfx.java.screenshot.enabled", true);
+pref("gfx.java.screenshot.enabled", false);
 
 // don't allow JS to move and resize existing windows
 pref("dom.disable_window_move_resize", true);
@@ -394,6 +398,7 @@ pref("javascript.options.mem.gc_high_frequency_high_limit_mb", 40);
 pref("javascript.options.mem.gc_high_frequency_low_limit_mb", 10);
 pref("javascript.options.mem.gc_low_frequency_heap_growth", 105);
 pref("javascript.options.mem.high_water_mark", 16);
+pref("javascript.options.mem.gc_allocation_threshold_mb", 3);
 #else
 pref("javascript.options.mem.high_water_mark", 32);
 #endif
@@ -493,6 +498,10 @@ pref("browser.search.param.yahoo-fr-ja", "mozff");
 pref("app.update.timerFirstInterval", 30000); // milliseconds
 pref("app.update.timerMinimumDelay", 30); // seconds
 
+// used by update service to decide whether or not to
+// automatically download an update
+pref("app.update.autodownload", "wifi");
+
 #ifdef MOZ_UPDATER
 /* prefs used specifically for updating the app */
 pref("app.update.enabled", false);
@@ -513,6 +522,7 @@ pref("ui.dragThresholdY", 25);
 pref("layers.acceleration.disabled", false);
 pref("layers.offmainthreadcomposition.enabled", true);
 pref("layers.async-video.enabled", true);
+pref("layers.progressive-paint", true);
 
 pref("notification.feature.enabled", true);
 
@@ -537,7 +547,7 @@ pref("content.image.allow_locking", false);
 pref("image.mem.min_discard_timeout_ms", 10000);
 
 // enable touch events interfaces
-pref("dom.w3c_touch_events.enabled", true);
+pref("dom.w3c_touch_events.enabled", 1);
 
 #ifdef MOZ_SAFE_BROWSING
 pref("browser.safebrowsing.enabled", true);
@@ -565,7 +575,7 @@ pref("urlclassifier.alternate_error_page", "blocked");
 pref("urlclassifier.gethashnoise", 4);
 
 // Randomize all UrlClassifier data with a per-client key.
-pref("urlclassifier.randomizeclient", true);
+pref("urlclassifier.randomizeclient", false);
 
 // The list of tables that use the gethash request to confirm partial results.
 pref("urlclassifier.gethashtables", "goog-phish-shavar,goog-malware-shavar");
@@ -622,8 +632,6 @@ pref("ui.scrolling.min_scrollable_distance", -1);
 
 // Enable accessibility mode if platform accessibility is enabled.
 pref("accessibility.accessfu.activate", 2);
-// Enable explore by touch if it is enabled in the platform
-pref("accessibility.accessfu.explorebytouch", 2);
 
 // Mobile manages state by autodetection
 pref("network.manage-offline-status", true);
@@ -653,7 +661,7 @@ pref("media.plugins.enabled", true);
 pref("media.stagefright.omxcodec.flags", 0);
 
 // Coalesce touch events to prevent them from flooding the event queue
-pref("dom.event.touch.coalescing.enabled", true);
+pref("dom.event.touch.coalescing.enabled", false);
 
 // default orientation for the app, default to undefined
 // the java GeckoScreenOrientationListener needs this to be defined

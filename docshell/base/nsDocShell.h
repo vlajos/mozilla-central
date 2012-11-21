@@ -227,6 +227,7 @@ public:
     NS_IMETHOD GetIsContent(bool*);
     NS_IMETHOD GetUsePrivateBrowsing(bool*);
     NS_IMETHOD SetUsePrivateBrowsing(bool);
+    NS_IMETHOD SetPrivateBrowsing(bool);
 
     // Restores a cached presentation from history (mLSHE).
     // This method swaps out the content viewer and simulates loads for
@@ -281,10 +282,6 @@ protected:
     // resulting principal.  If aConsiderCurrentDocument is false, we just look
     // at the parent.
     nsIPrincipal* GetInheritedPrincipal(bool aConsiderCurrentDocument);
-
-    // True if when loading aURI into this docshell, the channel should look
-    // for an appropriate application cache.
-    bool ShouldCheckAppCache(nsIURI * aURI);
 
     // Actually open a channel and perform a URI load.  Note: whatever owner is
     // passed to this function will be set on the channel.  Callers who wish to
@@ -668,13 +665,12 @@ protected:
     bool JustStartedNetworkLoad();
 
     enum FrameType {
-        eFrameTypeRegular  = 0x0, // 0000
-        eFrameTypeBrowser  = 0x1, // 0001
-        eFrameTypeApp      = 0x2  // 0010
+        eFrameTypeRegular,
+        eFrameTypeBrowser,
+        eFrameTypeApp
     };
 
     FrameType GetInheritedFrameType();
-    FrameType GetFrameType();
 
     // hash of session storages, keyed by domain
     nsInterfaceHashtable<nsCStringHashKey, nsIDOMStorage> mStorages;
@@ -776,14 +772,14 @@ protected:
 
     // mFullscreenAllowed stores how we determine whether fullscreen is allowed
     // when GetFullscreenAllowed() is called. Fullscreen is allowed in a
-    // docshell when all containing iframes have the mozallowfullscreen
+    // docshell when all containing iframes have the allowfullscreen
     // attribute set to true. When mFullscreenAllowed is CHECK_ATTRIBUTES
-    // we check this docshell's containing frame for the mozallowfullscreen
+    // we check this docshell's containing frame for the allowfullscreen
     // attribute, and recurse onto the parent docshell to ensure all containing
-    // frames also have the mozallowfullscreen attribute. If we find an ancestor
+    // frames also have the allowfullscreen attribute. If we find an ancestor
     // docshell with mFullscreenAllowed not equal to CHECK_ATTRIBUTES, we've
     // reached a content boundary, and mFullscreenAllowed denotes whether the
-    // parent across the content boundary has mozallowfullscreen=true in all its
+    // parent across the content boundary has allowfullscreen=true in all its
     // containing iframes. mFullscreenAllowed defaults to CHECK_ATTRIBUTES and
     // is set otherwise when docshells which are content boundaries are created.
     enum FullscreenAllowedState {
@@ -811,7 +807,6 @@ protected:
     bool                       mIsAppTab;
     bool                       mUseGlobalHistory;
     bool                       mInPrivateBrowsing;
-    bool                       mIsBrowserFrame;
 
     // This boolean is set to true right before we fire pagehide and generally
     // unset when we embed a new content viewer.  While it's true no navigation
@@ -848,7 +843,18 @@ protected:
 
     nsRefPtr<nsDOMNavigationTiming> mTiming;
 
-    uint32_t mAppId;
+    // Are we a regular frame, a browser frame, or an app frame?
+    FrameType mFrameType;
+
+    // We only expect mOwnOrContainingAppId to be something other than
+    // UNKNOWN_APP_ID if mFrameType != eFrameTypeRegular.  For vanilla iframes
+    // inside an app, we'll retrieve the containing app-id by walking up the
+    // docshell hierarchy.
+    //
+    // (This needs to be the docshell's own /or containing/ app id because the
+    // containing app frame might be in another process, in which case we won't
+    // find it by walking up the docshell hierarchy.)
+    uint32_t mOwnOrContainingAppId;
 
 private:
     nsCOMPtr<nsIAtom> mForcedCharset;

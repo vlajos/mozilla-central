@@ -427,20 +427,19 @@ HttpBaseChannel::GetContentDispositionHeader(nsACString& aContentDispositionHead
 }
 
 NS_IMETHODIMP
-HttpBaseChannel::GetContentLength(int32_t *aContentLength)
+HttpBaseChannel::GetContentLength(int64_t *aContentLength)
 {
   NS_ENSURE_ARG_POINTER(aContentLength);
 
   if (!mResponseHead)
     return NS_ERROR_NOT_AVAILABLE;
 
-  // XXX truncates to 32 bit
   *aContentLength = mResponseHead->ContentLength();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-HttpBaseChannel::SetContentLength(int32_t value)
+HttpBaseChannel::SetContentLength(int64_t value)
 {
   NS_NOTYETIMPLEMENTED("HttpBaseChannel::SetContentLength");
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -1541,6 +1540,15 @@ HttpBaseChannel::SetupReplacementChannel(nsIURI       *newURI,
   newChannel->SetLoadGroup(mLoadGroup); 
   newChannel->SetNotificationCallbacks(mCallbacks);
   newChannel->SetLoadFlags(newLoadFlags);
+
+  // Try to preserve the privacy bit if it has been overridden
+  if (mPrivateBrowsingOverriden) {
+    nsCOMPtr<nsIPrivateBrowsingChannel> newPBChannel =
+      do_QueryInterface(newChannel);
+    if (newPBChannel) {
+      newPBChannel->SetPrivate(mPrivateBrowsing);
+    }
+  }
 
   nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(newChannel);
   if (!httpChannel)

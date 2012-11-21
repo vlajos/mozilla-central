@@ -16,6 +16,7 @@
 #include "nsBidiPresUtils.h"
 #endif
 #include "nsStyleStructInlines.h"
+#include "mozilla/Likely.h"
 
 #ifdef DEBUG
 static int32_t ctorCount;
@@ -53,7 +54,7 @@ nsLineBox::nsLineBox(nsIFrame* aFrame, int32_t aCount, bool aIsBlock)
 nsLineBox::~nsLineBox()
 {
   MOZ_COUNT_DTOR(nsLineBox);
-  if (NS_UNLIKELY(mFlags.mHasHashedFrames)) {
+  if (MOZ_UNLIKELY(mFlags.mHasHashedFrames)) {
     delete mFrames;
   }  
   Cleanup();
@@ -70,9 +71,7 @@ NS_NewLineBox(nsIPresShell* aPresShell, nsLineBox* aFromLine,
               nsIFrame* aFrame, int32_t aCount)
 {
   nsLineBox* newLine = new (aPresShell) nsLineBox(aFrame, aCount, false);
-  if (newLine) {
-    newLine->NoteFramesMovedFrom(aFromLine);
-  }
+  newLine->NoteFramesMovedFrom(aFromLine);
   return newLine;
 }
 
@@ -99,7 +98,7 @@ nsLineBox::NoteFramesMovedFrom(nsLineBox* aFromLine)
   uint32_t toCount = GetChildCount();
   MOZ_ASSERT(toCount <= fromCount, "moved more frames than aFromLine has");
   uint32_t fromNewCount = fromCount - toCount;
-  if (NS_LIKELY(!aFromLine->mFlags.mHasHashedFrames)) {
+  if (MOZ_LIKELY(!aFromLine->mFlags.mHasHashedFrames)) {
     aFromLine->mChildCount = fromNewCount;
     MOZ_ASSERT(toCount < kMinChildCountForHashtable);
   } else if (fromNewCount < kMinChildCountForHashtable) {
@@ -353,38 +352,28 @@ nsLineBox::CachedIsEmpty()
 
 void
 nsLineBox::DeleteLineList(nsPresContext* aPresContext, nsLineList& aLines,
-                          nsIFrame* aDestructRoot)
+                          nsIFrame* aDestructRoot, nsFrameList* aFrames)
 {
-  if (! aLines.empty()) {
-    // Delete our child frames before doing anything else. In particular
-    // we do all of this before our base class releases it's hold on the
-    // view.
-#ifdef DEBUG
-    int32_t numFrames = 0;
-#endif
-    for (nsIFrame* child = aLines.front()->mFirstChild; child; ) {
-      nsIFrame* nextChild = child->GetNextSibling();
-      child->SetNextSibling(nullptr);
-      child->DestroyFrom((aDestructRoot) ? aDestructRoot : child);
-      child = nextChild;
-#ifdef DEBUG
-      numFrames++;
-#endif
+  nsIPresShell* shell = aPresContext->PresShell();
+
+  // Keep our line list and frame list up to date as we
+  // remove frames, in case something wants to traverse the
+  // frame tree while we're destroying.
+  while (!aLines.empty()) {
+    nsLineBox* line = aLines.front();
+    if (MOZ_UNLIKELY(line->mFlags.mHasHashedFrames)) {
+      line->SwitchToCounter();  // Avoid expensive has table removals.
+    }
+    while (line->GetChildCount() > 0) {
+      nsIFrame* child = aFrames->RemoveFirstChild();
+      MOZ_ASSERT(child == line->mFirstChild, "Lines out of sync");
+      line->mFirstChild = aFrames->FirstChild();
+      line->NoteFrameRemoved(child);
+      child->DestroyFrom(aDestructRoot);
     }
 
-    nsIPresShell *shell = aPresContext->PresShell();
-
-    do {
-      nsLineBox* line = aLines.front();
-#ifdef DEBUG
-      numFrames -= line->GetChildCount();
-#endif
-      aLines.pop_front();
-      line->Destroy(shell);
-    } while (! aLines.empty());
-#ifdef DEBUG
-    NS_ASSERTION(numFrames == 0, "number of frames deleted does not match");
-#endif
+    aLines.pop_front();
+    line->Destroy(shell);
   }
 }
 
@@ -401,7 +390,7 @@ nsLineBox::RFindLineContaining(nsIFrame* aFrame,
   while (aBegin != aEnd) {
     --aEnd;
     NS_ASSERTION(aEnd->LastChild() == curFrame, "Unexpected curFrame");
-    if (NS_UNLIKELY(aEnd->mFlags.mHasHashedFrames) &&
+    if (MOZ_UNLIKELY(aEnd->mFlags.mHasHashedFrames) &&
         !aEnd->Contains(aFrame)) {
       if (aEnd->mFirstChild) {
         curFrame = aEnd->mFirstChild->GetPrevSibling();

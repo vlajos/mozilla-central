@@ -182,6 +182,13 @@ static bool lastRunCrashID_checked = false;
 // The minidump ID contained in the marker file.
 static nsString* lastRunCrashID = nullptr;
 
+#if defined(MOZ_WIDGET_ANDROID)
+// on Android 4.2 and above there is a user serial number associated
+// with the current process that gets lost when we fork so we need to
+// explicitly pass it to am
+static char* androidUserSerial = nullptr;
+#endif
+
 // these are just here for readability
 static const char kCrashTimeParameter[] = "CrashTime=";
 static const int kCrashTimeParameterLen = sizeof(kCrashTimeParameter)-1;
@@ -695,20 +702,31 @@ bool MinidumpCallback(
                  crashReporterPath, minidumpPath, (char*)0);
 #else
     // Invoke the reportCrash activity using am
-    (void) execlp("/system/bin/am",
-                 "/system/bin/am",
-                 "start",
-                 "-a", "org.mozilla.gecko.reportCrash",
-                 "-n", crashReporterPath,
-                 "--es", "minidumpPath", minidumpPath,
-                 (char*)0);
+    if (androidUserSerial) {
+      (void) execlp("/system/bin/am",
+                    "/system/bin/am",
+                    "start",
+                    "--user", androidUserSerial,
+                    "-a", "org.mozilla.gecko.reportCrash",
+                    "-n", crashReporterPath,
+                    "--es", "minidumpPath", minidumpPath,
+                    (char*)0);
+    } else {
+      (void) execlp("/system/bin/am",
+                    "/system/bin/am",
+                    "start",
+                    "-a", "org.mozilla.gecko.reportCrash",
+                    "-n", crashReporterPath,
+                    "--es", "minidumpPath", minidumpPath,
+                    (char*)0);
+    }
 #endif
     _exit(1);
   }
 #endif // XP_MACOSX
 #endif // XP_UNIX
 
- return returnValue;
+  return returnValue;
 }
 
 #ifdef XP_WIN
@@ -915,6 +933,10 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory,
     }
   }
 #endif // XP_WIN32
+
+#ifdef MOZ_WIDGET_ANDROID
+  androidUserSerial = getenv("MOZ_ANDROID_USER_SERIAL_NUMBER");
+#endif
 
   // now set the exception handler
 #ifdef XP_LINUX
@@ -2660,6 +2682,23 @@ CurrentThreadId()
 #endif
 }
 
+#ifdef XP_MACOSX
+static mach_port_t
+GetChildThread(ProcessHandle childPid, ThreadId childBlamedThread)
+{
+  mach_port_t childThread = MACH_PORT_NULL;
+  thread_act_port_array_t   threads_for_task;
+  mach_msg_type_number_t    thread_count;
+
+  if (task_threads(childPid, &threads_for_task, &thread_count)
+      == KERN_SUCCESS && childBlamedThread < thread_count) {
+    childThread = threads_for_task[childBlamedThread];
+  }
+
+  return childThread;
+}
+#endif
+
 bool
 CreatePairedMinidumps(ProcessHandle childPid,
                       ThreadId childBlamedThread,
@@ -2669,14 +2708,7 @@ CreatePairedMinidumps(ProcessHandle childPid,
     return false;
 
 #ifdef XP_MACOSX
-  mach_port_t childThread = MACH_PORT_NULL;
-  thread_act_port_array_t   threads_for_task;
-  mach_msg_type_number_t    thread_count;
-
-  if (task_threads(childPid, &threads_for_task, &thread_count)
-      == KERN_SUCCESS && childBlamedThread < thread_count) {
-    childThread = threads_for_task[childBlamedThread];
-  }
+  mach_port_t childThread = GetChildThread(childPid, childBlamedThread);
 #else
   ThreadId childThread = childBlamedThread;
 #endif
@@ -2727,6 +2759,44 @@ CreatePairedMinidumps(ProcessHandle childPid,
   }
 
   childMinidump.forget(childDump);
+
+  return true;
+}
+
+bool
+CreateAdditionalChildMinidump(ProcessHandle childPid,
+                              ThreadId childBlamedThread,
+                              nsIFile* parentMinidump,
+                              const nsACString& name)
+{
+  if (!GetEnabled())
+    return false;
+
+#ifdef XP_MACOSX
+  mach_port_t childThread = GetChildThread(childPid, childBlamedThread);
+#else
+  ThreadId childThread = childBlamedThread;
+#endif
+
+  xpstring dump_path;
+#ifndef XP_LINUX
+  dump_path = gExceptionHandler->dump_path();
+#else
+  dump_path = gExceptionHandler->minidump_descriptor().directory();
+#endif
+
+  // dump the child
+  nsCOMPtr<nsIFile> childMinidump;
+  if (!google_breakpad::ExceptionHandler::WriteMinidumpForChild(
+         childPid,
+         childThread,
+         dump_path,
+         PairedDumpCallback,
+         static_cast<void*>(&childMinidump))) {
+    return false;
+  }
+
+  RenameAdditionalHangMinidump(childMinidump, parentMinidump, name);
 
   return true;
 }

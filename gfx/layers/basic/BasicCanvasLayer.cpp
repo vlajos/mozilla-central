@@ -16,6 +16,7 @@
 #include "nsXULAppAPI.h"
 
 using namespace mozilla::gfx;
+using namespace mozilla::gl;
 
 namespace mozilla {
 namespace layers {
@@ -56,8 +57,14 @@ BasicCanvasLayer::UpdateSurface(gfxASurface* aDestSurface, Layer* aMaskLayer)
 
   if (mDrawTarget) {
     mDrawTarget->Flush();
-    // TODO Fix me before turning accelerated quartz canvas by default
-    //mSurface = gfxPlatform::GetPlatform()->GetThebesSurfaceForDrawTarget(mDrawTarget);
+    if (mDrawTarget->GetType() == BACKEND_COREGRAPHICS_ACCELERATED) {
+      // We have an accelerated CG context which has changed, unlike a bitmap surface
+      // where we can alias the bits on initializing the mDrawTarget, we need to readback
+      // and copy the accelerated surface each frame. We want to support this for quick
+      // thumbnail but if we're going to be doing this every frame it likely is better
+      // to use a non accelerated (bitmap) canvas.
+      mSurface = gfxPlatform::GetPlatform()->GetThebesSurfaceForDrawTarget(mDrawTarget);
+    }
   }
 
   if (!mGLContext && aDestSurface) {
@@ -76,21 +83,6 @@ BasicCanvasLayer::UpdateSurface(gfxASurface* aDestSurface, Layer* aMaskLayer)
 
     // We need to read from the GLContext
     mGLContext->MakeCurrent();
-
-#if defined (MOZ_X11) && defined (MOZ_EGL_XRENDER_COMPOSITE)
-    if (!mForceReadback) {
-      mGLContext->GuaranteeResolve();
-      gfxASurface* offscreenSurface = mGLContext->GetOffscreenPixmapSurface();
-
-      // XRender can only blend premuliplied alpha, so only allow xrender
-      // path if we have premultiplied alpha or opaque content.
-      if (offscreenSurface && (mGLBufferIsPremultiplied || (GetContentFlags() & CONTENT_OPAQUE))) {  
-        mSurface = offscreenSurface;
-        mNeedsYFlip = false;
-        return;
-      }
-    }
-#endif
 
     gfxIntSize readSize(mBounds.width, mBounds.height);
     gfxImageFormat format = (GetContentFlags() & CONTENT_OPAQUE)
@@ -207,15 +199,6 @@ BasicCanvasLayer::PaintWithOpacity(gfxContext* aContext,
   aContext->SetPattern(pat);
 
   FillWithMask(aContext, aOpacity, aMaskLayer);
-
-#if defined (MOZ_X11) && defined (MOZ_EGL_XRENDER_COMPOSITE)
-  if (mGLContext && !mForceReadback) {
-    // Wait for X to complete all operations before continuing
-    // Otherwise gl context could get cleared before X is done.
-    mGLContext->WaitNative();
-  }
-#endif
-
   // Restore surface operator
   if (GetContentFlags() & CONTENT_OPAQUE) {
     aContext->SetOperator(savedOp);

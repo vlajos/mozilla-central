@@ -54,11 +54,12 @@ size_t sE4XObjectsCreated = 0;
 #include <string.h>     /* for #ifdef DEBUG memset calls */
 #endif
 
-using namespace mozilla;
 using namespace js;
 using namespace js::gc;
 using namespace js::types;
 using namespace js::frontend;
+
+using mozilla::ArrayLength;
 
 template<class T, class U>
 struct IdentityOp
@@ -1753,7 +1754,8 @@ ParseXMLSource(JSContext *cx, HandleString src)
         op = (JSOp) *i.pc();
         if (op == JSOP_TOXML || op == JSOP_TOXMLLIST) {
             filename = i.script()->filename;
-            lineno = PCToLineNumber(i.script(), i.pc());
+            RootedScript script(cx, i.script());
+            lineno = PCToLineNumber(script, i.pc());
             for (endp = srcp + srclen; srcp < endp; srcp++) {
                 if (*srcp == '\n')
                     --lineno;
@@ -2831,10 +2833,8 @@ ReportBadXMLName(JSContext *cx, const Value &idval)
     js_ReportValueError(cx, JSMSG_BAD_XML_NAME, JSDVG_IGNORE_STACK, val, NullPtr());
 }
 
-namespace js {
-
 bool
-GetLocalNameFromFunctionQName(JSObject *qn, JSAtom **namep, JSContext *cx)
+js::GetLocalNameFromFunctionQName(JSObject *qn, JSAtom **namep, JSContext *cx)
 {
     JSAtom *atom = cx->names().functionNamespaceURI;
     JSLinearString *uri = qn->getNameURI();
@@ -2844,8 +2844,6 @@ GetLocalNameFromFunctionQName(JSObject *qn, JSAtom **namep, JSContext *cx)
     }
     return false;
 }
-
-} /* namespace js */
 
 bool
 js_GetLocalNameFromFunctionQName(JSObject *obj, jsid *funidp, JSContext *cx)
@@ -7465,8 +7463,6 @@ js_InitXMLClasses(JSContext *cx, HandleObject obj)
     return js_InitXMLClass(cx, obj);
 }
 
-namespace js {
-
 bool
 GlobalObject::getFunctionNamespace(JSContext *cx, Value *vp)
 {
@@ -7495,8 +7491,6 @@ GlobalObject::getFunctionNamespace(JSContext *cx, Value *vp)
     *vp = v;
     return true;
 }
-
-} // namespace js
 
 /*
  * Note the asymmetry between js_GetDefaultXMLNamespace and js_SetDefaultXML-

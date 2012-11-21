@@ -16,7 +16,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
                                    "@mozilla.org/parentprocessmessagemanager;1",
                                    "nsIMessageBroadcaster");
 
-const EXPORTED_SYMBOLS = [];
+this.EXPORTED_SYMBOLS = [];
 
 let idbGlobal = this;
 
@@ -86,31 +86,35 @@ ActivitiesDb.prototype = {
     return hasher.finish(true);
   },
 
-  add: function actdb_add(aObject, aSuccess, aError) {
+  // Add all the activities carried in the |aObjects| array.
+  add: function actdb_add(aObjects, aSuccess, aError) {
     this.newTxn("readwrite", function (txn, store) {
-      let object = {
-        manifest: aObject.manifest,
-        name: aObject.name,
-        title: aObject.title || "",
-        icon: aObject.icon || "",
-        description: aObject.description
-      };
-      object.id = this.createId(object);
-      debug("Going to add " + JSON.stringify(object));
-
-      store.put(object);
+      aObjects.forEach(function (aObject) {
+        let object = {
+          manifest: aObject.manifest,
+          name: aObject.name,
+          title: aObject.title || "",
+          icon: aObject.icon || "",
+          description: aObject.description
+        };
+        object.id = this.createId(object);
+        debug("Going to add " + JSON.stringify(object));
+        store.put(object);
+      }, this);
     }.bind(this), aSuccess, aError);
   },
 
-  // we want to remove all activities for (manifest, name)
-  remove: function actdb_remove(aObject) {
+  // Remove all the activities carried in the |aObjects| array.
+  remove: function actdb_remove(aObjects) {
     this.newTxn("readwrite", function (txn, store) {
-      let object = {
-        manifest: aObject.manifest,
-        name: aObject.name
-      };
-      debug("Going to remove " + JSON.stringify(object));
-      store.delete(this.createId(object));
+      aObjects.forEach(function (aObject) {
+        let object = {
+          manifest: aObject.manifest,
+          name: aObject.name
+        };
+        debug("Going to remove " + JSON.stringify(object));
+        store.delete(this.createId(object));
+      }, this);
     }.bind(this), function() {}, function() {});
   },
 
@@ -167,7 +171,7 @@ let Activities = {
 
     this.db = new ActivitiesDb();
     this.db.init();
-    this.mm = {};
+    this.callers = {};
   },
 
   observe: function activities_observe(aSubject, aTopic, aData) {
@@ -194,11 +198,11 @@ let Activities = {
 
       // We have no matching activity registered, let's fire an error.
       if (aResults.options.length === 0) {
-        Activities.mm[aMsg.id].sendAsyncMessage("Activity:FireError", {
+        Activities.callers[aMsg.id].mm.sendAsyncMessage("Activity:FireError", {
           "id": aMsg.id,
           "error": "NO_PROVIDER"
         });
-        delete Activities.mm[aMsg.id];
+        delete Activities.callers[aMsg.id];
         return;
       }
 
@@ -207,11 +211,11 @@ let Activities = {
 
         // The user has cancelled the choice, fire an error.
         if (aChoice === -1) {
-          Activities.mm[aMsg.id].sendAsyncMessage("Activity:FireError", {
+          Activities.callers[aMsg.id].mm.sendAsyncMessage("Activity:FireError", {
             "id": aMsg.id,
             "error": "USER_ABORT"
           });
-          delete Activities.mm[aMsg.id];
+          delete Activities.callers[aMsg.id];
           return;
         }
 
@@ -233,11 +237,13 @@ let Activities = {
           Services.io.newURI(result.manifest, null, null));
 
         if (!result.description.returnValue) {
-          Activities.mm[aMsg.id].sendAsyncMessage("Activity:FireSuccess", {
+          Activities.callers[aMsg.id].mm.sendAsyncMessage("Activity:FireSuccess", {
             "id": aMsg.id,
             "result": null
           });
-          delete Activities.mm[aMsg.id];
+          // No need to notify observers, since we don't want the caller
+          // to be raised on the foreground that quick.
+          delete Activities.callers[aMsg.id];
         }
       };
 
@@ -252,16 +258,38 @@ let Activities = {
     };
 
     let matchFunc = function matchFunc(aResult) {
-      // Bug 773383: arrays of strings / regexp.
-      for (let prop in aResult.description.filters) {
-        if (Array.isArray(aResult.description.filters[prop])) {
-          if (aResult.description.filters[prop].indexOf(aMsg.options.data[prop]) == -1) {
-            return false;
+
+      function matchFuncValue(aValue, aFilter) {
+        // Bug 805822 - Regexp support for MozActivity
+
+        let values = Array.isArray(aValue) ? aValue : [aValue];
+        let filters = Array.isArray(aFilter) ? aFilter : [aFilter];
+
+        // At least 1 value must match.
+        let ret = false;
+        values.forEach(function(value) {
+          if (filters.indexOf(value) != -1) {
+            ret = true;
           }
-        } else if (aResult.description.filters[prop] !== aMsg.options.data[prop] ) {
+        });
+
+        return ret;
+      }
+
+      // For any incoming property.
+      for (let prop in aMsg.options.data) {
+
+        // If this is unknown for the app, this app must be excluded.
+        if (!(prop in aResult.description.filters)) {
+          return false;
+        }
+
+        // Otherwise, let's check the value against the filter.
+        if (!matchFuncValue(aMsg.options.data[prop], aResult.description.filters[prop])) {
           return false;
         }
       }
+
       return true;
     };
 
@@ -271,29 +299,50 @@ let Activities = {
   receiveMessage: function activities_receiveMessage(aMessage) {
     let mm = aMessage.target;
     let msg = aMessage.json;
+
+    let caller;
+    let obsData;
+
+    if (aMessage.name == "Activity:PostResult" ||
+        aMessage.name == "Activity:PostError") {
+      caller = this.callers[msg.id];
+      if (!caller) {
+        debug("!! caller is null for msg.id=" + msg.id);
+        return;
+      }
+      obsData = JSON.stringify({ manifestURL: caller.manifestURL,
+                                 pageURL: caller.pageURL,
+                                 success: aMessage.name == "Activity:PostResult" });
+    }
+
     switch(aMessage.name) {
       case "Activity:Start":
-        this.mm[msg.id] = aMessage.target;
+        this.callers[msg.id] = { mm: aMessage.target,
+                                 manifestURL: msg.manifestURL,
+                                 pageURL: msg.pageURL };
         this.startActivity(msg);
         break;
 
       case "Activity:PostResult":
-        this.mm[msg.id].sendAsyncMessage("Activity:FireSuccess", msg);
-        delete this.mm[msg.id];
+        caller.mm.sendAsyncMessage("Activity:FireSuccess", msg);
+        Services.obs.notifyObservers(null, "activity-done", obsData);
+        delete this.callers[msg.id];
         break;
       case "Activity:PostError":
-        this.mm[msg.id].sendAsyncMessage("Activity:FireError", msg);
-        delete this.mm[msg.id];
+        caller.mm.sendAsyncMessage("Activity:FireError", msg);
+        Services.obs.notifyObservers(null, "activity-done", obsData);
+        delete this.callers[msg.id];
         break;
 
       case "Activities:Register":
-        this.db.add(msg, function onSuccess(aEvent) {
-          mm.sendAsyncMessage("Activities:Register:OK", msg);
-        },
-        function onError(aEvent) {
-          msg.error = "REGISTER_ERROR";
-          mm.sendAsyncMessage("Activities:Register:KO", msg);
-        });
+        this.db.add(msg,
+          function onSuccess(aEvent) {
+            mm.sendAsyncMessage("Activities:Register:OK", null);
+          },
+          function onError(aEvent) {
+            msg.error = "REGISTER_ERROR";
+            mm.sendAsyncMessage("Activities:Register:KO", msg);
+          });
         break;
       case "Activities:Unregister":
         this.db.remove(msg);

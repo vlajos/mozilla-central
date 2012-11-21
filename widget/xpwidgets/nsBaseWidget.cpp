@@ -25,6 +25,7 @@
 #include "nsIXULRuntime.h"
 #include "nsIXULWindow.h"
 #include "nsIBaseWindow.h"
+#include "nsXULPopupManager.h"
 #include "nsEventStateManager.h"
 #include "nsIWidgetListener.h"
 #include "nsIGfxInfo.h"
@@ -48,6 +49,8 @@ static bool debug_InSecureKeyboardInputMode = false;
 #ifdef NOISY_WIDGET_LEAKS
 static int32_t gNumWidgets;
 #endif
+
+nsIRollupListener* nsBaseWidget::gRollupListener = nullptr;
 
 using namespace mozilla::layers;
 using namespace mozilla;
@@ -91,8 +94,7 @@ nsBaseWidget::nsBaseWidget()
 , mCursor(eCursor_standard)
 , mWindowType(eWindowType_child)
 , mBorderStyle(eBorderStyle_none)
-, mOnDestroyCalled(false)
-, mUseAcceleratedRendering(false)
+, mUseLayersAcceleration(false)
 , mForceLayersAcceleration(false)
 , mTemporarilyUseBasicLayerManager(false)
 , mUseAttachedEvents(false)
@@ -751,7 +753,7 @@ nsBaseWidget::AutoUseBasicLayerManager::~AutoUseBasicLayerManager()
 }
 
 bool
-nsBaseWidget::GetShouldAccelerate()
+nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
 {
 #if defined(XP_WIN) || defined(ANDROID) || (MOZ_PLATFORM_MAEMO > 5) || \
     defined(MOZ_GL_PROVIDER) || defined(XP_MACOSX)
@@ -816,7 +818,7 @@ nsBaseWidget::GetShouldAccelerate()
     return true;
 
   /* use the window acceleration flag */
-  return mUseAcceleratedRendering;
+  return aDefault;
 }
 
 void nsBaseWidget::CreateCompositor()
@@ -838,7 +840,7 @@ void nsBaseWidget::CreateCompositor()
   TextureFactoryIdentifier textureFactoryIdentifier;
   PLayersChild* shadowManager;
   mozilla::layers::LayersBackend backendHint =
-    mUseAcceleratedRendering ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
+    mUseLayersAcceleration ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
   shadowManager = mCompositorChild->SendPLayersConstructor(
     backendHint, 0, &textureFactoryIdentifier);
 
@@ -875,7 +877,7 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
 {
   if (!mLayerManager) {
 
-    mUseAcceleratedRendering = GetShouldAccelerate();
+    mUseLayersAcceleration = ComputeShouldAccelerate(mUseLayersAcceleration);
 
     // Try to use an async compositor first, if possible
     if (UseOffMainThreadCompositing()) {
@@ -885,7 +887,7 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
       CreateCompositor();
     }
 
-    if (mUseAcceleratedRendering) {
+    if (mUseLayersAcceleration) {
       if (!mLayerManager) {
         nsRefPtr<LayerManagerOGL> layerManager = new LayerManagerOGL(this);
         /**
@@ -1125,23 +1127,26 @@ nsBaseWidget::ShowsResizeIndicator(nsIntRect* aResizerRect)
 }
 
 NS_IMETHODIMP
-nsBaseWidget::SetAcceleratedRendering(bool aEnabled)
+nsBaseWidget::SetLayersAcceleration(bool aEnabled)
 {
-  if (mUseAcceleratedRendering == aEnabled) {
+  if (mUseLayersAcceleration == aEnabled) {
     return NS_OK;
   }
-  mUseAcceleratedRendering = aEnabled;
+
+  bool usedAcceleration = mUseLayersAcceleration;
+
+  mUseLayersAcceleration = ComputeShouldAccelerate(aEnabled);
+  // ComputeShouldAccelerate may have set mUseLayersAcceleration to a value
+  // different from aEnabled.
+  if (usedAcceleration == mUseLayersAcceleration) {
+    return NS_OK;
+  }
+
   if (mLayerManager) {
     mLayerManager->Destroy();
   }
   mLayerManager = NULL;
   return NS_OK;
-}
-
-bool
-nsBaseWidget::GetAcceleratedRendering()
-{
-  return mUseAcceleratedRendering;
 }
 
 NS_METHOD nsBaseWidget::RegisterTouchWindow()
@@ -1293,6 +1298,17 @@ const widget::SizeConstraints& nsBaseWidget::GetSizeConstraints() const
   return mSizeConstraints;
 }
 
+// static
+nsIRollupListener*
+nsBaseWidget::GetActiveRollupListener()
+{
+  // If set, then this is likely an <html:select> dropdown.
+  if (gRollupListener)
+    return gRollupListener;
+
+  return nsXULPopupManager::GetInstance();
+}
+
 void
 nsBaseWidget::NotifyWindowDestroyed()
 {
@@ -1361,7 +1377,7 @@ nsBaseWidget::NotifyUIStateChanged(UIStateChangeType aShowAccelerators,
 
 #ifdef ACCESSIBILITY
 
-Accessible*
+ally::Accessible*
 nsBaseWidget::GetAccessible()
 {
   NS_ENSURE_TRUE(mWidgetListener, nullptr);

@@ -26,8 +26,10 @@
 #include "jspropertycacheinlines.h"
 #include "jstypedarrayinlines.h"
 
+#ifdef JS_ION
 #include "ion/Ion.h"
 #include "ion/IonCompartment.h"
+#endif
 
 #include "vm/Stack-inl.h"
 
@@ -112,6 +114,7 @@ ComputeThis(JSContext *cx, StackFrame *fp)
 static inline bool
 IsOptimizedArguments(StackFrame *fp, Value *vp)
 {
+    AutoAssertNoGC nogc;
     if (vp->isMagic(JS_OPTIMIZED_ARGUMENTS) && fp->script()->needsArgsObj())
         *vp = ObjectValue(fp->argsObj());
     return vp->isMagic(JS_OPTIMIZED_ARGUMENTS);
@@ -125,11 +128,13 @@ IsOptimizedArguments(StackFrame *fp, Value *vp)
 static inline bool
 GuardFunApplyArgumentsOptimization(JSContext *cx)
 {
+    AssertCanGC();
     FrameRegs &regs = cx->regs();
     if (IsOptimizedArguments(regs.fp(), &regs.sp[-1])) {
         CallArgs args = CallArgsFromSp(GET_ARGC(regs.pc), regs.sp);
         if (!IsNativeFunction(args.calleev(), js_fun_apply)) {
-            if (!JSScript::argumentsOptimizationFailed(cx, regs.fp()->script()))
+            RootedScript script(cx, regs.fp()->script());
+            if (!JSScript::argumentsOptimizationFailed(cx, script))
                 return false;
             regs.sp[-1] = ObjectValue(regs.fp()->argsObj());
         }
@@ -319,7 +324,7 @@ SetPropertyOperation(JSContext *cx, jsbytecode *pc, HandleValue lval, HandleValu
          * The entry predicts a set either an existing "own" property, or
          * on a prototype property that has a setter.
          */
-        Shape *shape = entry->prop;
+        RootedShape shape(cx, entry->prop);
         JS_ASSERT_IF(shape->isDataDescriptor(), shape->writable());
         JS_ASSERT_IF(shape->hasSlot(), entry->isOwnPropertyHit());
 
@@ -400,9 +405,8 @@ inline bool
 IntrinsicNameOperation(JSContext *cx, JSScript *script, jsbytecode *pc, MutableHandleValue vp)
 {
     JSOp op = JSOp(*pc);
-    RootedPropertyName name(cx,  GetNameFromBytecode(cx, script, pc, op));
-    cx->global()->getIntrinsicValue(cx, name, vp);
-    return true;
+    RootedPropertyName name(cx, GetNameFromBytecode(cx, script, pc, op));
+    return cx->global()->getIntrinsicValue(cx, name, vp);
 }
 
 inline bool
@@ -507,7 +511,7 @@ DefVarOrConstOperation(JSContext *cx, HandleObject varobj, HandlePropertyName dn
 inline void
 InterpreterFrames::enableInterruptsIfRunning(JSScript *script)
 {
-    if (script == regs->fp()->script())
+    if (regs->fp()->script() == script)
         enabler.enable();
 }
 
@@ -758,6 +762,7 @@ static JS_ALWAYS_INLINE bool
 GetElementOperation(JSContext *cx, JSOp op, HandleValue lref, HandleValue rref,
                     MutableHandleValue res)
 {
+    AssertCanGC();
     JS_ASSERT(op == JSOP_GETELEM || op == JSOP_CALLELEM);
 
     if (lref.isString() && rref.isInt32()) {
@@ -783,7 +788,8 @@ GetElementOperation(JSContext *cx, JSOp op, HandleValue lref, HandleValue rref,
             }
         }
 
-        if (!JSScript::argumentsOptimizationFailed(cx, fp->script()))
+        RootedScript script(cx, fp->script());
+        if (!JSScript::argumentsOptimizationFailed(cx, script))
             return false;
 
         lval = ObjectValue(fp->argsObj());
@@ -1000,11 +1006,11 @@ class FastInvokeGuard
 
   public:
     FastInvokeGuard(JSContext *cx, const Value &fval)
-      : fun_(cx),
-        script_(cx)
+      : fun_(cx)
+      , script_(cx)
 #ifdef JS_ION
-        , ictx_(cx, cx->compartment, NULL),
-        useIon_(ion::IsEnabled(cx))
+      , ictx_(cx, cx->compartment, NULL)
+      , useIon_(ion::IsEnabled(cx))
 #endif
     {
         initFunction(fval);
@@ -1029,12 +1035,12 @@ class FastInvokeGuard
         if (useIon_ && fun_) {
             JS_ASSERT(fun_->script() == script_);
 
-            ion::MethodStatus status = ion::CanEnterUsingFastInvoke(cx, script_);
+            ion::MethodStatus status = ion::CanEnterUsingFastInvoke(cx, script_, args_.length());
             if (status == ion::Method_Error)
                 return false;
             if (status == ion::Method_Compiled) {
                 ion::IonExecStatus result = ion::FastInvoke(cx, fun_, args_);
-                if (result == ion::IonExec_Error)
+                if (IsErrorStatus(result))
                     return false;
 
                 JS_ASSERT(result == ion::IonExec_Ok);

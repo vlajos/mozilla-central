@@ -76,8 +76,6 @@ CSS_PSEUDO_CLASS(nthLastChild, ":nth-last-child")
 CSS_PSEUDO_CLASS(nthOfType, ":nth-of-type")
 CSS_PSEUDO_CLASS(nthLastOfType, ":nth-last-of-type")
 
-CSS_PSEUDO_CLASS(mozHasHandlerRef, ":-moz-has-handlerref")
-
 // Match nodes that are HTML but not XHTML
 CSS_PSEUDO_CLASS(mozIsHTML, ":-moz-is-html")
 
@@ -184,8 +182,6 @@ CSS_STATE_PSEUDO_CLASS(mozReadOnly, ":-moz-read-only",
                        NS_EVENT_STATE_MOZ_READONLY)
 CSS_STATE_PSEUDO_CLASS(mozReadWrite, ":-moz-read-write",
                        NS_EVENT_STATE_MOZ_READWRITE)
-CSS_STATE_PSEUDO_CLASS(mozPlaceholder, ":-moz-placeholder",
-                       NS_EVENT_STATE_MOZ_PLACEHOLDER)
 CSS_STATE_PSEUDO_CLASS(mozSubmitInvalid, ":-moz-submit-invalid",
                        NS_EVENT_STATE_MOZ_SUBMITINVALID)
 CSS_STATE_PSEUDO_CLASS(mozUIInvalid, ":-moz-ui-invalid",

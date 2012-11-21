@@ -21,11 +21,17 @@ https://bugzilla.mozilla.org/show_bug.cgi?id={674720}
 
 "use strict";
 
-var comp = SpecialPowers.wrap(SpecialPowers.Components);
-comp.utils.import("resource://gre/modules/ContactService.jsm");
-comp.utils.import("resource://gre/modules/PermissionPromptHelper.jsm");
-SpecialPowers.setBoolPref("dom.mozContacts.enabled", true);
-SpecialPowers.addPermission("contacts", true, document);
+// this shouldn't be necessary when bug 792594 is fixed
+if (!SpecialPowers.getBoolPref("dom.mozContacts.enabled")) {
+  var comp = SpecialPowers.wrap(SpecialPowers.Components);
+  comp.utils.import("resource://gre/modules/ContactService.jsm");
+  comp.utils.import("resource://gre/modules/PermissionPromptHelper.jsm");
+  SpecialPowers.setBoolPref("dom.mozContacts.enabled", true);
+}
+    
+SpecialPowers.addPermission("contacts-write", true, document);
+SpecialPowers.addPermission("contacts-read", true, document);
+SpecialPowers.addPermission("contacts-create", true, document);
 
 // For Sorting
 var c1 = {
@@ -225,7 +231,7 @@ function checkContacts(contact1, contact2) {
 var req;
 var index = 0;
 
-var mozContacts = window.navigator.mozContacts
+var mozContacts = window.navigator.mozContacts;
 
 var steps = [
   function () {

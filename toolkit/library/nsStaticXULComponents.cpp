@@ -143,6 +143,12 @@
 #define WINDOWSPROXY_MODULE
 #endif
 
+#if defined(MOZ_WIDGET_ANDROID)
+#define ANDROIDPROXY_MODULE MODULE(nsAndroidProxyModule)
+#else
+#define ANDROIDPROXY_MODULE
+#endif
+
 #if defined(BUILD_CTYPES)
 #define JSCTYPES_MODULE MODULE(jsctypes)
 #else
@@ -168,6 +174,12 @@
 #define PEERCONNECTION_MODULE MODULE(peerconnection)
 #else
 #define PEERCONNECTION_MODULE
+#endif
+
+#if defined(MOZ_GIO_COMPONENT)
+#define GIO_MODULE MODULE(nsGIOModule)
+#else
+#define GIO_MODULE
 #endif
 
 #define XUL_MODULES                          \
@@ -218,6 +230,7 @@
     UNIXPROXY_MODULE                         \
     OSXPROXY_MODULE                          \
     WINDOWSPROXY_MODULE                      \
+    ANDROIDPROXY_MODULE                      \
     JSCTYPES_MODULE                          \
     MODULE(jsreflect)                        \
     MODULE(jsperf)                           \
@@ -228,6 +241,7 @@
     MODULE(jsinspector)                      \
     MODULE(jsdebugger)                       \
     PEERCONNECTION_MODULE                    \
+    GIO_MODULE                               \
     /* end of list */
 
 #define MODULE(_name) \

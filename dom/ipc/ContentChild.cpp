@@ -15,9 +15,6 @@
 #include "ContentChild.h"
 #include "CrashReporterChild.h"
 #include "TabChild.h"
-#if defined(MOZ_SYDNEYAUDIO)
-#include "AudioChild.h"
-#endif
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/ExternalHelperAppChild.h"
@@ -34,10 +31,8 @@
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/Preferences.h"
 
-#if defined(MOZ_SYDNEYAUDIO)
-#include "nsAudioStream.h"
-#endif
 #include "nsIMemoryReporter.h"
+#include "nsIMemoryInfoDumper.h"
 #include "nsIObserverService.h"
 #include "nsTObserverArray.h"
 #include "nsIObserver.h"
@@ -52,7 +47,7 @@
 #include "nsDebugImpl.h"
 #include "nsLayoutStylesheetCache.h"
 
-#include "History.h"
+#include "IHistory.h"
 #include "nsDocShellCID.h"
 #include "nsNetUtil.h"
 
@@ -114,7 +109,6 @@ using namespace mozilla::hal_sandbox;
 using namespace mozilla::ipc;
 using namespace mozilla::layers;
 using namespace mozilla::net;
-using namespace mozilla::places;
 #if defined(MOZ_WIDGET_GONK)
 using namespace mozilla::system;
 #endif
@@ -231,13 +225,11 @@ ConsoleListener::Observe(nsIConsoleMessage* aMessage)
 ContentChild* ContentChild::sSingleton;
 
 ContentChild::ContentChild()
- :
-   mID(uint64_t(-1))
+ : TabContext()
+ , mID(uint64_t(-1))
 #ifdef ANDROID
    ,mScreenSize(0, 0)
 #endif
-   , mIsForApp(false)
-   , mIsForBrowser(false)
 {
     // This process is a content process, so it's clearly running in
     // multiprocess mode!
@@ -301,7 +293,7 @@ ContentChild::Init(MessageLoop* aIOLoop,
         startBackground ? hal::PROCESS_PRIORITY_BACKGROUND:
                           hal::PROCESS_PRIORITY_FOREGROUND);
     if (mIsForApp && !mIsForBrowser) {
-        SetProcessName(NS_LITERAL_STRING("(App)"));
+        SetProcessName(NS_LITERAL_STRING("(Preallocated app)"));
     } else {
         SetProcessName(NS_LITERAL_STRING("Browser"));
     }
@@ -334,6 +326,10 @@ ContentChild::InitXPCOM()
     mConsoleListener = new ConsoleListener(this);
     if (NS_FAILED(svc->RegisterListener(mConsoleListener)))
         NS_WARNING("Couldn't register console listener for child process");
+
+    bool isOffline;
+    SendGetXPCOMProcessAttributes(&isOffline);
+    RecvSetOffline(isOffline);
 }
 
 PMemoryReportRequestChild*
@@ -447,12 +443,21 @@ ContentChild::RecvDumpMemoryReportsToFile(const nsString& aIdentifier,
                                           const bool& aMinimizeMemoryUsage,
                                           const bool& aDumpChildProcesses)
 {
-    nsCOMPtr<nsIMemoryReporterManager> mgr =
-        do_GetService("@mozilla.org/memory-reporter-manager;1");
-    NS_ENSURE_TRUE(mgr, true);
-    mgr->DumpMemoryReportsToFile(aIdentifier,
-                                 aMinimizeMemoryUsage,
-                                 aDumpChildProcesses);
+    nsCOMPtr<nsIMemoryInfoDumper> dumper = do_GetService("@mozilla.org/memory-info-dumper;1");
+
+    dumper->DumpMemoryReportsToFile(
+        aIdentifier, aMinimizeMemoryUsage, aDumpChildProcesses);
+    return true;
+}
+
+bool
+ContentChild::RecvDumpGCAndCCLogsToFile(const nsString& aIdentifier,
+                                        const bool& aDumpChildProcesses)
+{
+    nsCOMPtr<nsIMemoryInfoDumper> dumper = do_GetService("@mozilla.org/memory-info-dumper;1");
+
+    dumper->DumpGCAndCCLogsToFile(
+        aIdentifier, aDumpChildProcesses);
     return true;
 }
 
@@ -476,8 +481,8 @@ static void FirstIdle(void)
 }
 
 PBrowserChild*
-ContentChild::AllocPBrowser(const uint32_t& aChromeFlags,
-                            const bool& aIsBrowserElement, const AppId& aApp)
+ContentChild::AllocPBrowser(const IPCTabContext& aContext,
+                            const uint32_t& aChromeFlags)
 {
     static bool firstIdleTaskPosted = false;
     if (!firstIdleTaskPosted) {
@@ -485,8 +490,12 @@ ContentChild::AllocPBrowser(const uint32_t& aChromeFlags,
         firstIdleTaskPosted = true;
     }
 
-    nsRefPtr<TabChild> child =
-        TabChild::Create(aChromeFlags, aIsBrowserElement, aApp.get_uint32_t());
+    // We'll happily accept any kind of IPCTabContext here; we don't need to
+    // check that it's of a certain type for security purposes, because we
+    // believe whatever the parent process tells us.
+
+    nsRefPtr<TabChild> child = TabChild::Create(TabContext(aContext), aChromeFlags);
+
     // The ref here is released below.
     return child.forget().get();
 }
@@ -534,9 +543,11 @@ ContentChild::GetOrCreateActorForBlob(nsIDOMBlob* aBlob)
 
   BlobConstructorParams params;
 
-  if (blob->IsSizeUnknown()) {
-    // We don't want to call GetSize yet since that may stat a file on the main
-    // thread here. Instead we'll learn the size lazily from the other process.
+  if (blob->IsSizeUnknown() || blob->IsDateUnknown()) {
+    // We don't want to call GetSize or GetLastModifiedDate
+    // yet since that may stat a file on the main thread
+    // here. Instead we'll learn the size lazily from the
+    // other process.
     params = MysteryBlobConstructorParams();
   }
   else {
@@ -553,6 +564,9 @@ ContentChild::GetOrCreateActorForBlob(nsIDOMBlob* aBlob)
       FileBlobConstructorParams fileParams;
 
       rv = file->GetName(fileParams.name());
+      NS_ENSURE_SUCCESS(rv, nullptr);
+
+      rv = file->GetMozLastModifiedDate(&fileParams.modDate());
       NS_ENSURE_SUCCESS(rv, nullptr);
 
       fileParams.contentType() = contentType;
@@ -639,30 +653,6 @@ bool
 ContentChild::RecvPTestShellConstructor(PTestShellChild* actor)
 {
     actor->SendPContextWrapperConstructor()->SendPObjectWrapperConstructor(true);
-    return true;
-}
-
-PAudioChild*
-ContentChild::AllocPAudio(const int32_t& numChannels,
-                          const int32_t& rate,
-                          const int32_t& format)
-{
-#if defined(MOZ_SYDNEYAUDIO)
-    AudioChild *child = new AudioChild();
-    NS_ADDREF(child);
-    return child;
-#else
-    return nullptr;
-#endif
-}
-
-bool
-ContentChild::DeallocPAudio(PAudioChild* doomed)
-{
-#if defined(MOZ_SYDNEYAUDIO)
-    AudioChild *child = static_cast<AudioChild*>(doomed);
-    NS_RELEASE(child);
-#endif
     return true;
 }
 
@@ -884,7 +874,10 @@ ContentChild::RecvNotifyVisited(const URIParams& aURI)
     if (!newURI) {
         return false;
     }
-    History::GetService()->NotifyVisited(newURI);
+    nsCOMPtr<IHistory> history = services::GetHistoryService();
+    if (history) {
+      history->NotifyVisited(newURI);
+    }
     return true;
 }
 

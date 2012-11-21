@@ -13,7 +13,7 @@ WebGLProgram::WrapObject(JSContext *cx, JSObject *scope, bool *triedToWrap) {
     return dom::WebGLProgramBinding::Wrap(cx, scope, this, triedToWrap);
 }
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLProgram)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_1(WebGLProgram, mAttachedShaders)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WebGLProgram)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebGLProgram)

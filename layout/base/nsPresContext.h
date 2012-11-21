@@ -110,6 +110,12 @@ public:
     uint32_t mFlags;
   };
 
+  void TakeFrom(nsInvalidateRequestList* aList)
+  {
+    mRequests.MoveElementsFrom(aList->mRequests);
+  }
+  bool IsEmpty() { return mRequests.IsEmpty(); }
+
   nsTArray<Request> mRequests;
 };
 
@@ -151,6 +157,12 @@ public:
     eContext_PageLayout    // paginated & editable.
   };
 
+  // Policies for rebuilding style data.
+  enum StyleRebuildType {
+    eRebuildStyleIfNeeded,
+    eAlwaysRebuildStyle
+  };
+
   nsPresContext(nsIDocument* aDocument, nsPresContextType aType) NS_HIDDEN;
 
   /**
@@ -189,6 +201,16 @@ public:
    * this presentation, or null if there isn't one.
    */
   nsPresContext* GetToplevelContentDocumentPresContext();
+
+  /**
+   * Returns the nearest widget for the root frame of this.
+   *
+   * @param aOffset     If non-null the offset from the origin of the root
+   *                    frame's view to the widget's origin (usually positive)
+   *                    expressed in appunits of this will be returned in
+   *                    aOffset.
+   */
+  nsIWidget* GetNearestWidget(nsPoint* aOffset = nullptr);
 
   /**
    * Return the presentation context for the root of the view manager
@@ -232,12 +254,13 @@ public:
    */
   void PostRebuildAllStyleDataEvent(nsChangeHint aExtraHint);
 
-  void MediaFeatureValuesChanged(bool aCallerWillRebuildStyleData);
+  void MediaFeatureValuesChanged(StyleRebuildType aShouldRebuild,
+                                 nsChangeHint aChangeHint = nsChangeHint(0));
   void PostMediaFeatureValuesChangedEvent();
   NS_HIDDEN_(void) HandleMediaFeatureValuesChangedEvent();
   void FlushPendingMediaFeatureValuesChanged() {
     if (mPendingMediaFeatureValuesChanged)
-      MediaFeatureValuesChanged(false);
+      MediaFeatureValuesChanged(eRebuildStyleIfNeeded);
   }
 
   /**
@@ -404,8 +427,10 @@ public:
     if (!r.IsEqualEdges(mVisibleArea)) {
       mVisibleArea = r;
       // Visible area does not affect media queries when paginated.
-      if (!IsPaginated() && HasCachedStyleData())
+      if (!IsPaginated() && HasCachedStyleData()) {
+        mPendingViewportChange = true;
         PostMediaFeatureValuesChangedEvent();
+      }
     }
   }
 
@@ -475,8 +500,7 @@ public:
     if (HasCachedStyleData()) {
       // Media queries could have changed, since we changed the meaning
       // of 'em' units in them.
-      MediaFeatureValuesChanged(true);
-      RebuildAllStyleData(NS_STYLE_HINT_REFLOW);
+      MediaFeatureValuesChanged(eAlwaysRebuildStyle, NS_STYLE_HINT_REFLOW);
     }
   }
 
@@ -497,8 +521,7 @@ public:
     if (HasCachedStyleData()) {
       // Media queries could have changed, since we changed the meaning
       // of 'em' units in them.
-      MediaFeatureValuesChanged(true);
-      RebuildAllStyleData(NS_STYLE_HINT_REFLOW);
+      MediaFeatureValuesChanged(eAlwaysRebuildStyle, NS_STYLE_HINT_REFLOW);
     }
   }
 
@@ -723,6 +746,13 @@ public:
   NS_HIDDEN_(void) ThemeChanged();
 
   /*
+   * Notify the pres context that the resolution of the user interface has
+   * changed. This happens if a window is moved between HiDPI and non-HiDPI
+   * displays, so that the ratio of points to device pixels changes.
+   */
+  NS_HIDDEN_(void) UIResolutionChanged();
+
+  /*
    * Notify the pres context that a system color has changed
    */
   NS_HIDDEN_(void) SysColorChanged();
@@ -809,8 +839,9 @@ public:
   void NotifyInvalidation(const nsRect& aRect, uint32_t aFlags);
   // aRect is in device pixels
   void NotifyInvalidation(const nsIntRect& aRect, uint32_t aFlags);
-  void NotifyDidPaintForSubtree();
-  void FireDOMPaintEvent();
+  // aFlags are nsIPresShell::PAINT_ flags
+  void NotifyDidPaintForSubtree(uint32_t aFlags);
+  void FireDOMPaintEvent(nsInvalidateRequestList* aList);
 
   // Callback for catching invalidations in ContainerLayers
   // Passed to LayerProperties::ComputeDifference
@@ -818,7 +849,8 @@ public:
                                        const nsIntRegion& aRegion);
   bool IsDOMPaintEventPending();
   void ClearMozAfterPaintEvents() {
-    mInvalidateRequests.mRequests.Clear();
+    mInvalidateRequestsSinceLastPaint.mRequests.Clear();
+    mUndeliveredInvalidateRequestsBeforeLastPaint.mRequests.Clear();
     mAllInvalidated = false;
   }
 
@@ -907,9 +939,6 @@ public:
     PropertyTable()->DeleteAllFor(aFrame);
   }
 
-  bool MayHaveFixedBackgroundFrames() { return mMayHaveFixedBackgroundFrames; }
-  void SetHasFixedBackgroundFrame() { mMayHaveFixedBackgroundFrames = true; }
-
   virtual size_t SizeOfExcludingThis(nsMallocSizeOfFun aMallocSizeOf) const;
   virtual size_t SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const {
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
@@ -926,10 +955,30 @@ public:
     mIsGlyph = aValue;
   }
 
+  bool UsesRootEMUnits() const {
+    return mUsesRootEMUnits;
+  }
+
+  void SetUsesRootEMUnits(bool aValue) {
+    mUsesRootEMUnits = aValue;
+  }
+
+  bool UsesViewportUnits() const {
+    return mUsesViewportUnits;
+  }
+
+  void SetUsesViewportUnits(bool aValue) {
+    mUsesViewportUnits = aValue;
+  }
+
 protected:
   friend class nsRunnableMethod<nsPresContext>;
   NS_HIDDEN_(void) ThemeChangedInternal();
   NS_HIDDEN_(void) SysColorChangedInternal();
+  NS_HIDDEN_(void) UIResolutionChangedInternal();
+
+  static NS_HIDDEN_(bool)
+  UIResolutionChangedSubdocumentCallback(nsIDocument* aDocument, void* aData);
 
   NS_HIDDEN_(void) SetImgAnimations(nsIContent *aParent, uint16_t aMode);
   NS_HIDDEN_(void) SetSMILAnimations(nsIDocument *aDoc, uint16_t aNewMode,
@@ -1107,7 +1156,8 @@ protected:
 
   FramePropertyTable    mPropertyTable;
 
-  nsInvalidateRequestList mInvalidateRequests;
+  nsInvalidateRequestList mInvalidateRequestsSinceLastPaint;
+  nsInvalidateRequestList mUndeliveredInvalidateRequestsBeforeLastPaint;
 
   // container for per-context fonts (downloadable, SVG, etc.)
   nsUserFontSet*        mUserFontSet;
@@ -1165,13 +1215,23 @@ protected:
   unsigned              mPrefScrollbarSide : 2;
   unsigned              mPendingSysColorChanged : 1;
   unsigned              mPendingThemeChanged : 1;
+  unsigned              mPendingUIResolutionChanged : 1;
   unsigned              mPendingMediaFeatureValuesChanged : 1;
   unsigned              mPrefChangePendingNeedsReflow : 1;
-  unsigned              mMayHaveFixedBackgroundFrames : 1;
+  // True if the requests in mInvalidateRequestsSinceLastPaint cover the
+  // entire viewport
   unsigned              mAllInvalidated : 1;
 
   // Are we currently drawing an SVG glyph?
   unsigned              mIsGlyph : 1;
+
+  // Does the associated document use root-em (rem) units?
+  unsigned              mUsesRootEMUnits : 1;
+  // Does the associated document use viewport units (vw/vh/vmin/vmax)?
+  unsigned              mUsesViewportUnits : 1;
+
+  // Has there been a change to the viewport's dimensions?
+  unsigned              mPendingViewportChange : 1;
 
   // Is the current mUserFontSet valid?
   unsigned              mUserFontSetDirty : 1;

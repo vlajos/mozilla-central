@@ -415,47 +415,80 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
           nsIntPoint rotationPoint(mBufferRect.x + mBufferRect.width - mBufferRotation.x, 
                                    mBufferRect.y + mBufferRect.height - mBufferRotation.y);
 
-          // The buffer looks like:
-          //  ______
-          // |1  |2 |  Where the center point is offset by mBufferRotation from the top-left corner.
-          // |___|__|
-          // |3  |4 |
-          // |___|__|
-          //
-          // This is drawn to the screen as:
-          //  ______
-          // |4  |3 |  Where the center point is { width - mBufferRotation.x, height - mBufferRotation.y } from
-          // |___|__|  from the top left corner - rotationPoint. Since only quadrant 4 will actually be copied, 
-          // |2  |1 |  we need to invalidate the others.
-          // |___|__|
-          //
-          // Quadrants 2 and 1
-          nsIntRect bottom(mBufferRect.x, rotationPoint.y, mBufferRect.width, mBufferRotation.y);
-          // Quadrant 3
-          nsIntRect topright(rotationPoint.x, mBufferRect.y, mBufferRotation.x, rotationPoint.y - mBufferRect.y);
+        nsIntRect srcRectDrawTopRight(srcRect);
+        nsIntRect srcRectDrawTopLeft(srcRect);
+        nsIntRect srcRectDrawBottomLeft(srcRect);
+        // transform into the different quadrants
+        srcRectDrawTopRight  .MoveBy(-nsIntPoint(0, mBufferRect.height));
+        srcRectDrawTopLeft   .MoveBy(-nsIntPoint(mBufferRect.width, mBufferRect.height));
+        srcRectDrawBottomLeft.MoveBy(-nsIntPoint(mBufferRect.width, 0));
 
-          if (!bottom.IsEmpty()) {
-            nsIntRegion temp;
-            temp.And(destBufferRect, bottom);
-            result.mRegionToDraw.Or(result.mRegionToDraw, temp);
-          }
-          if (!topright.IsEmpty()) {
-            nsIntRegion temp;
-            temp.And(destBufferRect, topright);
-            result.mRegionToDraw.Or(result.mRegionToDraw, temp);
-          }
-        }
+        // Intersect with the quadrant
+        srcRect               = srcRect              .Intersect(srcBufferSpaceBottomRight);
+        srcRectDrawTopRight   = srcRectDrawTopRight  .Intersect(srcBufferSpaceTopRight);
+        srcRectDrawTopLeft    = srcRectDrawTopLeft   .Intersect(srcBufferSpaceTopLeft);
+        srcRectDrawBottomLeft = srcRectDrawBottomLeft.Intersect(srcBufferSpaceBottomLeft);
+
+        dstRect = srcRect;
+        nsIntRect dstRectDrawTopRight(srcRectDrawTopRight);
+        nsIntRect dstRectDrawTopLeft(srcRectDrawTopLeft);
+        nsIntRect dstRectDrawBottomLeft(srcRectDrawBottomLeft);
+
+        // transform back to src buffer space
+        dstRect              .MoveBy(-mBufferRotation);
+        dstRectDrawTopRight  .MoveBy(-mBufferRotation + nsIntPoint(0, mBufferRect.height));
+        dstRectDrawTopLeft   .MoveBy(-mBufferRotation + nsIntPoint(mBufferRect.width, mBufferRect.height));
+        dstRectDrawBottomLeft.MoveBy(-mBufferRotation + nsIntPoint(mBufferRect.width, 0));
+
+        // transform back to draw coordinates
+        dstRect              .MoveBy(mBufferRect.TopLeft());
+        dstRectDrawTopRight  .MoveBy(mBufferRect.TopLeft());
+        dstRectDrawTopLeft   .MoveBy(mBufferRect.TopLeft());
+        dstRectDrawBottomLeft.MoveBy(mBufferRect.TopLeft());
+
+        // transform to destBuffer space
+        dstRect              .MoveBy(-destBufferRect.TopLeft());
+        dstRectDrawTopRight  .MoveBy(-destBufferRect.TopLeft());
+        dstRectDrawTopLeft   .MoveBy(-destBufferRect.TopLeft());
+        dstRectDrawBottomLeft.MoveBy(-destBufferRect.TopLeft());
+
 
         destBuffer->Resize(destBufferRect.Size());
 
         gl()->BlitTextureImage(texImage, srcRect,
                                destBuffer, dstRect);
+if (mBufferRotation != nsIntPoint(0, 0)) {
+          // Draw the remaining quadrants. We call BlitTextureImage 3 extra
+          // times instead of doing a single draw call because supporting that
+          // with a tiled source is quite tricky.
+          if (!srcRectDrawTopRight.IsEmpty())
+            gl()->BlitTextureImage(mTexImage, srcRectDrawTopRight,
+                                   destBuffer, dstRectDrawTopRight);
+          if (!srcRectDrawTopLeft.IsEmpty())
+            gl()->BlitTextureImage(mTexImage, srcRectDrawTopLeft,
+                                   destBuffer, dstRectDrawTopLeft);
+          if (!srcRectDrawBottomLeft.IsEmpty())
+            gl()->BlitTextureImage(mTexImage, srcRectDrawBottomLeft,
+                                   destBuffer, dstRectDrawBottomLeft);
+        }
         destBuffer->MarkValid();
 
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
           gl()->BlitTextureImage(texImageOnWhite, srcRect,
                                  destBufferOnWhite, dstRect);
+          if (mBufferRotation != nsIntPoint(0, 0)) {
+            // draw the remaining quadrants
+            if (!srcRectDrawTopRight.IsEmpty())
+              gl()->BlitTextureImage(mTexImageOnWhite, srcRectDrawTopRight,
+                                     destBufferOnWhite, dstRectDrawTopRight);
+            if (!srcRectDrawTopLeft.IsEmpty())
+              gl()->BlitTextureImage(mTexImageOnWhite, srcRectDrawTopLeft,
+                                     destBufferOnWhite, dstRectDrawTopLeft);
+            if (!srcRectDrawBottomLeft.IsEmpty())
+              gl()->BlitTextureImage(mTexImageOnWhite, srcRectDrawBottomLeft,
+                                     destBufferOnWhite, dstRectDrawBottomLeft);
+          }
           destBufferOnWhite->MarkValid();
         }
       } else {
@@ -716,6 +749,17 @@ Layer*
 ThebesLayerOGL::GetLayer()
 {
   return this;
+}
+
+LayerRenderState
+ShadowThebesLayerOGL::GetRenderState()
+{
+  if (!mBuffer || mDestroyed) {
+    return LayerRenderState();
+  }
+  uint32_t flags = (mBuffer->Rotation() != nsIntPoint()) ?
+                   LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
+  return LayerRenderState(&mBufferDescriptor, flags);
 }
 
 bool

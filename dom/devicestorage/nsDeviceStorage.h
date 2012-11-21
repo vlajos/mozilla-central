@@ -32,18 +32,21 @@ class nsPIDOMWindow;
 
 #include "DeviceStorageRequestChild.h"
 
-#define POST_ERROR_EVENT_FILE_DOES_NOT_EXIST         "File location doesn't exists"
-#define POST_ERROR_EVENT_FILE_NOT_ENUMERABLE         "File location is not enumerable"
-#define POST_ERROR_EVENT_PERMISSION_DENIED           "Permission Denied"
-#define POST_ERROR_EVENT_ILLEGAL_FILE_NAME           "Illegal file name"
-#define POST_ERROR_EVENT_ILLEGAL_TYPE                "Illegal content type"
+#define POST_ERROR_EVENT_FILE_EXISTS                 "NoModificationAllowedError"
+#define POST_ERROR_EVENT_FILE_DOES_NOT_EXIST         "NotFoundError"
+#define POST_ERROR_EVENT_FILE_NOT_ENUMERABLE         "TypeMismatchError"
+#define POST_ERROR_EVENT_PERMISSION_DENIED           "SecurityError"
+#define POST_ERROR_EVENT_ILLEGAL_TYPE                "TypeMismatchError"
 #define POST_ERROR_EVENT_UNKNOWN                     "Unknown"
-#define POST_ERROR_EVENT_NON_STRING_TYPE_UNSUPPORTED "Non-string type unsupported"
-#define POST_ERROR_EVENT_NOT_IMPLEMENTED             "Not implemented"
 
-using namespace mozilla;
-using namespace mozilla::dom;
-using namespace mozilla::dom::devicestorage;
+enum DeviceStorageRequestType {
+    DEVICE_STORAGE_REQUEST_READ,
+    DEVICE_STORAGE_REQUEST_WRITE,
+    DEVICE_STORAGE_REQUEST_CREATE,
+    DEVICE_STORAGE_REQUEST_DELETE,
+    DEVICE_STORAGE_REQUEST_WATCH,
+    DEVICE_STORAGE_REQUEST_STAT
+};
 
 class DeviceStorageTypeChecker MOZ_FINAL
 {
@@ -59,6 +62,7 @@ public:
   bool Check(const nsAString& aType, nsIFile* aFile);
 
   static nsresult GetPermissionForType(const nsAString& aType, nsACString& aPermissionResult);
+  static nsresult GetAccessForRequest(const DeviceStorageRequestType aRequestType, nsACString& aAccessResult);
 
 private:
   nsString mPicturesExtensions;
@@ -103,23 +107,23 @@ private:
 class ContinueCursorEvent MOZ_FINAL : public nsRunnable
 {
 public:
-  ContinueCursorEvent(nsRefPtr<DOMRequest>& aRequest);
-  ContinueCursorEvent(DOMRequest* aRequest);
+  ContinueCursorEvent(nsRefPtr<mozilla::dom::DOMRequest>& aRequest);
+  ContinueCursorEvent(mozilla::dom::DOMRequest* aRequest);
   ~ContinueCursorEvent();
   void Continue();
 
   NS_IMETHOD Run();
 private:
   already_AddRefed<DeviceStorageFile> GetNextFile();
-  nsRefPtr<DOMRequest> mRequest;
+  nsRefPtr<mozilla::dom::DOMRequest> mRequest;
 };
 
 class nsDOMDeviceStorageCursor MOZ_FINAL
   : public nsIDOMDeviceStorageCursor
-  , public DOMRequest
+  , public mozilla::dom::DOMRequest
   , public nsIContentPermissionRequest
   , public PCOMContentPermissionRequestChild
-  , public DeviceStorageRequestChildCallback
+  , public mozilla::dom::devicestorage::DeviceStorageRequestChildCallback
 {
 public:
   NS_DECL_ISUPPORTS_INHERITED

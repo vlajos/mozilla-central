@@ -19,15 +19,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
                                    "@mozilla.org/childprocessmessagemanager;1",
                                    "nsISyncMessageSender");
 
-// Limit the number of pending messages for a given type.
-let kMaxPendingMessages;
-try {
-  kMaxPendingMessages = Services.prefs.getIntPref("dom.messages.maxPendingMessages");
-} catch(e) {
-  // getIntPref throws when the pref is not set.
-  kMaxPendingMessages = 5;
-}
-
 function debug(aMsg) {
   //dump("-- SystemMessageManager " + Date.now() + " : " + aMsg + "\n");
 }
@@ -82,6 +73,11 @@ SystemMessageManager.prototype = {
 
     aHandler.handleMessage(wrapped ? aMessage
                                    : ObjectWrapper.wrap(aMessage, this._window));
+
+    // Notify the parent process the message is handled.
+    cpmm.sendAsyncMessage("SystemMessageManager:HandleMessageDone",
+                          { type: aType,
+                            message: aMessage });
   },
 
   mozSetMessageHandler: function sysMessMgr_setMessageHandler(aType, aHandler) {
@@ -102,61 +98,23 @@ SystemMessageManager.prototype = {
     // Last registered handler wins.
     handlers[aType] = aHandler;
 
-    // If we have pending messages, send them asynchronously.
-    if (this._getPendingMessages(aType, true)) {
-      let thread = Services.tm.mainThread;
-      let pending = this._pendings[aType];
-      this._pendings[aType] = [];
-      let self = this;
-      pending.forEach(function dispatch_pending(aPending) {
-        thread.dispatch({
-          run: function run() {
-            self._dispatchMessage(aType, aHandler, aPending);
-          }
-        }, Ci.nsIEventTarget.DISPATCH_NORMAL);
-      });
-    }
-  },
-
-  _getPendingMessages: function sysMessMgr_getPendingMessages(aType, aForceUpdate) {
-    debug("hasPendingMessage " + aType);
-    let pendings = this._pendings;
-
-    // If we have a handler for this type, we can't have any pending message.
-    // If called from setMessageHandler, we still want to update the pending
-    // queue to deliver existing messages.
-    if (aType in this._handlers && !aForceUpdate) {
-      return false;
-    }
-
-    // Send a sync message to the parent to check if we have a pending message
-    // for this type.
-    let messages = cpmm.sendSyncMessage("SystemMessageManager:GetPendingMessages",
-                                        { type: aType,
-                                          uri: this._uri,
-                                          manifest: this._manifest })[0];
-    if (!messages) {
-      // No new pending messages, but the queue may not be empty yet.
-      return pendings[aType] && pendings[aType].length != 0;
-    }
-
-    if (!pendings[aType]) {
-      pendings[aType] = [];
-    }
-
-    // Doing that instead of pending.concat() to avoid array copy.
-    messages.forEach(function hpm_addPendings(aMessage) {
-      pendings[aType].push(aMessage);
-      if (pendings[aType].length > kMaxPendingMessages) {
-        pendings[aType].splice(0, 1);
-      }
-    });
-
-    return pendings[aType].length != 0;
+    // Ask for the list of currently pending messages.
+    cpmm.sendAsyncMessage("SystemMessageManager:GetPendingMessages",
+                          { type: aType,
+                            uri: this._uri,
+                            manifest: this._manifest });
   },
 
   mozHasPendingMessage: function sysMessMgr_hasPendingMessage(aType) {
-    return this._getPendingMessages(aType, false);
+    // If we have a handler for this type, we can't have any pending message.
+    if (aType in this._handlers) {
+      return false;
+    }
+
+    return cpmm.sendSyncMessage("SystemMessageManager:HasPendingMessages",
+                                { type: aType,
+                                  uri: this._uri,
+                                  manifest: this._manifest })[0];
   },
 
   uninit: function sysMessMgr_uninit()  {
@@ -166,25 +124,33 @@ SystemMessageManager.prototype = {
     if (this._isParentProcess) {
       Services.obs.removeObserver(this, kSystemMessageInternalReady);
     }
+
+    cpmm.sendAsyncMessage("SystemMessageManager:Unregister",
+                          { manifest: this._manifest,
+                            innerWindowID: this.innerWindowID
+                          });
   },
 
   receiveMessage: function sysMessMgr_receiveMessage(aMessage) {
     debug("receiveMessage " + aMessage.name + " - " +
-          aMessage.json.type + " for " + aMessage.json.manifest +
+          aMessage.data.type + " for " + aMessage.data.manifest +
           " (" + this._manifest + ")");
 
-    let msg = aMessage.json;
-    if (msg.manifest != this._manifest)
+    let msg = aMessage.data;
+    if (msg.manifest != this._manifest || msg.uri != this._uri) {
       return;
+    }
 
-    // Send an acknowledgement to parent to clean up the pending message,
-    // so a re-launched app won't handle it again, which is redundant.
-    cpmm.sendAsyncMessage(
-      "SystemMessageManager:Message:Return:OK",
-      { type: msg.type,
-        manifest: msg.manifest,
-        uri: msg.uri,
-        msgID: msg.msgID });
+    if (aMessage.name == "SystemMessageManager:Message") {
+      // Send an acknowledgement to parent to clean up the pending message,
+      // so a re-launched app won't handle it again, which is redundant.
+      cpmm.sendAsyncMessage(
+        "SystemMessageManager:Message:Return:OK",
+        { type: msg.type,
+          manifest: msg.manifest,
+          uri: msg.uri,
+          msgID: msg.msgID });
+    }
 
     // Bail out if we have no handlers registered for this type.
     if (!(msg.type in this._handlers)) {
@@ -192,13 +158,20 @@ SystemMessageManager.prototype = {
       return;
     }
 
-    this._dispatchMessage(msg.type, this._handlers[msg.type], msg.msg);
+    let messages = (aMessage.name == "SystemMessageManager:Message")
+                   ? [msg.msg]
+                   : msg.msgQueue;
+
+    messages.forEach(function(aMsg) {
+      this._dispatchMessage(msg.type, this._handlers[msg.type], aMsg);
+    }, this);
   },
 
   // nsIDOMGlobalPropertyInitializer implementation.
   init: function sysMessMgr_init(aWindow) {
     debug("init");
-    this.initHelper(aWindow, ["SystemMessageManager:Message"]);
+    this.initHelper(aWindow, ["SystemMessageManager:Message",
+                              "SystemMessageManager:GetPendingMessages:Return"]);
 
     let principal = aWindow.document.nodePrincipal;
     this._uri = principal.URI.spec;
@@ -206,7 +179,6 @@ SystemMessageManager.prototype = {
     let appsService = Cc["@mozilla.org/AppsService;1"]
                         .getService(Ci.nsIAppsService);
     this._manifest = appsService.getManifestURLByLocalId(principal.appId);
-    this._window = aWindow;
 
     // Two cases are valid to register the manifest for the current process:
     // 1. This is asked by a child process (parent process must be ready).
@@ -231,12 +203,16 @@ SystemMessageManager.prototype = {
     if (aTopic === kSystemMessageInternalReady) {
       this._registerManifest();
     }
+    //call the DOMRequestIpcHelper.observe method
+    this.__proto__.__proto__.observe.call(this, aSubject, aTopic, aData);
   },
 
   _registerManifest: function sysMessMgr_registerManifest() {
     if (!this._registerManifestReady) {
       cpmm.sendAsyncMessage("SystemMessageManager:Register",
-                            { manifest: this._manifest });
+                            { manifest: this._manifest,
+                              innerWindowID: this.innerWindowID
+                            });
       this._registerManifestReady = true;
     }
   },
@@ -254,4 +230,4 @@ SystemMessageManager.prototype = {
                                     classDescription: "System Messages"})
 }
 
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([SystemMessageManager]);
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SystemMessageManager]);

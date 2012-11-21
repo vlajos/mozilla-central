@@ -129,7 +129,7 @@ public:
                            bool aAllow,
                            BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
-  virtual bool
+  virtual void
   Connect(const nsAString& aDeviceAddress,
           const nsAString& aAdapterPath,
           const uint16_t aProfileId,
@@ -140,15 +140,22 @@ public:
              BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
   virtual bool
+  IsConnected(uint16_t aProfileId) MOZ_OVERRIDE;
+
+  virtual void
   SendFile(const nsAString& aDeviceAddress,
            BlobParent* aBlobParent,
            BlobChild* aBlobChild,
            BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
-  virtual bool
+  virtual void
   StopSendingFile(const nsAString& aDeviceAddress,
                   BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
+  virtual void
+  ConfirmReceivingFile(const nsAString& aDeviceAddress,
+                       bool aConfirm,
+                       BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 protected:
   BluetoothServiceChildProcess();
   virtual ~BluetoothServiceChildProcess();

@@ -9,7 +9,7 @@ const Ci = Components.interfaces;
 const Cu = Components.utils;
 const Cr = Components.results;
 
-var EXPORTED_SYMBOLS = ['TouchAdapter', 'AndroidTouchAdapter'];
+this.EXPORTED_SYMBOLS = ['TouchAdapter', 'AndroidTouchAdapter'];
 
 Cu.import('resource://gre/modules/accessibility/Utils.jsm');
 
@@ -17,7 +17,7 @@ Cu.import('resource://gre/modules/accessibility/Utils.jsm');
 // It is granular enough to feel natural, and it does not hammer the CPU.
 const EXPLORE_THROTTLE = 100;
 
-var TouchAdapter = {
+this.TouchAdapter = {
   // minimal swipe distance in inches
   SWIPE_MIN_DISTANCE: 0.4,
 
@@ -207,8 +207,8 @@ var TouchAdapter = {
  * of one single touch.
  */
 function TouchPoint(aTouch, aTime, aDPI) {
-  this.startX = aTouch.screenX;
-  this.startY = aTouch.screenY;
+  this.startX = this.x = aTouch.screenX;
+  this.startY = this.y = aTouch.screenY;
   this.startTime = aTime;
   this.distanceTraveled = 0;
   this.dpi = aDPI;
@@ -223,8 +223,7 @@ TouchPoint.prototype = {
     this.y = aTouch.screenY;
     this.time = aTime;
 
-    if (lastX != undefined && lastY != undefined)
-      this.distanceTraveled += this.getDistanceToCoord(lastX, lastY);
+    this.distanceTraveled += this.getDistanceToCoord(lastX, lastY);
   },
 
   getDistanceToCoord: function TouchPoint_getDistanceToCoord(aX, aY) {
@@ -366,7 +365,7 @@ var Mouse2Touch = {
   }
 };
 
-var AndroidTouchAdapter = {
+this.AndroidTouchAdapter = {
   attach: function AndroidTouchAdapter_attach(aWindow) {
     if (this.chromeWin)
       return;

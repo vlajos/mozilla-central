@@ -4,7 +4,7 @@
 
 "use strict";
 
-let EXPORTED_SYMBOLS = ["Social"];
+this.EXPORTED_SYMBOLS = ["Social"];
 
 const Ci = Components.interfaces;
 const Cc = Components.classes;
@@ -16,7 +16,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "SocialService",
   "resource://gre/modules/SocialService.jsm");
 
-let Social = {
+this.Social = {
   lastEventReceived: 0,
   provider: null,
   _disabledForSafeMode: false,
@@ -28,6 +28,11 @@ let Social = {
       return;
     }
 
+    if (!this._addedPrivateBrowsingObserver) {
+      Services.obs.addObserver(this, "private-browsing", false);
+      this._addedPrivateBrowsingObserver = true;
+    }
+
     // Eventually this might want to retrieve a specific provider, but for now
     // just use the first available.
     SocialService.getProviderList(function (providers) {
@@ -37,11 +42,25 @@ let Social = {
     }.bind(this));
   },
 
+  observe: function(aSubject, aTopic, aData) {
+    if (aTopic == "private-browsing") {
+      if (aData == "enter") {
+        this._enabledBeforePrivateBrowsing = this.enabled;
+        this.enabled = false;
+      } else if (aData == "exit") {
+        this.enabled = this._enabledBeforePrivateBrowsing;
+      }
+    }
+  },
+
   get uiVisible() {
     return this.provider && this.provider.enabled;
   },
 
   set enabled(val) {
+    if (!val) {
+      delete this.errorState;
+    }
     SocialService.enabled = val;
   },
   get enabled() {

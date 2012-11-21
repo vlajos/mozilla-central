@@ -284,6 +284,7 @@ NS_IMETHODIMP
 nsEditorEventListener::HandleEvent(nsIDOMEvent* aEvent)
 {
   NS_ENSURE_TRUE(mEditor, NS_ERROR_NOT_AVAILABLE);
+  nsCOMPtr<nsIEditor> kungFuDeathGrip = mEditor;
 
   nsAutoString eventType;
   aEvent->GetType(eventType);
@@ -900,6 +901,12 @@ nsEditorEventListener::Focus(nsIDOMEvent* aEvent)
   }
 
   mEditor->OnFocus(target);
+
+  nsCOMPtr<nsIPresShell> ps = GetPresShell();
+  NS_ENSURE_TRUE(ps, NS_OK);
+  nsCOMPtr<nsIContent> focusedContent = mEditor->GetFocusedContentForIME();
+  nsIMEStateManager::OnFocusInEditor(ps->GetPresContext(), focusedContent);
+
   return NS_OK;
 }
 

@@ -26,6 +26,7 @@
 #include "vm/GlobalObject.h"
 #include "vm/StringBuffer.h"
 
+#include "jsboolinlines.h"
 #include "jsinferinlines.h"
 #include "jsobjinlines.h"
 
@@ -166,9 +167,11 @@ js_InitBooleanClass(JSContext *cx, HandleObject obj)
 
     Handle<PropertyName*> valueOfName = cx->names().valueOf;
     RootedFunction
-        valueOf(cx, js_NewFunction(cx, NullPtr(), bool_valueOf, 0, 0, global, valueOfName));
+        valueOf(cx, js_NewFunction(cx, NullPtr(), bool_valueOf, 0, JSFunction::NATIVE_FUN,
+                                   global, valueOfName));
     if (!valueOf)
         return NULL;
+
     RootedValue value(cx, ObjectValue(*valueOf));
     if (!JSObject::defineProperty(cx, booleanProto, valueOfName, value,
                                   JS_PropertyStub, JS_StrictPropertyStub, 0))
@@ -190,17 +193,15 @@ js_BooleanToString(JSContext *cx, JSBool b)
     return b ? cx->runtime->atomState.true_ : cx->runtime->atomState.false_;
 }
 
-namespace js {
-
 JS_PUBLIC_API(bool)
-ToBooleanSlow(const Value &v)
+js::ToBooleanSlow(const Value &v)
 {
     JS_ASSERT(v.isString());
     return v.toString()->length() != 0;
 }
 
 bool
-BooleanGetPrimitiveValueSlow(JSContext *cx, JSObject &obj, Value *vp)
+js::BooleanGetPrimitiveValueSlow(JSContext *cx, JSObject &obj, Value *vp)
 {
     InvokeArgsGuard ag;
     if (!cx->stack.pushInvokeArgs(cx, 0, &ag))
@@ -212,7 +213,3 @@ BooleanGetPrimitiveValueSlow(JSContext *cx, JSObject &obj, Value *vp)
     *vp = ag.rval();
     return true;
 }
-
-}  /* namespace js */
-
-

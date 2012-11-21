@@ -114,6 +114,7 @@
 #include "nsIObserver.h"
 #include "nsINestedURI.h"
 #include "nsITransportSecurityInfo.h"
+#include "nsISSLSocketControl.h"
 #include "nsINSSErrorsService.h"
 #include "nsIApplicationCache.h"
 #include "nsIApplicationCacheChannel.h"
@@ -128,8 +129,10 @@
 #include "nsIStrictTransportSecurityService.h"
 #include "nsStructuredCloneContainer.h"
 #include "nsIStructuredCloneContainer.h"
+#ifdef MOZ_PLACES
 #include "nsIFaviconService.h"
 #include "mozIAsyncFavicons.h"
+#endif
 
 // Editor-related
 #include "nsIEditingSession.h"
@@ -146,7 +149,6 @@
 
 // For reporting errors with the console service.
 // These can go away if error reporting is propagated up past nsDocShell.
-#include "nsIConsoleService.h"
 #include "nsIScriptError.h"
 
 // used to dispatch urls to default protocol handlers
@@ -766,7 +768,8 @@ nsDocShell::nsDocShell():
 #ifdef DEBUG
     mInEnsureScriptEnv(false),
 #endif
-    mAppId(nsIScriptSecurityManager::NO_APP_ID),
+    mFrameType(eFrameTypeRegular),
+    mOwnOrContainingAppId(nsIScriptSecurityManager::UNKNOWN_APP_ID),
     mParentCharsetSource(0)
 {
     mHistoryID = ++gDocshellIDCounter;
@@ -825,10 +828,6 @@ nsDocShell::~nsDocShell()
                gNumberOfDocShells, mHistoryID);
     }
 #endif
-
-    if (mInPrivateBrowsing) {
-        DecreasePrivateDocShellCount();
-    }
 }
 
 nsresult
@@ -1661,26 +1660,10 @@ bool
 nsDocShell::ValidateOrigin(nsIDocShellTreeItem* aOriginTreeItem,
                            nsIDocShellTreeItem* aTargetTreeItem)
 {
-    nsCOMPtr<nsIScriptSecurityManager> securityManager =
-        do_GetService(NS_SCRIPTSECURITYMANAGER_CONTRACTID);
-    NS_ENSURE_TRUE(securityManager, false);
-
-    nsCOMPtr<nsIPrincipal> subjectPrincipal;
-    nsresult rv =
-        securityManager->GetSubjectPrincipal(getter_AddRefs(subjectPrincipal));
-    NS_ENSURE_SUCCESS(rv, false);
-
-    if (subjectPrincipal) {
-        // We're called from JS, check if UniversalXPConnect is
-        // enabled.
-        bool ubwEnabled = false;
-        rv = securityManager->IsCapabilityEnabled("UniversalXPConnect",
-                                                  &ubwEnabled);
-        NS_ENSURE_SUCCESS(rv, false);
-
-        if (ubwEnabled) {
-            return true;
-        }
+    // We want to bypass this check for chrome callers, but only if there's
+    // JS on the stack. System callers still need to do it.
+    if (nsContentUtils::GetCurrentJSContext() && nsContentUtils::IsCallerChrome()) {
+        return true;
     }
 
     // Get origin document principal
@@ -1692,8 +1675,8 @@ nsDocShell::ValidateOrigin(nsIDocShellTreeItem* aOriginTreeItem,
     NS_ENSURE_TRUE(targetDocument, false);
 
     bool equal;
-    rv = originDocument->NodePrincipal()->
-            Equals(targetDocument->NodePrincipal(), &equal);
+    nsresult rv = originDocument->NodePrincipal()->Equals(targetDocument->NodePrincipal(),
+                                                          &equal);
     if (NS_SUCCEEDED(rv) && equal) {
         return true;
     }
@@ -2035,6 +2018,20 @@ nsDocShell::GetUsePrivateBrowsing(bool* aUsePrivateBrowsing)
 NS_IMETHODIMP
 nsDocShell::SetUsePrivateBrowsing(bool aUsePrivateBrowsing)
 {
+#ifdef MOZ_PER_WINDOW_PRIVATE_BROWSING
+    nsContentUtils::ReportToConsoleNonLocalized(
+        NS_LITERAL_STRING("Only internal code is allowed to set the usePrivateBrowsing attribute"),
+        nsIScriptError::warningFlag,
+        "Internal API Used",
+        mContentViewer ? mContentViewer->GetDocument() : nullptr);
+#endif
+
+    return SetPrivateBrowsing(aUsePrivateBrowsing);
+}
+
+NS_IMETHODIMP
+nsDocShell::SetPrivateBrowsing(bool aUsePrivateBrowsing)
+{
     bool changed = aUsePrivateBrowsing != mInPrivateBrowsing;
     if (changed) {
         mInPrivateBrowsing = aUsePrivateBrowsing;
@@ -2044,12 +2041,12 @@ nsDocShell::SetUsePrivateBrowsing(bool aUsePrivateBrowsing)
             DecreasePrivateDocShellCount();
         }
     }
-    
+
     int32_t count = mChildList.Count();
     for (int32_t i = 0; i < count; ++i) {
         nsCOMPtr<nsILoadContext> shell = do_QueryInterface(ChildAt(i));
         if (shell) {
-            shell->SetUsePrivateBrowsing(aUsePrivateBrowsing);
+            shell->SetPrivateBrowsing(aUsePrivateBrowsing);
         }
     }
 
@@ -2155,7 +2152,7 @@ nsDocShell::GetFullscreenAllowed(bool* aFullscreenAllowed)
 {
     NS_ENSURE_ARG_POINTER(aFullscreenAllowed);
 
-    // Content boundaries have their mFullscreenAllowed retrieved from their
+    // Browsers and apps have their mFullscreenAllowed retrieved from their
     // corresponding iframe in their parent upon creation.
     if (mFullscreenAllowed != CHECK_ATTRIBUTES) {
         *aFullscreenAllowed = (mFullscreenAllowed == PARENT_ALLOWS);
@@ -2165,8 +2162,8 @@ nsDocShell::GetFullscreenAllowed(bool* aFullscreenAllowed)
     // Assume false until we determine otherwise...
     *aFullscreenAllowed = false;
 
-    // For non-content boundaries, check that the enclosing iframe element
-    // has the mozallowfullscreen attribute set to true. If any ancestor
+    // For non-browsers/apps, check that the enclosing iframe element
+    // has the allowfullscreen attribute set to true. If any ancestor
     // iframe does not have mozallowfullscreen=true, then fullscreen is
     // prohibited.
     nsCOMPtr<nsPIDOMWindow> win = do_GetInterface(GetAsSupports(this));
@@ -2176,12 +2173,13 @@ nsDocShell::GetFullscreenAllowed(bool* aFullscreenAllowed)
     nsCOMPtr<nsIContent> frameElement = do_QueryInterface(win->GetFrameElementInternal());
     if (frameElement &&
         frameElement->IsHTML(nsGkAtoms::iframe) &&
+        !frameElement->HasAttr(kNameSpaceID_None, nsGkAtoms::allowfullscreen) &&
         !frameElement->HasAttr(kNameSpaceID_None, nsGkAtoms::mozallowfullscreen)) {
         return NS_OK;
     }
 
     // If we have no parent then we're the root docshell; no ancestor of the
-    // original docshell doesn't have a mozallowfullscreen attribute, so
+    // original docshell doesn't have a allowfullscreen attribute, so
     // report fullscreen as allowed.
     nsCOMPtr<nsIDocShellTreeItem> dsti = do_GetInterface(GetAsSupports(this));
     NS_ENSURE_TRUE(dsti, NS_OK);
@@ -2203,7 +2201,7 @@ nsDocShell::GetFullscreenAllowed(bool* aFullscreenAllowed)
 NS_IMETHODIMP
 nsDocShell::SetFullscreenAllowed(bool aFullscreenAllowed)
 {
-    if (!nsIDocShell::GetIsContentBoundary()) {
+    if (!nsIDocShell::GetIsBrowserOrApp()) {
         // Only allow setting of fullscreenAllowed on content/process boundaries.
         // At non-boundaries the fullscreenAllowed attribute is calculated based on
         // whether all enclosing frames have the "mozFullscreenAllowed" attribute
@@ -2788,7 +2786,7 @@ nsDocShell::SetDocLoaderParent(nsDocLoader * aParent)
     if (parentAsLoadContext &&
         NS_SUCCEEDED(parentAsLoadContext->GetUsePrivateBrowsing(&value)))
     {
-        SetUsePrivateBrowsing(value);
+        SetPrivateBrowsing(value);
 #ifndef MOZ_PER_WINDOW_PRIVATE_BROWSING
         // Belt and suspenders - we want to catch any instances where the flag
         // we're propagating doesn't match the global state.
@@ -2815,7 +2813,7 @@ nsDocShell::GetSameTypeParent(nsIDocShellTreeItem ** aParent)
     NS_ENSURE_ARG_POINTER(aParent);
     *aParent = nullptr;
 
-    if (mIsBrowserFrame) {
+    if (nsIDocShell::GetIsBrowserOrApp()) {
         return NS_OK;
     }
 
@@ -2834,7 +2832,7 @@ nsDocShell::GetSameTypeParent(nsIDocShellTreeItem ** aParent)
 }
 
 NS_IMETHODIMP
-nsDocShell::GetParentIgnoreBrowserFrame(nsIDocShell** aParent)
+nsDocShell::GetSameTypeParentIgnoreBrowserAndAppBoundaries(nsIDocShell** aParent)
 {
     NS_ENSURE_ARG_POINTER(aParent);
     *aParent = nullptr;
@@ -2937,19 +2935,11 @@ nsDocShell::CanAccessItem(nsIDocShellTreeItem* aTargetItem,
         return false;
     }
 
-    if (targetDS && accessingDS) {
-        bool targetInBrowser = false, accessingInBrowser = false;
-        targetDS->GetIsInBrowserElement(&targetInBrowser);
-        accessingDS->GetIsInBrowserElement(&accessingInBrowser);
-
-        uint32_t targetAppId = 0, accessingAppId = 0;
-        targetDS->GetAppId(&targetAppId);
-        accessingDS->GetAppId(&accessingAppId);
-
-        if (targetInBrowser != accessingInBrowser ||
-            targetAppId != accessingAppId) {
-            return false;
-        }
+    if (targetDS && accessingDS &&
+        (targetDS->GetIsInBrowserElement() !=
+           accessingDS->GetIsInBrowserElement() ||
+         targetDS->GetAppId() != accessingDS->GetAppId())) {
+        return false;
     }
 
     nsCOMPtr<nsIDocShellTreeItem> accessingRoot;
@@ -4185,9 +4175,14 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI *aURI,
                 nsCOMPtr<nsIStrictTransportSecurityService> stss =
                           do_GetService(NS_STSSERVICE_CONTRACTID, &rv);
                 NS_ENSURE_SUCCESS(rv, rv);
-
+                uint32_t flags = 0;
+                nsCOMPtr<nsISSLSocketControl> socketControl = do_QueryInterface(tsi);
+                if (socketControl) {
+                    socketControl->GetProviderFlags(&flags);
+                }
+                
                 bool isStsHost = false;
-                rv = stss->IsStsURI(aURI, &isStsHost);
+                rv = stss->IsStsURI(aURI, flags, &isStsHost);
                 NS_ENSURE_SUCCESS(rv, rv);
 
                 uint32_t bucketId;
@@ -4930,6 +4925,29 @@ nsDocShell::Destroy()
     // Cancel any timers that were set for this docshell; this is needed
     // to break the cycle between us and the timers.
     CancelRefreshURITimers();
+
+    if (mInPrivateBrowsing) {
+        mInPrivateBrowsing = false;
+        DecreasePrivateDocShellCount();
+    }
+
+    return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDocShell::GetUnscaledDevicePixelsPerCSSPixel(double *aScale)
+{
+    if (mParentWidget) {
+        *aScale = mParentWidget->GetDefaultScale();
+        return NS_OK;
+    }
+
+    nsCOMPtr<nsIBaseWindow> ownerWindow(do_QueryInterface(mTreeOwner));
+    if (ownerWindow) {
+        return ownerWindow->GetUnscaledDevicePixelsPerCSSPixel(aScale);
+    }
+
+    *aScale = 1.0;
     return NS_OK;
 }
 
@@ -4990,6 +5008,13 @@ NS_IMETHODIMP
 nsDocShell::GetPositionAndSize(int32_t * x, int32_t * y, int32_t * cx,
                                int32_t * cy)
 {
+    if (mParentWidget) {
+        // ensure size is up-to-date if window has changed resolution
+        nsIntRect r;
+        mParentWidget->GetClientBounds(r);
+        SetPositionAndSize(mBounds.x, mBounds.y, r.width, r.height, false);
+    }
+
     // We should really consider just getting this information from
     // our window instead of duplicating the storage and code...
     if (cx || cy) {
@@ -5203,7 +5228,7 @@ nsDocShell::SetIsActive(bool aIsActive)
           continue;
       }
 
-      if (!docshell->GetIsContentBoundary()) {
+      if (!docshell->GetIsBrowserOrApp()) {
           docshell->SetIsActive(aIsActive);
       }
   }
@@ -5315,7 +5340,8 @@ nsDocShell::SetTitle(const PRUnichar * aTitle)
             treeOwnerAsWin->SetTitle(aTitle);
     }
 
-    if (mCurrentURI && mLoadType != LOAD_ERROR_PAGE && mUseGlobalHistory) {
+    if (mCurrentURI && mLoadType != LOAD_ERROR_PAGE && mUseGlobalHistory &&
+        !mInPrivateBrowsing) {
         nsCOMPtr<IHistory> history = services::GetHistoryService();
         if (history) {
             history->SetURITitle(mCurrentURI, mTitle);
@@ -6401,11 +6427,14 @@ nsDocShell::OnRedirectStateChange(nsIChannel* aOldChannel,
     nsCOMPtr<nsIApplicationCacheChannel> appCacheChannel =
         do_QueryInterface(aNewChannel);
     if (appCacheChannel) {
-        // Permission will be checked in the parent process.
-        if (GeckoProcessType_Default != XRE_GetProcessType())
+        if (GeckoProcessType_Default != XRE_GetProcessType()) {
+            // Permission will be checked in the parent process.
             appCacheChannel->SetChooseApplicationCache(true);
-        else
-            appCacheChannel->SetChooseApplicationCache(ShouldCheckAppCache(newURI));
+        } else {
+            appCacheChannel->SetChooseApplicationCache(
+                                NS_ShouldCheckAppCache(newURI,
+                                                       mInPrivateBrowsing));
+        }
     }
 
     if (!(aRedirectFlags & nsIChannelEventSink::REDIRECT_INTERNAL) && 
@@ -8160,21 +8189,13 @@ nsDocShell::CheckLoadingPermissions()
         return rv;
     }
 
+    nsCOMPtr<nsIScriptSecurityManager> securityManager =
+      do_GetService(NS_SCRIPTSECURITYMANAGER_CONTRACTID, &rv);
+    NS_ENSURE_SUCCESS(rv, rv);
+
     // We're a frame. Check that the caller has write permission to
     // the parent before allowing it to load anything into this
     // docshell.
-
-    nsCOMPtr<nsIScriptSecurityManager> securityManager =
-        do_GetService(NS_SCRIPTSECURITYMANAGER_CONTRACTID, &rv);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    bool ubwEnabled = false;
-    rv = securityManager->IsCapabilityEnabled("UniversalXPConnect",
-                                              &ubwEnabled);
-    if (NS_FAILED(rv) || ubwEnabled) {
-        return rv;
-    }
-
     nsCOMPtr<nsIPrincipal> subjPrincipal;
     rv = securityManager->GetSubjectPrincipal(getter_AddRefs(subjPrincipal));
     NS_ENSURE_TRUE(NS_SUCCEEDED(rv) && subjPrincipal, rv);
@@ -8218,6 +8239,7 @@ nsDocShell::CheckLoadingPermissions()
 namespace
 {
 
+#ifdef MOZ_PLACES
 // Callback used by CopyFavicon to inform the favicon service that one URI
 // (mNewURI) has the same favicon URI (OnComplete's aFaviconURI) as another.
 class nsCopyFaviconCallback MOZ_FINAL : public nsIFaviconDataCallback
@@ -8260,10 +8282,12 @@ private:
 };
 
 NS_IMPL_ISUPPORTS1(nsCopyFaviconCallback, nsIFaviconDataCallback)
+#endif
 
 // Tell the favicon service that aNewURI has the same favicon as aOldURI.
 void CopyFavicon(nsIURI *aOldURI, nsIURI *aNewURI, bool inPrivateBrowsing)
 {
+#ifdef MOZ_PLACES
     nsCOMPtr<mozIAsyncFavicons> favSvc =
         do_GetService("@mozilla.org/browser/favicon-service;1");
     if (favSvc) {
@@ -8271,6 +8295,7 @@ void CopyFavicon(nsIURI *aOldURI, nsIURI *aNewURI, bool inPrivateBrowsing)
             new nsCopyFaviconCallback(aNewURI, inPrivateBrowsing);
         favSvc->GetFaviconURLForPage(aOldURI, callback);
     }
+#endif
 }
 
 } // anonymous namespace
@@ -8900,7 +8925,7 @@ nsDocShell::InternalLoad(nsIURI * aURI,
 
             /* Set the title for the Global History entry for this anchor url.
              */
-            if (mUseGlobalHistory) {
+            if (mUseGlobalHistory && !mInPrivateBrowsing) {
                 nsCOMPtr<IHistory> history = services::GetHistoryService();
                 if (history) {
                     history->SetURITitle(aURI, mTitle);
@@ -9145,26 +9170,6 @@ nsDocShell::GetInheritedPrincipal(bool aConsiderCurrentDocument)
     return nullptr;
 }
 
-bool
-nsDocShell::ShouldCheckAppCache(nsIURI *aURI)
-{
-    if (mInPrivateBrowsing) {
-        return false;
-    }
-
-    nsCOMPtr<nsIOfflineCacheUpdateService> offlineService =
-        do_GetService(NS_OFFLINECACHEUPDATESERVICE_CONTRACTID);
-    if (!offlineService) {
-        return false;
-    }
-
-    bool allowed;
-    nsresult rv = offlineService->OfflineAppAllowedForURI(aURI,
-                                                          nullptr,
-                                                          &allowed);
-    return NS_SUCCEEDED(rv) && allowed;
-}
-
 nsresult
 nsDocShell::DoURILoad(nsIURI * aURI,
                       nsIURI * aReferrerURI,
@@ -9252,12 +9257,13 @@ nsDocShell::DoURILoad(nsIURI * aURI,
 
         // Loads with the correct permissions should check for a matching
         // application cache.
-        // Permission will be checked in the parent process
-        if (GeckoProcessType_Default != XRE_GetProcessType())
+        if (GeckoProcessType_Default != XRE_GetProcessType()) {
+            // Permission will be checked in the parent process
             appCacheChannel->SetChooseApplicationCache(true);
-        else
+        } else {
             appCacheChannel->SetChooseApplicationCache(
-                ShouldCheckAppCache(aURI));
+                NS_ShouldCheckAppCache(aURI, mInPrivateBrowsing));
+        }
     }
 
     // Make sure to give the caller a channel if we managed to create one
@@ -10264,7 +10270,7 @@ nsDocShell::AddState(nsIVariant *aData, const nsAString& aTitle,
 
         // AddURIVisit doesn't set the title for the new URI in global history,
         // so do that here.
-        if (mUseGlobalHistory) {
+        if (mUseGlobalHistory && !mInPrivateBrowsing) {
             nsCOMPtr<IHistory> history = services::GetHistoryService();
             if (history) {
                 history->SetURITitle(newURI, mTitle);
@@ -10460,11 +10466,13 @@ nsDocShell::AddToSessionHistory(nsIURI * aURI, nsIChannel * aChannel,
             NS_ASSERTION(entry == newEntry, "The new session history should be in the new entry");
         }
 
+        int32_t index = 0;   
+        mSessionHistory->GetIndex(&index);
+
         // This is the root docshell
-        if (LOAD_TYPE_HAS_FLAGS(mLoadType, LOAD_FLAGS_REPLACE_HISTORY)) {            
+        if (-1 != index &&
+            LOAD_TYPE_HAS_FLAGS(mLoadType, LOAD_FLAGS_REPLACE_HISTORY)) {            
             // Replace current entry in session history.
-            int32_t  index = 0;   
-            mSessionHistory->GetIndex(&index);
             nsCOMPtr<nsISHistoryInternal>   shPrivate(do_QueryInterface(mSessionHistory));
             // Replace the current entry with the new entry
             if (shPrivate)
@@ -10475,7 +10483,7 @@ nsDocShell::AddToSessionHistory(nsIURI * aURI, nsIChannel * aChannel,
             nsCOMPtr<nsISHistoryInternal>
                 shPrivate(do_QueryInterface(mSessionHistory));
             NS_ENSURE_TRUE(shPrivate, NS_ERROR_FAILURE);
-            mSessionHistory->GetIndex(&mPreviousTransIndex);
+            mPreviousTransIndex = index;
             rv = shPrivate->AddEntry(entry, shouldPersist);
             mSessionHistory->GetIndex(&mLoadedTransIndex);
 #ifdef DEBUG_PAGE_CACHE
@@ -10613,8 +10621,7 @@ NS_IMETHODIMP nsDocShell::PersistLayoutHistoryState()
         rv = GetPresShell(getter_AddRefs(shell));
         if (NS_SUCCEEDED(rv) && shell) {
             nsCOMPtr<nsILayoutHistoryState> layoutState;
-            rv = shell->CaptureHistoryState(getter_AddRefs(layoutState),
-                                            true);
+            rv = shell->CaptureHistoryState(getter_AddRefs(layoutState));
         }
     }
 
@@ -11081,7 +11088,7 @@ nsDocShell::AddURIVisit(nsIURI* aURI,
 
     // Only content-type docshells save URI visits.  Also don't do
     // anything here if we're not supposed to use global history.
-    if (mItemType != typeContent || !mUseGlobalHistory) {
+    if (mItemType != typeContent || !mUseGlobalHistory || mInPrivateBrowsing) {
         return;
     }
 
@@ -11110,8 +11117,8 @@ nsDocShell::AddURIVisit(nsIURI* aURI,
         // 408 is special cased, since may actually indicate a temporary
         // connection problem.
         else if (aResponseStatus != 408 &&
-                 (aResponseStatus >= 400 && aResponseStatus <= 501 ||
-                  aResponseStatus == 505)) {
+                 ((aResponseStatus >= 400 && aResponseStatus <= 501) ||
+                   aResponseStatus == 505)) {
             visitURIFlags |= IHistory::UNRECOVERABLE_ERROR;
         }
 
@@ -11354,26 +11361,14 @@ NS_IMETHODIMP nsDocShell::EnsureFind()
     NS_ENSURE_TRUE(scriptGO, NS_ERROR_UNEXPECTED);
 
     // default to our window
-    nsCOMPtr<nsIDOMWindow> windowToSearch(do_QueryInterface(mScriptGlobal));
-
-    nsCOMPtr<nsIDocShellTreeItem> root;
-    GetRootTreeItem(getter_AddRefs(root));
-
-    // if the active window is the same window that this docshell is in,
-    // use the currently focused frame
-    nsCOMPtr<nsIDOMWindow> rootWindow = do_GetInterface(root);
-    nsCOMPtr<nsIFocusManager> fm = do_GetService(FOCUSMANAGER_CONTRACTID);
-    if (fm) {
-      nsCOMPtr<nsIDOMWindow> activeWindow;
-      fm->GetActiveWindow(getter_AddRefs(activeWindow));
-      if (activeWindow == rootWindow)
-        fm->GetFocusedWindow(getter_AddRefs(windowToSearch));
-    }
+    nsCOMPtr<nsPIDOMWindow> ourWindow = do_QueryInterface(scriptGO);
+    nsCOMPtr<nsPIDOMWindow> windowToSearch;
+    nsFocusManager::GetFocusedDescendant(ourWindow, true, getter_AddRefs(windowToSearch));
 
     nsCOMPtr<nsIWebBrowserFindInFrames> findInFrames = do_QueryInterface(mFind);
     if (!findInFrames) return NS_ERROR_NO_INTERFACE;
     
-    rv = findInFrames->SetRootSearchFrame(rootWindow);
+    rv = findInFrames->SetRootSearchFrame(ourWindow);
     if (NS_FAILED(rv)) return rv;
     rv = findInFrames->SetCurrentSearchFrame(windowToSearch);
     if (NS_FAILED(rv)) return rv;
@@ -12315,19 +12310,52 @@ nsDocShell::GetCanExecuteScripts(bool *aResult)
 }
 
 NS_IMETHODIMP
-nsDocShell::SetIsBrowserElement()
+nsDocShell::SetIsApp(uint32_t aOwnAppId)
 {
-    if (mIsBrowserFrame) {
-        NS_ERROR("You should not call SetIsBrowserElement() more than once.");
-        return NS_OK;
+    mOwnOrContainingAppId = aOwnAppId;
+    if (aOwnAppId != nsIScriptSecurityManager::NO_APP_ID &&
+        aOwnAppId != nsIScriptSecurityManager::UNKNOWN_APP_ID) {
+        mFrameType = eFrameTypeApp;
+    } else {
+        mFrameType = eFrameTypeRegular;
     }
 
-    mIsBrowserFrame = true;
+    return NS_OK;
+}
 
-    nsCOMPtr<nsIObserverService> os = services::GetObserverService();
-    if (os) {
-        os->NotifyObservers(GetAsSupports(this),
-                            "docshell-marked-as-browser-frame", NULL);
+NS_IMETHODIMP
+nsDocShell::SetIsBrowserInsideApp(uint32_t aContainingAppId)
+{
+    mOwnOrContainingAppId = aContainingAppId;
+    mFrameType = eFrameTypeBrowser;
+    return NS_OK;
+}
+
+/* [infallible] */ NS_IMETHODIMP
+nsDocShell::GetIsBrowserElement(bool* aIsBrowser)
+{
+    *aIsBrowser = (mFrameType == eFrameTypeBrowser);
+    return NS_OK;
+}
+
+/* [infallible] */ NS_IMETHODIMP
+nsDocShell::GetIsApp(bool* aIsApp)
+{
+    *aIsApp = (mFrameType == eFrameTypeApp);
+    return NS_OK;
+}
+
+/* [infallible] */ NS_IMETHODIMP
+nsDocShell::GetIsBrowserOrApp(bool* aIsBrowserOrApp)
+{
+    switch (mFrameType) {
+        case eFrameTypeRegular:
+            *aIsBrowserOrApp = false;
+            break;
+        case eFrameTypeBrowser:
+        case eFrameTypeApp:
+            *aIsBrowserOrApp = true;
+            break;
     }
 
     return NS_OK;
@@ -12336,10 +12364,8 @@ nsDocShell::SetIsBrowserElement()
 nsDocShell::FrameType
 nsDocShell::GetInheritedFrameType()
 {
-    FrameType type = GetFrameType();
-
-    if (type != eFrameTypeRegular) {
-        return type;
+    if (mFrameType != eFrameTypeRegular) {
+        return mFrameType;
     }
 
     nsCOMPtr<nsIDocShellTreeItem> parentAsItem;
@@ -12353,46 +12379,6 @@ nsDocShell::GetInheritedFrameType()
     return static_cast<nsDocShell*>(parent.get())->GetInheritedFrameType();
 }
 
-nsDocShell::FrameType
-nsDocShell::GetFrameType()
-{
-    if (mAppId != nsIScriptSecurityManager::NO_APP_ID) {
-        return eFrameTypeApp;
-    }
-
-    return mIsBrowserFrame ? eFrameTypeBrowser : eFrameTypeRegular;
-}
-
-/* [infallible] */ NS_IMETHODIMP
-nsDocShell::GetIsBrowserElement(bool* aIsBrowser)
-{
-    *aIsBrowser = (GetFrameType() == eFrameTypeBrowser);
-    return NS_OK;
-}
-
-/* [infallible] */ NS_IMETHODIMP
-nsDocShell::GetIsApp(bool* aIsApp)
-{
-    *aIsApp = (GetFrameType() == eFrameTypeApp);
-    return NS_OK;
-}
-
-/* [infallible] */ NS_IMETHODIMP
-nsDocShell::GetIsContentBoundary(bool* aIsContentBoundary)
-{
-    switch (GetFrameType()) {
-        case eFrameTypeRegular:
-            *aIsContentBoundary = false;
-            break;
-        case eFrameTypeBrowser:
-        case eFrameTypeApp:
-            *aIsContentBoundary = true;
-            break;
-    }
-
-    return NS_OK;
-}
-
 /* [infallible] */ NS_IMETHODIMP
 nsDocShell::GetIsInBrowserElement(bool* aIsInBrowserElement)
 {
@@ -12401,52 +12387,31 @@ nsDocShell::GetIsInBrowserElement(bool* aIsInBrowserElement)
 }
 
 /* [infallible] */ NS_IMETHODIMP
-nsDocShell::GetIsInApp(bool* aIsInApp)
-{
-    *aIsInApp = (GetInheritedFrameType() == eFrameTypeApp);
-    return NS_OK;
-}
-
-/* [infallible] */ NS_IMETHODIMP
-nsDocShell::GetIsBelowContentBoundary(bool* aIsInContentBoundary)
+nsDocShell::GetIsInBrowserOrApp(bool* aIsInBrowserOrApp)
 {
     switch (GetInheritedFrameType()) {
         case eFrameTypeRegular:
-            *aIsInContentBoundary = false;
+            *aIsInBrowserOrApp = false;
             break;
         case eFrameTypeBrowser:
         case eFrameTypeApp:
-            *aIsInContentBoundary = true;
+            *aIsInBrowserOrApp = true;
             break;
     }
 
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::SetAppId(uint32_t aAppId)
-{
-    MOZ_ASSERT(mAppId == nsIScriptSecurityManager::NO_APP_ID);
-    MOZ_ASSERT(aAppId != nsIScriptSecurityManager::UNKNOWN_APP_ID);
-
-    mAppId = aAppId;
     return NS_OK;
 }
 
 /* [infallible] */ NS_IMETHODIMP
 nsDocShell::GetAppId(uint32_t* aAppId)
 {
-    if (mAppId != nsIScriptSecurityManager::NO_APP_ID) {
-        MOZ_ASSERT(GetFrameType() == eFrameTypeApp);
-
-        *aAppId = mAppId;
+    if (mOwnOrContainingAppId != nsIScriptSecurityManager::UNKNOWN_APP_ID) {
+        *aAppId = mOwnOrContainingAppId;
         return NS_OK;
     }
 
-    MOZ_ASSERT(GetFrameType() != eFrameTypeApp);
-
     nsCOMPtr<nsIDocShell> parent;
-    GetParentIgnoreBrowserFrame(getter_AddRefs(parent));
+    GetSameTypeParentIgnoreBrowserAndAppBoundaries(getter_AddRefs(parent));
 
     if (!parent) {
         *aAppId = nsIScriptSecurityManager::NO_APP_ID;

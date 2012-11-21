@@ -13,11 +13,12 @@ Cu.import('resource://gre/modules/accessibility/Utils.jsm');
 Cu.import('resource://gre/modules/accessibility/UtteranceGenerator.jsm');
 Cu.import('resource://gre/modules/Geometry.jsm');
 
-var EXPORTED_SYMBOLS = ['VisualPresenter',
-                        'AndroidPresenter',
-                        'DummyAndroidPresenter',
-                        'SpeechPresenter',
-                        'PresenterContext'];
+this.EXPORTED_SYMBOLS = ['VisualPresenter',
+                         'AndroidPresenter',
+                         'DummyAndroidPresenter',
+                         'SpeechPresenter',
+                         'HapticPresenter',
+                         'PresenterContext'];
 
 /**
  * The interface for all presenter classes. A presenter could be, for example,
@@ -104,19 +105,14 @@ Presenter.prototype = {
   /**
    * We have entered or left text editing mode.
    */
-  editingModeChanged: function editingModeChanged(aIsEditing) {},
-
-  /**
-   * Re-present the last pivot change.
-   */
-  presentLastPivot: function AndroidPresenter_presentLastPivot() {}
+  editingModeChanged: function editingModeChanged(aIsEditing) {}
 };
 
 /**
  * Visual presenter. Draws a box around the virtual cursor's position.
  */
 
-function VisualPresenter() {}
+this.VisualPresenter = function VisualPresenter() {};
 
 VisualPresenter.prototype = {
   __proto__: Presenter.prototype,
@@ -129,21 +125,23 @@ VisualPresenter.prototype = {
   BORDER_PADDING: 2,
 
   viewportChanged: function VisualPresenter_viewportChanged(aWindow) {
-    if (this._currentContext)
+    if (this._currentAccessible) {
+      let context = new PresenterContext(this._currentAccessible);
       return {
         type: this.type,
         details: {
           method: 'show',
-          bounds: this._currentContext.bounds,
+          bounds: context.bounds,
           padding: this.BORDER_PADDING
         }
       };
+    }
 
     return null;
   },
 
   pivotChanged: function VisualPresenter_pivotChanged(aContext, aReason) {
-    this._currentContext = aContext;
+    this._currentAccessible = aContext.accessible;
 
     if (!aContext.accessible)
       return {type: this.type, details: {method: 'hide'}};
@@ -182,7 +180,7 @@ VisualPresenter.prototype = {
  * Android presenter. Fires Android a11y events.
  */
 
-function AndroidPresenter() {}
+this.AndroidPresenter = function AndroidPresenter() {};
 
 AndroidPresenter.prototype = {
   __proto__: Presenter.prototype,
@@ -205,8 +203,6 @@ AndroidPresenter.prototype = {
   pivotChanged: function AndroidPresenter_pivotChanged(aContext, aReason) {
     if (!aContext.accessible)
       return null;
-
-    this._currentContext = aContext;
 
     let androidEvents = [];
 
@@ -273,28 +269,25 @@ AndroidPresenter.prototype = {
   textChanged: function AndroidPresenter_textChanged(aIsInserted, aStart,
                                                      aLength, aText,
                                                      aModifiedText) {
-    let androidEvent = {
-      type: this.type,
-      details: [{
-        eventType: this.ANDROID_VIEW_TEXT_CHANGED,
-        text: [aText],
-        fromIndex: aStart,
-        removedCount: 0,
-        addedCount: 0
-      }]
+    let eventDetails = {
+      eventType: this.ANDROID_VIEW_TEXT_CHANGED,
+      text: [aText],
+      fromIndex: aStart,
+      removedCount: 0,
+      addedCount: 0
     };
 
     if (aIsInserted) {
-      androidEvent.addedCount = aLength;
-      androidEvent.beforeText =
+      eventDetails.addedCount = aLength;
+      eventDetails.beforeText =
         aText.substring(0, aStart) + aText.substring(aStart + aLength);
     } else {
-      androidEvent.removedCount = aLength;
-      androidEvent.beforeText =
+      eventDetails.removedCount = aLength;
+      eventDetails.beforeText =
         aText.substring(0, aStart) + aModifiedText + aText.substring(aStart);
     }
 
-    return androidEvent;
+    return {type: this.type, details: [eventDetails]};
   },
 
   viewportChanged: function AndroidPresenter_viewportChanged(aWindow) {
@@ -333,13 +326,6 @@ AndroidPresenter.prototype = {
         fromIndex: 0
       }]
     };
-  },
-
-  presentLastPivot: function AndroidPresenter_presentLastPivot() {
-    if (this._currentContext)
-      return this.pivotChanged(this._currentContext);
-    else
-      return null;
   }
 };
 
@@ -347,7 +333,7 @@ AndroidPresenter.prototype = {
  * A speech presenter for direct TTS output
  */
 
-function SpeechPresenter() {}
+this.SpeechPresenter = function SpeechPresenter() {};
 
 SpeechPresenter.prototype = {
   __proto__: Presenter.prototype,
@@ -388,10 +374,28 @@ SpeechPresenter.prototype = {
 };
 
 /**
+ * A haptic presenter
+ */
+
+this.HapticPresenter = function HapticPresenter() {};
+
+HapticPresenter.prototype = {
+  __proto__: Presenter.prototype,
+
+  type: 'Haptic',
+
+  PIVOT_CHANGE_PATTHERN: [20],
+
+  pivotChanged: function HapticPresenter_pivotChanged(aContext, aReason) {
+    return { type: this.type, details: { pattern: this.PIVOT_CHANGE_PATTHERN } };
+  }
+};
+
+/**
  * PresenterContext: An object that generates and caches context information
  * for a given accessible and its relationship with another accessible.
  */
-function PresenterContext(aAccessible, aOldAccessible) {
+this.PresenterContext = function PresenterContext(aAccessible, aOldAccessible) {
   this._accessible = aAccessible;
   this._oldAccessible =
     this._isDefunct(aOldAccessible) ? null : aOldAccessible;

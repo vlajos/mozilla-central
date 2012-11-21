@@ -21,6 +21,22 @@ using namespace js::ion;
 namespace js {
 namespace ion {
 
+// Don't explicitly initialize, it's not guaranteed that this initializer will
+// run before the constructors for static VMFunctions.
+/* static */ VMFunction *VMFunction::functions;
+
+void
+VMFunction::addToFunctions()
+{
+    static bool initialized = false;
+    if (!initialized) {
+        initialized = true;
+        functions = NULL;
+    }
+    this->next = functions;
+    functions = this;
+}
+
 static inline bool
 ShouldMonitorReturnType(JSFunction *fun)
 {
@@ -423,6 +439,27 @@ bool SPSExit(JSContext *cx, HandleScript script)
 {
     cx->runtime->spsProfiler.exit(cx, script, script->function());
     return true;
+}
+
+bool OperatorIn(JSContext *cx, HandleValue key, HandleObject obj, JSBool *out)
+{
+    RootedValue dummy(cx); // Disregards atomization changes: no way to propagate.
+    RootedId id(cx);
+    if (!FetchElementId(cx, obj, key, id.address(), &dummy))
+        return false;
+
+    RootedObject obj2(cx);
+    RootedShape prop(cx);
+    if (!JSObject::lookupGeneric(cx, obj, id, &obj2, &prop))
+        return false;
+
+    *out = !!prop;
+    return true;
+}
+
+bool GetIntrinsicValue(JSContext *cx, HandlePropertyName name, MutableHandleValue rval)
+{
+    return cx->global()->getIntrinsicValue(cx, name, rval);
 }
 
 } // namespace ion

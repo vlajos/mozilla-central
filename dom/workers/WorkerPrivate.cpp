@@ -44,6 +44,7 @@
 #include "nsThreadUtils.h"
 #include "xpcpublic.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/Likely.h"
 
 #ifdef ANDROID
 #include <android/log.h>
@@ -1026,7 +1027,7 @@ public:
       nsIScriptGlobalObject* sgo;
 
       if (aWorkerPrivate ||
-          !(sgo = nsJSUtils::GetStaticScriptGlobal(aCx, aTarget))) {
+          !(sgo = nsJSUtils::GetStaticScriptGlobal(aTarget))) {
         // Fire a normal ErrorEvent if we're running on a worker thread.
         JSObject* event =
           CreateErrorEvent(aCx, message, filename, aLineNumber, false);
@@ -1560,9 +1561,10 @@ public:
                                     "the process of being destroyed");
       NS_WARNING(message.get());
 #endif
+      *static_cast<int64_t*>(aData) = 0;
       return NS_OK;
     }
-    
+
     if (!mWorkerPrivate->BlockAndCollectRuntimeStats(aIsQuick, aData)) {
       return NS_ERROR_FAILURE;
     }
@@ -2515,11 +2517,7 @@ WorkerPrivate::Create(JSContext* aCx, JSObject* aObj, WorkerPrivate* aParent,
     nsIScriptSecurityManager* ssm = nsContentUtils::GetSecurityManager();
     NS_ASSERTION(ssm, "This should never be null!");
 
-    bool isChrome;
-    if (NS_FAILED(ssm->IsCapabilityEnabled("UniversalXPConnect", &isChrome))) {
-      NS_WARNING("IsCapabilityEnabled failed!");
-      isChrome = false;
-    }
+    bool isChrome = nsContentUtils::IsCallerChrome();
 
     // First check to make sure the caller has permission to make a
     // ChromeWorker if they called the ChromeWorker constructor.
@@ -2539,7 +2537,7 @@ WorkerPrivate::Create(JSContext* aCx, JSObject* aObj, WorkerPrivate* aParent,
 
     // See if we're being called from a window or from somewhere else.
     nsCOMPtr<nsIScriptGlobalObject> scriptGlobal =
-      nsJSUtils::GetStaticScriptGlobal(aCx, JS_GetGlobalForScopeChain(aCx));
+      nsJSUtils::GetStaticScriptGlobal(JS_GetGlobalForScopeChain(aCx));
     if (scriptGlobal) {
       // Window!
       nsCOMPtr<nsPIDOMWindow> globalWindow = do_QueryInterface(scriptGlobal);
@@ -3682,7 +3680,7 @@ WorkerPrivate::SetTimeout(JSContext* aCx, unsigned aArgc, jsval* aVp,
   newInfo->mIsInterval = aIsInterval;
   newInfo->mId = timerId;
 
-  if (NS_UNLIKELY(timerId == UINT32_MAX)) {
+  if (MOZ_UNLIKELY(timerId == UINT32_MAX)) {
     NS_WARNING("Timeout ids overflowed!");
     mNextTimeoutId = 1;
   }
@@ -3786,7 +3784,7 @@ WorkerPrivate::SetTimeout(JSContext* aCx, unsigned aArgc, jsval* aVp,
 }
 
 bool
-WorkerPrivate::ClearTimeout(JSContext* aCx, uint32 aId)
+WorkerPrivate::ClearTimeout(JSContext* aCx, uint32_t aId)
 {
   AssertIsOnWorkerThread();
 

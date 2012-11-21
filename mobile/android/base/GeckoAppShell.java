@@ -9,6 +9,7 @@ import org.mozilla.gecko.gfx.BitmapUtils;
 import org.mozilla.gecko.gfx.GeckoLayerClient;
 import org.mozilla.gecko.gfx.GfxInfoThread;
 import org.mozilla.gecko.gfx.ImmutableViewportMetrics;
+import org.mozilla.gecko.gfx.InputConnectionHandler;
 import org.mozilla.gecko.gfx.LayerView;
 import org.mozilla.gecko.gfx.TouchEventHandler;
 import org.mozilla.gecko.util.EventDispatcher;
@@ -96,6 +97,9 @@ import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
+import java.net.ProxySelector;
+import java.net.Proxy;
+import java.net.URI;
 
 public class GeckoAppShell
 {
@@ -109,7 +113,7 @@ public class GeckoAppShell
 
     static private boolean gRestartScheduled = false;
 
-    static private GeckoInputConnection mInputConnection = null;
+    static private GeckoEditableListener mEditableListener = null;
 
     static private final HashMap<Integer, AlertNotification>
         mAlertNotifications = new HashMap<Integer, AlertNotification>();
@@ -127,10 +131,6 @@ public class GeckoAppShell
 
     static private final boolean LOGGING = false;
 
-    static public final int RESTORE_NONE = 0;
-    static public final int RESTORE_OOM = 1;
-    static public final int RESTORE_CRASH = 2;
-
     static private File sCacheFile = null;
     static private int sFreeSpace = -1;
     static File sHomeDir = null;
@@ -140,6 +140,9 @@ public class GeckoAppShell
     private static Boolean sLibsSetup = false;
     private static File sGREDir = null;
     private static final EventDispatcher sEventDispatcher = new EventDispatcher();
+
+    /* Default colors. */
+    private static final float[] DEFAULT_LAUNCHER_ICON_HSV = { 32.0f, 1.0f, 1.0f };
 
     /* Is the value in sVibrationEndTime valid? */
     private static boolean sVibrationMaybePlaying = false;
@@ -232,23 +235,24 @@ public class GeckoAppShell
 
     public static native void notifyBatteryChange(double aLevel, boolean aCharging, double aRemainingTime);
 
-    public static native void notifySmsReceived(String aSender, String aBody, long aTimestamp);
+    public static native void notifySmsReceived(String aSender, String aBody, int aMessageClass, long aTimestamp);
     public static native int  saveMessageInSentbox(String aReceiver, String aBody, long aTimestamp);
-    public static native void notifySmsSent(int aId, String aReceiver, String aBody, long aTimestamp, int aRequestId, long aProcessId);
-    public static native void notifySmsDelivered(int aId, String aReceiver, String aBody, long aTimestamp);
-    public static native void notifySmsSendFailed(int aError, int aRequestId, long aProcessId);
-    public static native void notifyGetSms(int aId, String aReceiver, String aSender, String aBody, long aTimestamp, int aRequestId, long aProcessId);
-    public static native void notifyGetSmsFailed(int aError, int aRequestId, long aProcessId);
-    public static native void notifySmsDeleted(boolean aDeleted, int aRequestId, long aProcessId);
-    public static native void notifySmsDeleteFailed(int aError, int aRequestId, long aProcessId);
-    public static native void notifyNoMessageInList(int aRequestId, long aProcessId);
-    public static native void notifyListCreated(int aListId, int aMessageId, String aReceiver, String aSender, String aBody, long aTimestamp, int aRequestId, long aProcessId);
-    public static native void notifyGotNextMessage(int aMessageId, String aReceiver, String aSender, String aBody, long aTimestamp, int aRequestId, long aProcessId);
-    public static native void notifyReadingMessageListFailed(int aError, int aRequestId, long aProcessId);
+    public static native void notifySmsSent(int aId, String aReceiver, String aBody, long aTimestamp, int aRequestId);
+    public static native void notifySmsDelivery(int aId, int aDeliveryStatus, String aReceiver, String aBody, long aTimestamp);
+    public static native void notifySmsSendFailed(int aError, int aRequestId);
+    public static native void notifyGetSms(int aId, int aDeliveryStatus, String aReceiver, String aSender, String aBody, long aTimestamp, int aRequestId);
+    public static native void notifyGetSmsFailed(int aError, int aRequestId);
+    public static native void notifySmsDeleted(boolean aDeleted, int aRequestId);
+    public static native void notifySmsDeleteFailed(int aError, int aRequestId);
+    public static native void notifyNoMessageInList(int aRequestId);
+    public static native void notifyListCreated(int aListId, int aMessageId, int aDeliveryStatus, String aReceiver, String aSender, String aBody, long aTimestamp, int aRequestId);
+    public static native void notifyGotNextMessage(int aMessageId, int aDeliveryStatus, String aReceiver, String aSender, String aBody, long aTimestamp, int aRequestId);
+    public static native void notifyReadingMessageListFailed(int aError, int aRequestId);
 
     public static native void scheduleComposite();
     public static native void schedulePauseComposition();
     public static native void scheduleResumeComposition(int width, int height);
+    public static native float computeRenderIntegrity();
 
     public static native SurfaceBits getSurfaceBits(Surface surface);
 
@@ -307,11 +311,11 @@ public class GeckoAppShell
                     sFreeSpace = cacheStats.getFreeBlocks() *
                         cacheStats.getBlockSize();
                 } else {
-                    Log.i(LOGTAG, "Unable to get cache dir");
+                    Log.w(LOGTAG, "Unable to get cache dir.");
                 }
             }
         } catch (Exception e) {
-            Log.e(LOGTAG, "exception while stating cache dir: ", e);
+            Log.w(LOGTAG, "Caught exception while stating cache dir.", e);
         }
         return sFreeSpace;
     }
@@ -370,7 +374,6 @@ public class GeckoAppShell
 
             StringBuffer pluginSearchPath = new StringBuffer();
             for (int i = 0; i < dirs.length; i++) {
-                Log.i(LOGTAG, "dir: " + dirs[i]);
                 pluginSearchPath.append(dirs[i]);
                 pluginSearchPath.append(":");
             }
@@ -380,7 +383,7 @@ public class GeckoAppShell
             GeckoAppShell.putenv("ANDROID_PLUGIN_DATADIR=" + pluginDataDir.getPath());
 
         } catch (Exception ex) {
-            Log.i(LOGTAG, "exception getting plugin dirs", ex);
+            Log.w(LOGTAG, "Caught exception getting plugin dirs.", ex);
         }
     }
 
@@ -402,7 +405,7 @@ public class GeckoAppShell
             GeckoAppShell.putenv("UPDATES_DIRECTORY="   + updatesDir.getPath());
         }
         catch (Exception e) {
-            Log.i(LOGTAG, "No download directory has been found: ", e);
+            Log.w(LOGTAG, "No download directory found.", e);
         }
     }
 
@@ -421,11 +424,11 @@ public class GeckoAppShell
         // if we have an intent (we're being launched by an activity)
         // read in any environmental variables from it here
         String env = i.getStringExtra("env0");
-        Log.i(LOGTAG, "env0: "+ env);
+        Log.d(LOGTAG, "Gecko environment env0: "+ env);
         for (int c = 1; env != null; c++) {
             GeckoAppShell.putenv(env);
             env = i.getStringExtra("env" + c);
-            Log.i(LOGTAG, "env"+ c +": "+ env);
+            Log.d(LOGTAG, "env" + c + ": " + env);
         }
         // setup the tmp path
         File f = context.getDir("tmp", Context.MODE_WORLD_READABLE |
@@ -444,6 +447,32 @@ public class GeckoAppShell
         // setup the app-specific cache path
         f = context.getCacheDir();
         GeckoAppShell.putenv("CACHE_DIRECTORY=" + f.getPath());
+
+        /* We really want to use this code, but it requires bumping up the SDK to 17 so for now
+           we will use reflection. See https://bugzilla.mozilla.org/show_bug.cgi?id=811763#c11
+        
+        if (Build.VERSION.SDK_INT >= 17) {
+            android.os.UserManager um = (android.os.UserManager)context.getSystemService(Context.USER_SERVICE);
+            if (um != null) {
+                GeckoAppShell.putenv("MOZ_ANDROID_USER_SERIAL_NUMBER=" + um.getSerialNumberForUser(android.os.Process.myUserHandle()));
+            } else {
+                Log.d(LOGTAG, "Unable to obtain user manager service on a device with SDK version " + Build.VERSION.SDK_INT);
+            }
+        }
+        */
+        try {
+            Object userManager = context.getSystemService("user");
+            if (userManager != null) {
+                // if userManager is non-null that means we're running on 4.2+ and so the rest of this
+                // should just work
+                Object userHandle = android.os.Process.class.getMethod("myUserHandle", (Class[])null).invoke(null);
+                Object userSerial = userManager.getClass().getMethod("getSerialNumberForUser", userHandle.getClass()).invoke(userManager, userHandle);
+                GeckoAppShell.putenv("MOZ_ANDROID_USER_SERIAL_NUMBER=" + userSerial.toString());
+            }
+        } catch (Exception e) {
+            // Guard against any unexpected failures
+            Log.d(LOGTAG, "Unable to set the user serial number", e);
+        }
 
         putLocaleEnv();
     }
@@ -498,7 +527,7 @@ public class GeckoAppShell
         }
     }
 
-    public static void runGecko(String apkPath, String args, String url, String type, int restoreMode) {
+    public static void runGecko(String apkPath, String args, String url, String type) {
         WebAppAllocator.getInstance();
 
         Looper.prepare();
@@ -507,12 +536,8 @@ public class GeckoAppShell
         // run gecko -- it will spawn its own thread
         GeckoAppShell.nativeInit();
 
-        Log.i(LOGTAG, "post native init");
-
         // Tell Gecko where the target byte buffer is for rendering
         GeckoAppShell.setLayerClient(GeckoApp.mAppContext.getLayerView().getLayerClient());
-
-        Log.i(LOGTAG, "setLayerClient called");
 
         // First argument is the .apk path
         String combinedArgs = apkPath + " -greomni " + apkPath;
@@ -522,8 +547,6 @@ public class GeckoAppShell
             combinedArgs += " -url " + url;
         if (type != null)
             combinedArgs += " " + type;
-        if (restoreMode != RESTORE_NONE)
-            combinedArgs += " -restoremode " + restoreMode;
 
         DisplayMetrics metrics = GeckoApp.mAppContext.getResources().getDisplayMetrics();
         combinedArgs += " -width " + metrics.widthPixels + " -height " + metrics.heightPixels;
@@ -541,8 +564,11 @@ public class GeckoAppShell
     // Called on the UI thread after Gecko loads.
     private static void geckoLoaded() {
         LayerView v = GeckoApp.mAppContext.getLayerView();
-        mInputConnection = GeckoInputConnection.create(v);
-        v.setInputConnectionHandler(mInputConnection);
+        GeckoEditable editable = new GeckoEditable();
+        InputConnectionHandler ich = GeckoInputConnection.create(v, editable);
+        v.setInputConnectionHandler(ich);
+        // install the gecko => editable listener
+        mEditableListener = editable;
     }
 
     static void sendPendingEventsToGecko() {
@@ -575,21 +601,30 @@ public class GeckoAppShell
      *  The Gecko-side API: API methods that Gecko calls
      */
     public static void notifyIME(int type, int state) {
-        if (mInputConnection != null)
-            mInputConnection.notifyIME(type, state);
+        if (mEditableListener != null) {
+            mEditableListener.notifyIME(type, state);
+        }
     }
 
-    public static void notifyIMEEnabled(int state, String typeHint, String modeHint,
-                                        String actionHint, boolean landscapeFS) {
-        // notifyIMEEnabled() still needs the landscapeFS parameter because it is called from JNI
-        // code that assumes it has the same signature as XUL Fennec's (which does use landscapeFS).
-        if (mInputConnection != null)
-            mInputConnection.notifyIMEEnabled(state, typeHint, modeHint, actionHint);
+    public static void notifyIMEEnabled(int state, String typeHint,
+                                        String modeHint, String actionHint,
+                                        boolean landscapeFS) {
+        // notifyIMEEnabled() still needs the landscapeFS parameter
+        // because it is called from JNI code that assumes it has the
+        // same signature as XUL Fennec's (which does use landscapeFS).
+        // Bug 807124 will eliminate the need for landscapeFS
+        if (mEditableListener != null) {
+            mEditableListener.notifyIMEEnabled(state, typeHint,
+                                               modeHint, actionHint);
+        }
     }
 
     public static void notifyIMEChange(String text, int start, int end, int newEnd) {
-        if (mInputConnection != null)
-            mInputConnection.notifyIMEChange(text, start, end, newEnd);
+        if (newEnd < 0) { // Selection change
+            mEditableListener.onSelectionChange(start, end);
+        } else { // Text change
+            mEditableListener.onTextChange(text, start, end, newEnd);
+        }
     }
 
     private static CountDownLatch sGeckoPendingAcks = null;
@@ -652,7 +687,6 @@ public class GeckoAppShell
     }
 
     public static void enableLocationHighAccuracy(final boolean enable) {
-        Log.i(LOGTAG, "Location provider - high accuracy: " + enable);
         mLocationHighAccuracy = enable;
     }
 
@@ -662,7 +696,6 @@ public class GeckoAppShell
 
         switch(aSensortype) {
         case GeckoHalDefines.SENSOR_ORIENTATION:
-            Log.i(LOGTAG, "Enabling SENSOR_ORIENTATION");
             if(gOrientationSensor == null)
                 gOrientationSensor = sm.getDefaultSensor(Sensor.TYPE_ORIENTATION);
             if (gOrientationSensor != null)
@@ -670,7 +703,6 @@ public class GeckoAppShell
             break;
 
         case GeckoHalDefines.SENSOR_ACCELERATION:
-            Log.i(LOGTAG, "Enabling SENSOR_ACCELERATION");
             if(gAccelerometerSensor == null)
                 gAccelerometerSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             if (gAccelerometerSensor != null)
@@ -678,7 +710,6 @@ public class GeckoAppShell
             break;
 
         case GeckoHalDefines.SENSOR_PROXIMITY:
-            Log.i(LOGTAG, "Enabling SENSOR_PROXIMITY");
             if(gProximitySensor == null)
                 gProximitySensor = sm.getDefaultSensor(Sensor.TYPE_PROXIMITY);
             if (gProximitySensor != null)
@@ -686,7 +717,6 @@ public class GeckoAppShell
             break;
 
         case GeckoHalDefines.SENSOR_LIGHT:
-            Log.i(LOGTAG, "Enabling SENSOR_LIGHT");
             if(gLightSensor == null)
                 gLightSensor = sm.getDefaultSensor(Sensor.TYPE_LIGHT);
             if (gLightSensor != null)
@@ -694,7 +724,6 @@ public class GeckoAppShell
             break;
 
         case GeckoHalDefines.SENSOR_LINEAR_ACCELERATION:
-            Log.i(LOGTAG, "Enabling SENSOR_LINEAR_ACCELERATION");
             if(gLinearAccelerometerSensor == null)
                 gLinearAccelerometerSensor = sm.getDefaultSensor(10 /* API Level 9 - TYPE_LINEAR_ACCELERATION */);
             if (gLinearAccelerometerSensor != null)
@@ -702,14 +731,13 @@ public class GeckoAppShell
             break;
 
         case GeckoHalDefines.SENSOR_GYROSCOPE:
-            Log.i(LOGTAG, "Enabling SENSOR_GYROSCOPE");
             if(gGyroscopeSensor == null)
                 gGyroscopeSensor = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
             if (gGyroscopeSensor != null)
                 sm.registerListener(GeckoApp.mAppContext, gGyroscopeSensor, sDefaultSensorHint);
             break;
         default:
-            Log.e(LOGTAG, "Error! SENSOR type used " + aSensortype);
+            Log.w(LOGTAG, "Error! Can't enable unknown SENSOR type " + aSensortype);
         }
     }
 
@@ -719,42 +747,36 @@ public class GeckoAppShell
 
         switch (aSensortype) {
         case GeckoHalDefines.SENSOR_ORIENTATION:
-            Log.i(LOGTAG, "Disabling SENSOR_ORIENTATION");
             if (gOrientationSensor != null)
                 sm.unregisterListener(GeckoApp.mAppContext, gOrientationSensor);
             break;
 
         case GeckoHalDefines.SENSOR_ACCELERATION:
-            Log.i(LOGTAG, "Disabling SENSOR_ACCELERATION");
             if (gAccelerometerSensor != null)
                 sm.unregisterListener(GeckoApp.mAppContext, gAccelerometerSensor);
             break;
 
         case GeckoHalDefines.SENSOR_PROXIMITY:
-            Log.i(LOGTAG, "Disabling SENSOR_PROXIMITY");
             if (gProximitySensor != null)
                 sm.unregisterListener(GeckoApp.mAppContext, gProximitySensor);
             break;
 
         case GeckoHalDefines.SENSOR_LIGHT:
-            Log.i(LOGTAG, "Disabling SENSOR_LIGHT");
             if (gLightSensor != null)
                 sm.unregisterListener(GeckoApp.mAppContext, gLightSensor);
             break;
 
         case GeckoHalDefines.SENSOR_LINEAR_ACCELERATION:
-            Log.i(LOGTAG, "Disabling SENSOR_LINEAR_ACCELERATION");
             if (gLinearAccelerometerSensor != null)
                 sm.unregisterListener(GeckoApp.mAppContext, gLinearAccelerometerSensor);
             break;
 
         case GeckoHalDefines.SENSOR_GYROSCOPE:
-            Log.i(LOGTAG, "Disabling SENSOR_GYROSCOPE");
             if (gGyroscopeSensor != null)
                 sm.unregisterListener(GeckoApp.mAppContext, gGyroscopeSensor);
             break;
         default:
-            Log.e(LOGTAG, "Error! SENSOR type used " + aSensortype);
+            Log.w(LOGTAG, "Error! Can't disable unknown SENSOR type " + aSensortype);
         }
     }
 
@@ -770,20 +792,17 @@ public class GeckoAppShell
     static void onXreExit() {
         // mLaunchState can only be Launched or GeckoRunning at this point
         GeckoApp.setLaunchState(GeckoApp.LaunchState.GeckoExiting);
-        Log.i(LOGTAG, "XRE exited");
         if (gRestartScheduled) {
             GeckoApp.mAppContext.doRestart();
         } else {
-            Log.i(LOGTAG, "we're done, good bye");
             GeckoApp.mAppContext.finish();
         }
 
-        Log.w(LOGTAG, "Killing via System.exit()");
+        Log.d(LOGTAG, "Killing via System.exit()");
         System.exit(0);
     }
 
     static void scheduleRestart() {
-        Log.i(LOGTAG, "scheduling restart");
         gRestartScheduled = true;
     }
 
@@ -820,7 +839,7 @@ public class GeckoAppShell
     // This is the entry point from AndroidBridge.h
     static void createShortcut(String aTitle, String aURI, String aIconData, String aType) {
         if ("webapp".equals(aType)) {
-            Log.e(LOGTAG, "createShortcut with no unique URI should not be used for aType = webapp!");
+            Log.w(LOGTAG, "createShortcut with no unique URI should not be used for aType = webapp!");
         }
 
         createShortcut(aTitle, aURI, aURI, aIconData, aType);
@@ -961,7 +980,7 @@ public class GeckoAppShell
         final int kOffset = 6;
         final int kRadius = 5;
         int size = getPreferredIconSize();
-        int insetSize = aSource != null ? size*2/3 : size;
+        int insetSize = aSource != null ? size * 2 / 3 : size;
 
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -975,12 +994,8 @@ public class GeckoAppShell
         // draw a base color
         Paint paint = new Paint();
         if (aSource == null) {
-            // if we aren't drawing a favicon, just use an orange color
-            float[] hsv = new float[3];
-            hsv[0] = 32.0f;
-            hsv[1] = 1.0f;
-            hsv[2] = 1.0f;
-            paint.setColor(Color.HSVToColor(hsv));
+            // If we aren't drawing a favicon, just use an orange color.
+            paint.setColor(Color.HSVToColor(DEFAULT_LAUNCHER_ICON_HSV));
             canvas.drawRoundRect(new RectF(kOffset, kOffset, size - kOffset, size - kOffset), kRadius, kRadius, paint);
         } else {
             // otherwise use the dominant color from the icon + a layer of transparent white to lighten it somewhat
@@ -1000,17 +1015,17 @@ public class GeckoAppShell
             aSource = BitmapFactory.decodeResource(GeckoApp.mAppContext.getResources(), R.drawable.home_star);
 
         // by default, we scale the icon to this size
-        int sWidth = insetSize/2;
+        int sWidth = insetSize / 2;
         int sHeight = sWidth;
 
         if (aSource.getWidth() > insetSize || aSource.getHeight() > insetSize) {
             // however, if the icon is larger than our minimum, we allow it to be drawn slightly larger
             // (but not necessarily at its full resolution)
-            sWidth = Math.min(size/3, aSource.getWidth()/2);
-            sHeight = Math.min(size/3, aSource.getHeight()/2);
+            sWidth = Math.min(size / 3, aSource.getWidth() / 2);
+            sHeight = Math.min(size / 3, aSource.getHeight() / 2);
         }
 
-        int halfSize = size/2;
+        int halfSize = size / 2;
         canvas.drawBitmap(aSource,
                           null,
                           new Rect(halfSize - sWidth,
@@ -1297,14 +1312,14 @@ public class GeckoAppShell
 
     public static void showAlertNotification(String aImageUrl, String aAlertTitle, String aAlertText,
                                              String aAlertCookie, String aAlertName) {
-        Log.i(LOGTAG, "GeckoAppShell.showAlertNotification\n" +
+        Log.d(LOGTAG, "GeckoAppShell.showAlertNotification\n" +
             "- image = '" + aImageUrl + "'\n" +
             "- title = '" + aAlertTitle + "'\n" +
             "- text = '" + aAlertText +"'\n" +
             "- cookie = '" + aAlertCookie +"'\n" +
             "- name = '" + aAlertName + "'");
 
-        int icon = R.drawable.icon; // Just use the app icon by default
+        int icon = R.drawable.ic_status_logo;
 
         Uri imageUri = Uri.parse(aImageUrl);
         String scheme = imageUri.getScheme();
@@ -1358,16 +1373,10 @@ public class GeckoAppShell
         mAlertNotifications.put(notificationID, notification);
 
         notification.show();
-
-        Log.i(LOGTAG, "Created notification ID " + notificationID);
     }
 
     public static void alertsProgressListener_OnProgress(String aAlertName, long aProgress, long aProgressMax, String aAlertText) {
-        Log.i(LOGTAG, "GeckoAppShell.alertsProgressListener_OnProgress\n" +
-            "- name = '" + aAlertName +"', " +
-            "progress = " + aProgress +" / " + aProgressMax + ", text = '" + aAlertText + "'");
-
-        int notificationID = aAlertName.hashCode();
+        final int notificationID = aAlertName.hashCode();
         AlertNotification notification = mAlertNotifications.get(notificationID);
         if (notification != null)
             notification.updateProgress(aAlertText, aProgress, aProgressMax);
@@ -1380,8 +1389,6 @@ public class GeckoAppShell
     }
 
     public static void alertsProgressListener_OnCancel(String aAlertName) {
-        Log.i(LOGTAG, "GeckoAppShell.alertsProgressListener_OnCancel('" + aAlertName + "')");
-
         removeObserver(aAlertName);
 
         int notificationID = aAlertName.hashCode();
@@ -1389,11 +1396,9 @@ public class GeckoAppShell
     }
 
     public static void handleNotification(String aAction, String aAlertName, String aAlertCookie) {
-        if (LOGGING) Log.i(LOGTAG, "handleNotification " + aAction + " " + aAlertName + " " + aAlertCookie);
         int notificationID = aAlertName.hashCode();
 
         if (GeckoApp.ACTION_ALERT_CALLBACK.equals(aAction)) {
-            if (LOGGING) Log.i(LOGTAG, "GeckoAppShell.handleNotification: callObserver(alertclickcallback)");
             callObserver(aAlertName, "alertclickcallback", aAlertCookie);
 
             AlertNotification notification = mAlertNotifications.get(notificationID);
@@ -1673,7 +1678,7 @@ public class GeckoAppShell
             in.close();
         }
         catch (Exception e) {
-            Log.i(LOGTAG, "finding procs throws ",  e);
+            Log.w(LOGTAG, "Failed to enumerate Gecko processes.",  e);
         }
     }
 
@@ -1716,7 +1721,7 @@ public class GeckoAppShell
             return buf.array();
         }
         catch (Exception e) {
-            Log.i(LOGTAG, "getIconForExtension error: ",  e);
+            Log.w(LOGTAG, "getIconForExtension failed.",  e);
             return null;
         }
     }
@@ -1759,42 +1764,27 @@ public class GeckoAppShell
     public static void addPluginView(View view,
                                      int x, int y,
                                      int w, int h,
-                                     boolean isFullScreen)
-    {
-        ImmutableViewportMetrics pluginViewport;
-
-        Log.i(LOGTAG, "addPluginView:" + view + " @ x:" + x + " y:" + y + " w:" + w + " h:" + h + " fullscreen: " + isFullScreen);
-        
+                                     boolean isFullScreen) {
         GeckoApp.mAppContext.addPluginView(view, new Rect(x, y, x + w, y + h), isFullScreen);
     }
 
     public static void removePluginView(View view, boolean isFullScreen) {
-        Log.i(LOGTAG, "removePluginView:" + view + " fullscreen: " + isFullScreen);
         GeckoApp.mAppContext.removePluginView(view, isFullScreen);
     }
 
     public static Class<?> loadPluginClass(String className, String libName) {
-        Log.i(LOGTAG, "in loadPluginClass... attempting to access className, then libName.....");
-        Log.i(LOGTAG, "className: " + className);
-        Log.i(LOGTAG, "libName: " + libName);
-
         try {
-            String packageName = GeckoApp.mAppContext.getPluginPackage(libName);
-            Log.i(LOGTAG, "load \"" + className + "\" from \"" + packageName + 
-                  "\" for \"" + libName + "\"");
-            Context pluginContext = 
-                GeckoApp.mAppContext.createPackageContext(packageName,
-                                                          Context.CONTEXT_INCLUDE_CODE |
-                                                      Context.CONTEXT_IGNORE_SECURITY);
-            ClassLoader pluginCL = pluginContext.getClassLoader();
-            return pluginCL.loadClass(className);
+            final String packageName = GeckoApp.mAppContext.getPluginPackage(libName);
+            final int contextFlags = Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY;
+            final Context pluginContext = GeckoApp.mAppContext.createPackageContext(packageName, contextFlags);
+            return pluginContext.getClassLoader().loadClass(className);
         } catch (java.lang.ClassNotFoundException cnfe) {
-            Log.i(LOGTAG, "class not found", cnfe);
+            Log.w(LOGTAG, "Couldn't find plugin class " + className, cnfe);
+            return null;
         } catch (android.content.pm.PackageManager.NameNotFoundException nnfe) {
-            Log.i(LOGTAG, "package not found", nnfe);
+            Log.w(LOGTAG, "Couldn't find package.", nnfe);
+            return null;
         }
-        Log.e(LOGTAG, "couldn't find class");
-        return null;
     }
 
     public static android.hardware.Camera sCamera = null;
@@ -1805,9 +1795,8 @@ public class GeckoAppShell
     static byte[] sCameraBuffer = null;
 
     static int[] initCamera(String aContentType, int aCamera, int aWidth, int aHeight) {
-        Log.i(LOGTAG, "initCamera(" + aContentType + ", " + aWidth + "x" + aHeight + ") on thread " + Thread.currentThread().getId());
-
         getMainHandler().post(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         GeckoApp.mAppContext.enableCameraView();
@@ -1868,9 +1857,9 @@ public class GeckoAppShell
             try {
                 sCamera.setPreviewDisplay(GeckoApp.mAppContext.cameraView.getHolder());
             } catch(IOException e) {
-                Log.e(LOGTAG, "Error setPreviewDisplay:", e);
+                Log.w(LOGTAG, "Error setPreviewDisplay:", e);
             } catch(RuntimeException e) {
-                Log.e(LOGTAG, "Error setPreviewDisplay:", e);
+                Log.w(LOGTAG, "Error setPreviewDisplay:", e);
             }
 
             sCamera.setParameters(params);
@@ -1885,24 +1874,20 @@ public class GeckoAppShell
             });
             sCamera.startPreview();
             params = sCamera.getParameters();
-            Log.i(LOGTAG, "Camera: " + params.getPreviewSize().width + "x" + params.getPreviewSize().height +
-                  " @ " + params.getPreviewFrameRate() + "fps. format is " + params.getPreviewFormat());
             result[0] = 1;
             result[1] = params.getPreviewSize().width;
             result[2] = params.getPreviewSize().height;
             result[3] = params.getPreviewFrameRate();
-
-            Log.i(LOGTAG, "Camera preview started");
         } catch(RuntimeException e) {
-            Log.e(LOGTAG, "initCamera RuntimeException : ", e);
+            Log.w(LOGTAG, "initCamera RuntimeException.", e);
             result[0] = result[1] = result[2] = result[3] = 0;
         }
         return result;
     }
 
     static synchronized void closeCamera() {
-        Log.i(LOGTAG, "closeCamera() on thread " + Thread.currentThread().getId());
         getMainHandler().post(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         GeckoApp.mAppContext.disableCameraView();
@@ -1993,12 +1978,12 @@ public class GeckoAppShell
         return SmsManager.getInstance().getNumberOfMessagesForText(aText);
     }
 
-    public static void sendMessage(String aNumber, String aMessage, int aRequestId, long aProcessId) {
+    public static void sendMessage(String aNumber, String aMessage, int aRequestId) {
         if (SmsManager.getInstance() == null) {
             return;
         }
 
-        SmsManager.getInstance().send(aNumber, aMessage, aRequestId, aProcessId);
+        SmsManager.getInstance().send(aNumber, aMessage, aRequestId);
     }
 
     public static int saveSentMessage(String aRecipient, String aBody, long aDate) {
@@ -2009,36 +1994,36 @@ public class GeckoAppShell
         return SmsManager.getInstance().saveSentMessage(aRecipient, aBody, aDate);
     }
 
-    public static void getMessage(int aMessageId, int aRequestId, long aProcessId) {
+    public static void getMessage(int aMessageId, int aRequestId) {
         if (SmsManager.getInstance() == null) {
             return;
         }
 
-        SmsManager.getInstance().getMessage(aMessageId, aRequestId, aProcessId);
+        SmsManager.getInstance().getMessage(aMessageId, aRequestId);
     }
 
-    public static void deleteMessage(int aMessageId, int aRequestId, long aProcessId) {
+    public static void deleteMessage(int aMessageId, int aRequestId) {
         if (SmsManager.getInstance() == null) {
             return;
         }
 
-        SmsManager.getInstance().deleteMessage(aMessageId, aRequestId, aProcessId);
+        SmsManager.getInstance().deleteMessage(aMessageId, aRequestId);
     }
 
-    public static void createMessageList(long aStartDate, long aEndDate, String[] aNumbers, int aNumbersCount, int aDeliveryState, boolean aReverse, int aRequestId, long aProcessId) {
+    public static void createMessageList(long aStartDate, long aEndDate, String[] aNumbers, int aNumbersCount, int aDeliveryState, boolean aReverse, int aRequestId) {
         if (SmsManager.getInstance() == null) {
             return;
         }
 
-        SmsManager.getInstance().createMessageList(aStartDate, aEndDate, aNumbers, aNumbersCount, aDeliveryState, aReverse, aRequestId, aProcessId);
+        SmsManager.getInstance().createMessageList(aStartDate, aEndDate, aNumbers, aNumbersCount, aDeliveryState, aReverse, aRequestId);
     }
 
-    public static void getNextMessageInList(int aListId, int aRequestId, long aProcessId) {
+    public static void getNextMessageInList(int aListId, int aRequestId) {
         if (SmsManager.getInstance() == null) {
             return;
         }
 
-        SmsManager.getInstance().getNextMessageInList(aListId, aRequestId, aProcessId);
+        SmsManager.getInstance().getNextMessageInList(aListId, aRequestId);
     }
 
     public static void clearMessageList(int aListId) {
@@ -2054,8 +2039,10 @@ public class GeckoAppShell
     }
 
     public static void viewSizeChanged() {
-        if (mInputConnection != null && mInputConnection.isIMEEnabled()) {
-            sendEventToGecko(GeckoEvent.createBroadcastEvent("ScrollTo:FocusedInput", ""));
+        LayerView v = GeckoApp.mAppContext.getLayerView();
+        if (v != null && v.isIMEEnabled()) {
+            sendEventToGecko(GeckoEvent.createBroadcastEvent(
+                    "ScrollTo:FocusedInput", ""));
         }
     }
 
@@ -2274,5 +2261,45 @@ public class GeckoAppShell
             return true;
         }
         return false;
+    }
+
+    public static String getProxyForURI(String spec, String scheme, String host, int port) {
+        URI uri = null;
+        try {
+            uri = new URI(spec);
+        } catch(java.net.URISyntaxException uriEx) {
+            try {
+                uri = new URI(scheme, null, host, port, null, null, null);
+            } catch(java.net.URISyntaxException uriEx2) {
+                Log.d("GeckoProxy", "Failed to create uri from spec", uriEx);
+                Log.d("GeckoProxy", "Failed to create uri from parts", uriEx2);
+            }
+        }
+        if (uri != null) {
+            ProxySelector ps = ProxySelector.getDefault();
+            if (ps != null) {
+                List<Proxy> proxies = ps.select(uri);
+                if (proxies != null && !proxies.isEmpty()) {
+                    Proxy proxy = proxies.get(0);
+                    if (!Proxy.NO_PROXY.equals(proxy)) {
+                        final String proxyStr;
+                        switch (proxy.type()) {
+                        case HTTP:
+                            proxyStr = "PROXY " + proxy.address().toString();
+                            break;
+                        case SOCKS:
+                            proxyStr = "SOCKS " + proxy.address().toString();
+                            break;
+                        case DIRECT:
+                        default:
+                            proxyStr = "DIRECT";
+                            break;
+                        }
+                        return proxyStr;
+                    }
+                }
+            }
+        }
+        return "DIRECT";
     }
 }

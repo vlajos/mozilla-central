@@ -105,6 +105,10 @@ class B2GOptions(ReftestOptions):
                         help="the path to a gecko distribution that should "
                         "be installed on the emulator prior to test")
         defaults["geckoPath"] = None
+        self.add_option("--logcat-dir", action="store",
+                        type="string", dest="logcat_dir",
+                        help="directory to store logcat dump files")
+        defaults["logcat_dir"] = None
         defaults["remoteTestRoot"] = None
         defaults["logFile"] = "reftest.log"
         defaults["autorun"] = True
@@ -132,6 +136,9 @@ class B2GOptions(ReftestOptions):
 
         if options.geckoPath and not options.emulator:
             self.error("You must specify --emulator if you specify --gecko-path")
+
+        if options.logcat_dir and not options.emulator:
+            self.error("You must specify --emulator if you specify --logcat-dir")
 
         #if not options.emulator and not options.deviceIP:
         #    print "ERROR: you must provide a device IP"
@@ -208,6 +215,7 @@ class B2GReftest(RefTest):
         self._automation.setRemoteProfile(self.remoteProfile)
         self.localLogName = options.localLogName
         self.remoteLogFile = options.remoteLogFile
+        self.bundlesDir = '/system/b2g/distribution/bundles'
         self.userJS = '/data/local/user.js'
         self.testDir = '/data/local/tests'
         self.remoteMozillaPath = '/data/b2g/mozilla'
@@ -227,6 +235,15 @@ class B2GReftest(RefTest):
                 print "ERROR: We were not able to retrieve the info from %s" % self.remoteLogFile
                 sys.exit(5)
 
+        # Delete any bundled extensions
+        extensionDir = os.path.join(profileDir, 'extensions', 'staged')
+        for filename in os.listdir(extensionDir):
+            try:
+                self._devicemanager._checkCmdAs(['shell', 'rm', '-rf',
+                                                 os.path.join(self.bundlesDir, filename)])
+            except devicemanager.DMError:
+                pass
+
         # Restore the original profiles.ini.
         if self.originalProfilesIni:
             try:
@@ -243,7 +260,7 @@ class B2GReftest(RefTest):
 
             # Restore the original user.js.
             self._devicemanager._checkCmdAs(['shell', 'rm', '-f', self.userJS])
-            if self._devicemanager.useDDCopy:
+            if self._devicemanager._useDDCopy:
                 self._devicemanager._checkCmdAs(['shell', 'dd', 'if=%s.orig' % self.userJS, 'of=%s' % self.userJS])
             else:
                 self._devicemanager._checkCmdAs(['shell', 'cp', '%s.orig' % self.userJS, self.userJS])
@@ -409,10 +426,23 @@ user_pref("capability.principal.codebase.p2.id", "http://%s:%s");
             print "Automation Error: Unable to copy profile to device."
             raise
 
+        # Copy the extensions to the B2G bundles dir.
+        extensionDir = os.path.join(profileDir, 'extensions', 'staged')
+        # need to write to read-only dir
+        self._devicemanager._checkCmdAs(['remount'])
+        for filename in os.listdir(extensionDir):
+            self._devicemanager._checkCmdAs(['shell', 'rm', '-rf',
+                                             os.path.join(self.bundlesDir, filename)])
+        try:
+            self._devicemanager.pushDir(extensionDir, self.bundlesDir)
+        except devicemanager.DMError:
+            print "Automation Error: Unable to copy extensions to device."
+            raise
+
         # In B2G, user.js is always read from /data/local, not the profile
         # directory.  Backup the original user.js first so we can restore it.
         self._devicemanager._checkCmdAs(['shell', 'rm', '-f', '%s.orig' % self.userJS])
-        if self._devicemanager.useDDCopy:
+        if self._devicemanager._useDDCopy:
             self._devicemanager._checkCmdAs(['shell', 'dd', 'if=%s' % self.userJS, 'of=%s.orig' % self.userJS])
         else:
             self._devicemanager._checkCmdAs(['shell', 'cp', self.userJS, '%s.orig' % self.userJS])
@@ -447,6 +477,10 @@ def main(args=sys.argv[1:]):
         auto.setEmulator(True)
         if options.noWindow:
             kwargs['noWindow'] = True
+        if options.geckoPath:
+            kwargs['gecko_path'] = options.geckoPath
+        if options.logcat_dir:
+            kwargs['logcat_dir'] = options.logcat_dir
     if options.emulator_res:
         kwargs['emulator_res'] = options.emulator_res
     if options.b2gPath:
@@ -455,9 +489,7 @@ def main(args=sys.argv[1:]):
         host,port = options.marionette.split(':')
         kwargs['host'] = host
         kwargs['port'] = int(port)
-    if options.geckoPath:
-        kwargs['gecko_path'] = options.geckoPath
-    marionette = Marionette(**kwargs)
+    marionette = Marionette.getMarionetteOrExit(**kwargs)
     auto.marionette = marionette
 
     # create the DeviceManager
@@ -524,7 +556,7 @@ def main(args=sys.argv[1:]):
 
         retVal = reftest.runTests(manifest, options, cmdlineArgs)
     except:
-        print "TEST-UNEXPECTED-FAIL | %s | Exception caught while running tests." % sys.exc_info()[1]
+        print "Automation Error: Exception caught while running tests"
         traceback.print_exc()
         reftest.stopWebServer(options)
         try:

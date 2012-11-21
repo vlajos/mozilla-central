@@ -27,6 +27,12 @@ function AppsService()
 }
 
 AppsService.prototype = {
+
+  getCSPByLocalId: function getCSPByLocalId(localId) {
+    debug("GetCSPByLocalId( " + localId + " )");
+    return DOMApplicationRegistry.getCSPByLocalId(localId);
+  },
+
   getAppByManifestURL: function getAppByManifestURL(aManifestURL) {
     debug("GetAppByManifestURL( " + aManifestURL + " )");
     return DOMApplicationRegistry.getAppByManifestURL(aManifestURL);
@@ -56,4 +62,4 @@ AppsService.prototype = {
   QueryInterface : XPCOMUtils.generateQI([Ci.nsIAppsService])
 }
 
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([AppsService])
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([AppsService])

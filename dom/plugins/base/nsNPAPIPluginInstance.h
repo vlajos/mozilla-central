@@ -78,11 +78,12 @@ public:
   nsresult GetValueFromPlugin(NPPVariable variable, void* value);
   nsresult GetDrawingModel(int32_t* aModel);
   nsresult IsRemoteDrawingCoreAnimation(bool* aDrawing);
+  nsresult ContentsScaleFactorChanged(double aContentsScaleFactor);
   nsresult GetJSObject(JSContext *cx, JSObject** outObject);
   bool ShouldCache();
   nsresult IsWindowless(bool* isWindowless);
   nsresult AsyncSetWindow(NPWindow* window);
-  nsresult GetImageContainer(ImageContainer **aContainer);
+  nsresult GetImageContainer(mozilla::layers::ImageContainer **aContainer);
   nsresult GetImageSize(nsIntSize* aSize);
   nsresult NotifyPainted(void);
   nsresult GetIsOOP(bool* aIsOOP);

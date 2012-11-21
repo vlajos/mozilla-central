@@ -226,6 +226,7 @@ nsDeviceContext::nsDeviceContext()
       mPixelScale(1.0f), mPrintingScale(1.0f),
       mFontCache(nullptr)
 {
+    MOZ_ASSERT(NS_IsMainThread(), "nsDeviceContext created off main thread");
 }
 
 // Note: we use a bare pointer for mFontCache so that nsFontCache
@@ -336,23 +337,7 @@ nsDeviceContext::SetDPI()
             dpi = 96.0f;
         }
 
-        // The number of device pixels per CSS pixel. A value <= 0 means choose
-        // automatically based on the DPI. A positive value is used as-is. This effectively
-        // controls the size of a CSS "px".
-        float devPixelsPerCSSPixel = -1.0;
-
-        nsAdoptingCString prefString = Preferences::GetCString("layout.css.devPixelsPerPx");
-        if (!prefString.IsEmpty()) {
-            devPixelsPerCSSPixel = static_cast<float>(atof(prefString));
-        }
-
-        if (devPixelsPerCSSPixel <= 0) {
-            if (mWidget) {
-                devPixelsPerCSSPixel = mWidget->GetDefaultScale();
-            } else {
-                devPixelsPerCSSPixel = 1.0;
-            }
-        }
+        double devPixelsPerCSSPixel = mWidget ? mWidget->GetDefaultScale() : 1.0;
 
         mAppUnitsPerDevNotScaledPixel =
             NS_MAX(1, NS_lround(AppUnitsPerCSSPixel() / devPixelsPerCSSPixel));

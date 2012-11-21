@@ -14,7 +14,6 @@
 #include "nsAccEvent.h"
 #include "nsAccessibleRelation.h"
 #include "nsAccessibilityService.h"
-#include "nsAccTreeWalker.h"
 #include "nsIAccessibleRelation.h"
 #include "nsEventShell.h"
 #include "nsTextEquivUtils.h"
@@ -23,6 +22,7 @@
 #include "RootAccessible.h"
 #include "States.h"
 #include "StyleInfo.h"
+#include "TreeWalker.h"
 
 #include "nsContentUtils.h"
 #include "nsIDOMElement.h"
@@ -98,8 +98,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(Accessible, nsAccessNode)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(Accessible, nsAccessNode)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mParent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSTARRAY(mChildren)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mChildren)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_ADDREF_INHERITED(Accessible, nsAccessNode)
@@ -191,12 +191,6 @@ Accessible::~Accessible()
 }
 
 void
-Accessible::SetRoleMapEntry(nsRoleMapEntry* aRoleMapEntry)
-{
-  mRoleMapEntry = aRoleMapEntry;
-}
-
-void
 Accessible::Init()
 {
 }
@@ -275,7 +269,7 @@ Accessible::Name(nsString& aName)
 
   ENameValueFlag nameFlag = NativeName(aName);
   if (!aName.IsEmpty())
-    return eNameOK;
+    return nameFlag;
 
   // In the end get the name from tooltip.
   if (mContent->IsHTML()) {
@@ -288,14 +282,12 @@ Accessible::Name(nsString& aName)
       aName.CompressWhitespace();
       return eNameFromTooltip;
     }
-  } else {
-    return eNameOK;
   }
 
   if (nameFlag != eNoNameOnPurpose)
     aName.SetIsVoid(true);
 
-  return eNameOK;
+  return nameFlag;
 }
 
 NS_IMETHODIMP
@@ -629,11 +621,17 @@ Accessible::VisibilityState()
     if (view && view->GetVisibility() == nsViewVisibility_kHide)
       return states::INVISIBLE;
 
-    // Offscreen state for background tab content.
+    // Offscreen state for background tab content and invisible for not selected
+    // deck panel.
     nsIFrame* parentFrame = curFrame->GetParent();
     nsDeckFrame* deckFrame = do_QueryFrame(parentFrame);
-    if (deckFrame && deckFrame->GetSelectedBox() != curFrame)
-      return states::OFFSCREEN;
+    if (deckFrame && deckFrame->GetSelectedBox() != curFrame) {
+      if (deckFrame->GetContent()->IsXUL() &&
+          deckFrame->GetContent()->Tag() == nsGkAtoms::tabpanels)
+        return states::OFFSCREEN;
+
+      return states::INVISIBLE;
+    }
 
     // If contained by scrollable frame then check that at least 12 pixels
     // around the object is visible, otherwise the object is offscreen.
@@ -752,8 +750,7 @@ Accessible::NativeInteractiveState() const
 uint64_t
 Accessible::NativeLinkState() const
 {
-  // Expose linked state for simple xlink.
-  return nsCoreUtils::IsXLink(mContent) ? states::LINKED : 0;
+  return 0;
 }
 
 bool
@@ -1055,7 +1052,7 @@ Accessible::TakeFocus()
   return NS_OK;
 }
 
-void
+ENameValueFlag
 Accessible::GetHTMLName(nsString& aLabel)
 {
   Accessible* labelAcc = nullptr;
@@ -1066,8 +1063,11 @@ Accessible::GetHTMLName(nsString& aLabel)
     aLabel.CompressWhitespace();
   }
 
-  if (aLabel.IsEmpty())
-    nsTextEquivUtils::GetNameFromSubtree(this, aLabel);
+  if (!aLabel.IsEmpty())
+    return eNameOK;
+
+  nsTextEquivUtils::GetNameFromSubtree(this, aLabel);
+  return aLabel.IsEmpty() ? eNameOK : eNameFromSubtree;
 }
 
 /**
@@ -1082,7 +1082,7 @@ Accessible::GetHTMLName(nsString& aLabel)
   *  the control that uses the control="controlID" syntax will use
   *  the child label for its Name.
   */
-void
+ENameValueFlag
 Accessible::GetXULName(nsString& aName)
 {
   // CASE #1 (via label attribute) -- great majority of the cases
@@ -1125,10 +1125,9 @@ Accessible::GetXULName(nsString& aName)
     }
   }
 
-  // XXX If CompressWhiteSpace worked on nsAString we could avoid a copy
   aName.CompressWhitespace();
   if (!aName.IsEmpty())
-    return;
+    return eNameOK;
 
   // Can get text from title of <toolbaritem> if we're a child of a <toolbaritem>
   nsIContent *bindingParent = mContent->GetBindingParent();
@@ -1138,12 +1137,13 @@ Accessible::GetXULName(nsString& aName)
     if (parent->Tag() == nsGkAtoms::toolbaritem &&
         parent->GetAttr(kNameSpaceID_None, nsGkAtoms::title, aName)) {
       aName.CompressWhitespace();
-      return;
+      return eNameOK;
     }
     parent = parent->GetParent();
   }
 
   nsTextEquivUtils::GetNameFromSubtree(this, aName);
+  return aName.IsEmpty() ? eNameOK : eNameFromSubtree;
 }
 
 nsresult
@@ -1185,62 +1185,39 @@ Accessible::GetRole(uint32_t *aRole)
 }
 
 NS_IMETHODIMP
-Accessible::GetAttributes(nsIPersistentProperties **aAttributes)
+Accessible::GetAttributes(nsIPersistentProperties** aAttributes)
 {
-  NS_ENSURE_ARG_POINTER(aAttributes);  // In/out param. Created if necessary.
-  
+  NS_ENSURE_ARG_POINTER(aAttributes);
+  *aAttributes = nullptr;
+
   if (IsDefunct())
     return NS_ERROR_FAILURE;
 
-  nsCOMPtr<nsIPersistentProperties> attributes = *aAttributes;
-  if (!attributes) {
-    // Create only if an array wasn't already passed in
-    attributes = do_CreateInstance(NS_PERSISTENTPROPERTIES_CONTRACTID);
-    NS_ENSURE_TRUE(attributes, NS_ERROR_OUT_OF_MEMORY);
-    NS_ADDREF(*aAttributes = attributes);
-  }
- 
-  nsresult rv = GetAttributesInternal(attributes);
-  NS_ENSURE_SUCCESS(rv, rv);
+  nsCOMPtr<nsIPersistentProperties> attributes = Attributes();
+  attributes.swap(*aAttributes);
 
-  nsAutoString id;
-  nsAutoString oldValueUnused;
-  if (nsCoreUtils::GetID(mContent, id)) {
-    // Expose ID. If an <iframe id> exists override the one on the <body> of the source doc,
-    // because the specific instance is what makes the ID useful for scripts
-    attributes->SetStringProperty(NS_LITERAL_CSTRING("id"), id, oldValueUnused);
-  }
-  
-  nsAutoString xmlRoles;
+  return NS_OK;
+}
+
+already_AddRefed<nsIPersistentProperties>
+Accessible::Attributes()
+{
+  nsCOMPtr<nsIPersistentProperties> attributes = NativeAttributes();
+  if (!HasOwnContent() || !mContent->IsElement())
+    return attributes.forget();
+
+  // 'xml-roles' attribute coming from ARIA.
+  nsAutoString xmlRoles, unused;
   if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::role, xmlRoles)) {
-    attributes->SetStringProperty(NS_LITERAL_CSTRING("xml-roles"),  xmlRoles, oldValueUnused);          
+    attributes->SetStringProperty(NS_LITERAL_CSTRING("xml-roles"),
+                                  xmlRoles, unused);
   }
-
-  if (HasNumericValue()) {
-    // We support values, so expose the string value as well, via the valuetext object attribute
-    // We test for the value interface because we don't want to expose traditional get_accValue()
-    // information such as URL's on links and documents, or text in an input
-    nsAutoString valuetext;
-    GetValue(valuetext);
-    attributes->SetStringProperty(NS_LITERAL_CSTRING("valuetext"), valuetext, oldValueUnused);
-  }
-
-  // Expose checkable object attribute if the accessible has checkable state
-  if (State() & states::CHECKABLE)
-    nsAccUtils::SetAccAttr(attributes, nsGkAtoms::checkable, NS_LITERAL_STRING("true"));
-
-  // Group attributes (level/setsize/posinset)
-  GroupPos groupPos = GroupPosition();
-  nsAccUtils::SetAccGroupAttrs(attributes, groupPos.level,
-                               groupPos.setSize, groupPos.posInSet);
 
   // Expose object attributes from ARIA attributes.
   aria::AttrIterator attribIter(mContent);
   nsAutoString name, value;
-  while(attribIter.Next(name, value)) {
-    attributes->SetStringProperty(NS_ConvertUTF16toUTF8(name), value, 
-                                  oldValueUnused);
-  }
+  while(attribIter.Next(name, value))
+    attributes->SetStringProperty(NS_ConvertUTF16toUTF8(name), value, unused);
 
   // If there is no aria-live attribute then expose default value of 'live'
   // object attribute used for ARIA role of this accessible.
@@ -1253,43 +1230,67 @@ Accessible::GetAttributes(nsIPersistentProperties **aAttributes)
     }
   }
 
-  return NS_OK;
+  return attributes.forget();
 }
 
-nsresult
-Accessible::GetAttributesInternal(nsIPersistentProperties *aAttributes)
+already_AddRefed<nsIPersistentProperties>
+Accessible::NativeAttributes()
 {
-  // If the accessible isn't primary for its node (such as list item bullet or
-  // xul tree item then don't calculate content based attributes.
+  nsCOMPtr<nsIPersistentProperties> attributes =
+    do_CreateInstance(NS_PERSISTENTPROPERTIES_CONTRACTID);
+
+  nsAutoString unused;
+
+  // We support values, so expose the string value as well, via the valuetext
+  // object attribute. We test for the value interface because we don't want
+  // to expose traditional Value() information such as URL's on links and
+  // documents, or text in an input.
+  if (HasNumericValue()) {
+    nsAutoString valuetext;
+    GetValue(valuetext);
+    attributes->SetStringProperty(NS_LITERAL_CSTRING("valuetext"), valuetext,
+                                  unused);
+  }
+
+  // Expose checkable object attribute if the accessible has checkable state
+  if (State() & states::CHECKABLE) {
+    nsAccUtils::SetAccAttr(attributes, nsGkAtoms::checkable,
+                           NS_LITERAL_STRING("true"));
+  }
+
+  // Expose 'explicit-name' attribute.
+  nsAutoString name;
+  if (Name(name) != eNameFromSubtree && !name.IsVoid()) {
+    attributes->SetStringProperty(NS_LITERAL_CSTRING("explicit-name"),
+                                  NS_LITERAL_STRING("true"), unused);
+  }
+
+  // Group attributes (level/setsize/posinset)
+  GroupPos groupPos = GroupPosition();
+  nsAccUtils::SetAccGroupAttrs(attributes, groupPos.level,
+                               groupPos.setSize, groupPos.posInSet);
+
+  // If the accessible doesn't have own content (such as list item bullet or
+  // xul tree item) then don't calculate content based attributes.
   if (!HasOwnContent())
-    return NS_OK;
+    return attributes.forget();
 
-  // Attributes set by this method will not be used to override attributes on a sub-document accessible
-  // when there is a <frame>/<iframe> element that spawned the sub-document
+  nsEventShell::GetEventAttributes(GetNode(), attributes);
 
-  nsEventShell::GetEventAttributes(GetNode(), aAttributes);
- 
-  // Expose class because it may have useful microformat information
-  // Let the class from an iframe's document be exposed, don't override from <iframe class>
-  nsAutoString _class;
-  if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::_class, _class))
-    nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::_class, _class);
-
-  // Get container-foo computed live region properties based on the closest container with
-  // the live region attribute. 
-  // Inner nodes override outer nodes within the same document --
-  //   The inner nodes can be used to override live region behavior on more general outer nodes
-  // However, nodes in outer documents override nodes in inner documents:
-  //   Outer doc author may want to override properties on a widget they used in an iframe
+  // Get container-foo computed live region properties based on the closest
+  // container with the live region attribute. Inner nodes override outer nodes
+  // within the same document. The inner nodes can be used to override live
+  // region behavior on more general outer nodes. However, nodes in outer
+  // documents override nodes in inner documents: outer doc author may want to
+  // override properties on a widget they used in an iframe.
   nsIContent* startContent = mContent;
   while (startContent) {
     nsIDocument* doc = startContent->GetDocument();
-    nsIContent* rootContent = nsCoreUtils::GetRoleContent(doc);
-    if (!rootContent)
-      return NS_OK;
+    if (!doc)
+      break;
 
-    nsAccUtils::SetLiveContainerAttributes(aAttributes, startContent,
-                                           rootContent);
+    nsAccUtils::SetLiveContainerAttributes(attributes, startContent,
+                                           nsCoreUtils::GetRoleContent(doc));
 
     // Allow ARIA live region markup from outer documents to override
     nsCOMPtr<nsISupports> container = doc->GetContainer(); 
@@ -1303,28 +1304,37 @@ Accessible::GetAttributesInternal(nsIPersistentProperties *aAttributes)
     if (!sameTypeParent || sameTypeParent == docShellTreeItem)
       break;
 
-    nsIDocument *parentDoc = doc->GetParentDocument();
+    nsIDocument* parentDoc = doc->GetParentDocument();
     if (!parentDoc)
       break;
 
-    startContent = parentDoc->FindContentForSubDocument(doc);      
+    startContent = parentDoc->FindContentForSubDocument(doc);
   }
 
   if (!mContent->IsElement())
-    return NS_OK;
+    return attributes.forget();
+
+  nsAutoString id;
+  if (nsCoreUtils::GetID(mContent, id))
+    attributes->SetStringProperty(NS_LITERAL_CSTRING("id"), id, unused);
+
+  // Expose class because it may have useful microformat information.
+  nsAutoString _class;
+  if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::_class, _class))
+    nsAccUtils::SetAccAttr(attributes, nsGkAtoms::_class, _class);
 
   // Expose tag.
   nsAutoString tagName;
   mContent->NodeInfo()->GetName(tagName);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::tag, tagName);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::tag, tagName);
 
-  // Expose draggable object attribute?
+  // Expose draggable object attribute.
   nsCOMPtr<nsIDOMHTMLElement> htmlElement = do_QueryInterface(mContent);
   if (htmlElement) {
     bool draggable = false;
     htmlElement->GetDraggable(&draggable);
     if (draggable) {
-      nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::draggable,
+      nsAccUtils::SetAccAttr(attributes, nsGkAtoms::draggable,
                              NS_LITERAL_STRING("true"));
     }
   }
@@ -1332,7 +1342,7 @@ Accessible::GetAttributesInternal(nsIPersistentProperties *aAttributes)
   // Don't calculate CSS-based object attributes when no frame (i.e.
   // the accessible is unattached from the tree).
   if (!mContent->GetPrimaryFrame())
-    return NS_OK;
+    return attributes.forget();
 
   // CSS style based object attributes.
   nsAutoString value;
@@ -1340,39 +1350,41 @@ Accessible::GetAttributesInternal(nsIPersistentProperties *aAttributes)
 
   // Expose 'display' attribute.
   styleInfo.Display(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::display, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::display, value);
 
   // Expose 'text-align' attribute.
   styleInfo.TextAlign(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::textAlign, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::textAlign, value);
 
   // Expose 'text-indent' attribute.
   styleInfo.TextIndent(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::textIndent, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::textIndent, value);
 
   // Expose 'margin-left' attribute.
   styleInfo.MarginLeft(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::marginLeft, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::marginLeft, value);
 
   // Expose 'margin-right' attribute.
   styleInfo.MarginRight(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::marginRight, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::marginRight, value);
 
   // Expose 'margin-top' attribute.
   styleInfo.MarginTop(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::marginTop, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::marginTop, value);
 
   // Expose 'margin-bottom' attribute.
   styleInfo.MarginBottom(value);
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::marginBottom, value);
+  nsAccUtils::SetAccAttr(attributes, nsGkAtoms::marginBottom, value);
 
-  return NS_OK;
+  return attributes.forget();
 }
 
 GroupPos
 Accessible::GroupPosition()
 {
   GroupPos groupPos;
+  if (!HasOwnContent())
+    return groupPos;
 
   // Get group position from ARIA attributes.
   nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_level, &groupPos.level);
@@ -1607,13 +1619,6 @@ Accessible::Value(nsString& aValue)
                         aValue);
     }
   }
-
-  if (!aValue.IsEmpty())
-    return;
-
-  // Check if it's a simple xlink.
-  if (nsCoreUtils::IsXLink(mContent))
-    nsContentUtils::GetLinkLocation(mContent->AsElement(), aValue);
 }
 
 // nsIAccessibleValue
@@ -1727,6 +1732,13 @@ Accessible::ARIATransformRole(role aRole)
   } else if (aRole == roles::OPTION) {
     if (mParent && mParent->Role() == roles::COMBOBOX_LIST)
       return roles::COMBOBOX_OPTION;
+
+  } else if (aRole == roles::MENUITEM) {
+    // Menuitem has a submenu.
+    if (mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::aria_haspopup,
+                              nsGkAtoms::_true, eCaseMatters)) {
+      return roles::PARENT_MENUITEM;
+    }
   }
 
   return aRole;
@@ -1735,7 +1747,7 @@ Accessible::ARIATransformRole(role aRole)
 role
 Accessible::NativeRole()
 {
-  return nsCoreUtils::IsXLink(mContent) ? roles::LINK : roles::NOTHING;
+  return roles::NOTHING;
 }
 
 // readonly attribute uint8_t actionCount
@@ -1896,6 +1908,9 @@ Accessible::GetRelationByType(uint32_t aType,
 Relation
 Accessible::RelationByType(uint32_t aType)
 {
+  if (!HasOwnContent())
+    return Relation();
+
   // Relationships are defined on the same content node that the role would be
   // defined on.
   switch (aType) {
@@ -2096,9 +2111,35 @@ NS_IMETHODIMP Accessible::GetNativeInterface(void **aOutAccessible)
 void
 Accessible::DoCommand(nsIContent *aContent, uint32_t aActionIndex)
 {
+  class Runnable MOZ_FINAL : public nsRunnable
+  {
+  public:
+    Runnable(Accessible* aAcc, nsIContent* aContent, uint32_t aIdx) :
+      mAcc(aAcc), mContent(aContent), mIdx(aIdx) { }
+
+    NS_IMETHOD Run()
+    {
+      if (mAcc)
+        mAcc->DispatchClickEvent(mContent, mIdx);
+
+      return NS_OK;
+    }
+
+    void Revoke()
+    {
+      mAcc = nullptr;
+      mContent = nullptr;
+    }
+
+  private:
+    nsRefPtr<Accessible> mAcc;
+    nsCOMPtr<nsIContent> mContent;
+    uint32_t mIdx;
+  };
+
   nsIContent* content = aContent ? aContent : mContent.get();
-  NS_DISPATCH_RUNNABLEMETHOD_ARG2(DispatchClickEvent, this, content,
-                                  aActionIndex);
+  nsCOMPtr<nsIRunnable> runnable = new Runnable(this, content, aActionIndex);
+  NS_DispatchToMainThread(runnable);
 }
 
 void
@@ -2420,23 +2461,18 @@ Accessible::Shutdown()
 
 // Accessible protected
 void
-Accessible::ARIAName(nsAString& aName)
+Accessible::ARIAName(nsString& aName)
 {
-  nsAutoString label;
-
   // aria-labelledby now takes precedence over aria-label
   nsresult rv = nsTextEquivUtils::
-    GetTextEquivFromIDRefs(this, nsGkAtoms::aria_labelledby, label);
+    GetTextEquivFromIDRefs(this, nsGkAtoms::aria_labelledby, aName);
   if (NS_SUCCEEDED(rv)) {
-    label.CompressWhitespace();
-    aName = label;
+    aName.CompressWhitespace();
   }
 
-  if (label.IsEmpty() &&
-      mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::aria_label,
-                        label)) {
-    label.CompressWhitespace();
-    aName = label;
+  if (aName.IsEmpty() &&
+      mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::aria_label, aName)) {
+    aName.CompressWhitespace();
   }
 }
 
@@ -2445,9 +2481,10 @@ ENameValueFlag
 Accessible::NativeName(nsString& aName)
 {
   if (mContent->IsHTML())
-    GetHTMLName(aName);
-  else if (mContent->IsXUL())
-    GetXULName(aName);
+    return GetHTMLName(aName);
+
+  if (mContent->IsXUL())
+    return GetXULName(aName);
 
   return eNameOK;
 }
@@ -2693,44 +2730,12 @@ already_AddRefed<nsIURI>
 Accessible::AnchorURIAt(uint32_t aAnchorIndex)
 {
   NS_PRECONDITION(IsLink(), "AnchorURIAt is called on not hyper link!");
-
-  if (aAnchorIndex != 0)
-    return nullptr;
-
-  // Check if it's a simple xlink.
-  if (nsCoreUtils::IsXLink(mContent)) {
-    nsAutoString href;
-    mContent->GetAttr(kNameSpaceID_XLink, nsGkAtoms::href, href);
-
-    nsCOMPtr<nsIURI> baseURI = mContent->GetBaseURI();
-    nsCOMPtr<nsIDocument> document = mContent->OwnerDoc();
-    nsIURI* anchorURI = nullptr;
-    NS_NewURI(&anchorURI, href,
-              document ? document->GetDocumentCharacterSet().get() : nullptr,
-              baseURI);
-    return anchorURI;
-  }
-
   return nullptr;
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // SelectAccessible
-
-bool
-Accessible::IsSelect()
-{
-  // If we have an ARIA role attribute present and the role allows multi
-  // selectable state, then we need to support SelectAccessible interface. If
-  // either attribute (role or multiselectable) change, then we'll destroy this
-  // accessible so that we can follow COM identity rules.
-
-  return mRoleMapEntry &&
-    (mRoleMapEntry->attributeMap1 == aria::eARIAMultiSelectable ||
-     mRoleMapEntry->attributeMap2 == aria::eARIAMultiSelectable ||
-     mRoleMapEntry->attributeMap3 == aria::eARIAMultiSelectable);
-}
 
 already_AddRefed<nsIArray>
 Accessible::SelectedItems()
@@ -2877,7 +2882,8 @@ Accessible::IsActiveWidget() const
 bool
 Accessible::AreItemsOperable() const
 {
-  return mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::aria_activedescendant);
+  return HasOwnContent() &&
+    mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::aria_activedescendant);
 }
 
 Accessible*
@@ -2888,7 +2894,8 @@ Accessible::CurrentItem()
   // checks whether pointed node is actually a DOM descendant of the element
   // with the aria-activedescendant attribute.
   nsAutoString id;
-  if (mContent->GetAttr(kNameSpaceID_None,
+  if (HasOwnContent() &&
+      mContent->GetAttr(kNameSpaceID_None,
                         nsGkAtoms::aria_activedescendant, id)) {
     nsIDocument* DOMDoc = mContent->OwnerDoc();
     dom::Element* activeDescendantElm = DOMDoc->GetElementById(id);
@@ -2942,7 +2949,7 @@ Accessible::CacheChildren()
   DocAccessible* doc = Document();
   NS_ENSURE_TRUE_VOID(doc);
 
-  nsAccTreeWalker walker(doc, mContent, CanHaveAnonChildren());
+  TreeWalker walker(this, mContent);
 
   Accessible* child = nullptr;
   while ((child = walker.NextChild()) && AppendChild(child));
@@ -3076,12 +3083,8 @@ Accessible::GetAttrValue(nsIAtom *aProperty, double *aValue)
 uint32_t
 Accessible::GetActionRule()
 {
-  if (InteractiveState() & states::UNAVAILABLE)
+  if (!HasOwnContent() || (InteractiveState() & states::UNAVAILABLE))
     return eNoAction;
-
-  // Check if it's simple xlink.
-  if (nsCoreUtils::IsXLink(mContent))
-    return eJumpAction;
 
   // Return "click" action on elements that have an attached popup menu.
   if (mContent->IsXUL())

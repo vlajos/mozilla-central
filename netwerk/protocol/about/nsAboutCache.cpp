@@ -13,7 +13,6 @@
 #include "nsIURI.h"
 #include "nsCOMPtr.h"
 #include "nsNetUtil.h"
-#include "prtime.h"
 #include "nsEscape.h"
 
 #include "nsICacheService.h"

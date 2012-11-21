@@ -57,7 +57,7 @@ class IonCacheName;
 
 struct TypedOrValueRegisterSpace
 {
-    AlignedStorage2<TypedOrValueRegister> data_;
+    mozilla::AlignedStorage2<TypedOrValueRegister> data_;
     TypedOrValueRegister &data() {
         return *data_.addr();
     }
@@ -68,7 +68,7 @@ struct TypedOrValueRegisterSpace
 
 struct ConstantOrRegisterSpace
 {
-    AlignedStorage2<ConstantOrRegister> data_;
+    mozilla::AlignedStorage2<ConstantOrRegister> data_;
     ConstantOrRegister &data() {
         return *data_.addr();
     }
@@ -302,7 +302,9 @@ class IonCacheSetProperty : public IonCache
     ConstantOrRegister value() const { return u.setprop.value.data(); }
     bool strict() const { return u.setprop.strict; }
 
-    bool attachNativeExisting(JSContext *cx, IonScript *ion, JSObject *obj, const Shape *shape);
+    bool attachNativeExisting(JSContext *cx, IonScript *ion, HandleObject obj, HandleShape shape);
+    bool attachSetterCall(JSContext *cx, IonScript *ion, HandleObject obj,
+                          HandleObject holder, HandleShape shape, void *returnAddr);
     bool attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj, const Shape *oldshape,
                             const Shape *newshape, const Shape *propshape);
 };

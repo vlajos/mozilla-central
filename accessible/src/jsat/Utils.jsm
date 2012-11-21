@@ -10,9 +10,9 @@ const Ci = Components.interfaces;
 
 Cu.import('resource://gre/modules/Services.jsm');
 
-var EXPORTED_SYMBOLS = ['Utils', 'Logger'];
+this.EXPORTED_SYMBOLS = ['Utils', 'Logger'];
 
-var Utils = {
+this.Utils = {
   _buildAppMap: {
     '{3c2e2abc-06d4-11e1-ac3b-374f68613e61}': 'b2g',
     '{ec8030f7-c20a-464f-9b0e-13a3a9e97384}': 'browser',
@@ -89,7 +89,8 @@ var Utils = {
   },
 
   getCurrentContentDoc: function getCurrentContentDoc(aWindow) {
-    return this.getCurrentBrowser(aWindow).contentDocument;
+    let browser = this.getCurrentBrowser(aWindow);
+    return browser ? browser.contentDocument : null;
   },
 
   getMessageManager: function getMessageManager(aBrowser) {
@@ -97,7 +98,7 @@ var Utils = {
       return aBrowser.QueryInterface(Ci.nsIFrameLoaderOwner).
          frameLoader.messageManager;
     } catch (x) {
-      Logger.error(x);
+      Logger.logException(x);
       return null;
     }
   },
@@ -108,13 +109,14 @@ var Utils = {
     for (let i = 0; i < aWindow.messageManager.childCount; i++)
       messageManagers.push(aWindow.messageManager.getChildAt(i));
 
-    let remoteframes = this.getCurrentContentDoc(aWindow).
-      querySelectorAll('iframe[remote=true]');
+    let document = this.getCurrentContentDoc(aWindow);
 
-    for (let i = 0; i < remoteframes.length; ++i)
-      messageManagers.push(this.getMessageManager(remoteframes[i]));
+    if (document) {
+      let remoteframes = document.querySelectorAll('iframe[remote=true]');
 
-    Logger.info(messageManagers.length);
+      for (let i = 0; i < remoteframes.length; ++i)
+        messageManagers.push(this.getMessageManager(remoteframes[i]));
+    }
 
     return messageManagers;
   },
@@ -154,7 +156,7 @@ var Utils = {
   }
 };
 
-var Logger = {
+this.Logger = {
   DEBUG: 0,
   INFO: 1,
   WARNING: 2,
@@ -190,6 +192,16 @@ var Logger = {
   error: function error() {
     this.log.apply(
       this, [this.ERROR].concat(Array.prototype.slice.call(arguments)));
+  },
+
+  logException: function logException(aException) {
+    try {
+      this.error(
+        aException.message,
+        '(' + aException.fileName + ':' + aException.lineNumber + ')');
+    } catch (x) {
+      this.error(x);
+    }
   },
 
   accessibleToString: function accessibleToString(aAccessible) {

@@ -1185,6 +1185,38 @@ let RIL = {
   },
 
   /**
+   * Get EF_phase.
+   * This EF is only available in SIM.
+   */
+  getICCPhase: function getICCPhase() {
+    function callback() {
+      let length = Buf.readUint32();
+
+      let phase = GsmPDUHelper.readHexOctet();
+      // If EF_phase is coded '03' or greater, an ME supporting STK shall
+      // perform the PROFILE DOWNLOAD procedure.
+      if (phase >= ICC_PHASE_2_PROFILE_DOWNLOAD_REQUIRED) {
+        this.sendStkTerminalProfile(STK_SUPPORTED_TERMINAL_PROFILE);
+      }
+
+      Buf.readStringDelimiter(length);
+    }
+
+    this.iccIO({
+      command:   ICC_COMMAND_GET_RESPONSE,
+      fileId:    ICC_EF_PHASE,
+      pathId:    EF_PATH_MF_SIM + EF_PATH_DF_GSM,
+      p1:        0, // For GET_RESPONSE, p1 = 0
+      p2:        0, // For GET_RESPONSE, p2 = 0
+      p3:        GET_RESPONSE_EF_SIZE_BYTES,
+      data:      null,
+      pin2:      null,
+      type:      EF_TYPE_TRANSPARENT,
+      callback:  callback,
+    });
+  },
+
+  /**
    * Get IMSI.
    *
    * @param [optional] aid
@@ -1883,8 +1915,8 @@ let RIL = {
     Buf.simpleRequest(REQUEST_SIGNAL_STRENGTH);
   },
 
-  getIMEI: function getIMEI() {
-    Buf.simpleRequest(REQUEST_GET_IMEI);
+  getIMEI: function getIMEI(options) {
+    Buf.simpleRequest(REQUEST_GET_IMEI, options);
   },
 
   getIMEISV: function getIMEISV() {
@@ -2328,6 +2360,28 @@ let RIL = {
       this.sendDOMMessage(options);
     }).bind(this);
 
+    function _isValidPINPUKRequest() {
+      // The only allowed MMI procedure for ICC PIN, PIN2, PUK and PUK2 handling
+      // is "Registration" (**).
+      if (!mmi.procedure || mmi.procedure != MMI_PROCEDURE_REGISTRATION ) {
+        _sendMMIError("WRONG_MMI_PROCEDURE");
+        return;
+      }
+
+      if (!mmi.sia || !mmi.sia.length || !mmi.sib || !mmi.sib.length ||
+          !mmi.sic || !mmi.sic.length) {
+        _sendMMIError("MISSING_SUPPLEMENTARY_INFORMATION");
+        return;
+      }
+
+      if (mmi.sib != mmi.sic) {
+        _sendMMIError("NEW_PIN_MISMATCH");
+        return;
+      }
+
+      return true;
+    }
+
     if (mmi == null) {
       if (this._ussdSession) {
         options.ussd = mmiString;
@@ -2354,23 +2408,100 @@ let RIL = {
       case MMI_SC_CF_NOT_REACHABLE:
       case MMI_SC_CF_ALL:
       case MMI_SC_CF_ALL_CONDITIONAL:
-        // TODO: Bug 793192 - MMI Codes: support call forwarding.
-        _sendMMIError("CALL_FORWARDING_NOT_SUPPORTED_VIA_MMI");
+        // Call forwarding requires at least an action, given by the MMI
+        // procedure, and a reason, given by the MMI service code, but there
+        // is no way that we get this far without a valid procedure or service
+        // code.
+        options.action = MMI_PROC_TO_CF_ACTION[mmi.procedure];
+        options.rilMessageType = "sendMMI";
+        options.reason = MMI_SC_TO_CF_REASON[sc];
+        options.number = mmi.sia;
+        options.serviceClass = mmi.sib;
+        if (options.action == CALL_FORWARD_ACTION_QUERY_STATUS) {
+          this.queryCallForwardStatus(options);
+          return;
+        }
+
+        options.timeSeconds = mmi.sic;
+        this.setCallForward(options);
         return;
 
-      // PIN/PIN2/PUK/PUK2
+      // Change the current ICC PIN number.
       case MMI_SC_PIN:
+        // As defined in TS.122.030 6.6.2 to change the ICC PIN we should expect
+        // an MMI code of the form **04*OLD_PIN*NEW_PIN*NEW_PIN#, where old PIN
+        // should be entered as the SIA parameter and the new PIN as SIB and
+        // SIC.
+        if (!_isValidPINPUKRequest()) {
+          return;
+        }
+
+        options.rilRequestType = "sendMMI";
+        options.pin = mmi.sia;
+        options.newPin = mmi.sib;
+        this.changeICCPIN(options);
+        return;
+
+      // Change the current ICC PIN2 number.
       case MMI_SC_PIN2:
+        // As defined in TS.122.030 6.6.2 to change the ICC PIN2 we should
+        // enter and MMI code of the form **042*OLD_PIN2*NEW_PIN2*NEW_PIN2#,
+        // where the old PIN2 should be entered as the SIA parameter and the
+        // new PIN2 as SIB and SIC.
+        if (!_isValidPINPUKRequest()) {
+          return;
+        }
+
+        options.rilRequestType = "sendMMI";
+        options.pin = mmi.sia;
+        options.newPin = mmi.sib;
+        this.changeICCPIN2(options);
+        return;
+
+      // Unblock ICC PIN.
       case MMI_SC_PUK:
+        // As defined in TS.122.030 6.6.3 to unblock the ICC PIN we should
+        // enter an MMI code of the form **05*PUK*NEW_PIN*NEW_PIN#, where PUK
+        // should be entered as the SIA parameter and the new PIN as SIB and
+        // SIC.
+        if (!_isValidPINPUKRequest()) {
+          return;
+        }
+
+        options.rilRequestType = "sendMMI";
+        options.puk = mmi.sia;
+        options.newPin = mmi.sib;
+        this.enterICCPUK(options);
+        return;
+
+      // Unblock ICC PIN2.
       case MMI_SC_PUK2:
-        // TODO: Bug 793187 - MMI Codes: Support PIN/PIN2/PUK handling.
-        _sendMMIError("SIM_FUNCTION_NOT_SUPPORTED_VIA_MMI");
+        // As defined in TS.122.030 6.6.3 to unblock the ICC PIN2 we should
+        // enter an MMI code of the form **052*PUK2*NEW_PIN2*NEW_PIN2#, where
+        // PUK2 should be entered as the SIA parameter and the new PIN2 as SIB
+        // and SIC.
+        if (!_isValidPINPUKRequest()) {
+          return;
+        }
+
+        options.rilRequestType = "sendMMI";
+        options.puk = mmi.sia;
+        options.newPin = mmi.sib;
+        this.enterICCPUK2(options);
         return;
 
       // IMEI
       case MMI_SC_IMEI:
-        // TODO: Bug 793189 - MMI Codes: get IMEI.
-        _sendMMIError("GET_IMEI_NOT_SUPPORTED_VIA_MMI");
+        // A device's IMEI can't change, so we only need to request it once.
+        if (this.IMEI == null) {
+          this.getIMEI({mmi: true});
+          return;
+        }
+        // If we already had the device's IMEI, we just send it to the DOM.
+        options.rilMessageType = "sendMMI";
+        options.success = true;
+        options.result = this.IMEI;
+        this.sendDOMMessage(options);
         return;
 
       // Call barring
@@ -2426,6 +2557,52 @@ let RIL = {
    },
 
   /**
+   * Queries current call forward rules.
+   *
+   * @param reason
+   *        One of nsIDOMMozMobileCFInfo.CALL_FORWARD_REASON_* constants.
+   * @param serviceClass
+   *        One of ICC_SERVICE_CLASS_* constants.
+   * @param number
+   *        Phone number of forwarding address.
+   */
+  queryCallForwardStatus: function queryCallForwardStatus(options) {
+    Buf.newParcel(REQUEST_QUERY_CALL_FORWARD_STATUS, options);
+    Buf.writeUint32(CALL_FORWARD_ACTION_QUERY_STATUS);
+    Buf.writeUint32(options.reason);
+    Buf.writeUint32(options.serviceClass);
+    Buf.writeUint32(this._toaFromString(options.number));
+    Buf.writeString(options.number);
+    Buf.writeUint32(0);
+    Buf.sendParcel();
+  },
+
+  /**
+   * Configures call forward rule.
+   *
+   * @param action
+   *        One of nsIDOMMozMobileCFInfo.CALL_FORWARD_ACTION_* constants.
+   * @param reason
+   *        One of nsIDOMMozMobileCFInfo.CALL_FORWARD_REASON_* constants.
+   * @param serviceClass
+   *        One of ICC_SERVICE_CLASS_* constants.
+   * @param number
+   *        Phone number of forwarding address.
+   * @param timeSeconds
+   *        Time in seconds to wait beforec all is forwarded.
+   */
+  setCallForward: function setCallForward(options) {
+    Buf.newParcel(REQUEST_SET_CALL_FORWARD, options);
+    Buf.writeUint32(options.action);
+    Buf.writeUint32(options.reason);
+    Buf.writeUint32(options.serviceClass);
+    Buf.writeUint32(this._toaFromString(options.number));
+    Buf.writeString(options.number);
+    Buf.writeUint32(options.timeSeconds);
+    Buf.sendParcel();
+  },
+
+  /**
    * Handle STK CALL_SET_UP request.
    *
    * @param hasConfirmed
@@ -2436,6 +2613,21 @@ let RIL = {
      Buf.writeUint32(1);
      Buf.writeUint32(options.hasConfirmed ? 1 : 0);
      Buf.sendParcel();
+  },
+
+  /**
+   * Send STK Profile Download.
+   *
+   * @param profile Profile supported by ME.
+   */
+  sendStkTerminalProfile: function sendStkTerminalProfile(profile) {
+    Buf.newParcel(REQUEST_STK_SET_PROFILE);
+    Buf.writeUint32(profile.length * 2);
+    for (let i = 0; i < profile.length; i++) {
+      GsmPDUHelper.writeHexOctet(profile[i]);
+    }
+    Buf.writeUint32(0);
+    Buf.sendParcel();
   },
 
   /**
@@ -2764,6 +2956,13 @@ let RIL = {
    },
 
   /**
+   * Report STK Service is running.
+   */
+  reportStkServiceIsRunning: function reportStkServiceIsRunning() {
+    Buf.simpleRequest(REQUEST_REPORT_STK_SERVICE_IS_RUNNING);
+  },
+
+  /**
    * Process ICC status.
    */
   _processICCStatus: function _processICCStatus(iccStatus) {
@@ -2829,7 +3028,15 @@ let RIL = {
     this.requestNetworkInfo();
     this.getSignalStrength();
     if (newCardState == GECKO_CARDSTATE_READY) {
+      // For type SIM, we need to check EF_phase first.
+      // Other types of ICC we can send Terminal_Profile immediately.
+      if (this.appType == CARD_APPTYPE_SIM) {
+        this.getICCPhase();
+      } else {
+        this.sendStkTerminalProfile(STK_SUPPORTED_TERMINAL_PROFILE);
+      }
       this.fetchICCRecords();
+      this.reportStkServiceIsRunning();
     }
 
     this.cardState = newCardState;
@@ -3342,9 +3549,13 @@ let RIL = {
       }
 
       if (!updatedDataCall) {
-        currentDataCall.state = GECKO_NETWORK_STATE_DISCONNECTED;
-        currentDataCall.rilMessageType = "datacallstatechange";
-        this.sendDOMMessage(currentDataCall);
+        // If datacalls list is coming from REQUEST_SETUP_DATA_CALL response,
+        // we do not change state for any currentDataCalls not in datacalls list.
+        if (!newDataCallOptions) {
+          currentDataCall.state = GECKO_NETWORK_STATE_DISCONNECTED;
+          currentDataCall.rilMessageType = "datacallstatechange";
+          this.sendDOMMessage(currentDataCall);
+        }
         continue;
       }
 
@@ -3458,6 +3669,17 @@ let RIL = {
 
     network.mcc = mcc;
     network.mnc = mnc;
+  },
+
+  /**
+   * Helper for returning the TOA for the given dial string.
+   */
+  _toaFromString: function _toaFromString(number) {
+    let toa = TOA_UNKNOWN;
+    if (number && number.length > 0 && number[0] == '+') {
+      toa = TOA_INTERNATIONAL;
+    }
+    return toa;
   },
 
   /**
@@ -3666,7 +3888,7 @@ let RIL = {
       return PDU_FCS_OK;
     }
 
-    if (message.messageClass == PDU_DCS_MSG_CLASS_SIM_SPECIFIC) {
+    if (message.messageClass == GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_2]) {
       switch (message.epid) {
         case PDU_PID_ANSI_136_R_DATA:
         case PDU_PID_USIM_DATA_DOWNLOAD:
@@ -3692,13 +3914,13 @@ let RIL = {
     }
 
     // TODO: Bug 739143: B2G SMS: Support SMS Storage Full event
-    if ((message.messageClass != PDU_DCS_MSG_CLASS_0) && !true) {
+    if ((message.messageClass != GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_0]) && !true) {
       // `When a mobile terminated message is class 0..., the MS shall display
       // the message immediately and send a ACK to the SC ..., irrespective of
       // whether there is memory available in the (U)SIM or ME.` ~ 3GPP 23.038
       // clause 4.
 
-      if (message.messageClass == PDU_DCS_MSG_CLASS_SIM_SPECIFIC) {
+      if (message.messageClass == GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_2]) {
         // `If all the short message storage at the MS is already in use, the
         // MS shall return "memory capacity exceeded".` ~ 3GPP 23.038 clause 4.
         return PDU_FCS_MEMORY_CAPACITY_EXCEEDED;
@@ -3724,7 +3946,7 @@ let RIL = {
       this.sendDOMMessage(message);
     }
 
-    if (message.messageClass == PDU_DCS_MSG_CLASS_SIM_SPECIFIC) {
+    if (message && message.messageClass == GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_2]) {
       // `MS shall ensure that the message has been to the SMS data field in
       // the (U)SIM before sending an ACK to the SC.`  ~ 3GPP 23.038 clause 4
       return PDU_FCS_RESERVED;
@@ -3779,21 +4001,20 @@ let RIL = {
 
     delete this._pendingSentSmsMap[message.messageRef];
 
-    if ((status >>> 5) != 0x00) {
-      if (DEBUG) debug("SMS-STATUS-REPORT: delivery failed");
-      // It seems unlikely to get a result code for a failure to deliver.
-      // Even if, we don't want to do anything with this.
+    if ((options.segmentMaxSeq > 1)
+        && (options.segmentSeq < options.segmentMaxSeq)) {
+      // Not the last segment.
       return PDU_FCS_OK;
     }
 
-    if ((options.segmentMaxSeq == 1)
-        && (options.segmentSeq == options.segmentMaxSeq)) {
-      // Last segment delivered with success. Report it.
-      this.sendDOMMessage({
-        rilMessageType: "sms-delivered",
-        envelopeId: options.envelopeId,
-      });
-    }
+    let deliveryStatus = ((status >>> 5) == 0x00)
+                       ? GECKO_SMS_DELIVERY_STATUS_SUCCESS
+                       : GECKO_SMS_DELIVERY_STATUS_ERROR;
+    this.sendDOMMessage({
+      rilMessageType: "sms-delivery",
+      envelopeId: options.envelopeId,
+      deliveryStatus: deliveryStatus
+    });
 
     return PDU_FCS_OK;
   },
@@ -3978,6 +4199,10 @@ let RIL = {
       if (DEBUG) debug("Handling parcel as " + method.name);
       method.call(this, length, options);
     }
+  },
+
+  setDebugEnabled: function setDebugEnabled(options) {
+    DEBUG = DEBUG_WORKER || options.enabled;
   }
 };
 
@@ -4411,8 +4636,48 @@ RIL[REQUEST_CANCEL_USSD] = function REQUEST_CANCEL_USSD(length, options) {
 };
 RIL[REQUEST_GET_CLIR] = null;
 RIL[REQUEST_SET_CLIR] = null;
-RIL[REQUEST_QUERY_CALL_FORWARD_STATUS] = null;
-RIL[REQUEST_SET_CALL_FORWARD] = null;
+RIL[REQUEST_QUERY_CALL_FORWARD_STATUS] =
+  function REQUEST_QUERY_CALL_FORWARD_STATUS(length, options) {
+    options.success = options.rilRequestError == 0;
+    if (!options.success) {
+      options.errorMsg = RIL_ERROR_TO_GECKO_ERROR[options.rilRequestError];
+      this.sendDOMMessage(options);
+      return;
+    }
+
+    let rulesLength = 0;
+    if (length) {
+      rulesLength = Buf.readUint32();
+    }
+    if (!rulesLength) {
+      options.success = false;
+      options.errorMsg =
+        "Invalid rule length while querying call forwarding status.";
+      this.sendDOMMessage(options);
+      return;
+    }
+    let rules = new Array(rulesLength);
+    for (let i = 0; i < rulesLength; i++) {
+      let rule = {};
+      rule.active       = Buf.readUint32() == 1; // CALL_FORWARD_STATUS_*
+      rule.reason       = Buf.readUint32(); // CALL_FORWARD_REASON_*
+      rule.serviceClass = Buf.readUint32();
+      rule.toa          = Buf.readUint32();
+      rule.number       = Buf.readString();
+      rule.timeSeconds  = Buf.readUint32();
+      rules[i] = rule;
+    }
+    options.rules = rules;
+    this.sendDOMMessage(options);
+};
+RIL[REQUEST_SET_CALL_FORWARD] =
+  function REQUEST_SET_CALL_FORWARD(length, options) {
+    options.success = options.rilRequestError == 0;
+    if (!options.success) {
+      options.errorMsg = RIL_ERROR_TO_GECKO_ERROR[options.rilRequestError];
+    }
+    this.sendDOMMessage(options);
+};
 RIL[REQUEST_QUERY_CALL_WAITING] = null;
 RIL[REQUEST_SET_CALL_WAITING] = function REQUEST_SET_CALL_WAITING(length, options) {
   options.errorMsg = RIL_ERROR_TO_GECKO_ERROR[options.rilRequestError];
@@ -4420,11 +4685,20 @@ RIL[REQUEST_SET_CALL_WAITING] = function REQUEST_SET_CALL_WAITING(length, option
 };
 RIL[REQUEST_SMS_ACKNOWLEDGE] = null;
 RIL[REQUEST_GET_IMEI] = function REQUEST_GET_IMEI(length, options) {
-  if (options.rilRequestError) {
+  this.IMEI = Buf.readString();
+  // So far we only send the IMEI back to the DOM if it was requested via MMI.
+  if (!options.mmi) {
     return;
   }
 
-  this.IMEI = Buf.readString();
+  options.rilMessageType = "sendMMI";
+  options.success = options.rilRequestError == 0;
+  options.errorMsg = RIL_ERROR_TO_GECKO_ERROR[options.rilRequestError];
+  if ((!options.success || this.IMEI == null) && !options.errorMsg) {
+    options.errorMsg = GECKO_ERROR_GENERIC_FAILURE;
+  }
+  options.result = this.IMEI;
+  this.sendDOMMessage(options);
 };
 RIL[REQUEST_GET_IMEISV] = function REQUEST_GET_IMEISV(length, options) {
   if (options.rilRequestError) {
@@ -4643,12 +4917,7 @@ RIL[REQUEST_STK_GET_PROFILE] = null;
 RIL[REQUEST_STK_SET_PROFILE] = null;
 RIL[REQUEST_STK_SEND_ENVELOPE_COMMAND] = null;
 RIL[REQUEST_STK_SEND_TERMINAL_RESPONSE] = null;
-RIL[REQUEST_STK_HANDLE_CALL_SETUP_REQUESTED_FROM_SIM] = function REQUEST_STK_HANDLE_CALL_SETUP_REQUESTED_FROM_SIM(length, options) {
-  if (!options.rilRequestError && options.hasConfirmed) {
-    options.rilMessageType = "stkcallsetup";
-    this.sendDOMMessage(options);
-  }
-};
+RIL[REQUEST_STK_HANDLE_CALL_SETUP_REQUESTED_FROM_SIM] = null;
 RIL[REQUEST_EXPLICIT_CALL_TRANSFER] = null;
 RIL[REQUEST_SET_PREFERRED_NETWORK_TYPE] = function REQUEST_SET_PREFERRED_NETWORK_TYPE(length, options) {
   if (options.networkType == null) {
@@ -4828,14 +5097,11 @@ RIL[UNSOLICITED_ON_USSD] = function UNSOLICITED_ON_USSD() {
     debug("On USSD. Type Code: " + typeCode + " Message: " + message);
   }
 
-  this._ussdSession = (typeCode != "0" || typeCode != "2");
+  this._ussdSession = (typeCode != "0" && typeCode != "2");
 
-  // Empty message should not be progressed to the DOM.
-  if (!message || message == "") {
-    return;
-  }
   this.sendDOMMessage({rilMessageType: "USSDReceived",
-                       message: message});
+                       message: message,
+                       sessionEnded: !this._ussdSession});
 };
 RIL[UNSOLICITED_NITZ_TIME_RECEIVED] = function UNSOLICITED_NITZ_TIME_RECEIVED() {
   let dateString = Buf.readString();
@@ -5686,20 +5952,25 @@ let GsmPDUHelper = {
 
     // Type-of-Address
     let toa = this.readHexOctet();
+    let addr = "";
 
-    // Address-Value
-    let addr = this.readSwappedNibbleBcdString(len / 2);
+    if ((toa & 0xF0) == PDU_TOA_ALPHANUMERIC) {
+      addr = this.readSeptetsToString(Math.floor(len * 4 / 7), 0,
+          PDU_NL_IDENTIFIER_DEFAULT , PDU_NL_IDENTIFIER_DEFAULT );
+      return addr;
+    }
+    addr = this.readSwappedNibbleBcdString(len / 2);
     if (addr.length <= 0) {
       if (DEBUG) debug("PDU error: no number provided");
       return null;
     }
-    if ((toa >> 4) == (PDU_TOA_INTERNATIONAL >> 4)) {
+    if ((toa & 0xF0) == (PDU_TOA_INTERNATIONAL)) {
       addr = '+' + addr;
     }
 
     return addr;
   },
-  
+
   /**
    * Read Alpha Identifier.
    *
@@ -5835,7 +6106,7 @@ let GsmPDUHelper = {
     if (DEBUG) debug("PDU: read dcs: " + dcs);
 
     // No message class by default.
-    let messageClass = PDU_DCS_MSG_CLASS_UNKNOWN;
+    let messageClass = PDU_DCS_MSG_CLASS_NORMAL;
     // 7 bit is the default fallback encoding.
     let encoding = PDU_DCS_MSG_CODING_7BITS_ALPHABET;
     switch (dcs & PDU_DCS_CODING_GROUP_BITS) {
@@ -5912,7 +6183,7 @@ let GsmPDUHelper = {
 
     msg.dcs = dcs;
     msg.encoding = encoding;
-    msg.messageClass = messageClass;
+    msg.messageClass = GECKO_SMS_MESSAGE_CLASSES[messageClass];
 
     if (DEBUG) debug("PDU: message encoding is " + encoding + " bit.");
   },
@@ -7016,8 +7287,12 @@ let StkProactiveCmdHelper = {
       return null;
     }
 
+    let eventList = [];
+    for (let i = 0; i < length; i++) {
+      eventList.push(GsmPDUHelper.readHexOctet());
+    }
     return {
-      eventList: GsmPDUHelper.readHexOctetArray(length)
+      eventList: eventList
     };
   },
 

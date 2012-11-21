@@ -203,13 +203,15 @@
                   <menupopup id="viewSidebarMenu">
                     <menuitem id="menu_bookmarksSidebar"
                               key="viewBookmarksSidebarKb"
-                              observes="viewBookmarksSidebar"
-                              accesskey="&bookmarksButton.accesskey;"/>
+                              observes="viewBookmarksSidebar"/>
                     <menuitem id="menu_historySidebar"
                               key="key_gotoHistory"
                               observes="viewHistorySidebar"
-                              label="&historyButton.label;"
-                              accesskey="&historySidebarCmd.accesskey;"/>
+                              label="&historyButton.label;"/>
+                    <menuitem id="menu_socialSidebar"
+                              type="checkbox"
+                              autocheck="false"
+                              command="Social:ToggleSidebar"/>
                   </menupopup>
                 </menu>
                 <menuseparator/>
@@ -482,9 +484,7 @@
                   accesskey="&toolsMenu.accesskey;">
               <menupopup id="menu_ToolsPopup"
 #ifdef MOZ_SERVICES_SYNC
-                         onpopupshowing="gSyncUI.updateUI(); SocialMenu.populate();"
-#else
-                         onpopupshowing="SocialMenu.populate();"
+                         onpopupshowing="gSyncUI.updateUI();"
 #endif
                          >
               <menuitem id="menu_search"
@@ -505,14 +505,39 @@
                         accesskey="&addons.accesskey;"
                         key="key_openAddons"
                         command="Tools:Addons"/>
-              <menuitem id="menu_socialToggle"
-                        type="checkbox"
-                        autocheck="false"
-                        command="Social:Toggle"/>
-              <menu id="menu_socialAmbientMenu"
-                    class="show-only-for-keyboard"
-                    command="Social:Toggle">
-                <menupopup id="menu_socialAmbientMenuPopup"/>
+              <menu id="menu_socialAmbientMenu">
+                <menupopup id="menu_social-statusarea-popup">
+                  <menuitem class="social-statusarea-user menuitem-iconic" pack="start" align="center"
+                            observes="socialBroadcaster_userDetails"
+                            oncommand="SocialUI.showProfile(); document.getElementById('social-statusarea-popup').hidePopup();">
+                    <image class="social-statusarea-user-portrait"
+                           observes="socialBroadcaster_userDetails"/>
+                    <vbox>
+                      <label class="social-statusarea-loggedInStatus"
+                             observes="socialBroadcaster_userDetails"/>
+                    </vbox>
+                  </menuitem>
+#ifndef XP_WIN
+                  <menuseparator class="social-statusarea-separator"/>
+#endif
+                  <menuseparator id="socialAmbientMenuSeparator"
+                                 hidden="true"/>
+                  <menuitem class="social-toggle-sidebar-menuitem"
+                            type="checkbox"
+                            autocheck="false"
+                            command="Social:ToggleSidebar"
+                            label="&social.toggleSidebar.label;"
+                            accesskey="&social.toggleSidebar.accesskey;"/>
+                  <menuitem class="social-toggle-notifications-menuitem"
+                            type="checkbox"
+                            autocheck="false"
+                            command="Social:ToggleNotifications"
+                            label="&social.toggleNotifications.label;"
+                            accesskey="&social.toggleNotifications.accesskey;"/>
+                  <menuseparator class="social-statusarea-separator"/>
+                  <menuitem class="social-toggle-menuitem" command="Social:Toggle"/>
+                  <menuitem class="social-remove-menuitem" command="Social:Remove"/>
+                </menupopup>
               </menu>
 #ifdef MOZ_SERVICES_SYNC
               <!-- only one of sync-setup or sync-menu will be showing at once -->
@@ -534,6 +559,7 @@
                 <menupopup id="menuWebDeveloperPopup">
                   <menuitem id="menu_devToolbar" observes="devtoolsMenuBroadcaster_DevToolbar" accesskey="&devToolbarMenu.accesskey;"/>
                   <menuitem id="webConsole" observes="devtoolsMenuBroadcaster_WebConsole" accesskey="&webConsoleCmd.accesskey;"/>
+                  <menuitem id="menu_remoteWebConsole" observes="devtoolsMenuBroadcaster_RemoteWebConsole"/>
                   <menuitem id="menu_pageinspect" observes="devtoolsMenuBroadcaster_Inspect" accesskey="&inspectMenu.accesskey;"/>
                   <menuitem id="menu_responsiveUI" observes="devtoolsMenuBroadcaster_ResponsiveUI" accesskey="&responsiveDesignTool.accesskey;"/>
                   <menuitem id="menu_debugger" observes="devtoolsMenuBroadcaster_Debugger" accesskey="&debuggerMenu.accesskey;"/>

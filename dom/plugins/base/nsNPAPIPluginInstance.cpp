@@ -149,6 +149,7 @@ private:
 
 using namespace mozilla;
 using namespace mozilla::plugins::parent;
+using namespace mozilla::layers;
 
 static NS_DEFINE_IID(kIOutputStreamIID, NS_IOUTPUTSTREAM_IID);
 
@@ -1081,6 +1082,26 @@ nsresult nsNPAPIPluginInstance::IsRemoteDrawingCoreAnimation(bool* aDrawing)
 #endif
 }
 
+nsresult nsNPAPIPluginInstance::ContentsScaleFactorChanged(double aContentsScaleFactor)
+{
+#ifdef XP_MACOSX
+  if (!mPlugin)
+      return NS_ERROR_FAILURE;
+
+  PluginLibrary* library = mPlugin->GetLibrary();
+  if (!library)
+      return NS_ERROR_FAILURE;
+
+  // We only need to call this if the plugin is running OOP.
+  if (!library->IsOOP())
+      return NS_OK;
+  
+  return library->ContentsScaleFactorChanged(&mNPP, aContentsScaleFactor);
+#else
+  return NS_ERROR_FAILURE;
+#endif
+}
+
 nsresult
 nsNPAPIPluginInstance::GetJSObject(JSContext *cx, JSObject** outObject)
 {
@@ -1741,8 +1762,14 @@ nsNPAPIPluginInstance::CheckJavaC2PJSObjectQuirk(uint16_t paramCount,
 
   nsRefPtr<nsPluginHost> pluginHost =
     already_AddRefed<nsPluginHost>(nsPluginHost::GetInst());
-  if (!pluginHost ||
-      !pluginHost->IsPluginClickToPlayForType(mMIMEType)) {
+  if (!pluginHost) {
+    return;
+  }
+
+  bool isClickToPlay;
+  nsAutoCString mimeType(mMIMEType);
+  rv = pluginHost->IsPluginClickToPlayForType(mimeType, &isClickToPlay);
+  if (NS_FAILED(rv) || !isClickToPlay) {
     return;
   }
 

@@ -74,8 +74,8 @@ nsHTMLOptionElement::~nsHTMLOptionElement()
 // ISupports
 
 
-NS_IMPL_ADDREF_INHERITED(nsHTMLOptionElement, nsGenericElement)
-NS_IMPL_RELEASE_INHERITED(nsHTMLOptionElement, nsGenericElement)
+NS_IMPL_ADDREF_INHERITED(nsHTMLOptionElement, Element)
+NS_IMPL_RELEASE_INHERITED(nsHTMLOptionElement, Element)
 
 
 DOMCI_NODE_DATA(HTMLOptionElement, nsHTMLOptionElement)
@@ -260,7 +260,19 @@ NS_IMETHODIMP
 nsHTMLOptionElement::GetText(nsAString& aText)
 {
   nsAutoString text;
-  nsContentUtils::GetNodeTextContent(this, true, text);
+
+  nsIContent* child = nsINode::GetFirstChild();
+  while (child) {
+    if (child->NodeType() == nsIDOMNode::TEXT_NODE ||
+        child->NodeType() == nsIDOMNode::CDATA_SECTION_NODE) {
+      child->AppendTextTo(text);
+    }
+    if (child->IsHTML(nsGkAtoms::script) || child->IsSVG(nsGkAtoms::script)) {
+      child = child->GetNextNonChildNode(this);
+    } else {
+      child = child->GetNextNode(this);
+    }
+  }
 
   // XXX No CompressWhitespace for nsAString.  Sad.
   text.CompressWhitespace(true, true);
@@ -338,8 +350,9 @@ nsHTMLOptionElement::GetSelect()
   nsIContent* parent = this;
   while ((parent = parent->GetParent()) &&
          parent->IsHTML()) {
-    if (parent->Tag() == nsGkAtoms::select) {
-      return nsHTMLSelectElement::FromContent(parent);
+    nsHTMLSelectElement* select = nsHTMLSelectElement::FromContent(parent);
+    if (select) {
+      return select;
     }
     if (parent->Tag() != nsGkAtoms::optgroup) {
       break;
@@ -433,7 +446,7 @@ nsHTMLOptionElement::Initialize(nsISupports* aOwner,
 }
 
 nsresult
-nsHTMLOptionElement::CopyInnerTo(nsGenericElement* aDest)
+nsHTMLOptionElement::CopyInnerTo(Element* aDest)
 {
   nsresult rv = nsGenericHTMLElement::CopyInnerTo(aDest);
   NS_ENSURE_SUCCESS(rv, rv);

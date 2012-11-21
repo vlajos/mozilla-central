@@ -11,6 +11,7 @@
 #include "nsString.h"
 #include "nsIURI.h"
 #include "nsIHttpChannel.h"
+#include "nsIJARChannel.h"
 #include "nsIDocument.h"
 #include "nsIStreamListener.h"
 #include "nsWeakReference.h"
@@ -40,6 +41,7 @@
 #include "mozilla/dom/TypedArray.h"
 #include "mozilla/dom/XMLHttpRequestBinding.h"
 #include "mozilla/dom/XMLHttpRequestUploadBinding.h"
+#include "mozilla/dom/EventHandlerBinding.h"
 
 #ifdef Status
 /* Xlib headers insist on this for some reason... Nuke it because
@@ -51,19 +53,6 @@ class nsILoadGroup;
 class AsyncVerifyRedirectCallbackForwarder;
 class nsIUnicodeDecoder;
 class nsIDOMFormData;
-
-#define IMPL_EVENT_HANDLER(_lowercase)                                  \
-  inline JSObject* GetOn##_lowercase(JSContext* aCx)                    \
-  {                                                                     \
-    JS::Value val;                                                      \
-    nsresult rv = GetOn##_lowercase(aCx, &val);                         \
-    return NS_SUCCEEDED(rv) ? JSVAL_TO_OBJECT(val) : nullptr;           \
-  }                                                                     \
-  void SetOn##_lowercase(JSContext* aCx, JSObject* aCallback,           \
-                         ErrorResult& aRv)                              \
-  {                                                                     \
-    aRv = SetOn##_lowercase(aCx, OBJECT_TO_JSVAL(aCallback));           \
-  }
 
 class nsXHREventTarget : public nsDOMEventTargetHelper,
                          public nsIXMLHttpRequestEventTarget
@@ -182,7 +171,7 @@ public:
   {
     // Pretend like someone passed null, so we can pick up the default values
     mozilla::dom::MozXMLHttpRequestParameters params;
-    if (!params.Init(aCx, JS::NullValue())) {
+    if (!params.Init(aCx, nullptr, JS::NullValue())) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
@@ -448,7 +437,7 @@ public:
   }
 
   // We need a GetInterface callable from JS for chrome JS
-  JS::Value GetInterface(JSContext* aCx, nsIJSIID* aIID, ErrorResult& aRv);
+  JS::Value GetInterface(JSContext* aCx, nsIJSID* aIID, ErrorResult& aRv);
 
   // This creates a trusted readystatechange event, which is not cancelable and
   // doesn't bubble.
@@ -514,6 +503,7 @@ protected:
   nsIURI *GetBaseURI();
 
   already_AddRefed<nsIHttpChannel> GetCurrentHttpChannel();
+  already_AddRefed<nsIJARChannel> GetCurrentJARChannel();
 
   bool IsSystemXHR();
 

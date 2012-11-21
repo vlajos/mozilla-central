@@ -139,14 +139,118 @@ public:
   {
     mHeaders.AppendElement(aHeader);
   }
+
+  void GetName(nsString& aRetName)
+  {
+    aRetName.Truncate();
+
+    int length = mHeaders.Length();
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::Name) {
+        /*
+         * According to section 2.2.2 [Name] of IrOBEX spec, we know that
+         * the Name header is "a null terminated Unicode text string describing
+         * the name of the object.", and that's the reason why we need to minus
+         * 1 to get the real length of the file name.
+         */
+        int nameLength = mHeaders[i]->mDataLength / 2 - 1;
+        uint8_t* ptr = mHeaders[i]->mData.get();
+
+        for (int j = 0; j < nameLength; ++j) {
+          PRUnichar c = ((((uint32_t)ptr[j * 2]) << 8) | ptr[j * 2 + 1]);
+          aRetName += c;
+        }
+
+        break;
+      }
+    }
+  }
+
+  void GetContentType(nsString& aRetContentType)
+  {
+    aRetContentType.Truncate();
+
+    int length = mHeaders.Length();
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::Type) {
+        uint8_t* ptr = mHeaders[i]->mData.get();
+        aRetContentType.AssignASCII((const char*)ptr);
+        break;
+      }
+    }
+  }
+
+  // @return file length, 0 means file length is unknown.
+  void GetLength(uint32_t* aRetLength)
+  {
+    int length = mHeaders.Length();
+    *aRetLength = 0;
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::Length) {
+        uint8_t* ptr = mHeaders[i]->mData.get();
+        *aRetLength = ((uint32_t)ptr[0] << 24) |
+                      ((uint32_t)ptr[1] << 16) |
+                      ((uint32_t)ptr[2] << 8) |
+                      ((uint32_t)ptr[3]);
+        return;
+      }
+    }
+  }
+
+  void GetBodyLength(int* aRetBodyLength)
+  {
+    int length = mHeaders.Length();
+    *aRetBodyLength = 0;
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::Body ||
+          mHeaders[i]->mId == ObexHeaderId::EndOfBody) {
+        *aRetBodyLength = mHeaders[i]->mDataLength;
+        return;
+      }
+    }
+  }
+
+  void GetBody(uint8_t** aRetBody)
+  {
+    int length = mHeaders.Length();
+    *aRetBody = nullptr;
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::Body ||
+          mHeaders[i]->mId == ObexHeaderId::EndOfBody) {
+        uint8_t* ptr = mHeaders[i]->mData.get();
+        *aRetBody = new uint8_t[mHeaders[i]->mDataLength];
+        memcpy(*aRetBody, ptr, mHeaders[i]->mDataLength);
+        return;
+      }
+    }
+  }
+
+  bool Has(ObexHeaderId aId)
+  {
+    int length = mHeaders.Length();
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == aId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 };
 
-int AppendHeaderName(uint8_t* retBuf, const char* name, int length);
-int AppendHeaderBody(uint8_t* retBuf, uint8_t* data, int length);
-int AppendHeaderLength(uint8_t* retBuf, int objectLength);
-int AppendHeaderConnectionId(uint8_t* retBuf, int connectionId);
-void SetObexPacketInfo(uint8_t* retBuf, uint8_t opcode, int packetLength);
-void ParseHeaders(uint8_t* buf, int totalLength, ObexHeaderSet* retHanderSet);
+int AppendHeaderName(uint8_t* aRetBuf, const char* aName, int aLength);
+int AppendHeaderBody(uint8_t* aRetBuf, uint8_t* aData, int aLength);
+int AppendHeaderLength(uint8_t* aRetBuf, int aObjectLength);
+int AppendHeaderConnectionId(uint8_t* aRetBuf, int aConnectionId);
+void SetObexPacketInfo(uint8_t* aRetBuf, uint8_t aOpcode, int aPacketLength);
+void ParseHeaders(const uint8_t* aHeaderStart,
+                  int aTotalLength,
+                  ObexHeaderSet* aRetHanderSet);
 
 END_BLUETOOTH_NAMESPACE
 

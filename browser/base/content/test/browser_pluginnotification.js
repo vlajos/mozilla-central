@@ -64,20 +64,22 @@ function test() {
   gBrowser.selectedTab = newTab;
   gTestBrowser = gBrowser.selectedBrowser;
   gTestBrowser.addEventListener("load", pageLoad, true);
-  gTestBrowser.addEventListener("PluginClickToPlay", handlePluginClickToPlay, true);
+  gTestBrowser.addEventListener("PluginBindingAttached", handleBindingAttached, true, true);
   prepareTest(test1, gTestRoot + "plugin_unknown.html");
 }
 
 function finishTest() {
   gTestBrowser.removeEventListener("load", pageLoad, true);
-  gTestBrowser.removeEventListener("PluginClickToPlay", handlePluginClickToPlay, true);
+  gTestBrowser.removeEventListener("PluginBindingAttached", handleBindingAttached, true, true);
   gBrowser.removeCurrentTab();
   window.focus();
   finish();
 }
 
-function handlePluginClickToPlay() {
-  gClickToPlayPluginActualEvents++;
+function handleBindingAttached(evt) {
+  evt.target instanceof Ci.nsIObjectLoadingContent;
+  if (evt.target.pluginFallbackType == Ci.nsIObjectLoadingContent.PLUGIN_CLICK_TO_PLAY)
+    gClickToPlayPluginActualEvents++;
 }
 
 function pageLoad() {
@@ -657,8 +659,6 @@ function test18e() {
   ok(objLoadingContent.activated, "Test 18e, Plugin should be activated");
 
   unregisterFakeBlocklistService();
-  var plugin = getTestPlugin();
-  plugin.clicktoplay = false;
   Services.perms.removeAll();
 
   prepareTest(test19a, gTestRoot + "plugin_test.html");
@@ -734,7 +734,7 @@ function test19f() {
 // "display: block" can be clicked to activate.
 function test20a() {
   var clickToPlayNotification = PopupNotifications.getNotification("click-to-play-plugins", gTestBrowser);
-  ok(clickToPlayNotification, "Test 20a, Should have a click-to-play notification");
+  ok(!clickToPlayNotification, "Test 20a, Should not have a click-to-play notification");
   var doc = gTestBrowser.contentDocument;
   var plugin = doc.getElementById("plugin");
   var mainBox = doc.getAnonymousElementByAttribute(plugin, "class", "mainBox");
@@ -756,6 +756,8 @@ function test20a() {
 }
 
 function test20b() {
+  var clickToPlayNotification = PopupNotifications.getNotification("click-to-play-plugins", gTestBrowser);
+  ok(clickToPlayNotification, "Test 20b, Should now have a click-to-play notification");
   var doc = gTestBrowser.contentDocument;
   var plugin = doc.getElementById("plugin");
   var pluginRect = doc.getAnonymousElementByAttribute(plugin, "class", "mainBox").getBoundingClientRect();
@@ -910,6 +912,67 @@ function test21e() {
     var objLoadingContent = plugin.QueryInterface(Ci.nsIObjectLoadingContent);
     ok(objLoadingContent.activated, "Test 21e, Plugin with id=" + plugin.id + " should be activated");
   }
+
+  Services.prefs.setBoolPref("plugins.click_to_play", true);
+  prepareTest(test22, gTestRoot + "plugin_test.html");
+}
+
+// Tests that a click-to-play plugin retains its activated state upon reloading
+function test22() {
+  ok(PopupNotifications.getNotification("click-to-play-plugins", gTestBrowser), "Test 22, Should have a click-to-play notification");
+
+  // Plugin should start as CTP
+  var pluginNode = gTestBrowser.contentDocument.getElementById("test");
+  ok(pluginNode, "Test 22, Found plugin in page");
+  var objLoadingContent = pluginNode.QueryInterface(Ci.nsIObjectLoadingContent);
+  is(objLoadingContent.pluginFallbackType, Ci.nsIObjectLoadingContent.PLUGIN_CLICK_TO_PLAY, "Test 22, plugin fallback type should be PLUGIN_CLICK_TO_PLAY");
+
+  // Activate
+  objLoadingContent.playPlugin();
+  is(objLoadingContent.displayedType, Ci.nsIObjectLoadingContent.TYPE_PLUGIN, "Test 22, plugin should have started");
+  ok(pluginNode.activated, "Test 22, plugin should be activated");
+
+  // Reload plugin
+  var oldVal = pluginNode.getObjectValue();
+  pluginNode.src = pluginNode.src;
+  is(objLoadingContent.displayedType, Ci.nsIObjectLoadingContent.TYPE_PLUGIN, "Test 22, Plugin should have retained activated state");
+  ok(pluginNode.activated, "Test 22, plugin should have remained activated");
+  // Sanity, ensure that we actually reloaded the instance, since this behavior might change in the future.
+  var pluginsDiffer;
+  try {
+    pluginNode.checkObjectValue(oldVal);
+  } catch (e) {
+    pluginsDiffer = true;
+  }
+  ok(pluginsDiffer, "Test 22, plugin should have reloaded");
+
+  prepareTest(test23, gTestRoot + "plugin_test.html");
+}
+
+// Tests that a click-to-play plugin resets its activated state when changing types
+function test23() {
+  ok(PopupNotifications.getNotification("click-to-play-plugins", gTestBrowser), "Test 23, Should have a click-to-play notification");
+
+  // Plugin should start as CTP
+  var pluginNode = gTestBrowser.contentDocument.getElementById("test");
+  ok(pluginNode, "Test 23, Found plugin in page");
+  var objLoadingContent = pluginNode.QueryInterface(Ci.nsIObjectLoadingContent);
+  is(objLoadingContent.pluginFallbackType, Ci.nsIObjectLoadingContent.PLUGIN_CLICK_TO_PLAY, "Test 23, plugin fallback type should be PLUGIN_CLICK_TO_PLAY");
+
+  // Activate
+  objLoadingContent.playPlugin();
+  is(objLoadingContent.displayedType, Ci.nsIObjectLoadingContent.TYPE_PLUGIN, "Test 23, plugin should have started");
+  ok(pluginNode.activated, "Test 23, plugin should be activated");
+
+  // Reload plugin (this may need RunSoon() in the future when plugins change state asynchronously)
+  pluginNode.type = null;
+  pluginNode.src = pluginNode.src; // We currently don't properly change state just on type change, bug 767631
+  is(objLoadingContent.displayedType, Ci.nsIObjectLoadingContent.TYPE_NULL, "Test 23, plugin should be unloaded");
+  pluginNode.type = "application/x-test";
+  pluginNode.src = pluginNode.src;
+  is(objLoadingContent.displayedType, Ci.nsIObjectLoadingContent.TYPE_NULL, "Test 23, Plugin should not have activated");
+  is(objLoadingContent.pluginFallbackType, Ci.nsIObjectLoadingContent.PLUGIN_CLICK_TO_PLAY, "Test 23, Plugin should be click-to-play");
+  ok(!pluginNode.activated, "Test 23, plugin node should not be activated");
 
   finishTest();
 }

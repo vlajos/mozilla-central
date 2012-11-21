@@ -12,6 +12,7 @@
 #include "jsapi.h"
 #include "mozilla/dom/PBrowserParent.h"
 #include "mozilla/dom/PContentDialogParent.h"
+#include "mozilla/dom/TabContext.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
 #include "nsCOMPtr.h"
 #include "nsIAuthPromptProvider.h"
@@ -51,11 +52,12 @@ class TabParent : public PBrowserParent
                 , public nsITabParent 
                 , public nsIAuthPromptProvider
                 , public nsISecureBrowserUI
+                , public TabContext
 {
     typedef mozilla::dom::ClonedMessageData ClonedMessageData;
 
 public:
-    TabParent(mozIApplication* aApp, bool aIsBrowserElement);
+    TabParent(const TabContext& aContext);
     virtual ~TabParent();
     nsIDOMElement* GetOwnerElement() { return mFrameElement; }
     void SetOwnerElement(nsIDOMElement* aElement);
@@ -63,9 +65,6 @@ public:
     void SetBrowserDOMWindow(nsIBrowserDOMWindow* aBrowserDOMWindow) {
         mBrowserDOMWindow = aBrowserDOMWindow;
     }
- 
-    mozIApplication* GetApp() { return mApp; }
-    bool IsBrowserElement() { return mIsBrowserElement; }
 
     /**
      * Return the TabParent that has decided it wants to capture an
@@ -124,7 +123,8 @@ public:
     virtual bool RecvEndIMEComposition(const bool& aCancel,
                                        nsString* aComposition);
     virtual bool RecvGetInputContext(int32_t* aIMEEnabled,
-                                     int32_t* aIMEOpen);
+                                     int32_t* aIMEOpen,
+                                     intptr_t* aNativeIMEContext);
     virtual bool RecvSetInputContext(const int32_t& aIMEEnabled,
                                      const int32_t& aIMEOpen,
                                      const nsString& aType,
@@ -162,6 +162,7 @@ public:
     void UpdateFrame(const layers::FrameMetrics& aFrameMetrics);
     void HandleDoubleTap(const nsIntPoint& aPoint);
     void HandleSingleTap(const nsIntPoint& aPoint);
+    void HandleLongTap(const nsIntPoint& aPoint);
     void Activate();
     void Deactivate();
 
@@ -184,7 +185,7 @@ public:
     virtual bool DeallocPDocumentRenderer(PDocumentRendererParent* actor);
 
     virtual PContentPermissionRequestParent*
-    AllocPContentPermissionRequest(const nsCString& aType, const IPC::Principal& aPrincipal);
+    AllocPContentPermissionRequest(const nsCString& aType, const nsCString& aAccess, const IPC::Principal& aPrincipal);
     virtual bool DeallocPContentPermissionRequest(PContentPermissionRequestParent* actor);
 
     virtual POfflineCacheUpdateParent* AllocPOfflineCacheUpdate(
@@ -260,7 +261,6 @@ protected:
                                                   uint64_t* aLayersId) MOZ_OVERRIDE;
     virtual bool DeallocPRenderFrame(PRenderFrameParent* aFrame) MOZ_OVERRIDE;
 
-    nsCOMPtr<mozIApplication> mApp;
     // IME
     static TabParent *mIMETabParent;
     nsString mIMECacheText;
@@ -279,7 +279,6 @@ protected:
 
     nsIntSize mDimensions;
     float mDPI;
-    bool mIsBrowserElement;
     bool mShown;
 
 private:
@@ -287,9 +286,7 @@ private:
     already_AddRefed<nsIWidget> GetWidget() const;
     layout::RenderFrameParent* GetRenderFrame();
     void TryCacheDPI();
-    // Return true iff this TabParent was created for a mozbrowser
-    // frame.
-    bool IsForMozBrowser();
+
     // When true, we create a pan/zoom controller for our frame and
     // notify it of input events targeting us.
     bool UseAsyncPanZoom();
@@ -299,6 +296,9 @@ private:
     // dispatch to content.
     void MaybeForwardEventToRenderFrame(const nsInputEvent& aEvent,
                                         nsInputEvent* aOutEvent);
+    // When true, the TabParent is invalid and we should not send IPC messages
+    // anymore.
+    bool mIsDestroyed;
 };
 
 } // namespace dom

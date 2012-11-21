@@ -327,12 +327,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsXULDocument, nsXMLDocument)
     if (tmp->mTemplateBuilderTable)
         tmp->mTemplateBuilderTable->EnumerateRead(TraverseTemplateBuilders, &cb);
         
-    NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mCurrentPrototype,
-                                                     nsIScriptGlobalObjectOwner)
-    NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mMasterPrototype,
-                                                     nsIScriptGlobalObjectOwner)
-    NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR_AMBIGUOUS(mCommandDispatcher,
-                                                     nsIDOMXULCommandDispatcher)
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCurrentPrototype)
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMasterPrototype)
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCommandDispatcher)
 
     uint32_t i, count = tmp->mPrototypes.Length();
     for (i = 0; i < count; ++i) {
@@ -340,7 +337,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsXULDocument, nsXMLDocument)
         cb.NoteXPCOMChild(static_cast<nsIScriptGlobalObjectOwner*>(tmp->mPrototypes[i]));
     }
 
-    NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mLocalStore)
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocalStore)
 
     if (tmp->mOverlayLoadObservers.IsInitialized())
         tmp->mOverlayLoadObservers.EnumerateRead(TraverseObservers, &cb);
@@ -352,7 +349,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsXULDocument, nsXMLDocument)
     delete tmp->mTemplateBuilderTable;
     tmp->mTemplateBuilderTable = nullptr;
 
-    NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mCommandDispatcher)
+    NS_IMPL_CYCLE_COLLECTION_UNLINK(mCommandDispatcher)
     //XXX We should probably unlink all the objects we traverse.
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -1338,28 +1335,12 @@ nsXULDocument::Persist(const nsAString& aID,
     return NS_OK;
 }
 
-
-bool
-nsXULDocument::IsCapabilityEnabled(const char* aCapabilityLabel)
-{
-    nsresult rv;
-
-    // NodePrincipal is guarantied to be non-null
-    bool enabled = false;
-    rv = NodePrincipal()->IsCapabilityEnabled(aCapabilityLabel, nullptr, &enabled);
-    if (NS_FAILED(rv))
-        return false;
- 
-    return enabled;
-}
-
-
 nsresult
 nsXULDocument::Persist(nsIContent* aElement, int32_t aNameSpaceID,
                        nsIAtom* aAttribute)
 {
     // For non-chrome documents, persistance is simply broken
-    if (!IsCapabilityEnabled("UniversalXPConnect"))
+    if (!nsContentUtils::IsSystemPrincipal(NodePrincipal()))
         return NS_ERROR_NOT_AVAILABLE;
 
     // First make sure we _have_ a local store to stuff the persisted
@@ -2109,7 +2090,7 @@ nsresult
 nsXULDocument::ApplyPersistentAttributes()
 {
     // For non-chrome documents, persistance is simply broken
-    if (!IsCapabilityEnabled("UniversalXPConnect"))
+    if (!nsContentUtils::IsSystemPrincipal(NodePrincipal()))
         return NS_ERROR_NOT_AVAILABLE;
 
     // Add all of the 'persisted' attributes into the content
@@ -2869,12 +2850,6 @@ nsXULDocument::ResumeWalk()
                                                    &isAlternate);
                         }
                     }
-
-#ifdef MOZ_XTF
-                    if (element->GetNameSpaceID() > kNameSpaceID_LastBuiltin) {
-                        element->DoneAddingChildren(false);
-                    }
-#endif
                 }
                 // Now pop the context stack back up to the parent
                 // element and continue the prototype walk.
@@ -2945,12 +2920,6 @@ nsXULDocument::ResumeWalk()
                         // immediately.
                         AddElementToDocumentPost(child);
                     }
-#ifdef MOZ_XTF
-                    if (child &&
-                        child->GetNameSpaceID() > kNameSpaceID_LastBuiltin) {
-                        child->DoneAddingChildren(false);
-                    }
-#endif
                 }
             }
             break;
@@ -3479,9 +3448,7 @@ nsXULDocument::OnStreamComplete(nsIStreamLoader* aLoader,
 
         aStatus = rv;
         if (NS_SUCCEEDED(rv)) {
-            if (nsScriptLoader::ShouldExecuteScript(this, channel)) {
-                rv = ExecuteScript(scriptProto);
-            }
+            rv = ExecuteScript(scriptProto);
 
             // If the XUL cache is enabled, save the script object there in
             // case different XUL documents source the same script.
@@ -3560,8 +3527,7 @@ nsXULDocument::OnStreamComplete(nsIStreamLoader* aLoader,
         doc->mNextSrcLoadWaiter = nullptr;
 
         // Execute only if we loaded and compiled successfully, then resume
-        if (NS_SUCCEEDED(aStatus) && scriptProto->mScriptObject.mObject &&
-            nsScriptLoader::ShouldExecuteScript(doc, channel)) {
+        if (NS_SUCCEEDED(aStatus) && scriptProto->mScriptObject.mObject) {
             doc->ExecuteScript(scriptProto);
         }
         doc->ResumeWalk();
@@ -3657,12 +3623,6 @@ nsXULDocument::CreateElementFromPrototype(nsXULPrototypeElement* aPrototype,
             return rv;
 
         result = content->AsElement();
-
-#ifdef MOZ_XTF
-        if (result && xtfNi->NamespaceID() > kNameSpaceID_LastBuiltin) {
-            result->BeginAddingChildren();
-        }
-#endif
 
         rv = AddAttributes(aPrototype, result);
         if (NS_FAILED(rv)) return rv;

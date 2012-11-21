@@ -7,11 +7,10 @@
 const TEST_URI = "http://example.com/browser/browser/devtools/webconsole/test" +
                  "/test-bug-782653-css-errors.html";
 
-let nodes;
+let nodes, hud, SEC;
 
-let styleEditorWin;
-
-function test() {
+function test()
+{
   addTab(TEST_URI);
   browser.addEventListener("load", function onLoad() {
     browser.removeEventListener("load", onLoad, true);
@@ -19,17 +18,26 @@ function test() {
   }, true);
 }
 
-function testViewSource(hud) {
+function testViewSource(aHud)
+{
+  hud = aHud;
+
+  registerCleanupFunction(function() {
+    nodes = hud = SEC = null;
+  });
+
+  let selector = ".webconsole-msg-cssparser .webconsole-location";
 
   waitForSuccess({
     name: "find the location node",
     validatorFn: function()
     {
-      return hud.outputNode.querySelector(".webconsole-location");
+      return hud.outputNode.querySelector(selector);
     },
     successFn: function()
     {
-      nodes = hud.outputNode.querySelectorAll(".webconsole-location");
+      nodes = hud.outputNode.querySelectorAll(selector);
+      is(nodes.length, 2, "correct number of css messages");
 
       Services.ww.registerNotification(observer);
 
@@ -39,107 +47,97 @@ function testViewSource(hud) {
   });
 }
 
-function checkStyleEditorForSheetAndLine(aStyleSheetIndex, aLine, aCallback) {
-
-  function doCheck(aEditor) {
-    if (aEditor.styleSheetIndex != aStyleSheetIndex) {
-      ok(false, "Correct Style Sheet was not selected.");
-      if (aCallback) {
-        executeSoon(aCallback);
-      }
-      return;
-    }
-
-    ok(true, "Correct Style Sheet is selected in the editor");
-
-    // Editor is already loaded, check the current line of caret.
-    if (aEditor.sourceEditor) {
-      ok(true, "Editor is already loaded, check the current line of caret");
-      executeSoon(function() {
-        ok(true, "Execute soon occured");
-        ok(aEditor.sourceEditor != null, "sourceeditor not null");
-        ok(aEditor.sourceEditor.getCaretPosition() != null, "position not null");
-        ok(aEditor.sourceEditor.getCaretPosition().line != null, "line not null");
-        is(aEditor.sourceEditor.getCaretPosition().line, aLine,
-           "Correct line is selected");
-        if (aCallback) {
-          aCallback();
-        }
-      });
-      return;
-    }
-
-    ok(true, "Editor is not loaded, waiting for it.");
-    ok(aEditor, "aEditor is defined.");
-    // Wait for source editor to be loaded.
-    aEditor.addActionListener({
-      onAttach: function onAttach() {
-        ok(true, "on attach happened");
-        aEditor.removeActionListener(this);
-        ok(true, "this removed");
-        executeSoon(function() {
-          ok(true, "execute soon");
-          ok(aEditor.sourceEditor != null, "sourceeditor not null");
-          ok(aEditor.sourceEditor.getCaretPosition() != null, "position not null");
-          ok(aEditor.sourceEditor.getCaretPosition().line != null, "line not null");
-          is(aEditor.sourceEditor.getCaretPosition().line, aLine,
-             "Correct line is selected");
-          if (aCallback) {
-            aCallback();
-          }
-        });
-      }
-    });
-  }
-
-  let SEC = styleEditorWin.styleEditorChrome;
-  ok(SEC, "Syle Editor Chrome is defined properly while calling for [" +
-          aStyleSheetIndex + ", " + aLine + "]");
-
-  // Editors are not ready, so wait for them.
-  if (!SEC.editors.length) {
-    SEC.addChromeListener({
-      onEditorAdded: function onEditorAdded(aChrome, aEditor) {
-        aChrome.removeChromeListener(this);
-        doCheck(aEditor);
-      }
-    });
-  }
-  // Execute soon so that selectedStyleSheetIndex has correct value.
-  else {
-    executeSoon(function() {
-      let aEditor = SEC.editors[SEC.selectedStyleSheetIndex];
-      doCheck(aEditor);
-    });
-  }
-}
-
 let observer = {
-  observe: function(aSubject, aTopic, aData) {
+  observe: function(aSubject, aTopic, aData)
+  {
     if (aTopic != "domwindowopened") {
       return;
     }
     Services.ww.unregisterNotification(observer);
-    ok(true, "Style Editor window was opened in response to clicking " +
-             "the location node");
+    info("Style Editor window was opened in response to clicking " +
+         "the location node");
+
+    function sheetForNode(aNode)
+    {
+      let href = aNode.getAttribute("title");
+      let sheet, i = 0;
+      while((sheet = content.document.styleSheets[i++])) {
+        if (sheet.href == href) {
+          return sheet;
+        }
+      }
+    }
 
     executeSoon(function() {
-      styleEditorWin = window.StyleEditor
-                             .StyleEditorManager
-                             .getEditorForWindow(content.window);
-      ok(styleEditorWin, "Style Editor Window is defined");
-      styleEditorWin.addEventListener("load", function onStyleEditorWinLoad() {
-        styleEditorWin.removeEventListener("load", onStyleEditorWinLoad);
+      let styleEditorWin = window.StyleEditor.StyleEditorManager
+                          .getEditorForWindow(content.window);
+      ok(styleEditorWin, "Style Editor window is defined");
 
-        checkStyleEditorForSheetAndLine(0, 7, function() {
-          checkStyleEditorForSheetAndLine(1, 6, function() {
+      waitForFocus(function() {
+        SEC = styleEditorWin.styleEditorChrome;
+        ok(SEC, "Style Editor Chrome is defined");
+
+        let sheet = sheetForNode(nodes[0]);
+        ok(sheet, "sheet found");
+        let line = nodes[0].sourceLine;
+        ok(line, "found source line");
+
+        checkStyleEditorForSheetAndLine(sheet, line - 1, function() {
+          let sheet = sheetForNode(nodes[1]);
+          ok(sheet, "sheet found");
+          let line = nodes[1].sourceLine;
+          ok(line, "found source line");
+
+          EventUtils.sendMouseEvent({ type: "click" }, nodes[1]);
+
+          checkStyleEditorForSheetAndLine(sheet, line - 1, function() {
             window.StyleEditor.toggle();
-            styleEditorWin = null;
             finishTest();
           });
-          EventUtils.sendMouseEvent({ type: "click" }, nodes[1]);
         });
-      });
+      }, styleEditorWin);
     });
   }
 };
+
+function checkStyleEditorForSheetAndLine(aStyleSheet, aLine, aCallback)
+{
+  let editor = null;
+
+  let performLineCheck = {
+    name: "source editor load",
+    validatorFn: function()
+    {
+      return editor.sourceEditor;
+    },
+    successFn: function()
+    {
+      is(editor.sourceEditor.getCaretPosition().line, aLine,
+         "correct line is selected");
+      is(SEC.selectedStyleSheetIndex, editor.styleSheetIndex,
+         "correct stylesheet is selected in the editor");
+
+      executeSoon(aCallback);
+    },
+    failureFn: aCallback,
+  };
+
+  waitForSuccess({
+    name: "editor for stylesheet",
+    validatorFn: function()
+    {
+      for (let item of SEC.editors) {
+        if (item.styleSheet == aStyleSheet) {
+          editor = item;
+          return true;
+        }
+      }
+      return false;
+    },
+    successFn: function()
+    {
+      waitForSuccess(performLineCheck);
+    },
+    failureFn: finishTest,
+  });
+}

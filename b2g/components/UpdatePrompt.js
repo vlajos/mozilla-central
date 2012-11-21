@@ -26,23 +26,78 @@ const SELF_DESTRUCT_TIMEOUT =
       Services.prefs.getIntPref("b2g.update.self-destruct-timeout");
 
 const APPLY_IDLE_TIMEOUT_SECONDS = APPLY_IDLE_TIMEOUT / 1000;
-
+const NETWORK_ERROR_OFFLINE = 111;
 
 XPCOMUtils.defineLazyServiceGetter(Services, "aus",
                                    "@mozilla.org/updates/update-service;1",
                                    "nsIApplicationUpdateService");
 
+XPCOMUtils.defineLazyServiceGetter(Services, "um",
+                                   "@mozilla.org/updates/update-manager;1",
+                                   "nsIUpdateManager");
+
 XPCOMUtils.defineLazyServiceGetter(Services, "idle",
                                    "@mozilla.org/widget/idleservice;1",
                                    "nsIIdleService");
 
+XPCOMUtils.defineLazyServiceGetter(Services, "settings",
+                                   "@mozilla.org/settingsService;1",
+                                   "nsISettingsService");
+
+function UpdateCheckListener(updatePrompt) {
+  this._updatePrompt = updatePrompt;
+}
+
+UpdateCheckListener.prototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsIUpdateCheckListener]),
+
+  _updatePrompt: null,
+
+  onCheckComplete: function UCL_onCheckComplete(request, updates, updateCount) {
+    if (Services.um.activeUpdate) {
+      return;
+    }
+
+    if (updateCount == 0) {
+      this._updatePrompt.setUpdateStatus("no-updates");
+      return;
+    }
+
+    let update = Services.aus.selectUpdate(updates, updateCount);
+    if (!update) {
+      this._updatePrompt.setUpdateStatus("already-latest-version");
+      return;
+    }
+
+    this._updatePrompt.setUpdateStatus("check-complete");
+    this._updatePrompt.showUpdateAvailable(update);
+  },
+
+  onError: function UCL_onError(request, update) {
+    if (update.errorCode == NETWORK_ERROR_OFFLINE) {
+      this._updatePrompt.setUpdateStatus("retry-when-online");
+    }
+
+    Services.aus.QueryInterface(Ci.nsIUpdateCheckListener);
+    Services.aus.onError(request, update);
+  },
+
+  onProgress: function UCL_onProgress(request, position, totalSize) {
+    Services.aus.QueryInterface(Ci.nsIUpdateCheckListener);
+    Services.aus.onProgress(request, position, totalSize);
+  }
+};
+
 function UpdatePrompt() {
   this.wrappedJSObject = this;
+  this._updateCheckListener = new UpdateCheckListener(this);
+  Services.obs.addObserver(this, "update-check-start", false);
 }
 
 UpdatePrompt.prototype = {
   classID: Components.ID("{88b3eb21-d072-4e3b-886d-f89d8c49fe59}"),
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIUpdatePrompt,
+                                         Ci.nsIUpdateCheckListener,
                                          Ci.nsIRequestObserver,
                                          Ci.nsIProgressEventSink,
                                          Ci.nsIObserver]),
@@ -51,6 +106,7 @@ UpdatePrompt.prototype = {
   _update: null,
   _applyPromptTimer: null,
   _waitingForIdle: false,
+  _updateCheckListner: null,
 
   // nsIUpdatePrompt
 
@@ -88,9 +144,11 @@ UpdatePrompt.prototype = {
   },
 
   showUpdateError: function UP_showUpdateError(aUpdate) {
-    if (aUpdate.state == "failed") {
-      log("Failed to download update, errorCode: " + aUpdate.errorCode);
-    }
+    log("Update error, state: " + aUpdate.state + ", errorCode: " +
+        aUpdate.errorCode);
+
+    this.sendUpdateEvent("update-error", aUpdate);
+    this.setUpdateStatus(aUpdate.statusText);
   },
 
   showUpdateHistory: function UP_showUpdateHistory(aParent) { },
@@ -108,6 +166,13 @@ UpdatePrompt.prototype = {
     Services.obs.addObserver(this, "quit-application", false);
   },
 
+  setUpdateStatus: function UP_setUpdateStatus(aStatus) {
+    log("Setting gecko.updateStatus: " + aStatus);
+
+    let lock = Services.settings.createLock();
+    lock.set("gecko.updateStatus", aStatus, null);
+  },
+
   showApplyPrompt: function UP_showApplyPrompt(aUpdate) {
     if (!this.sendUpdateEvent("update-prompt-apply", aUpdate)) {
       log("Unable to prompt, forcing restart");
@@ -123,22 +188,26 @@ UpdatePrompt.prototype = {
   sendUpdateEvent: function UP_sendUpdateEvent(aType, aUpdate) {
     let detail = {
       displayVersion: aUpdate.displayVersion,
-      detailsURL: aUpdate.detailsURL
+      detailsURL: aUpdate.detailsURL,
+      statusText: aUpdate.statusText,
+      state: aUpdate.state,
+      errorCode: aUpdate.errorCode,
+      isOSUpdate: aUpdate.isOSUpdate
     };
 
     let patch = aUpdate.selectedPatch;
-    if (!patch) {
+    if (!patch && aUpdate.patchCount > 0) {
       // For now we just check the first patch to get size information if a
       // patch hasn't been selected yet.
-      if (aUpdate.patchCount == 0) {
-        log("Warning: no patches available in update");
-        return false;
-      }
       patch = aUpdate.getPatchAt(0);
     }
 
-    detail.size = patch.size;
-    detail.updateType = patch.type;
+    if (patch) {
+      detail.size = patch.size;
+      detail.updateType = patch.type;
+    } else {
+      log("Warning: no patches available in update");
+    }
 
     this._update = aUpdate;
     return this.sendChromeEvent(aType, detail);
@@ -252,11 +321,17 @@ UpdatePrompt.prototype = {
   forceUpdateCheck: function UP_forceUpdateCheck() {
     log("Forcing update check");
 
+    // If we already have an active update available, don't try to
+    // download again, just prompt for install.
+    if (Services.um.activeUpdate) {
+      this.setUpdateStatus("check-complete");
+      this.showApplyPrompt(Services.um.activeUpdate);
+      return;
+    }
+
     let checker = Cc["@mozilla.org/updates/update-checker;1"]
                     .createInstance(Ci.nsIUpdateChecker);
-
-    Services.aus.QueryInterface(Ci.nsIUpdateCheckListener);
-    checker.checkForUpdates(Services.aus, true);
+    checker.checkForUpdates(this._updateCheckListener, true);
   },
 
   handleEvent: function UP_handleEvent(evt) {
@@ -283,6 +358,57 @@ UpdatePrompt.prototype = {
     }
   },
 
+  appsUpdated: function UP_appsUpdated(aApps) {
+    log("appsUpdated: " + aApps.length + " apps to update");
+    let lock = Services.settings.createLock();
+    lock.set("apps.updateStatus", "check-complete", null);
+    this.sendChromeEvent("apps-update-check", { apps: aApps });
+    this._checkingApps = false;
+  },
+
+  // Trigger apps update check and wait for all to be done before
+  // notifying gaia.
+  onUpdateCheckStart: function UP_onUpdateCheckStart() {
+    // Don't start twice.
+    if (this._checkingApps) {
+      return;
+    }
+
+    this._checkingApps = true;
+
+    let self = this;
+
+    let window = Services.wm.getMostRecentWindow("navigator:browser");
+    let all = window.navigator.mozApps.mgmt.getAll();
+
+    all.onsuccess = function() {
+      let appsCount = this.result.length;
+      let appsChecked = 0;
+      let appsToUpdate = [];
+      this.result.forEach(function updateApp(aApp) {
+        let update = aApp.checkForUpdate();
+        update.onsuccess = function() {
+          appsChecked += 1;
+          appsToUpdate.push(aApp.manifestURL);
+          if (appsChecked == appsCount) {
+            self.appsUpdated(appsToUpdate);
+          }
+        }
+        update.onerror = function() {
+          appsChecked += 1;
+          if (appsChecked == appsCount) {
+            self.appsUpdated(appsToUpdate);
+          }
+        }
+      });
+    }
+
+    all.onerror = function() {
+      // Could not get the app list, just notify to update nothing.
+      self.appsUpdated([]);
+    }
+  },
+
   // nsIObserver
 
   observe: function UP_observe(aSubject, aTopic, aData) {
@@ -294,6 +420,9 @@ UpdatePrompt.prototype = {
       case "quit-application":
         Services.idle.removeIdleObserver(this, APPLY_IDLE_TIMEOUT_SECONDS);
         Services.obs.removeObserver(this, "quit-application");
+        break;
+      case "update-check-start":
+        this.onUpdateCheckStart();
         break;
     }
   },
@@ -337,4 +466,4 @@ UpdatePrompt.prototype = {
   onStatus: function UP_onStatus(aRequest, aUpdate, aStatus, aStatusArg) { }
 };
 
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([UpdatePrompt]);
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([UpdatePrompt]);

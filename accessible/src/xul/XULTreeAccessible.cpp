@@ -6,6 +6,7 @@
 
 #include "XULTreeAccessible.h"
 
+#include "DocAccessible-inl.h"
 #include "nsAccCache.h"
 #include "nsAccUtils.h"
 #include "nsCoreUtils.h"
@@ -36,7 +37,7 @@ XULTreeAccessible::
   XULTreeAccessible(nsIContent* aContent, DocAccessible* aDoc) :
   AccessibleWrap(aContent, aDoc)
 {
-  mFlags |= eXULTreeAccessible;
+  mFlags |= eSelectAccessible | eXULTreeAccessible;
 
   mTree = nsCoreUtils::GetTreeBoxObject(aContent);
   NS_ASSERTION(mTree, "Can't get mTree!\n");
@@ -65,12 +66,12 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(XULTreeAccessible)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(XULTreeAccessible,
                                                   Accessible)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mTree)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTree)
   CycleCollectorTraverseCache(tmp->mAccessibleCache, &cb);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(XULTreeAccessible, Accessible)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mTree)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTree)
   ClearCache(tmp->mAccessibleCache);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -223,12 +224,6 @@ XULTreeAccessible::ChildAtPoint(int32_t aX, int32_t aY,
 
 ////////////////////////////////////////////////////////////////////////////////
 // XULTreeAccessible: SelectAccessible
-
-bool
-XULTreeAccessible::IsSelect()
-{
-  return true;
-}
 
 Accessible*
 XULTreeAccessible::CurrentItem()
@@ -668,11 +663,8 @@ XULTreeAccessible::TreeViewChanged(nsITreeView* aView)
   // Fire reorder event on tree accessible on accessible tree (do not fire
   // show/hide events on tree items because it can be expensive to fire them for
   // each tree item.
-  nsRefPtr<AccEvent> reorderEvent =
-    new AccEvent(nsIAccessibleEvent::EVENT_REORDER, this, eAutoDetect,
-                 AccEvent::eCoalesceFromSameSubtree);
-  if (reorderEvent)
-    Document()->FireDelayedAccessibleEvent(reorderEvent);
+  nsRefPtr<AccReorderEvent> reorderEvent = new AccReorderEvent(this);
+  Document()->FireDelayedEvent(reorderEvent);
 
   // Clear cache.
   ClearCache(mAccessibleCache);
@@ -713,12 +705,12 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(XULTreeItemAccessibleBase)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(XULTreeItemAccessibleBase,
                                                   Accessible)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mTree)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTree)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(XULTreeItemAccessibleBase,
                                                 Accessible)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mTree)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTree)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_TABLE_HEAD_CYCLE_COLLECTION_INHERITED(XULTreeItemAccessibleBase)
@@ -1117,12 +1109,12 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(XULTreeItemAccessible)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(XULTreeItemAccessible,
                                                   XULTreeItemAccessibleBase)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NSCOMPTR(mColumn)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mColumn)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(XULTreeItemAccessible,
                                                 XULTreeItemAccessibleBase)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_NSCOMPTR(mColumn)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mColumn)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(XULTreeItemAccessible)

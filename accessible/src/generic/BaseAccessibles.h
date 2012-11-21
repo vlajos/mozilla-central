@@ -34,6 +34,10 @@ public:
   // Accessible
   virtual Accessible* ChildAtPoint(int32_t aX, int32_t aY,
                                    EWhichChildAtPoint aWhichChild);
+  
+  virtual bool AppendChild(Accessible* aChild) MOZ_OVERRIDE MOZ_FINAL;
+  virtual bool InsertChildAt(uint32_t aIndex, Accessible* aChild) MOZ_OVERRIDE MOZ_FINAL;
+  virtual bool RemoveChild(Accessible* aChild) MOZ_OVERRIDE MOZ_FINAL;
 
 protected:
 
@@ -122,6 +126,7 @@ public:
   virtual uint64_t NativeInteractiveState() const MOZ_OVERRIDE MOZ_FINAL;
   virtual uint64_t NativeLinkState() const MOZ_OVERRIDE MOZ_FINAL;
   virtual bool NativelyUnavailable() const MOZ_OVERRIDE MOZ_FINAL;
+  virtual void ApplyARIAState(uint64_t* aState) const MOZ_OVERRIDE MOZ_FINAL;
 };
 
 } // namespace a11y

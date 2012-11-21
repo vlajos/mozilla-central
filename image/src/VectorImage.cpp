@@ -171,7 +171,6 @@ NS_IMPL_ISUPPORTS3(VectorImage,
 VectorImage::VectorImage(imgStatusTracker* aStatusTracker) :
   Image(aStatusTracker), // invoke superclass's constructor
   mRestrictedRegion(0, 0, 0, 0),
-  mLastRenderedSize(0, 0),
   mIsInitialized(false),
   mIsFullyLoaded(false),
   mIsDrawing(false),
@@ -382,6 +381,15 @@ VectorImage::GetFrame(uint32_t aWhichFrame,
 }
 
 //******************************************************************************
+/* [noscript] ImageContainer getImageContainer(); */
+NS_IMETHODIMP
+VectorImage::GetImageContainer(mozilla::layers::ImageContainer** _retval)
+{
+  *_retval = nullptr;
+  return NS_OK;
+}
+
+//******************************************************************************
 /* [noscript] gfxImageSurface copyFrame(in uint32_t aWhichFrame,
  *                                      in uint32_t aFlags); */
 NS_IMETHODIMP
@@ -517,10 +525,7 @@ VectorImage::Draw(gfxContext* aContext,
   }
   mIsDrawing = true;
 
-  if (aViewportSize != mLastRenderedSize) {
-    mSVGDocumentWrapper->UpdateViewportBounds(aViewportSize);
-    mLastRenderedSize = aViewportSize;
-  }
+  mSVGDocumentWrapper->UpdateViewportBounds(aViewportSize);
   mSVGDocumentWrapper->FlushImageTransformInvalidation();
 
   nsIntSize imageSize = mHaveRestrictedRegion ?

@@ -28,8 +28,8 @@ nsHTMLIFrameElement::~nsHTMLIFrameElement()
 {
 }
 
-NS_IMPL_ADDREF_INHERITED(nsHTMLIFrameElement,nsGenericElement)
-NS_IMPL_RELEASE_INHERITED(nsHTMLIFrameElement,nsGenericElement)
+NS_IMPL_ADDREF_INHERITED(nsHTMLIFrameElement, Element)
+NS_IMPL_RELEASE_INHERITED(nsHTMLIFrameElement, Element)
 
 DOMCI_NODE_DATA(HTMLIFrameElement, nsHTMLIFrameElement)
 
@@ -55,7 +55,7 @@ NS_IMPL_STRING_ATTR(nsHTMLIFrameElement, Name, name)
 NS_IMPL_STRING_ATTR(nsHTMLIFrameElement, Scrolling, scrolling)
 NS_IMPL_URI_ATTR(nsHTMLIFrameElement, Src, src)
 NS_IMPL_STRING_ATTR(nsHTMLIFrameElement, Width, width)
-NS_IMPL_BOOL_ATTR(nsHTMLIFrameElement, MozAllowFullScreen, mozallowfullscreen)
+NS_IMPL_BOOL_ATTR(nsHTMLIFrameElement, Allowfullscreen, allowfullscreen)
 NS_IMPL_STRING_ATTR(nsHTMLIFrameElement, Sandbox, sandbox)
 
 void

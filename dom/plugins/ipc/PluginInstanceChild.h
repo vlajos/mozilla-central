@@ -20,7 +20,6 @@
 #include "mozilla/gfx/QuartzSupport.h"
 #include "base/timer.h"
 
-using namespace mozilla::plugins::PluginUtilsOSX;
 #endif
 
 #include "npfunctions.h"
@@ -125,6 +124,9 @@ protected:
 
     virtual bool
     RecvWindowPosChanged(const NPRemoteEvent& event) MOZ_OVERRIDE;
+
+    virtual bool
+    RecvContentsScaleFactorChanged(const double& aContentsScaleFactor) MOZ_OVERRIDE;
 
     virtual bool
     AnswerNPP_Destroy(NPError* result);
@@ -552,7 +554,7 @@ private:
 #ifdef XP_MACOSX
     // Current IOSurface available for rendering
     // We can't use thebes gfxASurface like other platforms.
-    nsDoubleBufferCARenderer mDoubleBufferCARenderer; 
+    PluginUtilsOSX::nsDoubleBufferCARenderer mDoubleBufferCARenderer; 
 #endif
 
     // (Not to be confused with mBackSurface).  This is a recent copy

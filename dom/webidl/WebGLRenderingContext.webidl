@@ -22,7 +22,6 @@ interface HTMLCanvasElement;
 interface HTMLImageElement;
 interface HTMLVideoElement;
 interface ImageData;
-interface WebGLContextAttributes;
 
 typedef unsigned long  GLenum;
 typedef boolean        GLboolean;
@@ -40,14 +39,14 @@ typedef unsigned long  GLuint;
 typedef float          GLfloat;
 typedef float          GLclampf;  
 
-/*dictionary WebGLContextAttributes {
+dictionary WebGLContextAttributes {
     boolean alpha = true;
     boolean depth = true;
     boolean stencil = false;
     boolean antialias = true;
     boolean premultipliedAlpha = true;
     boolean preserveDrawingBuffer = false;
-    };*/
+};
 
 interface WebGLBuffer {
 };
@@ -504,7 +503,7 @@ interface WebGLRenderingContext {
     readonly attribute GLsizei drawingBufferWidth;
     readonly attribute GLsizei drawingBufferHeight;
 
-    [WebGLHandlesContextLoss, Throws] WebGLContextAttributes getContextAttributes();
+    [WebGLHandlesContextLoss] WebGLContextAttributes getContextAttributes();
     [WebGLHandlesContextLoss] boolean isContextLost();
 
     sequence<DOMString>? getSupportedExtensions();
@@ -777,24 +776,6 @@ interface WebGLContextEvent : Event {
 // specific extension interfaces
 
 [NoInterfaceObject]
-interface WebGLExtensionStandardDerivatives {
-    const GLenum FRAGMENT_SHADER_DERIVATIVE_HINT_OES = 0x8B8B;
-};
-
-[NoInterfaceObject]
-interface WebGLExtensionLoseContext {
-    void loseContext();
-    void restoreContext();
-};
-
-[NoInterfaceObject]
-interface WebGLExtensionTextureFilterAnisotropic
-{
-    const GLenum TEXTURE_MAX_ANISOTROPY_EXT     = 0x84FE;
-    const GLenum MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
-};
-
-[NoInterfaceObject]
 interface WebGLExtensionCompressedTextureS3TC
 {
     const GLenum COMPRESSED_RGB_S3TC_DXT1_EXT  = 0x83F0;
@@ -821,9 +802,34 @@ interface WebGLExtensionCompressedTexturePVRTC
 };
 
 [NoInterfaceObject]
+interface WebGLExtensionDebugRendererInfo
+{
+    const GLenum UNMASKED_VENDOR_WEBGL        = 0x9245;
+    const GLenum UNMASKED_RENDERER_WEBGL      = 0x9246;
+};
+
+[NoInterfaceObject]
 interface WebGLExtensionDepthTexture
 {
     const GLenum UNSIGNED_INT_24_8_WEBGL = 0x84FA;
+};
+
+[NoInterfaceObject]
+interface WebGLExtensionLoseContext {
+    void loseContext();
+    void restoreContext();
+};
+
+[NoInterfaceObject]
+interface WebGLExtensionTextureFilterAnisotropic
+{
+    const GLenum TEXTURE_MAX_ANISOTROPY_EXT     = 0x84FE;
+    const GLenum MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
+};
+
+[NoInterfaceObject]
+interface WebGLExtensionStandardDerivatives {
+    const GLenum FRAGMENT_SHADER_DERIVATIVE_HINT_OES = 0x8B8B;
 };
 
 [NoInterfaceObject]

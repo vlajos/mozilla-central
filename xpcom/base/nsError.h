@@ -10,10 +10,7 @@
 #include "nscore.h"  /* needed for nsresult */
 #endif
 #include "mozilla/Attributes.h"
-
-#if defined(__cplusplus)
-#include "mozilla/Attributes.h" // for MOZ_HAVE_CXX11_STRONG_ENUMS
-#endif
+#include "mozilla/Likely.h"
 
 /*
  * To add error code to your module, you need to do the following:
@@ -132,6 +129,7 @@
   typedef enum tag_nsresult
 #endif
   {
+    #undef ERROR
     #define ERROR(key, val) key = val
     #include "ErrorList.h"
     #undef ERROR
@@ -149,20 +147,19 @@
 
 /**
  * @name Standard Error Handling Macros
- * @return 0 or 1
+ * @return 0 or 1 (false/true with bool type for C++)
  */
 
 #ifdef __cplusplus
-inline int NS_FAILED(nsresult _nsresult) {
+inline uint32_t NS_FAILED_impl(nsresult _nsresult) {
   return static_cast<uint32_t>(_nsresult) & 0x80000000;
 }
-
-inline int NS_SUCCEEDED(nsresult _nsresult) {
-  return !(static_cast<uint32_t>(_nsresult) & 0x80000000);
-}
+#define NS_FAILED(_nsresult)    ((bool)MOZ_UNLIKELY(NS_FAILED_impl(_nsresult)))
+#define NS_SUCCEEDED(_nsresult) ((bool)MOZ_LIKELY(!NS_FAILED_impl(_nsresult)))
 #else
-#define NS_FAILED(_nsresult)    (NS_UNLIKELY((_nsresult) & 0x80000000))
-#define NS_SUCCEEDED(_nsresult) (NS_LIKELY(!((_nsresult) & 0x80000000)))
+#define NS_FAILED_impl(_nsresult) ((_nsresult) & 0x80000000)
+#define NS_FAILED(_nsresult)    (MOZ_UNLIKELY(NS_FAILED_impl(_nsresult)))
+#define NS_SUCCEEDED(_nsresult) (MOZ_LIKELY(!NS_FAILED_impl(_nsresult)))
 #endif
 
 /**

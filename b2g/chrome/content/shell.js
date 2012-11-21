@@ -4,13 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-const Cr = Components.results;
-
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
-Cu.import('resource://gre/modules/Services.jsm');
 Cu.import('resource://gre/modules/ContactService.jsm');
 Cu.import('resource://gre/modules/SettingsChangeNotifier.jsm');
 #ifdef MOZ_B2G_FM
@@ -19,15 +12,19 @@ Cu.import('resource://gre/modules/DOMFMRadioParent.jsm');
 Cu.import('resource://gre/modules/AlarmService.jsm');
 Cu.import('resource://gre/modules/ActivitiesService.jsm');
 Cu.import('resource://gre/modules/PermissionPromptHelper.jsm');
-Cu.import('resource://gre/modules/PermissionSettings.jsm');
 Cu.import('resource://gre/modules/ObjectWrapper.jsm');
 Cu.import('resource://gre/modules/accessibility/AccessFu.jsm');
 Cu.import('resource://gre/modules/Payment.jsm');
 Cu.import("resource://gre/modules/AppsUtils.jsm");
 Cu.import('resource://gre/modules/UserAgentOverrides.jsm');
+Cu.import('resource://gre/modules/Keyboard.jsm');
 #ifdef MOZ_B2G_RIL
 Cu.import('resource://gre/modules/NetworkStatsService.jsm');
 #endif
+
+// identity
+Cu.import('resource://gre/modules/SignInToWebsite.jsm');
+SignInToWebsiteController.init();
 
 XPCOMUtils.defineLazyServiceGetter(Services, 'env',
                                    '@mozilla.org/process/environment;1',
@@ -36,6 +33,10 @@ XPCOMUtils.defineLazyServiceGetter(Services, 'env',
 XPCOMUtils.defineLazyServiceGetter(Services, 'ss',
                                    '@mozilla.org/content/style-sheet-service;1',
                                    'nsIStyleSheetService');
+
+XPCOMUtils.defineLazyServiceGetter(this, 'gSystemMessenger',
+                                   '@mozilla.org/system-message-internal;1',
+                                   'nsISystemMessagesInternal');
 
 #ifdef MOZ_WIDGET_GONK
 XPCOMUtils.defineLazyServiceGetter(Services, 'audioManager',
@@ -80,26 +81,48 @@ var shell = {
     return this.CrashSubmit;
   },
 
-  reportCrash: function shell_reportCrash(aCrashID) {
+  reportCrash: function shell_reportCrash(isChrome, aCrashID) {
     let crashID = aCrashID;
     try {
-      if (crashID == undefined || crashID == "")
+      // For chrome crashes, we want to report the lastRunCrashID.
+      if (isChrome) {
         crashID = Cc["@mozilla.org/xre/app-info;1"]
                     .getService(Ci.nsIXULRuntime).lastRunCrashID;
+      }
     } catch(e) { }
-    if (Services.prefs.getBoolPref('app.reportCrashes') &&
-        crashID) {
 
-      Services.obs.addObserver(function observer(subject, topic, state) {
-          if (topic != "network:offline-status-changed")
-            return;
-          if (state == 'online') {
-            shell.CrashSubmit.submit(crashID);
-            Services.obs.removeObserver(observer, topic);
-          }
-        }
-        , "network:offline-status-changed", false);
+    // Bail if there isn't a valid crashID.
+    if (!crashID) {
+      return;
     }
+
+    try {
+      // Check if we should automatically submit this crash.
+      if (Services.prefs.getBoolPref("app.reportCrashes")) {
+        this.submitCrash(crashID);
+      }
+    } catch (e) { }
+
+    // Let Gaia notify the user of the crash.
+    this.sendChromeEvent({
+      type: "handle-crash",
+      crashID: crashID,
+      chrome: isChrome
+    });
+  },
+
+  // This function submits a crash when we're online.
+  submitCrash: function shell_submitCrash(aCrashID) {
+    if (!Services.io.offline) {
+      this.CrashSubmit.submit(aCrashID);
+      return;
+    }
+    Services.obs.addObserver(function observer(subject, topic, state) {
+      if (state == 'online') {
+        shell.CrashSubmit.submit(aCrashID);
+        Services.obs.removeObserver(observer, topic);
+      }
+    }, "network:offline-status-changed", false);
   },
 
   get contentBrowser() {
@@ -122,6 +145,11 @@ var shell = {
    },
 
   start: function shell_start() {
+    // This forces the initialization of the cookie service before we hit the
+    // network.
+    // See bug 810209
+    let cookies = Cc["@mozilla.org/cookieService;1"];
+
     try {
       let cr = Cc["@mozilla.org/xre/app-info;1"]
                  .getService(Ci.nsICrashReporter);
@@ -166,7 +194,7 @@ var shell = {
 
     let manifestURL = this.manifestURL;
     // <html:iframe id="homescreen"
-    //              mozbrowser="true" mozallowfullscreen="true"
+    //              mozbrowser="true" allowfullscreen="true"
     //              style="overflow: hidden; -moz-box-flex: 1; border: none;"
     //              src="data:text/html;charset=utf-8,%3C!DOCTYPE html>%3Cbody style='background:black;'>"/>
     let browserFrame =
@@ -174,7 +202,7 @@ var shell = {
     browserFrame.setAttribute('id', 'homescreen');
     browserFrame.setAttribute('mozbrowser', 'true');
     browserFrame.setAttribute('mozapp', manifestURL);
-    browserFrame.setAttribute('mozallowfullscreen', 'true');
+    browserFrame.setAttribute('allowfullscreen', 'true');
     browserFrame.setAttribute('style', "overflow: hidden; -moz-box-flex: 1; border: none;");
     browserFrame.setAttribute('src', "data:text/html;charset=utf-8,%3C!DOCTYPE html>%3Cbody style='background:black;");
     document.getElementById('shell').appendChild(browserFrame);
@@ -276,6 +304,9 @@ var shell = {
       case evt.DOM_VK_CONTEXT_MENU: // Menu button
         type = 'menu-button';
         break;
+      case evt.DOM_VK_F1: // headset button
+        type = 'headset-button';
+        break;
       default:                      // Anything else is a real key
         return;  // Don't filter it at all; let it propagate to Gaia
     }
@@ -296,6 +327,13 @@ var shell = {
         break;
       case 'keypress':
         return;
+    }
+
+    // Let applications receive the headset button key press/release event.
+    if (evt.keyCode == evt.DOM_VK_F1 && type !== this.lastHardwareButtonEventType) {
+      this.lastHardwareButtonEventType = type;
+      gSystemMessenger.broadcastMessage('headset-button', type);
+      return;
     }
 
     // On my device, the physical hardware buttons (sleep and volume)
@@ -344,7 +382,7 @@ var shell = {
 
         this.contentBrowser.removeEventListener('mozbrowserloadstart', this, true);
 
-        this.reportCrash();
+        this.reportCrash(true);
 
         let chromeWindow = window.QueryInterface(Ci.nsIDOMChromeWindow);
         chromeWindow.browserDOMWindow = new nsBrowserAccess();
@@ -498,18 +536,19 @@ Services.obs.addObserver(function(aSubject, aTopic, aData) {
                           fullscreenorigin: aData });
 }, "fullscreen-origin-change", false);
 
+Services.obs.addObserver(function onWebappsStart(subject, topic, data) {
+  shell.sendChromeEvent({ type: 'webapps-registry-start' });
+}, 'webapps-registry-start', false);
+
 Services.obs.addObserver(function onWebappsReady(subject, topic, data) {
   shell.sendChromeEvent({ type: 'webapps-registry-ready' });
 }, 'webapps-registry-ready', false);
 
 Services.obs.addObserver(function onBluetoothVolumeChange(subject, topic, data) {
-  if (data == 'up') {
-    shell.sendChromeEvent({ type: 'volume-up-button-press' });
-    shell.sendChromeEvent({ type: 'volume-up-button-release' });
-  } else if (data == 'down') {
-    shell.sendChromeEvent({ type: 'volume-down-button-press' });
-    shell.sendChromeEvent({ type: 'volume-down-button-release' });
-  }
+  shell.sendChromeEvent({
+    type: "bluetooth-volumeset",
+    value: data
+  });
 }, 'bluetooth-volume-change', false);
 
 (function Repl() {
@@ -778,15 +817,23 @@ window.addEventListener('ContentStart', function ss_onContentStart() {
 
 (function contentCrashTracker() {
   Services.obs.addObserver(function(aSubject, aTopic, aData) {
-      let cs = Cc["@mozilla.org/consoleservice;1"]
-                 .getService(Ci.nsIConsoleService);
       let props = aSubject.QueryInterface(Ci.nsIPropertyBag2);
       if (props.hasKey("abnormal") && props.hasKey("dumpID")) {
-        shell.reportCrash(props.getProperty("dumpID"));
+        shell.reportCrash(false, props.getProperty("dumpID"));
       }
     },
     "ipc:content-shutdown", false);
 })();
+
+// Listen for crashes submitted through the crash reporter UI.
+window.addEventListener('ContentStart', function cr_onContentStart() {
+  let content = shell.contentBrowser.contentWindow;
+  content.addEventListener("mozContentEvent", function cr_onMozContentEvent(e) {
+    if (e.detail.type == "submit-crash" && e.detail.crashID) {
+      shell.submitCrash(e.detail.crashID);
+    }
+  });
+});
 
 window.addEventListener('ContentStart', function update_onContentStart() {
   let updatePrompt = Cc["@mozilla.org/updates/update-prompt;1"]
@@ -855,3 +902,13 @@ window.addEventListener('ContentStart', function update_onContentStart() {
     });
 }, 'volume-state-changed', false);
 })();
+
+Services.obs.addObserver(function(aSubject, aTopic, aData) {
+  let data = JSON.parse(aData);
+  shell.sendChromeEvent({
+    type: "activity-done",
+    success: data.success,
+    manifestURL: data.manifestURL,
+    pageURL: data.pageURL
+  });
+}, "activity-done", false);

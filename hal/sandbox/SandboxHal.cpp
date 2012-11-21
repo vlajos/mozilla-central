@@ -212,15 +212,27 @@ GetTimezone()
 }
 
 void
-EnableSystemTimeChangeNotifications()
+EnableSystemClockChangeNotifications()
 {
-  Hal()->SendEnableSystemTimeChangeNotifications();
+  Hal()->SendEnableSystemClockChangeNotifications();
 }
 
 void
-DisableSystemTimeChangeNotifications()
+DisableSystemClockChangeNotifications()
 {
-  Hal()->SendDisableSystemTimeChangeNotifications();
+  Hal()->SendDisableSystemClockChangeNotifications();
+}
+
+void
+EnableSystemTimezoneChangeNotifications()
+{
+  Hal()->SendEnableSystemTimezoneChangeNotifications();
+}
+
+void
+DisableSystemTimezoneChangeNotifications()
+{
+  Hal()->SendDisableSystemTimezoneChangeNotifications();
 }
 
 void
@@ -264,9 +276,12 @@ DisableWakeLockNotifications()
 }
 
 void
-ModifyWakeLock(const nsAString &aTopic, WakeLockControl aLockAdjust, WakeLockControl aHiddenAdjust)
+ModifyWakeLockInternal(const nsAString &aTopic,
+                       WakeLockControl aLockAdjust,
+                       WakeLockControl aHiddenAdjust,
+                       uint64_t aProcessID)
 {
-  Hal()->SendModifyWakeLock(nsString(aTopic), aLockAdjust, aHiddenAdjust);
+  Hal()->SendModifyWakeLock(nsString(aTopic), aLockAdjust, aHiddenAdjust, aProcessID);
 }
 
 void
@@ -381,6 +396,12 @@ CancelFMRadioSeek()
   Hal()->SendCancelFMRadioSeek();
 }
 
+void
+FactoryReset()
+{
+  Hal()->SendFactoryReset();
+}
+
 class HalParent : public PHalParent
                 , public BatteryObserver
                 , public NetworkObserver
@@ -388,7 +409,8 @@ class HalParent : public PHalParent
                 , public WakeLockObserver
                 , public ScreenConfigurationObserver
                 , public SwitchObserver
-                , public SystemTimeObserver
+                , public SystemClockChangeObserver
+                , public SystemTimezoneChangeObserver
 {
 public:
   virtual void
@@ -404,7 +426,8 @@ public:
       hal::UnregisterSensorObserver(SensorType(sensor), this);
     }
     hal::UnregisterWakeLockObserver(this);
-    hal::UnregisterSystemTimeChangeObserver(this);
+    hal::UnregisterSystemClockChangeObserver(this);
+    hal::UnregisterSystemTimezoneChangeObserver(this);
   }
 
   virtual bool
@@ -637,16 +660,30 @@ public:
   }
 
   virtual bool
-  RecvEnableSystemTimeChangeNotifications() MOZ_OVERRIDE
+  RecvEnableSystemClockChangeNotifications() MOZ_OVERRIDE
   {
-    hal::RegisterSystemTimeChangeObserver(this);
+    hal::RegisterSystemClockChangeObserver(this);
     return true;
   }
 
   virtual bool
-  RecvDisableSystemTimeChangeNotifications() MOZ_OVERRIDE
+  RecvDisableSystemClockChangeNotifications() MOZ_OVERRIDE
   {
-    hal::UnregisterSystemTimeChangeObserver(this);
+    hal::UnregisterSystemClockChangeObserver(this);
+    return true;
+  }
+
+  virtual bool
+  RecvEnableSystemTimezoneChangeNotifications() MOZ_OVERRIDE
+  {
+    hal::RegisterSystemTimezoneChangeObserver(this);
+    return true;
+  }
+
+  virtual bool
+  RecvDisableSystemTimezoneChangeNotifications() MOZ_OVERRIDE
+  {
+    hal::UnregisterSystemTimezoneChangeObserver(this);
     return true;
   }
 
@@ -669,12 +706,13 @@ public:
   }
 
   virtual bool
-  RecvModifyWakeLock(const nsString &aTopic,
-                     const WakeLockControl &aLockAdjust,
-                     const WakeLockControl &aHiddenAdjust) MOZ_OVERRIDE
+  RecvModifyWakeLock(const nsString& aTopic,
+                     const WakeLockControl& aLockAdjust,
+                     const WakeLockControl& aHiddenAdjust,
+                     const uint64_t& aProcessID) MOZ_OVERRIDE
   {
     // We allow arbitrary content to use wake locks.
-    hal::ModifyWakeLock(aTopic, aLockAdjust, aHiddenAdjust);
+    hal::ModifyWakeLockInternal(aTopic, aLockAdjust, aHiddenAdjust, aProcessID);
     return true;
   }
 
@@ -743,9 +781,14 @@ public:
     return true;
   }
 
-  void Notify(const SystemTimeChange& aReason)
+  void Notify(const int64_t& aClockDeltaMS)
   {
-    unused << SendNotifySystemTimeChange(aReason);
+    unused << SendNotifySystemClockChange(aClockDeltaMS);
+  }
+
+  void Notify(const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
+  {
+    unused << SendNotifySystemTimezoneChange(aSystemTimezoneChangeInfo);
   }
 
   virtual bool
@@ -842,6 +885,16 @@ public:
     hal::CancelFMRadioSeek();
     return true;
   }
+
+  virtual bool
+  RecvFactoryReset()
+  {
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
+    hal::FactoryReset();
+    return true;
+  }
 };
 
 class HalChild : public PHalChild {
@@ -886,8 +939,15 @@ public:
   }
 
   virtual bool
-  RecvNotifySystemTimeChange(const SystemTimeChange& aReason) {
-    hal::NotifySystemTimeChange(aReason);
+  RecvNotifySystemClockChange(const int64_t& aClockDeltaMS) {
+    hal::NotifySystemClockChange(aClockDeltaMS);
+    return true;
+  }
+
+  virtual bool
+  RecvNotifySystemTimezoneChange(
+    const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) {
+    hal::NotifySystemTimezoneChange(aSystemTimezoneChangeInfo);
     return true;
   }
 

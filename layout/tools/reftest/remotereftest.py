@@ -6,6 +6,7 @@ import sys
 import os
 import time
 import tempfile
+import traceback
 
 # We need to know our current directory so that we can serve our test files from it.
 SCRIPT_DIRECTORY = os.path.abspath(os.path.realpath(os.path.dirname(sys.argv[0])))
@@ -14,7 +15,7 @@ from runreftest import RefTest
 from runreftest import ReftestOptions
 from automation import Automation
 import devicemanager, devicemanagerADB, devicemanagerSUT
-from remoteautomation import RemoteAutomation
+from remoteautomation import RemoteAutomation, fennecLogcatFilters
 
 class RemoteOptions(ReftestOptions):
     def __init__(self, automation):
@@ -347,12 +348,12 @@ user_pref("capability.principal.codebase.p2.id", "http://%s:%s");
 
     def cleanup(self, profileDir):
         # Pull results back from device
-        if (self.remoteLogFile):
-            try:
-                self._devicemanager.getFile(self.remoteLogFile, self.localLogName)
-            except:
-                print "ERROR: We were not able to retrieve the info from %s" % self.remoteLogFile
-                sys.exit(5)
+        if self.remoteLogFile and \
+                self._devicemanager.fileExists(self.remoteLogFile):
+            self._devicemanager.getFile(self.remoteLogFile, self.localLogName)
+        else:
+            print "WARNING: Unable to retrieve log file (%s) from remote " \
+                "device" % self.remoteLogFile
         self._devicemanager.removeDir(self.remoteProfile)
         self._devicemanager.removeDir(self.remoteTestRoot)
         RefTest.cleanup(self, profileDir)
@@ -435,23 +436,27 @@ def main(args):
 
 #an example manifest name to use on the cli
 #    manifest = "http://" + options.remoteWebServer + "/reftests/layout/reftests/reftest-sanity/reftest.list"
-    logcat = []
+    retVal = 0
     try:
         cmdlineArgs = ["-reftest", manifest]
         if options.bootstrap:
             cmdlineArgs = []
         dm.recordLogcat()
-        reftest.runTests(manifest, options, cmdlineArgs)
-        logcat = dm.getLogcat()
+        retVal = reftest.runTests(manifest, options, cmdlineArgs)
     except:
-        print "TEST-UNEXPECTED-FAIL | | exception while running reftests"
-        reftest.stopWebServer(options)
-        return 1
+        print "Automation Error: Exception caught while running tests"
+        traceback.print_exc()
+        retVal = 1
 
     reftest.stopWebServer(options)
-    print ''.join(logcat[-500:-1])
-    print dm.getInfo()
-    return 0
+    try:
+        logcat = dm.getLogcat(filterOutRegexps=fennecLogcatFilters)
+        print ''.join(logcat)
+        print dm.getInfo()
+    except devicemanager.DMError:
+        print "WARNING: Error getting device information at end of test"
+
+    return retVal
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

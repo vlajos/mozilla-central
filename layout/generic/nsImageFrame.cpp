@@ -52,7 +52,7 @@
 #include "nsDisplayList.h"
 
 #include "imgIContainer.h"
-#include "imgILoader.h"
+#include "imgLoader.h"
 
 #include "nsCSSFrameConstructor.h"
 #include "nsIDOMRange.h"
@@ -158,22 +158,15 @@ NS_QUERYFRAME_HEAD(nsImageFrame)
 NS_QUERYFRAME_TAIL_INHERITING(ImageFrameSuper)
 
 #ifdef ACCESSIBILITY
-already_AddRefed<Accessible>
-nsImageFrame::CreateAccessible()
+a11y::AccType
+nsImageFrame::AccessibleType()
 {
-  nsAccessibilityService* accService = nsIPresShell::AccService();
-  if (accService) {
-    // Don't use GetImageMap() to avoid reentrancy into accessibility.
-    if (HasImageMap()) {
-      return accService->CreateHTMLImageMapAccessible(mContent,
-                                                      PresContext()->PresShell());
-    } else {
-      return accService->CreateHTMLImageAccessible(mContent,
-                                                   PresContext()->PresShell());
-    }
+  // Don't use GetImageMap() to avoid reentrancy into accessibility.
+  if (HasImageMap()) {
+    return a11y::eHTMLImageMapAccessible;
   }
 
-  return nullptr;
+  return a11y::eImageAccessible;
 }
 #endif
 
@@ -686,10 +679,9 @@ nsImageFrame::NotifyNewCurrentRequest(imgIRequest *aRequest,
         presShell->FrameNeedsReflow(this, nsIPresShell::eStyleChange,
                                     NS_FRAME_IS_DIRTY);
       }
-    } else {
-      // Update border+content to account for image change
-      InvalidateFrame();
     }
+    // Update border+content to account for image change
+    InvalidateFrame();
   }
 }
 
@@ -910,8 +902,8 @@ nsImageFrame::Reflow(nsPresContext*          aPresContext,
 
   if (!imageOK || !haveSize) {
     nsRect altFeedbackSize(0, 0,
-                           2*(nsPresContext::CSSPixelsToAppUnits(ICON_SIZE+ICON_PADDING+ALT_BORDER_WIDTH)),
-                           2*(nsPresContext::CSSPixelsToAppUnits(ICON_SIZE+ICON_PADDING+ALT_BORDER_WIDTH)));
+                           nsPresContext::CSSPixelsToAppUnits(ICON_SIZE+2*(ICON_PADDING+ALT_BORDER_WIDTH)),
+                           nsPresContext::CSSPixelsToAppUnits(ICON_SIZE+2*(ICON_PADDING+ALT_BORDER_WIDTH)));
     aMetrics.mOverflowAreas.UnionAllWith(altFeedbackSize);
   }
   FinishAndStoreOverflow(&aMetrics);
@@ -1237,7 +1229,7 @@ nsDisplayImage::Paint(nsDisplayListBuilder* aBuilder,
 }
 
 already_AddRefed<ImageContainer>
-nsDisplayImage::GetContainer()
+nsDisplayImage::GetContainer(nsDisplayListBuilder* aBuilder)
 {
   nsRefPtr<ImageContainer> container;
   nsresult rv = mImage->GetImageContainer(getter_AddRefs(container));
@@ -1825,7 +1817,7 @@ nsImageFrame::LoadIcon(const nsAString& aSpec,
   nsCOMPtr<nsIURI> realURI;
   SpecToURI(aSpec, sIOService, getter_AddRefs(realURI));
  
-  nsCOMPtr<imgILoader> il =
+  nsRefPtr<imgLoader> il =
     nsContentUtils::GetImgLoaderForDocument(aPresContext->Document());
 
   nsCOMPtr<nsILoadGroup> loadGroup;
@@ -1844,7 +1836,6 @@ nsImageFrame::LoadIcon(const nsAString& aSpec,
                        gIconLoad,
                        nullptr,      /* Not associated with any particular document */
                        loadFlags,
-                       nullptr,
                        nullptr,
                        nullptr,      /* channel policy not needed */
                        aRequest);

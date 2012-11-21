@@ -120,6 +120,7 @@ BrowserElementChild.prototype = {
       addMessageListener('browser-element-api:' + msg, handler.bind(self));
     }
 
+    addMsgListener("purge-history", this._recvPurgeHistory);
     addMsgListener("get-screenshot", this._recvGetScreenshot);
     addMsgListener("set-visible", this._recvSetVisible);
     addMsgListener("send-mouse-event", this._recvSendMouseEvent);
@@ -214,7 +215,8 @@ BrowserElementChild.prototype = {
     let returnValue = this._waitForResult(win);
 
     if (args.promptType == 'prompt' ||
-        args.promptType == 'confirm') {
+        args.promptType == 'confirm' ||
+        args.promptType == 'custom-prompt') {
       return returnValue;
     }
   },
@@ -401,7 +403,7 @@ BrowserElementChild.prototype = {
     var menuData = {systemTargets: [], contextmenu: null};
     var ctxMenuId = null;
 
-    while (elem && elem.hasAttribute) {
+    while (elem && elem.parentNode) {
       var ctxData = this._getSystemCtxMenuData(elem);
       if (ctxData) {
         menuData.systemTargets.push({
@@ -410,7 +412,7 @@ BrowserElementChild.prototype = {
         });
       }
 
-      if (!ctxMenuId && elem.hasAttribute('contextmenu')) {
+      if (!ctxMenuId && 'hasAttribute' in elem && elem.hasAttribute('contextmenu')) {
         ctxMenuId = elem.getAttribute('contextmenu');
       }
       elem = elem.parentNode;
@@ -450,20 +452,101 @@ BrowserElementChild.prototype = {
     sendAsyncMsg("scroll", { top: win.scrollY, left: win.scrollX });
   },
 
+  _recvPurgeHistory: function(data) {
+    debug("Received purgeHistory message: (" + data.json.id + ")");
+
+    let history = docShell.QueryInterface(Ci.nsIWebNavigation).sessionHistory;
+
+    try {
+      if (history && history.count) {
+        history.PurgeHistory(history.count);
+      }
+    } catch(e) {}
+
+    sendAsyncMsg('got-purge-history', { id: data.json.id, successRv: true });
+  },
+
   _recvGetScreenshot: function(data) {
     debug("Received getScreenshot message: (" + data.json.id + ")");
+
+    let self = this;
+    let maxWidth = data.json.args.width;
+    let maxHeight = data.json.args.height;
+    let domRequestID = data.json.id;
+
+    let takeScreenshotClosure = function() {
+      self._takeScreenshot(maxWidth, maxHeight, domRequestID);
+    };
+
+    let maxDelayMS = 2000;
+    try {
+      maxDelayMS = Services.prefs.getIntPref('dom.browserElement.maxScreenshotDelayMS');
+    }
+    catch(e) {}
+
+    // Try to wait for the event loop to go idle before we take the screenshot,
+    // but once we've waited maxDelayMS milliseconds, go ahead and take it
+    // anyway.
+    Cc['@mozilla.org/message-loop;1'].getService(Ci.nsIMessageLoop).postIdleTask(
+      takeScreenshotClosure, maxDelayMS);
+  },
+
+  /**
+   * Actually take a screenshot and foward the result up to our parent, given
+   * the desired maxWidth and maxHeight, and given the DOMRequest ID associated
+   * with the request from the parent.
+   */
+  _takeScreenshot: function(maxWidth, maxHeight, domRequestID) {
+    // You can think of the screenshotting algorithm as carrying out the
+    // following steps:
+    //
+    // - Let scaleWidth be the factor by which we'd need to downscale the
+    //   viewport so it would fit within maxWidth.  (If the viewport's width
+    //   is less than maxWidth, let scaleWidth be 1.) Compute scaleHeight
+    //   the same way.
+    //
+    // - Scale the viewport by max(scaleWidth, scaleHeight).  Now either the
+    //   viewport's width is no larger than maxWidth, the viewport's height is
+    //   no larger than maxHeight, or both.
+    //
+    // - Crop the viewport so its width is no larger than maxWidth and its
+    //   height is no larger than maxHeight.
+    //
+    // - Return a screenshot of the page's viewport scaled and cropped per
+    //   above.
+    debug("Taking a screenshot: maxWidth=" + maxWidth +
+          ", maxHeight=" + maxHeight +
+          ", domRequestID=" + domRequestID + ".");
+
+    let scaleWidth = Math.min(1, maxWidth / content.innerWidth);
+    let scaleHeight = Math.min(1, maxHeight / content.innerHeight);
+
+    let scale = Math.max(scaleWidth, scaleHeight);
+
+    let canvasWidth = Math.min(maxWidth, Math.round(content.innerWidth * scale));
+    let canvasHeight = Math.min(maxHeight, Math.round(content.innerHeight * scale));
+
     var canvas = content.document
       .createElementNS("http://www.w3.org/1999/xhtml", "canvas");
-    var ctx = canvas.getContext("2d");
     canvas.mozOpaque = true;
-    canvas.height = content.innerHeight;
-    canvas.width = content.innerWidth;
-    ctx.drawWindow(content, 0, 0, content.innerWidth,
-                   content.innerHeight, "rgb(255,255,255)");
-    sendAsyncMsg('got-screenshot', {
-      id: data.json.id,
-      rv: canvas.toDataURL("image/png")
-    });
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    var ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.drawWindow(content, 0, 0, content.innerWidth, content.innerHeight,
+                   "rgb(255,255,255)");
+
+    // Take a JPEG screenshot to hack around the fact that we can't specify
+    // opaque PNG.  This requires us to unpremultiply the alpha channel, which
+    // is expensive on ARM processors because they lack a hardware integer
+    // division instruction.
+    canvas.toBlob(function(blob) {
+      sendAsyncMsg('got-screenshot', {
+        id: domRequestID,
+        successRv: blob
+      });
+    }, 'image/jpeg');
   },
 
   _recvFireCtxCallback: function(data) {
@@ -473,7 +556,7 @@ BrowserElementChild.prototype = {
       this._ctxHandlers[data.json.menuitem].click();
       this._ctxHandlers = {};
     } else {
-      debug("Ignored invalid contextmenu invokation");
+      debug("Ignored invalid contextmenu invocation");
     }
   },
 
@@ -547,7 +630,7 @@ BrowserElementChild.prototype = {
     var webNav = docShell.QueryInterface(Ci.nsIWebNavigation);
     sendAsyncMsg('got-can-go-back', {
       id: data.json.id,
-      rv: webNav.canGoBack
+      successRv: webNav.canGoBack
     });
   },
 
@@ -555,7 +638,7 @@ BrowserElementChild.prototype = {
     var webNav = docShell.QueryInterface(Ci.nsIWebNavigation);
     sendAsyncMsg('got-can-go-forward', {
       id: data.json.id,
-      rv: webNav.canGoForward
+      successRv: webNav.canGoForward
     });
   },
 
@@ -620,6 +703,10 @@ BrowserElementChild.prototype = {
       if (!this._seenLoadStart) {
         return;
       }
+
+      // Remove password and wyciwyg from uri.
+      location = Cc["@mozilla.org/docshell/urifixup;1"]
+        .getService(Ci.nsIURIFixup).createExposableURI(location);
 
       sendAsyncMsg('locationchange', location.spec);
     },

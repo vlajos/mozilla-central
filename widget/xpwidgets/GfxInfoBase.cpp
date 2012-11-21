@@ -21,6 +21,7 @@
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
 #include "nsIDOMElement.h"
+#include "nsIDOMHTMLCollection.h"
 #include "nsIDOMNode.h"
 #include "nsIDOMNodeList.h"
 #include "nsTArray.h"
@@ -119,6 +120,9 @@ GetPrefNameForFeature(int32_t aFeature)
       break;
     case nsIGfxInfo::FEATURE_WEBGL_MSAA:
       name = BLACKLIST_PREF_BRANCH "webgl.msaa";
+      break;
+    case nsIGfxInfo::FEATURE_STAGEFRIGHT:
+      name = BLACKLIST_PREF_BRANCH "stagefright";
       break;
     default:
       break;
@@ -225,7 +229,7 @@ BlacklistOSToOperatingSystem(const nsAString& os)
 }
 
 static GfxDeviceFamily*
-BlacklistDevicesToDeviceFamily(nsIDOMNodeList* aDevices)
+BlacklistDevicesToDeviceFamily(nsIDOMHTMLCollection* aDevices)
 {
   uint32_t length;
   if (NS_FAILED(aDevices->GetLength(&length)))
@@ -269,7 +273,8 @@ BlacklistFeatureToGfxFeature(const nsAString& aFeature)
     return nsIGfxInfo::FEATURE_WEBGL_ANGLE;
   else if (aFeature == NS_LITERAL_STRING("WEBGL_MSAA"))
     return nsIGfxInfo::FEATURE_WEBGL_MSAA;
-
+  else if (aFeature == NS_LITERAL_STRING("STAGEFRIGHT"))
+    return nsIGfxInfo::FEATURE_STAGEFRIGHT;
   return 0;
 }
 
@@ -323,7 +328,7 @@ BlacklistNodeGetChildByName(nsIDOMElement *element,
                             const nsAString& tagname,
                             nsIDOMNode** firstchild)
 {
-  nsCOMPtr<nsIDOMNodeList> nodelist;
+  nsCOMPtr<nsIDOMHTMLCollection> nodelist;
   if (NS_FAILED(element->GetElementsByTagName(tagname,
                                               getter_AddRefs(nodelist))) ||
       !nodelist) {
@@ -378,6 +383,13 @@ BlacklistEntryToDriverInfo(nsIDOMNode* aBlacklistEntry,
     aDriverInfo.mOperatingSystem = BlacklistOSToOperatingSystem(dataValue);
   }
 
+  // <osversion>14</osversion> currently only used for Android
+  if (BlacklistNodeGetChildByName(element, NS_LITERAL_STRING("osversion"),
+                                  getter_AddRefs(dataNode))) {
+    BlacklistNodeToTextValue(dataNode, dataValue);
+    aDriverInfo.mOperatingSystemVersion = strtoul(NS_LossyConvertUTF16toASCII(dataValue).get(), NULL, 10);
+  }
+
   // <vendor>0x8086</vendor>
   if (BlacklistNodeGetChildByName(element, NS_LITERAL_STRING("vendor"),
                                   getter_AddRefs(dataNode))) {
@@ -396,7 +408,7 @@ BlacklistEntryToDriverInfo(nsIDOMNode* aBlacklistEntry,
 
       // Get only the <device> nodes, because BlacklistDevicesToDeviceFamily
       // assumes it is passed no other nodes.
-      nsCOMPtr<nsIDOMNodeList> devices;
+      nsCOMPtr<nsIDOMHTMLCollection> devices;
       if (NS_SUCCEEDED(devicesElement->GetElementsByTagName(NS_LITERAL_STRING("device"),
                                                             getter_AddRefs(devices)))) {
         GfxDeviceFamily* deviceIds = BlacklistDevicesToDeviceFamily(devices);
@@ -439,13 +451,38 @@ BlacklistEntryToDriverInfo(nsIDOMNode* aBlacklistEntry,
     aDriverInfo.mComparisonOp = BlacklistComparatorToComparisonOp(dataValue);
   }
 
+  // <model>foo</model>
+  if (BlacklistNodeGetChildByName(element, NS_LITERAL_STRING("model"),
+                                  getter_AddRefs(dataNode))) {
+    BlacklistNodeToTextValue(dataNode, dataValue);
+    aDriverInfo.mModel = dataValue;
+  }
+  // <product>foo</product>
+  if (BlacklistNodeGetChildByName(element, NS_LITERAL_STRING("product"),
+                                  getter_AddRefs(dataNode))) {
+    BlacklistNodeToTextValue(dataNode, dataValue);
+    aDriverInfo.mProduct = dataValue;
+  }
+  // <manufacturer>foo</manufacturer>
+  if (BlacklistNodeGetChildByName(element, NS_LITERAL_STRING("manufacturer"),
+                                  getter_AddRefs(dataNode))) {
+    BlacklistNodeToTextValue(dataNode, dataValue);
+    aDriverInfo.mManufacturer = dataValue;
+  }
+  // <hardware>foo</hardware>
+  if (BlacklistNodeGetChildByName(element, NS_LITERAL_STRING("hardware"),
+                                  getter_AddRefs(dataNode))) {
+    BlacklistNodeToTextValue(dataNode, dataValue);
+    aDriverInfo.mHardware = dataValue;
+  }
+
   // We explicitly ignore unknown elements.
 
   return true;
 }
 
 static void
-BlacklistEntriesToDriverInfo(nsIDOMNodeList* aBlacklistEntries,
+BlacklistEntriesToDriverInfo(nsIDOMHTMLCollection* aBlacklistEntries,
                              nsTArray<GfxDriverInfo>& aDriverInfo)
 {
   uint32_t length;
@@ -476,7 +513,7 @@ GfxInfoBase::Observe(nsISupports* aSubject, const char* aTopic,
   if (strcmp(aTopic, "blocklist-data-gfxItems") == 0) {
     nsCOMPtr<nsIDOMElement> gfxItems = do_QueryInterface(aSubject);
     if (gfxItems) {
-      nsCOMPtr<nsIDOMNodeList> blacklistEntries;
+      nsCOMPtr<nsIDOMHTMLCollection> blacklistEntries;
       if (NS_SUCCEEDED(gfxItems->
             GetElementsByTagName(NS_LITERAL_STRING(BLACKLIST_ENTRY_TAG_NAME),
                                  getter_AddRefs(blacklistEntries))) &&
@@ -554,6 +591,10 @@ GfxInfoBase::FindBlocklistedDeviceInList(const nsTArray<GfxDriverInfo>& info,
       continue;
     }
 
+    if (info[i].mOperatingSystemVersion && info[i].mOperatingSystemVersion != OperatingSystemVersion()) {
+        continue;
+    }
+
     if (!info[i].mAdapterVendor.Equals(GfxDriverInfo::GetDeviceVendor(VendorAll), nsCaseInsensitiveStringComparator()) &&
         !info[i].mAdapterVendor.Equals(adapterVendorID, nsCaseInsensitiveStringComparator())) {
       continue;
@@ -574,6 +615,19 @@ GfxInfoBase::FindBlocklistedDeviceInList(const nsTArray<GfxDriverInfo>& info,
     }
 
     bool match = false;
+
+    if (!info[i].mHardware.IsEmpty() && !info[i].mHardware.Equals(Hardware())) {
+        continue;
+    }
+    if (!info[i].mModel.IsEmpty() && !info[i].mModel.Equals(Model())) {
+        continue;
+    }
+    if (!info[i].mProduct.IsEmpty() && !info[i].mProduct.Equals(Product())) {
+        continue;
+    }
+    if (!info[i].mManufacturer.IsEmpty() && !info[i].mManufacturer.Equals(Manufacturer())) {
+        continue;
+    }
 
 #if defined(XP_WIN) || defined(ANDROID)
     switch (info[i].mComparisonOp) {
@@ -740,6 +794,7 @@ GfxInfoBase::EvaluateDownloadedBlacklist(nsTArray<GfxDriverInfo>& aDriverInfo)
     nsIGfxInfo::FEATURE_WEBGL_OPENGL,
     nsIGfxInfo::FEATURE_WEBGL_ANGLE,
     nsIGfxInfo::FEATURE_WEBGL_MSAA,
+    nsIGfxInfo::FEATURE_STAGEFRIGHT,
     0
   };
 

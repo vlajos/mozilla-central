@@ -77,9 +77,11 @@
 #include "TraceLogging.h"
 #endif
 
-using namespace mozilla;
 using namespace js;
 using namespace js::cli;
+
+using mozilla::ArrayLength;
+using mozilla::Maybe;
 
 typedef enum JSShellExitCode {
     EXITCODE_RUNTIME_ERROR      = 3,
@@ -359,9 +361,6 @@ SetContextOptions(JSContext *cx)
 static void
 SkipUTF8BOM(FILE* file)
 {
-    if (!js_CStringsAreUTF8)
-        return;
-
     int ch1 = fgetc(file);
     int ch2 = fgetc(file);
     int ch3 = fgetc(file);
@@ -432,7 +431,10 @@ Process(JSContext *cx, JSObject *obj_, const char *filename, bool forceTTY)
         oldopts = JS_GetOptions(cx);
         gGotError = false;
         JS_SetOptions(cx, oldopts | JSOPTION_COMPILE_N_GO | JSOPTION_NO_SCRIPT_RVAL);
-        script = JS_CompileUTF8FileHandle(cx, obj, filename, file);
+        CompileOptions options(cx);
+        options.setUTF8(true)
+               .setFileAndLine(filename, 1);
+        script = JS::Compile(cx, obj, options, file);
         JS_SetOptions(cx, oldopts);
         JS_ASSERT_IF(!script, gGotError);
         if (script && !compileOnly) {
@@ -509,19 +511,19 @@ Process(JSContext *cx, JSObject *obj_, const char *filename, bool forceTTY)
                 hitEOF = true;
                 break;
             }
-        } while (!JS_BufferIsCompilableUnit(cx, true, obj, buffer, len));
+        } while (!JS_BufferIsCompilableUnit(cx, obj, buffer, len));
 
         if (hitEOF && !buffer)
             break;
 
-        if (!JS_DecodeUTF8(cx, buffer, len, NULL, &uc_len)) {
+        if (!InflateUTF8StringToBuffer(cx, buffer, len, NULL, &uc_len)) {
             JS_ReportError(cx, "Invalid UTF-8 in input");
             gExitCode = EXITCODE_RUNTIME_ERROR;
             return;
         }
 
         uc_buffer = (jschar*)malloc(uc_len * sizeof(jschar));
-        JS_DecodeUTF8(cx, buffer, len, uc_buffer, &uc_len);
+        InflateUTF8StringToBuffer(cx, buffer, len, uc_buffer, &uc_len);
 
         /* Clear any pending exception from previous failed compiles. */
         JS_ClearPendingException(cx);
@@ -573,7 +575,6 @@ static const struct JSOption {
     {"atline",          JSOPTION_ATLINE},
     {"methodjit",       JSOPTION_METHODJIT},
     {"methodjit_always",JSOPTION_METHODJIT_ALWAYS},
-    {"relimit",         JSOPTION_RELIMIT},
     {"strict",          JSOPTION_STRICT},
     {"typeinfer",       JSOPTION_TYPE_INFERENCE},
     {"werror",          JSOPTION_WERROR},
@@ -716,7 +717,7 @@ Load(JSContext *cx, unsigned argc, jsval *vp)
             return false;
         errno = 0;
         CompileOptions opts(cx);
-        opts.setCompileAndGo(true).setNoScriptRval(true);
+        opts.setUTF8(true).setCompileAndGo(true).setNoScriptRval(true);
         if ((compileOnly && !Compile(cx, thisobj, opts, filename.ptr())) ||
             !Evaluate(cx, thisobj, opts, filename.ptr(), NULL))
         {
@@ -968,14 +969,14 @@ FileAsString(JSContext *cx, const char *pathname)
 
                     len = (size_t)cc;
 
-                    if (!JS_DecodeUTF8(cx, buf, len, NULL, &uclen)) {
+                    if (!InflateUTF8StringToBuffer(cx, buf, len, NULL, &uclen)) {
                         JS_ReportError(cx, "Invalid UTF-8 in file '%s'", pathname);
                         gExitCode = EXITCODE_RUNTIME_ERROR;
                         return NULL;
                     }
 
                     ucbuf = (jschar*)malloc(uclen * sizeof(jschar));
-                    JS_DecodeUTF8(cx, buf, len, ucbuf, &uclen);
+                    InflateUTF8StringToBuffer(cx, buf, len, ucbuf, &uclen);
                     str = JS_NewUCStringCopyN(cx, ucbuf, uclen);
                     free(ucbuf);
                 }
@@ -1312,11 +1313,11 @@ AssertJit(JSContext *cx, unsigned argc, jsval *vp)
 static JSScript *
 ValueToScript(JSContext *cx, jsval v, JSFunction **funp = NULL)
 {
-    JSFunction *fun = JS_ValueToFunction(cx, v);
+    RootedFunction fun(cx, JS_ValueToFunction(cx, v));
     if (!fun)
         return NULL;
 
-    JSScript *script = fun->maybeScript();
+    RootedScript script(cx, fun->maybeScript());
     if (!script)
         JS_ReportErrorNumber(cx, my_GetErrorMessage, NULL, JSSMSG_SCRIPTS_ONLY);
 
@@ -1399,7 +1400,7 @@ TrapHandler(JSContext *cx, JSScript *, jsbytecode *pc, jsval *rval,
 
     /* Debug-mode currently disables Ion compilation. */
     JSStackFrame *caller = Jsvalify(iter.interpFrame());
-    JSScript *script = iter.script();
+    RawScript script = iter.script().unsafeGet();
 
     size_t length;
     const jschar *chars = JS_GetStringCharsAndLength(cx, str, &length);
@@ -1755,18 +1756,20 @@ DisassembleScript(JSContext *cx, JSScript *script_, JSFunction *fun, bool lines,
 {
     Rooted<JSScript*> script(cx, script_);
 
-    if (fun && (fun->flags & ~7U)) {
-        uint16_t flags = fun->flags;
+    if (fun) {
         Sprint(sp, "flags:");
-
-#define SHOW_FLAG(flag) if (flags & JSFUN_##flag) Sprint(sp, " " #flag);
-
-        SHOW_FLAG(LAMBDA);
-        SHOW_FLAG(HEAVYWEIGHT);
-        SHOW_FLAG(EXPR_CLOSURE);
-
-#undef SHOW_FLAG
-
+        if (fun->isLambda())
+            Sprint(sp, " LAMBDA");
+        if (fun->isHeavyweight())
+            Sprint(sp, " HEAVYWEIGHT");
+        if (fun->isExprClosure())
+            Sprint(sp, " EXPRESSION CLOSURE");
+        if (fun->isFunctionPrototype())
+            Sprint(sp, " Function.prototype");
+        if (fun->isSelfHostedBuiltin())
+            Sprint(sp, " SELF_HOSTED");
+        if (fun->isSelfHostedConstructor())
+            Sprint(sp, " SELF_HOSTED_CTOR");
         Sprint(sp, "\n");
     }
 
@@ -1778,11 +1781,11 @@ DisassembleScript(JSContext *cx, JSScript *script_, JSFunction *fun, bool lines,
     if (recursive && script->hasObjects()) {
         ObjectArray *objects = script->objects();
         for (unsigned i = 0; i != objects->length; ++i) {
-            JSObject *obj = objects->vector[i];
+            RawObject obj = objects->vector[i];
             if (obj->isFunction()) {
                 Sprint(sp, "\n");
-                JSFunction *fun = obj->toFunction();
-                JSScript *nested = fun->maybeScript();
+                RawFunction fun = obj->toFunction();
+                RawScript nested = fun->maybeScript().unsafeGet();
                 if (!DisassembleScript(cx, nested, fun, lines, recursive, sp))
                     return false;
             }
@@ -1908,7 +1911,10 @@ DisassFile(JSContext *cx, unsigned argc, jsval *vp)
 
     uint32_t oldopts = JS_GetOptions(cx);
     JS_SetOptions(cx, oldopts | JSOPTION_COMPILE_N_GO | JSOPTION_NO_SCRIPT_RVAL);
-    JSScript *script = JS_CompileUTF8File(cx, thisobj, filename.ptr());
+    CompileOptions options(cx);
+    options.setUTF8(true)
+           .setFileAndLine(filename.ptr(), 1);
+    JSScript *script = JS::Compile(cx, thisobj, options, filename.ptr());
     JS_SetOptions(cx, oldopts);
     if (!script)
         return false;
@@ -2033,6 +2039,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
     void *thingToIgnore;
     FILE *dumpFile;
     bool ok;
+    AssertCanGC();
 
     const char *fileName = NULL;
     JSAutoByteString fileNameBytes;
@@ -2048,6 +2055,20 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
             if (!fileNameBytes.encode(cx, str))
                 return false;
             fileName = fileNameBytes.ptr();
+        }
+    }
+
+    // Grab the depth param first, because JS_ValueToECMAUint32 can GC, and
+    // there's no easy way to root the traceable void* parameters below.
+    maxDepth = (size_t)-1;
+    if (argc > 3) {
+        v = JS_ARGV(cx, vp)[3];
+        if (!JSVAL_IS_NULL(v)) {
+            uint32_t depth;
+
+            if (!JS_ValueToECMAUint32(cx, v, &depth))
+                return false;
+            maxDepth = depth;
         }
     }
 
@@ -2072,18 +2093,6 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
         } else if (!JSVAL_IS_NULL(v)) {
             badTraceArg = "toFind";
             goto not_traceable_arg;
-        }
-    }
-
-    maxDepth = (size_t)-1;
-    if (argc > 3) {
-        v = JS_ARGV(cx, vp)[3];
-        if (!JSVAL_IS_NULL(v)) {
-            uint32_t depth;
-
-            if (!JS_ValueToECMAUint32(cx, v, &depth))
-                return false;
-            maxDepth = depth;
         }
     }
 
@@ -2298,13 +2307,6 @@ ToInt32(JSContext *cx, unsigned argc, jsval *vp)
     return true;
 }
 
-static JSBool
-StringsAreUTF8(JSContext *cx, unsigned argc, jsval *vp)
-{
-    *vp = JS_CStringsAreUTF8() ? JSVAL_TRUE : JSVAL_FALSE;
-    return true;
-}
-
 static const char* badUTF8 = "...\xC0...";
 static const char* bigUTF8 = "...\xFB\xBF\xBF\xBF\xBF...";
 static const jschar badSurrogate[] = { 'A', 'B', 'C', 0xDEEE, 'D', 'E', 0 };
@@ -2332,7 +2334,7 @@ TestUTF8(JSContext *cx, unsigned argc, jsval *vp)
         break;
       /* mode 3: bad surrogate character. */
       case 3:
-        JS_EncodeCharacters(cx, badSurrogate, 6, bytes, &bytesLength);
+        DeflateStringToBuffer(cx, badSurrogate, 6, bytes, &bytesLength);
         break;
       /* mode 4: use a too small buffer. */
       case 4:
@@ -2520,6 +2522,13 @@ EvalInFrame(JSContext *cx, unsigned argc, jsval *vp)
 
     JS_ASSERT(cx->hasfp());
 
+    /* This is a copy of CheckDebugMode. */
+    if (!JS_GetDebugMode(cx)) {
+        JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage,
+                                     NULL, JSMSG_NEED_DEBUG_MODE);
+        return false;
+    }
+
     /* Debug-mode currently disables Ion compilation. */
     ScriptFrameIter fi(cx);
     for (uint32_t i = 0; i < upCount; ++i, ++fi) {
@@ -2537,9 +2546,10 @@ EvalInFrame(JSContext *cx, unsigned argc, jsval *vp)
         return false;
 
     StackFrame *fp = fi.interpFrame();
+    RootedScript fpscript(cx, fp->script());
     bool ok = !!JS_EvaluateUCInStackFrame(cx, Jsvalify(fp), chars, length,
-                                          fp->script()->filename,
-                                          JS_PCToLineNumber(cx, fp->script(),
+                                          fpscript->filename,
+                                          JS_PCToLineNumber(cx, fpscript,
                                                             fi.pc()),
                                           vp);
 
@@ -2785,24 +2795,24 @@ WatchdogMain(void *arg)
     while (gWatchdogThread) {
          int64_t now = PRMJ_Now();
          if (gWatchdogHasTimeout && !IsBefore(now, gWatchdogTimeout)) {
-            /*
-             * The timeout has just expired. Trigger the operation callback
-             * outside the lock.
-             */
-            gWatchdogHasTimeout = false;
-            PR_Unlock(gWatchdogLock);
-            CancelExecution(rt);
-            PR_Lock(gWatchdogLock);
+             /*
+              * The timeout has just expired. Trigger the operation callback
+              * outside the lock.
+              */
+             gWatchdogHasTimeout = false;
+             PR_Unlock(gWatchdogLock);
+             CancelExecution(rt);
+             PR_Lock(gWatchdogLock);
 
-            /* Wake up any threads doing sleep. */
-            PR_NotifyAllCondVar(gSleepWakeup);
+             /* Wake up any threads doing sleep. */
+             PR_NotifyAllCondVar(gSleepWakeup);
         } else {
-            int64_t sleepDuration = gWatchdogHasTimeout
-                                    ? gWatchdogTimeout - now
-                                    : PR_INTERVAL_NO_TIMEOUT;
-            DebugOnly<PRStatus> status =
-                PR_WaitCondVar(gWatchdogWakeup, sleepDuration);
-            JS_ASSERT(status == PR_SUCCESS);
+             uint64_t sleepDuration = PR_INTERVAL_NO_TIMEOUT;
+             if (gWatchdogHasTimeout)
+                 sleepDuration = (gWatchdogTimeout - now) / PRMJ_USEC_PER_SEC * PR_TicksPerSecond();
+             mozilla::DebugOnly<PRStatus> status =
+               PR_WaitCondVar(gWatchdogWakeup, sleepDuration);
+             JS_ASSERT(status == PR_SUCCESS);
         }
     }
     PR_Unlock(gWatchdogLock);
@@ -3271,7 +3281,7 @@ Wrap(JSContext *cx, unsigned argc, jsval *vp)
     if (!JSObject::getProto(cx, obj, &proto))
         return false;
     JSObject *wrapped = Wrapper::New(cx, obj, proto, &obj->global(),
-                                     &DirectWrapper::singleton);
+                                     &Wrapper::singleton);
     if (!wrapped)
         return false;
 
@@ -3295,7 +3305,7 @@ WrapWithProto(JSContext *cx, unsigned argc, jsval *vp)
 
     JSObject *wrapped = Wrapper::New(cx, &obj.toObject(), proto.toObjectOrNull(),
                                      &obj.toObject().global(),
-                                     &DirectWrapper::singletonWithPrototype);
+                                     &Wrapper::singletonWithPrototype);
     if (!wrapped)
         return false;
 
@@ -3417,7 +3427,7 @@ RelaxRootChecks(JSContext *cx, unsigned argc, jsval *vp)
     }
 
 #ifdef DEBUG
-    cx->runtime->gcRelaxRootChecks = true;
+    cx->runtime->mainThread.gcRelaxRootChecks = true;
 #endif
 
     return true;
@@ -3530,10 +3540,6 @@ static JSFunctionSpecWithHelp shell_functions[] = {
     JS_FN_HELP("pc2line", PCToLine, 0, 0,
 "pc2line(fun[, pc])",
 "  Map PC to line number."),
-
-    JS_FN_HELP("stringsAreUTF8", StringsAreUTF8, 0, 0,
-"stringsAreUTF8()",
-"  Check if strings are UTF-8 encoded."),
 
     JS_FN_HELP("testUTF8", TestUTF8, 1, 0,
 "testUTF8(mode)",
@@ -4577,6 +4583,14 @@ ProcessArgs(JSContext *cx, JSObject *obj_, OptionParser *op)
     if (op->getBoolOption('c'))
         compileOnly = true;
 
+    if (op->getBoolOption('w'))
+        reportWarnings = JS_TRUE;
+    else if (op->getBoolOption('W'))
+        reportWarnings = JS_FALSE;
+
+    if (op->getBoolOption('s'))
+        JS_ToggleOptions(cx, JSOPTION_STRICT);
+
     if (op->getBoolOption("no-jm")) {
         enableMethodJit = false;
         JS_ToggleOptions(cx, JSOPTION_METHODJIT);
@@ -4854,6 +4868,9 @@ main(int argc, char **argv, char **envp)
         || !op.addBoolOption('n', "ti", "Enable type inference (default)")
         || !op.addBoolOption('\0', "no-ti", "Disable type inference")
         || !op.addBoolOption('c', "compileonly", "Only compile, don't run (syntax checking mode)")
+        || !op.addBoolOption('w', "warnings", "Emit warnings")
+        || !op.addBoolOption('W', "nowarnings", "Don't emit warnings")
+        || !op.addBoolOption('s', "strict", "Check strictness")
         || !op.addBoolOption('d', "debugjit", "Enable runtime debug mode for method JIT code")
         || !op.addBoolOption('a', "always-mjit",
                              "Do not try to run in the interpreter before method jitting.")
@@ -4863,7 +4880,6 @@ main(int argc, char **argv, char **envp)
         || !op.addIntOption('A', "oom-after", "COUNT", "Trigger OOM after COUNT allocations", -1)
         || !op.addBoolOption('O', "print-alloc", "Print the number of allocations at exit")
 #endif
-        || !op.addBoolOption('U', "utf8", "C strings passed to the JSAPI are UTF-8 encoded")
         || !op.addOptionalStringArg("script", "A script to execute (after all options)")
         || !op.addOptionalMultiStringArg("scriptArgs",
                                          "String arguments to bind as |arguments| in the "
@@ -4928,19 +4944,8 @@ main(int argc, char **argv, char **envp)
         OOM_printAllocationCount = true;
 #endif
 
-    /* Must be done before we create the JSRuntime. */
-    if (op.getBoolOption('U'))
-        JS_SetCStringsAreUTF8();
-
-#ifdef XP_WIN
-    // Set the timer calibration delay count to 0 so we get high
-    // resolution right away, which we need for precise benchmarking.
-    extern int CALIBRATION_DELAY_COUNT;
-    CALIBRATION_DELAY_COUNT = 0;
-#endif
-
     /* Use the same parameters as the browser in xpcjsruntime.cpp. */
-    rt = JS_NewRuntime(32L * 1024L * 1024L);
+    rt = JS_NewRuntime(32L * 1024L * 1024L, JS_USE_HELPER_THREADS);
     if (!rt)
         return 1;
 

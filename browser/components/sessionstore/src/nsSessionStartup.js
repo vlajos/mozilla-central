@@ -38,6 +38,7 @@ const Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/TelemetryStopwatch.jsm");
+Cu.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
 
 const STATE_RUNNING_STR = "running";
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 megabytes
@@ -67,7 +68,8 @@ SessionStartup.prototype = {
     // do not need to initialize anything in auto-started private browsing sessions
     let pbs = Cc["@mozilla.org/privatebrowsing;1"].
               getService(Ci.nsIPrivateBrowsingService);
-    if (pbs.autoStarted || pbs.lastChangedByCommandLine)
+    if (PrivateBrowsingUtils.permanentPrivateBrowsing ||
+        pbs.lastChangedByCommandLine)
       return;
 
     let prefBranch = Cc["@mozilla.org/preferences-service;1"].
@@ -317,4 +319,4 @@ SessionStartup.prototype = {
   classID:          Components.ID("{ec7a6c20-e081-11da-8ad9-0800200c9a66}"),
 };
 
-var NSGetFactory = XPCOMUtils.generateNSGetFactory([SessionStartup]);
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SessionStartup]);
