@@ -46,6 +46,13 @@ public:
   virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface);
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface);
 
+  virtual PTextureParent* AllocPTexture() { return nullptr; } // TODO[nical]
+  virtual bool DeallocPTexture(PTextureParent* tc) {
+    delete tc;
+    return true;
+  } // TODO[nical]
+
+
 protected:
   virtual bool RecvUpdate(const EditArray& cset,
                           const TargetConfig& targetConfig,

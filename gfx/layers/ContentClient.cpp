@@ -58,7 +58,8 @@ ContentClientRemote::CreateBuffer(ContentType aType,
                                             mLayer, AllowRepeat, true).drop());
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
                                       aType);
-  return mTextureClient->LockSurface();
+  nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
+  return ret.forget();
 }
 
 void

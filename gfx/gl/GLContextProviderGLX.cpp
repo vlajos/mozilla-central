@@ -1027,7 +1027,7 @@ private:
                    GLXPixmap aPixmap,
                    TextureImage::Flags aFlags,
                    LibType aLibType)
-        : TextureImage(aSize, aWrapMode, aContentType, aFlags)
+        : TextureImage(aContext, aSize, aWrapMode, aContentType, aFlags)
         , mGLContext(aContext)
         , mUpdateSurface(aSurface)
         , mPixmap(aPixmap)

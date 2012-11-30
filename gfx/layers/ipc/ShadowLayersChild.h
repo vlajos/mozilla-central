@@ -28,6 +28,12 @@ public:
    */
   void Destroy();
 
+  virtual PTextureChild* AllocPTexture() { return nullptr; } // TODO[nical]
+  virtual bool DeallocPTexture(PTextureChild* tc) { 
+    delete tc;
+    return true;
+  } // TODO[nical]
+
 protected:
   virtual PGrallocBufferChild*
   AllocPGrallocBuffer(const gfxIntSize&, const gfxContentType&,

@@ -210,11 +210,11 @@ struct OpSetLayerAttributes {
   LayerAttributes attrs;
 };
 
-/*struct OpCreateTextureHost {
+struct OpCreateTextureHost {
   PLayer layer;
   TextureIdentifier textureIdentifier;
   int textureFlags;
-};*/
+};
 
 // Monkey with the tree structure
 struct OpSetRoot          { PLayer root; };
@@ -245,7 +245,7 @@ struct OpPaintCanvas  {
   bool needYFlip;
 };
 
-/*struct OpPaintTexture {
+struct OpPaintTexture {
   PLayer layer;
   TextureIdentifier textureIdentifier;
   SharedImage image;
@@ -256,11 +256,12 @@ struct OpPaintTextureRegion {
   TextureIdentifier textureIdentifier;
   ThebesBuffer newFrontBuffer;
   nsIntRegion updatedRegion;
-};*/
+};
 
 //TODO[nrc] names
 struct OpCreateTexture { PTexture texture; };
 
+/*
 struct OpPaintTexture {
   PTexture texture;
   SharedImage image;
@@ -271,6 +272,7 @@ struct OpPaintTextureRegion {
   ThebesBuffer newFrontBuffer;
   nsIntRegion updatedRegion;
 };
+*/
 
 struct OpUpdatePictureRect {
   PLayer layer;
@@ -285,6 +287,8 @@ union Edit {
   OpCreateColorLayer;
   OpCreateCanvasLayer;
   OpCreateRefLayer;
+  OpCreateTexture;
+  OpCreateTextureHost;
 
   OpSetLayerAttributes;
   
@@ -300,7 +304,6 @@ union Edit {
   OpPaintCanvas;
   OpUpdatePictureRect;
 
-  OpCreateTexture;
   OpPaintTexture;
   OpPaintTextureRegion;
 };

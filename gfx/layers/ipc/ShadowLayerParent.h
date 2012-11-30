@@ -31,6 +31,12 @@ public:
   Layer* AsLayer() const { return mLayer; }
   ContainerLayer* AsContainer() const;
 
+  virtual PTextureParent* AllocPTexture() { return nullptr; } // TODO[nical]
+  virtual bool DeallocPTexture(PTextureParent* tc) {
+    delete tc;
+    return true;
+  } // TODO[nical]
+
 private:
   virtual void ActorDestroy(ActorDestroyReason why) MOZ_OVERRIDE;
 

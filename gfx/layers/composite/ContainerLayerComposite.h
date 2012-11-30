@@ -25,7 +25,7 @@ class ContainerLayerComposite : public ShadowContainerLayer,
   template<class ContainerT,
            class LayerT,
            class ManagerT>
-  friend class ContainerLayerImpl;
+  friend class mozilla::layers::ContainerLayerImpl;
 
 public:
   ContainerLayerComposite(LayerManagerComposite *aManager);
@@ -65,7 +65,7 @@ class CompositeRefLayer : public ShadowRefLayer,
   template<class ContainerT,
          class LayerT,
          class ManagerT>
-  friend class ContainerLayerImpl;
+  friend class mozilla::layers::ContainerLayerImpl;
 
 public:
   CompositeRefLayer(LayerManagerComposite *aManager);

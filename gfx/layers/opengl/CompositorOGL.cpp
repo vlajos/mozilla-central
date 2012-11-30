@@ -1262,7 +1262,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     program->Activate();
     program->SetTextureUnit(0);
-    program->SetLayerOpacity(aOpacity);
+    // program->SetLayerOpacity(aOpacity); // TODO[nical]
     program->SetLayerTransform(aTransform);
     program->SetRenderOffset(aOffset.x, aOffset.y);
     program->SetLayerQuadRect(aRect);
@@ -1323,7 +1323,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     if (aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
       mGLContext->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, texture->GetTextureHandle());
     } else {
-      mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, texture->GetTextureHandle());
+      texture->BindTexture(0);
     }
 
     mGLContext->ApplyFilterToBoundTexture(filter);

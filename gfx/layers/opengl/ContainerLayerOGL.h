@@ -20,9 +20,9 @@ class ContainerLayerOGL : public ContainerLayer,
                                                      LayerManagerOGL>
 {
   template<class ContainerT,
-         class LayerT,
-         class ManagerT>
-  friend class ContainerLayerImpl;
+           class LayerT,
+           class ManagerT>
+  friend class mozilla::layers::ContainerLayerImpl;
 public:
   ContainerLayerOGL(LayerManagerOGL *aManager);
   ~ContainerLayerOGL();

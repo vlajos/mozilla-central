@@ -156,11 +156,16 @@ TextureImageAsTextureHost::Lock(const gfx::Filter& aFilter)
   if (mTexImage->InUpdate()) {
     mTexImage->EndUpdate();
   }
+
  
-  if (mTexImage->GetShaderProgramType() == gl::BGRXLayerProgramType) {
+  if (mTexImage->GetShaderProgramType() == gl::RGBXLayerProgramType) {
+      return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
+  } else if (mTexImage->GetShaderProgramType() == gl::BGRXLayerProgramType) {
     return new EffectBGRX(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (mTexImage->GetShaderProgramType() == gl::BGRALayerProgramType) {
     return new EffectBGRA(this, true, aFilter, mFlags & NeedsYFlip);
+  } else if (mTexImage->GetShaderProgramType() == gl::RGBALayerProgramType) {
+    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
   } else {
     NS_RUNTIMEABORT("Shader type not yet supported");
     return nullptr;

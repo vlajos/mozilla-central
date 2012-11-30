@@ -121,21 +121,13 @@ public:
   virtual ~Texture() {}
 };
 
-// It is common to inherit from TextureSource and TextureHost, and both need to
-// be refcounted
-class TextureBase : public RefCounted<TextureBase>
-{
-public:
-  virtual ~TextureBase() {}
-protected:
-  TextureBase() {}
-};
-
 // a texture or part of texture used for compositing
-class TextureSource : public virtual TextureBase
+class TextureSource
 {
 public:
-
+  virtual void AddRef() = 0;
+  virtual void Release() = 0;
+  virtual ~TextureSource() {};
 };
 
 /**
@@ -152,11 +144,15 @@ public:
   virtual bool NextTile() = 0;
 };
 
-class TextureHost : public virtual TextureBase
+// Interface, used only on the compositor process
+class TextureHost
 {
 public:
   TextureHost() : mFlags(NoFlags) {}
   virtual ~TextureHost() {}
+
+  virtual void AddRef() = 0;
+  virtual void Release() = 0;
 
   /**
    * Update the texture host from a SharedImage, aResult may contain the old

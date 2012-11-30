@@ -20,6 +20,7 @@ public:
   virtual GLuint GetTextureHandle() = 0;
   virtual gfx::IntSize GetSize() = 0;
   virtual GLenum GetWrapMode() = 0;
+  virtual void BindTexture(int aUnit) { NS_RUNTIMEABORT("Not implemented"); }
 #ifdef DEBUG
   virtual bool IsAlpha() { return true; }
 #endif
@@ -75,6 +76,7 @@ private:
 class TextureHostOGL : public TextureHost
 {
 public:
+  // override
   virtual gfx::IntSize GetSize()
   {
     return mSize;
@@ -98,16 +100,19 @@ protected:
   GLenum mWrapMode;
 };
 
-class TextureSourceHostOGL : public TextureHostOGL
-                           , public TextureSourceOGL
+class TextureSourceHostOGL : public TextureHostOGL,
+                             public TextureSourceOGL,
+                             public RefCounted<TextureSourceHostOGL>
 {
+  typedef RefCounted<TextureSourceHostOGL> RefCounted;
 public:
-  void AddRef() { TextureBase::AddRef(); }
-  void Release() { TextureBase::Release(); }
+  virtual void AddRef() { RefCounted::AddRef(); }
+  virtual void Release() { RefCounted::Release(); }
 
   virtual gfx::IntSize GetSize() { return TextureHostOGL::GetSize(); }
   virtual GLenum GetWrapMode() { return TextureHostOGL::GetWrapMode(); }
   virtual TextureSource* GetAsTextureSource() { return this; }
+  virtual void BindTexture(int aUnit) {  }
 protected:
     TextureSourceHostOGL() {}
 };
@@ -164,6 +169,8 @@ public:
     return mGL->GetTexImage(GetTextureHandle(), false, mTexImage->GetShaderProgramType());
   }
 #endif
+
+  virtual void BindTexture(int aUnit) { mTexImage->BindTexture(aUnit); }
  
 protected:
   typedef mozilla::gl::GLContext GLContext;
@@ -257,6 +264,7 @@ public:
     return mTextureHandle;
   }
  
+  // override from TextureHost
   virtual void Update(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
@@ -298,10 +306,15 @@ protected:
   friend class CompositorOGL;
 };
 
-class GLTextureAsTextureSource : public TextureSourceOGL
+class GLTextureAsTextureSource : public TextureSourceOGL,
+                                 public RefCounted<GLTextureAsTextureSource>
 {
   typedef mozilla::gl::GLContext GLContext;
-public: 
+  typedef RefCounted<GLTextureAsTextureSource> RefCounter;
+public:
+  virtual void AddRef() { RefCounter::AddRef(); }
+  virtual void Release() { RefCounter::Release(); }
+
   ~GLTextureAsTextureSource()
   {
     mTexture.Release();
@@ -359,13 +372,18 @@ private:
 
 // a texture host with all three plains in one texture
 //TODO used by YUV not YCbCr
-class YCbCrTextureHost : public TextureHostOGL
+class YCbCrTextureHost : public TextureHostOGL,
+                         public RefCounted<YCbCrTextureHost>
 {
   typedef mozilla::gl::GLContext GLContext;
+  typedef RefCounted<YCbCrTextureHost> RefCounter;
 public:
   YCbCrTextureHost(GLContext* aGL)
     : mGL(aGL)
   {}
+
+  virtual void AddRef() { RefCounter::AddRef(); }
+  virtual void Release() { RefCounter::Release(); }
 
   virtual void Update(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
