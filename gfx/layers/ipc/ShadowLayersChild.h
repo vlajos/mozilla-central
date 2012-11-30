@@ -28,18 +28,13 @@ public:
    */
   void Destroy();
 
-  virtual PTextureChild* AllocPTexture() { return nullptr; } // TODO[nical]
-  virtual bool DeallocPTexture(PTextureChild* tc) { 
-    delete tc;
-    return true;
-  } // TODO[nical]
-
 protected:
   virtual PGrallocBufferChild*
   AllocPGrallocBuffer(const gfxIntSize&, const gfxContentType&,
                       MaybeMagicGrallocBufferHandle*) MOZ_OVERRIDE;
   virtual bool
   DeallocPGrallocBuffer(PGrallocBufferChild* actor) MOZ_OVERRIDE;
+
   virtual PLayerChild* AllocPLayer() MOZ_OVERRIDE;
   virtual bool DeallocPLayer(PLayerChild* actor) MOZ_OVERRIDE;
 };

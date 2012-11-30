@@ -358,7 +358,8 @@ public:
   nsRefPtr<Image> mImage;
 };
 
-SharedImage* ImageContainerChild::ImageToSharedImage(Image* aImage)
+/*
+SharedImage* ImageContainerChild::AllocateSharedImageFor(Image* aImage)
 {
   if (mStop) {
     return nullptr;
@@ -382,7 +383,7 @@ SharedImage* ImageContainerChild::ImageToSharedImage(Image* aImage)
   mImageQueue.AppendElement(aImage);
   return img;
 }
-
+*/
 void ImageContainerChild::SendImageAsync(ImageContainer* aContainer,
                                          Image* aImage)
 {

@@ -25,8 +25,8 @@ public:
 
   /**
    * Update this ImageClient from aContainer in aLayer
-   * returns false if this is the wrong kind of ImageClient for aContainer
-   * note returning true does not necessarily imply success
+   * returns false if this is the wrong kind of ImageClient for aContainer.
+   * Note that returning true does not necessarily imply success
    */
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer) = 0;
 

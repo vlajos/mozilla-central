@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PLayers;
+include protocol PTexture; 
 
 namespace mozilla {
 namespace layers {
@@ -16,6 +17,7 @@ namespace layers {
 
 async protocol PLayer {
     manager PLayers;
+    manages PTexture;
 
     /**
      * OWNERSHIP MODEL
@@ -32,6 +34,7 @@ async protocol PLayer {
      * being deleted "soon" (usually immediately).
      */
 parent:
+    async PTexture();
     async __delete__();
 };
 

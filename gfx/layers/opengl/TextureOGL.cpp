@@ -7,7 +7,10 @@
 #include "ipc/AutoOpenSurface.h"
 #include "gfx2DGlue.h"
 #include "ShmemYCbCrImage.h"
- 
+#include "GLContext.h"
+
+using namespace mozilla::gl;
+
 namespace mozilla {
 namespace layers {
  
@@ -55,7 +58,7 @@ TextureOGL::UpdateTexture(const nsIntRegion& aRegion, int8_t *aData, uint32_t aS
 }
  
 static void
-MakeTextureIfNeeded(GLContext* gl, GLuint& aTexture)
+MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
 {
   if (aTexture != 0)
     return;
@@ -71,7 +74,7 @@ MakeTextureIfNeeded(GLContext* gl, GLuint& aTexture)
   gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
 }
  
-static TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
+static gl::TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
 {
   uint32_t result = TextureImage::NoFlags;
    
@@ -82,11 +85,11 @@ static TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
   if (aFlags & ForceSingleTile)
     result |= TextureImage::ForceSingleTile;
  
-  return static_cast<TextureImage::Flags>(result);
+  return static_cast<gl::TextureImage::Flags>(result);
 }
  
 GLenum
-WrapMode(GLContext *aGl, bool aAllowRepeat)
+WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
 {
   if (aAllowRepeat &&
       (aGl->IsExtensionSupported(GLContext::ARB_texture_non_power_of_two) ||

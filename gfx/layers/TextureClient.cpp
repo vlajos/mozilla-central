@@ -9,6 +9,9 @@
 #include "ContentClient.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "SharedTextureImage.h"
+#include "GLContext.h"
+
+using namespace mozilla::gl;
 
 namespace mozilla {
 namespace layers {

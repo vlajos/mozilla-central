@@ -259,7 +259,10 @@ struct OpPaintTextureRegion {
 };
 
 //TODO[nrc] names
-struct OpCreateTexture { PTexture texture; };
+struct OpCreateTextureForLayer { 
+  PLayer layer;
+  PTexture texture;
+};
 
 /*
 struct OpPaintTexture {
@@ -287,7 +290,7 @@ union Edit {
   OpCreateColorLayer;
   OpCreateCanvasLayer;
   OpCreateRefLayer;
-  OpCreateTexture;
+  OpCreateTextureForLayer;
   OpCreateTextureHost;
 
   OpSetLayerAttributes;
@@ -353,7 +356,6 @@ sync protocol PLayers {
   manager PRenderFrame or PCompositor;
   manages PGrallocBuffer;
   manages PLayer;
-  manages PTexture;
 
 parent:
   /**
@@ -364,7 +366,6 @@ parent:
   sync PGrallocBuffer(gfxIntSize size, gfxContentType content)
     returns (MaybeMagicGrallocBufferHandle handle);
   async PLayer();
-  async PTexture();
 
   // The isFirstPaint flag can be used to indicate that this is the first update
   // for a particular document.

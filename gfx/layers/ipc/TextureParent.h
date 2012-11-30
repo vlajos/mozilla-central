@@ -3,26 +3,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_GFX_BUFFERCLIENT_H
-#define MOZILLA_GFX_BUFFERCLIENT_H
+#ifndef MOZILLA_LAYERS_TEXTUREPARENT_H
+#define MOZILLA_LAYERS_TEXTUREPARENT_H
 
-#include "Compositor.h"
+#include "mozilla/layers/PTextureParent.h"
 
 namespace mozilla {
 namespace layers {
 
-class PLayerChild;
-class PLayersChild;
-class TextureBufferChild;
-
-class BufferClient : public RefCounted<BufferClient>
+class TextureParent : public PTextureParent
 {
 public:
-  BufferClient();
-  virtual ~BufferClient();
-
-  void Initialize(PLayerChild* aLayer,
-                  PLayersChild* aShadowManager);
 
 private:
 };

@@ -9,6 +9,9 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "SharedTextureImage.h"
 #include "nsXULAppAPI.h"
+#include "GLContext.h"
+
+using namespace mozilla::gl;
 
 namespace mozilla {
 namespace layers {
@@ -69,12 +72,12 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   // the content type won't be used
   mTextureClient->EnsureTextureClient(aSize, gfxASurface::CONTENT_COLOR);
 
-  TextureImage::TextureShareType flags;
+  gl::TextureImage::TextureShareType flags;
   // if process type is default, then it is single-process (non-e10s)
   if (XRE_GetProcessType() == GeckoProcessType_Default)
-    flags = TextureImage::ThreadShared;
+    flags = gl::TextureImage::ThreadShared;
   else
-    flags = TextureImage::ProcessShared;
+    flags = gl::TextureImage::ProcessShared;
 
   SharedTextureHandle handle = mTextureClient->LockHandle(aLayer->mGLContext, flags);
 

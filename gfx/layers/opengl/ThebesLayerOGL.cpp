@@ -398,6 +398,33 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       // TEXTURE_2D.  This isn't the case on some older X1600-era Radeons.
       if (mOGLLayer->OGLManager()->FBOTextureTarget() == LOCAL_GL_TEXTURE_2D) {
         nsIntRect overlap;
+
+        // TODO[nical] (merge) I have no idea what i am doing -----[
+
+        // The buffer looks like:
+        //  ______
+        // |1  |2 |  Where the center point is offset by mBufferRotation from the top-left corner.
+        // |___|__|
+        // |3  |4 |
+        // |___|__|
+        //
+        // This is drawn to the screen as:
+        //  ______
+        // |4  |3 |  Where the center point is { width - mBufferRotation.x, height - mBufferRotation.y } from
+        // |___|__|  from the top left corner - rotationPoint.
+        // |2  |1 |
+        // |___|__|
+        //
+
+        // The basic idea below is to take all quadrant rectangles from the src and transform them into rectangles
+        // in the destination. Unfortunately, it seems it is overly complex and could perhaps be simplified.
+
+        nsIntRect srcBufferSpaceBottomRight(mBufferRotation.x, mBufferRotation.y, mBufferRect.width - mBufferRotation.x, mBufferRect.height - mBufferRotation.y);
+        nsIntRect srcBufferSpaceTopRight(mBufferRotation.x, 0, mBufferRect.width - mBufferRotation.x, mBufferRotation.y);
+        nsIntRect srcBufferSpaceTopLeft(0, 0, mBufferRotation.x, mBufferRotation.y);
+        nsIntRect srcBufferSpaceBottomLeft(0, mBufferRotation.y, mBufferRotation.x, mBufferRect.height - mBufferRotation.y);
+        //   ]------ TODO[nical]
+
         overlap.IntersectRect(mBufferRect, destBufferRect);
 
         nsIntRect srcRect(overlap), dstRect(overlap);
@@ -414,7 +441,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
           // Find the point where this content ends.
           nsIntPoint rotationPoint(mBufferRect.x + mBufferRect.width - mBufferRotation.x, 
                                    mBufferRect.y + mBufferRect.height - mBufferRotation.y);
-
+        }
         nsIntRect srcRectDrawTopRight(srcRect);
         nsIntRect srcRectDrawTopLeft(srcRect);
         nsIntRect srcRectDrawBottomLeft(srcRect);
@@ -452,41 +479,48 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         dstRectDrawTopLeft   .MoveBy(-destBufferRect.TopLeft());
         dstRectDrawBottomLeft.MoveBy(-destBufferRect.TopLeft());
 
-
+        TextureImage* texImageSource 
+          = static_cast<TextureImageHost*>(mTextureHost.get())->GetTextureImage();
+        
         destBuffer->Resize(destBufferRect.Size());
 
-        gl()->BlitTextureImage(texImage, srcRect,
+        gl()->BlitTextureImage(texImageSource, srcRect,
                                destBuffer, dstRect);
-if (mBufferRotation != nsIntPoint(0, 0)) {
+        if (mBufferRotation != nsIntPoint(0, 0)) {
           // Draw the remaining quadrants. We call BlitTextureImage 3 extra
           // times instead of doing a single draw call because supporting that
           // with a tiled source is quite tricky.
+
+          // TODO[nical] here mTexImage should become mTextureHost
           if (!srcRectDrawTopRight.IsEmpty())
-            gl()->BlitTextureImage(mTexImage, srcRectDrawTopRight,
+            gl()->BlitTextureImage(texImageSource, srcRectDrawTopRight,
                                    destBuffer, dstRectDrawTopRight);
           if (!srcRectDrawTopLeft.IsEmpty())
-            gl()->BlitTextureImage(mTexImage, srcRectDrawTopLeft,
+            gl()->BlitTextureImage(texImageSource, srcRectDrawTopLeft,
                                    destBuffer, dstRectDrawTopLeft);
           if (!srcRectDrawBottomLeft.IsEmpty())
-            gl()->BlitTextureImage(mTexImage, srcRectDrawBottomLeft,
+            gl()->BlitTextureImage(texImageSource, srcRectDrawBottomLeft,
                                    destBuffer, dstRectDrawBottomLeft);
         }
         destBuffer->MarkValid();
 
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
-          gl()->BlitTextureImage(texImageOnWhite, srcRect,
+          TextureImage* texImageSourceOnWhite 
+              = static_cast<TextureImageHost*>(mTextureHostOnWhite.get())->GetTextureImage();
+        
+          gl()->BlitTextureImage(texImageSourceOnWhite, srcRect,
                                  destBufferOnWhite, dstRect);
           if (mBufferRotation != nsIntPoint(0, 0)) {
             // draw the remaining quadrants
             if (!srcRectDrawTopRight.IsEmpty())
-              gl()->BlitTextureImage(mTexImageOnWhite, srcRectDrawTopRight,
+              gl()->BlitTextureImage(texImageSourceOnWhite, srcRectDrawTopRight,
                                      destBufferOnWhite, dstRectDrawTopRight);
             if (!srcRectDrawTopLeft.IsEmpty())
-              gl()->BlitTextureImage(mTexImageOnWhite, srcRectDrawTopLeft,
+              gl()->BlitTextureImage(texImageSourceOnWhite, srcRectDrawTopLeft,
                                      destBufferOnWhite, dstRectDrawTopLeft);
             if (!srcRectDrawBottomLeft.IsEmpty())
-              gl()->BlitTextureImage(mTexImageOnWhite, srcRectDrawBottomLeft,
+              gl()->BlitTextureImage(texImageSourceOnWhite  , srcRectDrawBottomLeft,
                                      destBufferOnWhite, dstRectDrawBottomLeft);
           }
           destBufferOnWhite->MarkValid();
@@ -599,7 +633,7 @@ if (mBufferRotation != nsIntPoint(0, 0)) {
   return result;
 }
 
-ThebesLayerOGL::ThebesLayerOGL(LayerManagerOGL *aManager)
+ThebesLayerOGL::ThebesLayerOGL(LayerManagerOGL* aManager)
   : ThebesLayer(aManager, nullptr)
   , LayerOGL(aManager)
   , mBuffer(nullptr)
@@ -750,7 +784,7 @@ ThebesLayerOGL::GetLayer()
 {
   return this;
 }
-
+/* TODO[nical] commented this out during the merge
 LayerRenderState
 ShadowThebesLayerOGL::GetRenderState()
 {
@@ -761,7 +795,7 @@ ShadowThebesLayerOGL::GetRenderState()
                    LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
   return LayerRenderState(&mBufferDescriptor, flags);
 }
-
+*/
 bool
 ThebesLayerOGL::IsEmpty()
 {

@@ -23,6 +23,9 @@ public:
 
   ShadowableLayer* layer() const { return mLayer; }
 
+  virtual PTextureChild* AllocPTexture() MOZ_OVERRIDE;
+  virtual bool DeallocPTexture(PTextureChild* actor) MOZ_OVERRIDE;
+
 protected:
   virtual void ActorDestroy(ActorDestroyReason why) MOZ_OVERRIDE;
 

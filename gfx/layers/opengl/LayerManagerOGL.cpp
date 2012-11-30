@@ -26,6 +26,7 @@
 
 #include "GLContext.h"
 #include "GLContextProvider.h"
+#include "Composer2D.h"
 
 #include "nsIServiceManager.h"
 #include "nsIConsoleService.h"
@@ -54,6 +55,12 @@ LayerManagerOGL::LayerManagerOGL(nsIWidget *aWidget)
 {
   mCompositor = new CompositorOGL(aWidget);
 }
+
+LayerManagerOGL::~LayerManagerOGL()
+{
+  Destroy();
+}
+
 
 void
 LayerManagerOGL::Destroy()
@@ -139,6 +146,9 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
     mThebesLayerCallbackData = aCallbackData;
     SetCompositingDisabled(aFlags & END_NO_COMPOSITE);
 
+#ifdef MOZ_WIDGET_GONK // TODO[nical] the b2g 2D compositing code does not fit in the 
+    // compositor code, so I don't know yet where to put the fps counter stuff for b2g
+    // (for the general case the code has moved into CompositorOGL)
     bool needGLRender = true;
     if (mComposer2D && mComposer2D->TryRender(mRoot, mWorldMatrix)) {
       needGLRender = false;
@@ -160,10 +170,10 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
       }
       MOZ_ASSERT(!needGLRender);
     }
-
     if (needGLRender) {
       Render();
     }
+#endif
 
     mThebesLayerCallback = nullptr;
     mThebesLayerCallbackData = nullptr;
@@ -430,7 +440,7 @@ LayerManagerOGL::ComputeRenderIntegrity()
 
   // XXX We assume that mWidgetSize represents the 'screen' area.
   gfx3DMatrix transform;
-  nsIntRect screenRect(0, 0, mWidgetSize.width, mWidgetSize.height);
+  nsIntRect screenRect(0, 0, mCompositor->mWidgetSize.width, mCompositor->mWidgetSize.height);
   nsIntRegion screenRegion(screenRect);
   ComputeRenderIntegrityInternal(GetRoot(), screenRegion, transform);
 

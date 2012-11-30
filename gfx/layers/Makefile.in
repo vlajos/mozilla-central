@@ -151,6 +151,7 @@ EXPORTS_gfxipc = ShadowLayerUtils.h
 EXPORTS_mozilla/layers =\
         AsyncPanZoomController.h \
         Axis.h \
+        BufferClient.h \
         CompositorCocoaWidgetHelper.h \
         CompositorChild.h \
         CompositorParent.h \
@@ -164,6 +165,8 @@ EXPORTS_mozilla/layers =\
         ShadowLayersChild.h \
         ShadowLayersParent.h \
         ShadowLayersManager.h \
+        TextureChild.h \
+        TextureParent.h \
         RenderTrace.h \
         SharedImageUtils.h \
         ShmemYCbCrImage.h \
@@ -172,6 +175,7 @@ EXPORTS_mozilla/layers =\
 CPPSRCS += \
         AsyncPanZoomController.cpp \
         Axis.cpp \
+        BufferClient.cpp \
         CompositorCocoaWidgetHelper.cpp \
         CompositorChild.cpp \
         CompositorParent.cpp \
@@ -186,6 +190,8 @@ CPPSRCS += \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
         ShmemYCbCrImage.cpp \
+        TextureChild.cpp \
+        TextureParent.cpp \
         $(NULL)
 
 ifdef MOZ_X11 #{

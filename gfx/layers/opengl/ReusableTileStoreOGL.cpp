@@ -372,7 +372,7 @@ ReusableTileStoreOGL::DrawTiles(TiledThebesLayerOGL* aLayer,
     }
     nsIntPoint tileOffset(tile->mTileOrigin.x - tileStartX, tile->mTileOrigin.y - tileStartY);
     nsIntSize textureSize(tile->mTileSize, tile->mTileSize);
-    aLayer->RenderTile(tile->mTexture, transform, aRenderOffset, tileRegion, tileOffset, textureSize, aMaskLayer, aClipRect);
+    aLayer->RenderTile(tile->mTexture, transform, aRenderOffset, tileRegion, tileOffset, textureSize, aMaskLayer/*, aClipRect*/);
   }
 
   mTiles.SwapElements(reorderedTiles);

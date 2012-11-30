@@ -130,8 +130,8 @@ public:
     BasicThebesLayer::ClearCachedResources();
     DestroyBackBuffer();
     // Don't try to read back from this, it soon may be invalid.
-    mROFrontBuffer = null_t();
-    mFrontAndBackBufferDiffer = false;
+    // mROFrontBuffer = null_t();
+    // mFrontAndBackBufferDiffer = false;
   }
 
   virtual void FillSpecificAttributes(SpecificLayerAttributes& aAttrs)

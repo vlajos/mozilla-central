@@ -378,7 +378,7 @@ float nsBaseWidget::GetDPI()
   return 96.0f;
 }
 
-double nsBaseWidget::GetDefaultScale()
+double nsIWidget::GetDefaultScale()
 {
   return 1.0;
 }
@@ -867,7 +867,7 @@ void nsBaseWidget::CreateCompositor()
 
 bool nsBaseWidget::UseOffMainThreadCompositing()
 {
-  if (!mUseAcceleratedRendering)
+  if (!mUseLayersAcceleration)
     return false;
   bool isSmallPopup = ((mWindowType == eWindowType_popup) && 
                       (mPopupType != ePopupTypePanel));
@@ -1381,7 +1381,7 @@ nsBaseWidget::NotifyUIStateChanged(UIStateChangeType aShowAccelerators,
 
 #ifdef ACCESSIBILITY
 
-ally::Accessible*
+a11y::Accessible*
 nsBaseWidget::GetAccessible()
 {
   NS_ENSURE_TRUE(mWidgetListener, nullptr);

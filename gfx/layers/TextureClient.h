@@ -10,6 +10,7 @@
 #include "gfxASurface.h"
 #include "Compositor.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "GLContext.h"
 
 namespace mozilla {
 
@@ -19,6 +20,8 @@ namespace gl {
 
 namespace layers {
 
+class TextureChild;
+
 /* This class allows texture clients to draw into textures through Azure or
  * thebes and applies locking semantics to allow GPU or CPU level
  * synchronization.
@@ -26,6 +29,10 @@ namespace layers {
 class TextureClient : public RefCounted<TextureClient>
 {
 public:
+  typedef gl::SharedTextureHandle SharedTextureHandle;
+  typedef gl::GLContext GLContext;
+  typedef gl::TextureImage TextureImage;
+
   virtual ~TextureClient() {}
   /* This will return an identifier that can be sent accross a process or
    * thread boundary and used to construct a TextureHost object
@@ -137,13 +144,13 @@ class TextureClientSharedGL : public TextureClientShared
 public:
   virtual ~TextureClientSharedGL();
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
-  virtual SharedTextureHandle LockHandle(GLContext* aGL, TextureImage::TextureShareType aFlags);
+  virtual gl::SharedTextureHandle LockHandle(GLContext* aGL, gl::TextureImage::TextureShareType aFlags);
   virtual void Unlock();
 
 protected:
   TextureClientSharedGL(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
 
-  GLContext* mGL;
+  gl::GLContext* mGL;
   gfx::IntSize mSize;
 
   friend class CompositingFactory;

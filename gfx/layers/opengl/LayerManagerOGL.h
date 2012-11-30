@@ -52,10 +52,7 @@ class THEBES_API LayerManagerOGL : public LayerManager
 
 public:
   LayerManagerOGL(nsIWidget *aWidget);
-  virtual ~LayerManagerOGL()
-  {
-    Destroy();
-  }
+  virtual ~LayerManagerOGL();
 
   virtual void Destroy();
 

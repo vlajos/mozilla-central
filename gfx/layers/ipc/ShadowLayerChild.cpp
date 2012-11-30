@@ -8,6 +8,7 @@
 #include "ShadowLayerChild.h"
 #include "Layers.h"
 #include "ShadowLayers.h"
+#include "mozilla/layers/TextureChild.h"
 
 namespace mozilla {
 namespace layers {
@@ -33,6 +34,17 @@ ShadowLayerChild::ActorDestroy(ActorDestroyReason why)
     mLayer = nullptr;
   }
 }
+
+PTextureChild* ShadowLayerChild::AllocPTexture()
+{
+  return new TextureChild;
+}
+bool ShadowLayerChild::DeallocPTexture(PTextureChild* actor)
+{
+  delete actor;
+  return true;
+}
+
 
 }  // namespace layers
 }  // namespace mozilla

@@ -145,7 +145,7 @@ TiledThebesLayerOGL::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiled
   mMainMemoryTiledBuffer = *mTiledBuffer;
   // TODO: Remove me once Bug 747811 lands.
   delete mTiledBuffer;
-  mRegionToUpload.Or(mRegionToUpload, mMainMemoryTiledBuffer.GetLastPaintRegion());
+  mRegionToUpload.Or(mRegionToUpload, mMainMemoryTiledBuffer.GetPaintedRegion());
   mMainMemoryTiledBuffer.ClearPaintedRegion();
 }
 
@@ -208,14 +208,13 @@ TiledThebesLayerOGL::ProcessUploadQueue()
 }
 
 void
-TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
+TiledThebesLayerOGL::RenderTile(const TiledTexture& aTile,
                                 const gfx3DMatrix& aTransform,
                                 const nsIntPoint& aOffset,
-                                nsIntRegion aScreenRegion,
-                                nsIntPoint aTextureOffset,
-                                nsIntSize aTextureBounds,
-                                Layer* aMaskLayer,
-                                const nsIntRect& aClipRect)
+                                const nsIntRegion& aScreenRegion,
+                                const nsIntPoint& aTextureOffset,
+                                const nsIntSize& aTextureBounds,
+                                Layer* aMaskLayer)
 {
   // TODO: Fix texture handling.
   EffectChain effectChain;
@@ -237,7 +236,6 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
 
   gfx::Matrix4x4 transform;
   ToMatrix4x4(aTransform, transform);
-  gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
   gfx::Point offset(aOffset.x, aOffset.y);
 
   nsIntRegionRectIterator it(aScreenRegion);
@@ -245,7 +243,7 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
     gfx::Rect sourceRect(rect->x - aTextureOffset.x, rect->y - aTextureOffset.y,
                          rect->width, rect->height);
     gfx::Rect quadRect(rect->x, rect->y, rect->width, rect->height);
-    mOGLManager->GetCompositor()->DrawQuad(quadRect, &sourceRect, nullptr, &clipRect, effectChain,
+    mOGLManager->GetCompositor()->DrawQuad(quadRect, &sourceRect, nullptr, nullptr, effectChain,
                                            GetEffectiveOpacity(), transform, offset);
   }
 }
@@ -296,7 +294,7 @@ TiledThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aCl
         nsIntPoint tileOffset(x - tileStartX, y - tileStartY);
         uint16_t tileSize = mVideoMemoryTiledBuffer.GetTileLength();
         RenderTile(tileTexture, GetEffectiveTransform(), aOffset, tileDrawRegion,
-                   tileOffset, nsIntSize(tileSize, tileSize), maskLayer, aClipRect);
+                   tileOffset, nsIntSize(tileSize, tileSize), maskLayer);
       }
       tileY++;
       y += h;
