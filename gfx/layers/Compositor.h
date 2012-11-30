@@ -127,6 +127,8 @@ class TextureSource
 public:
   virtual void AddRef() = 0;
   virtual void Release() = 0;
+  virtual gfx::IntSize GetSize() const = 0;
+
   virtual ~TextureSource() {};
 };
 
@@ -148,26 +150,39 @@ public:
 class TextureHost
 {
 public:
-  TextureHost() : mFlags(NoFlags) {}
+  TextureHost() : mFlags(NoFlags), mIsBuffered(false) {}
   virtual ~TextureHost() {}
 
   virtual void AddRef() = 0;
   virtual void Release() = 0;
+
+  bool IsBuffered() const { return mIsBuffered; }
 
   /**
    * Update the texture host from a SharedImage, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The
    * texture client should know what to expect
    */
-  virtual void Update(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr) {}
+  void Update(const SharedImage& aImage,
+              SharedImage* aResult = nullptr,
+              bool* aIsInitialised = nullptr,
+              bool* aNeedsReset = nullptr) {
+    UpdateImpl(aImage, aResult, aIsInitialised, aNeedsReset);
+  }
+
+  virtual void UpdateImpl(const SharedImage& aImage,
+                          SharedImage* aResult = nullptr,
+                          bool* aIsInitialised = nullptr,
+                          bool* aNeedsReset = nullptr) {}
 
   /**
    * Updates a region of the texture host from aSurface
    */
-  virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {}
+  void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {
+    UpdateImpl(aSurface, aRegion);
+  }
+
+  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
 
   /**
    * Lock the texture host for compositing, returns an effect that should
@@ -187,7 +202,7 @@ public:
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
-  virtual gfx::IntSize GetSize() = 0;
+//  virtual gfx::IntSize GetSize() const = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
@@ -199,6 +214,8 @@ public:
 #endif
 protected:
   TextureFlags mFlags;
+  bool mIsBuffered;
+  //SharedImage mBuffer;
 };
 
 /**

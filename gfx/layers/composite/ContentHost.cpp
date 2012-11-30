@@ -57,7 +57,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   region.MoveBy(-origin);           // translate into TexImage space, buffer origin might not be at texture (0,0)
 
   // Figure out the intersecting draw region
-  gfx::IntSize texSize = mTextureHost->GetSize();
+  gfx::IntSize texSize = mTextureHost->GetAsTextureSource()->GetSize();
   nsIntRect textureRect = nsIntRect(0, 0, texSize.width, texSize.height);
   textureRect.MoveBy(region.GetBounds().TopLeft());
   nsIntRegion subregion;

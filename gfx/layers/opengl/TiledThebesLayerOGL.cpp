@@ -223,15 +223,15 @@ TiledThebesLayerOGL::RenderTile(TiledTexture aTile,
   //effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
   RefPtr<Effect> effect;
   //TODO[nrc] should use a texture host
-  RefPtr<TextureHostOGL> texture; //= new TextureOGL(gl(), aTile.mTextureHandle,
+  RefPtr<TextureSourceOGL> texture; //= new TextureOGL(gl(), aTile.mTextureHandle,
                                   //            gfx::IntSize(aTextureBounds.width, aTextureBounds.height));
   texture->SetWrapMode(LOCAL_GL_REPEAT);
 
   if (aTile.mFormat == LOCAL_GL_RGB) {
-    effect = new EffectRGB(texture->GetAsTextureSource(), true, gfx::FILTER_LINEAR);
+    effect = new EffectRGB(texture/*->GetAsTextureSource()*/, true, gfx::FILTER_LINEAR);
     effectChain.mEffects[EFFECT_RGB] = effect;
   } else {
-    effect = new EffectBGRA(texture->GetAsTextureSource(), true, gfx::FILTER_LINEAR);
+    effect = new EffectBGRA(texture/*->GetAsTextureSource()*/, true, gfx::FILTER_LINEAR);
     effectChain.mEffects[EFFECT_BGRA] = effect;
   }
 

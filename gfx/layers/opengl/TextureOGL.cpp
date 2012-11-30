@@ -98,7 +98,7 @@ WrapMode(GLContext *aGl, bool aAllowRepeat)
  
  
 void
-TextureImageAsTextureHost::Update(const SharedImage& aImage,
+TextureImageAsTextureHost::UpdateImpl(const SharedImage& aImage,
                                   SharedImage* aResult,
                                   bool* aIsInitialised,
                                   bool* aNeedsReset)
@@ -132,7 +132,7 @@ TextureImageAsTextureHost::Update(const SharedImage& aImage,
 }
  
 void
-TextureImageAsTextureHost::Update(gfxASurface* aSurface, nsIntRegion& aRegion)
+TextureImageAsTextureHost::UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
 {
   if (!mTexImage ||
       mTexImage->mSize != aSurface->GetSize() ||
@@ -195,7 +195,7 @@ TextureImageAsTextureHostWithBuffer::~TextureImageAsTextureHostWithBuffer()
 }
  
 void
-TextureImageAsTextureHostWithBuffer::Update(const SurfaceDescriptor& aNewBuffer,
+TextureImageAsTextureHostWithBuffer::UpdateImpl(const SurfaceDescriptor& aNewBuffer,
                                             SharedImage* aResult,
                                             bool* aIsInitialised,
                                             bool* aNeedsReset)
@@ -256,7 +256,7 @@ TextureImageAsTextureHostWithBuffer::EnsureBuffer(nsIntSize aSize)
 }
  
 void
-TextureHostOGLShared::Update(const SharedImage& aImage,
+TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
                              SharedImage* aResult,
                              bool* aIsInitialised,
                              bool* aNeedsReset)
@@ -330,12 +330,12 @@ TextureHostOGLShared::Unlock()
 }
  
 void
-TextureHostOGLSharedWithBuffer::Update(const SharedImage& aImage,
+TextureHostOGLSharedWithBuffer::UpdateImpl(const SharedImage& aImage,
                                        SharedImage* aResult,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
 {
-  TextureHostOGLShared::Update(aImage);
+  TextureHostOGLShared::UpdateImpl(aImage);
   mBuffer = SharedImage(aImage.get_SurfaceDescriptor());
   if (aResult) {
     *aResult = mBuffer;
@@ -348,7 +348,7 @@ TextureHostOGLSharedWithBuffer::Update(const SharedImage& aImage,
  
  
 void
-GLTextureAsTextureHost::Update(const SharedImage& aImage,
+GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,
                                SharedImage* aResult,
                                bool* aIsInitialised,
                                bool* aNeedsReset)
@@ -391,7 +391,7 @@ GLTextureAsTextureHost::Update(const SharedImage& aImage,
 }
 
 void
-GLTextureAsTextureSource::Update(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL)
+GLTextureAsTextureSource::UpdateImpl(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL)
 {
   if (aSize != mSize || !mTexture.IsAllocated()) {
     mSize = aSize;
@@ -419,7 +419,7 @@ GLTextureAsTextureSource::Update(gfx::IntSize aSize, uint8_t* aData, uint32_t aS
 }
 
 void
-YCbCrTextureHost::Update(const SharedImage& aImage,
+YCbCrTextureHost::UpdateImpl(const SharedImage& aImage,
                          SharedImage* aResult,
                          bool* aIsInitialised,
                          bool* aNeedsReset)
@@ -434,9 +434,9 @@ YCbCrTextureHost::Update(const SharedImage& aImage,
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
   gfx::IntSize CbCrSize = gfx::IntSize(gfxCbCrSize.width, gfxCbCrSize.height);
 
-  mTextures[0].Update(size, shmemImage.GetYData(), shmemImage.GetYStride(), mGL);
-  mTextures[1].Update(CbCrSize, shmemImage.GetCbData(), shmemImage.GetCbCrStride(), mGL);
-  mTextures[2].Update(CbCrSize, shmemImage.GetCrData(), shmemImage.GetCbCrStride(), mGL);
+  mTextures[0].UpdateImpl(size, shmemImage.GetYData(), shmemImage.GetYStride(), mGL);
+  mTextures[1].UpdateImpl(CbCrSize, shmemImage.GetCbData(), shmemImage.GetCbCrStride(), mGL);
+  mTextures[2].UpdateImpl(CbCrSize, shmemImage.GetCrData(), shmemImage.GetCbCrStride(), mGL);
 
   if (aResult) {
     *aResult = aImage;
@@ -460,7 +460,7 @@ YCbCrTextureHost::Lock(const gfx::Filter& aFilter)
 
 #ifdef MOZ_WIDGET_GONK
 void
-DirectExternalTextureHost::Update(const SharedImage& aImage,
+DirectExternalTextureHost::UpdateImpl(const SharedImage& aImage,
                                   SharedImage* aResult,
                                   bool* aIsInitialised,
                                   bool* aNeedsReset)

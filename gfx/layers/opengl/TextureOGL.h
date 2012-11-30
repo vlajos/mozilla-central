@@ -10,7 +10,9 @@
 #include "CompositorOGL.h"
 #include "GLContext.h"
 #include "gfx2DGlue.h"
- 
+
+#define CLASS_NAME(name) virtual char* ClassName() const { return #name ;}
+
 namespace mozilla {
 namespace layers {
 
@@ -18,13 +20,16 @@ namespace layers {
 class TextureSourceOGL : public TextureSource
 {
 public:
+  CLASS_NAME(TextureSourceOGL)
   virtual GLuint GetTextureHandle() = 0;
-  virtual gfx::IntSize GetSize() = 0;
-  virtual GLenum GetWrapMode() = 0;
+  virtual GLenum GetWrapMode() const = 0;
+  virtual void SetWrapMode(GLenum aWrapMode) = 0;
   virtual void BindTexture(int aUnit) { NS_RUNTIMEABORT("Not implemented"); }
 #ifdef DEBUG
   virtual bool IsAlpha() { return true; }
 #endif
+
+
 };
 
 //TODO[nrc] TextureOGL and Texture are only used by CreateTextureForData,
@@ -33,6 +38,7 @@ class TextureOGL : public Texture
 {
   typedef mozilla::gl::GLContext GLContext;
 public:
+  CLASS_NAME(TextureOGL)
   TextureOGL(GLContext* aGL, GLuint aTextureHandle, const gfx::IntSize& aSize)
     : mGL(aGL)
     , mTextureHandle(aTextureHandle)
@@ -78,28 +84,11 @@ private:
 class TextureHostOGL : public TextureHost
 {
 public:
-  // override
-  virtual gfx::IntSize GetSize()
-  {
-    return mSize;
-  }
- 
-  virtual GLenum GetWrapMode()
-  {
-    return mWrapMode;
-  }
- 
-  virtual void SetWrapMode(GLenum aWrapMode)
-  {
-    mWrapMode = aWrapMode;
-  }
+  CLASS_NAME(TextureHostOGL)
 protected:
   TextureHostOGL()
-    : mWrapMode(LOCAL_GL_REPEAT)
   {}
  
-  gfx::IntSize mSize;
-  GLenum mWrapMode;
 };
 
 class TextureSourceHostOGL : public TextureHostOGL,
@@ -108,17 +97,23 @@ class TextureSourceHostOGL : public TextureHostOGL,
 {
   typedef RefCounted<TextureSourceHostOGL> RefCounted;
 public:
+  CLASS_NAME(TextureSourceHostOGL)
   virtual void AddRef() MOZ_OVERRIDE { RefCounted::AddRef(); }
   virtual void Release() MOZ_OVERRIDE { RefCounted::Release(); }
 
-  virtual gfx::IntSize GetSize() MOZ_OVERRIDE { return TextureHostOGL::GetSize(); }
-  virtual GLenum GetWrapMode() MOZ_OVERRIDE { return TextureHostOGL::GetWrapMode(); }
+//  virtual gfx::IntSize GetSize() MOZ_OVERRIDE { return TextureHostOGL::GetSize(); }
+//  virtual GLenum GetWrapMode() MOZ_OVERRIDE { return TextureHostOGL::GetWrapMode(); }
   virtual TextureSource* GetAsTextureSource() MOZ_OVERRIDE { return this; }
 
   // New interface
   virtual void BindTexture(int aUnit) {  }
+
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE {
+    return mSize;
+  }
 protected:
     TextureSourceHostOGL() {}
+    gfx::IntSize mSize;
 };
  
 //thin TextureHost wrapper around a TextureImage
@@ -126,17 +121,19 @@ class TextureImageAsTextureHost : public TextureSourceHostOGL
                                 , public TileIterator
 {
 public:
-  virtual gfx::IntSize GetSize()
+  CLASS_NAME(TextureImageAsTextureHost)
+/*
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
     return mSize;
   }
- 
+*/
   virtual GLuint GetTextureHandle()
   {
     return mTexImage->GetTextureID();
   }
  
-  virtual GLenum GetWrapMode()
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE
   {
     return mTexImage->mWrapMode;
   }
@@ -146,11 +143,11 @@ public:
     mTexImage->mWrapMode = aWrapMode;
   }
  
-  virtual void Update(const SharedImage& aImage,
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
-  virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
+  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
   
   virtual void Abort();
 
@@ -196,6 +193,7 @@ protected:
 class TextureImageHost : public TextureImageAsTextureHost
 {
 public:
+  CLASS_NAME(TextureImageHost);
   TextureImageHost(GLContext* aGL, TextureImage* aTexImage);
  
   TextureImage* GetTextureImage() { return mTexImage; }
@@ -205,19 +203,20 @@ public:
     mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
   }
 
-  virtual void Update(const SharedImage& aImage,
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr) {}
-  virtual void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {}
+  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
 };
 
 class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
 {
 public:
+  CLASS_NAME(TextureImageAsTextureHostWithBuffer)
   ~TextureImageAsTextureHostWithBuffer();
  
-  virtual void Update(const SurfaceDescriptor& aNewBuffer,
+  virtual void UpdateImpl(const SurfaceDescriptor& aNewBuffer,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
@@ -249,6 +248,7 @@ protected:
 class TextureHostOGLShared : public TextureSourceHostOGL
 {
 public:
+  CLASS_NAME(TextureHostOGLShared)
   virtual ~TextureHostOGLShared()
   {
     mGL->MakeCurrent();
@@ -257,25 +257,32 @@ public:
       mGL->fDeleteTextures(1, &mTextureHandle);
     }
   }
- 
+/*
   virtual gfx::IntSize GetSize()
   {
     return mSize;
   }
- 
+*/
   virtual GLuint GetTextureHandle()
   {
     return mTextureHandle;
   }
  
   // override from TextureHost
-  virtual void Update(const SharedImage& aImage,
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
   virtual void Unlock();
  
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
+    return mWrapMode;
+  }
+  virtual void SetWrapMode(GLenum aMode) MOZ_OVERRIDE {
+    mWrapMode = aMode;
+  }
+
 protected:
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
@@ -286,6 +293,7 @@ protected:
  
   GLContext* mGL;
   GLuint mTextureHandle;
+  GLenum mWrapMode;
   gl::SharedTextureHandle mSharedHandle;
   gl::TextureImage::TextureShareType mShareType;
  
@@ -295,10 +303,11 @@ protected:
 class TextureHostOGLSharedWithBuffer : public TextureHostOGLShared
 {
 public:
-  virtual void Update(const SharedImage& aImage,
+  CLASS_NAME(TextureHostOGLSharedWithBuffer)
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr);
+                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
  
 protected:
   TextureHostOGLSharedWithBuffer(GLContext* aGL)
@@ -316,6 +325,7 @@ class GLTextureAsTextureSource : public TextureSourceOGL,
   typedef mozilla::gl::GLContext GLContext;
   typedef RefCounted<GLTextureAsTextureSource> RefCounter;
 public:
+  CLASS_NAME(GLTextureAsTextureSource)
   virtual void AddRef() { RefCounter::AddRef(); }
   virtual void Release() { RefCounter::Release(); }
 
@@ -324,21 +334,25 @@ public:
     mTexture.Release();
   }
 
-  void Update(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL);
+  void UpdateImpl(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL);
 
   virtual GLuint GetTextureHandle()
   {
     return mTexture.GetTextureID();
   }
 
-  virtual gfx::IntSize GetSize()
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
     return mSize;
   }
- 
-  virtual GLenum GetWrapMode()
+
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE
   {
     return LOCAL_GL_REPEAT;
+  }
+
+  virtual void SetWrapMode(GLenum aMode) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("not implemented"); // TODO[nical] move interfaces around to avoid this
   }
 
 private:
@@ -350,6 +364,7 @@ class GLTextureAsTextureHost : public TextureSourceHostOGL
 {
   typedef mozilla::gl::GLContext GLContext;
 public:
+  CLASS_NAME(GLTextureAsTextureHost);
   GLTextureAsTextureHost(GLContext* aGL)
     : mGL(aGL)
   {}
@@ -364,14 +379,23 @@ public:
     return mTexture.GetTextureID();
   }
  
-  virtual void Update(const SharedImage& aImage,
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
+
+  // TODO[nical] added to compile, not sure it belongs here, should be initialized
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
+    return mWrapMode;
+  }
+  virtual void SetWrapMode(GLenum aMode) MOZ_OVERRIDE {
+    mWrapMode = aMode;
+  }
  
 private:
   nsRefPtr<GLContext> mGL;
   GLTexture mTexture;
+  GLenum mWrapMode;
 };
 
 // a texture host with all three plains in one texture
@@ -382,6 +406,7 @@ class YCbCrTextureHost : public TextureHostOGL,
   typedef mozilla::gl::GLContext GLContext;
   typedef RefCounted<YCbCrTextureHost> RefCounter;
 public:
+  CLASS_NAME(YCbCrTextureHost)
   YCbCrTextureHost(GLContext* aGL)
     : mGL(aGL)
   {}
@@ -389,7 +414,7 @@ public:
   virtual void AddRef() { RefCounter::AddRef(); }
   virtual void Release() { RefCounter::Release(); }
 
-  virtual void Update(const SharedImage& aImage,
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
@@ -408,6 +433,7 @@ class DirectExternalTextureHost : public TextureSourceHostOGL
 {
   typedef mozilla::gl::GLContext GLContext;
 public:
+  CLASS_NAME(DirectExternalTextureHost)
   GLTextureAsTextureHost(GLContext* aGL)
     : mGL(aGL)
   {}
@@ -422,7 +448,7 @@ public:
     return mExternalBufferTexture.GetTextureID()
   }
  
-  virtual void Update(const SharedImage& aImage,
+  virtual void UpdateImpl(const SharedImage& aImage,
                       SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
