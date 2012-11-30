@@ -13,7 +13,8 @@
  
 namespace mozilla {
 namespace layers {
- 
+
+// abstract
 class TextureSourceOGL : public TextureSource
 {
 public:
@@ -73,6 +74,7 @@ private:
   gfx::IntSize mSize;
 };
 
+// abstract
 class TextureHostOGL : public TextureHost
 {
 public:
@@ -106,12 +108,14 @@ class TextureSourceHostOGL : public TextureHostOGL,
 {
   typedef RefCounted<TextureSourceHostOGL> RefCounted;
 public:
-  virtual void AddRef() { RefCounted::AddRef(); }
-  virtual void Release() { RefCounted::Release(); }
+  virtual void AddRef() MOZ_OVERRIDE { RefCounted::AddRef(); }
+  virtual void Release() MOZ_OVERRIDE { RefCounted::Release(); }
 
-  virtual gfx::IntSize GetSize() { return TextureHostOGL::GetSize(); }
-  virtual GLenum GetWrapMode() { return TextureHostOGL::GetWrapMode(); }
-  virtual TextureSource* GetAsTextureSource() { return this; }
+  virtual gfx::IntSize GetSize() MOZ_OVERRIDE { return TextureHostOGL::GetSize(); }
+  virtual GLenum GetWrapMode() MOZ_OVERRIDE { return TextureHostOGL::GetWrapMode(); }
+  virtual TextureSource* GetAsTextureSource() MOZ_OVERRIDE { return this; }
+
+  // New interface
   virtual void BindTexture(int aUnit) {  }
 protected:
     TextureSourceHostOGL() {}
