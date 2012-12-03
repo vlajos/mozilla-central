@@ -7,11 +7,13 @@
 #include "ipc/AutoOpenSurface.h"
 #include "ImageHost.h"
 
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+
 namespace mozilla {
 namespace layers {
 
 SharedImage
-ImageHostSingle::UpdateImage(const TextureIdentifier& aTextureIdentifier,
+ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
                              const SharedImage& aImage)
 {
   if (!mTextureHost) {
@@ -22,9 +24,10 @@ ImageHostSingle::UpdateImage(const TextureIdentifier& aTextureIdentifier,
   bool success;
   mTextureHost->Update(aImage, &result, &success);
   if (!success) {
-    mTextureHost = mCompositor->CreateTextureHost(
-                     mCompositor->FallbackIdentifier(aTextureIdentifier),
-                     mTextureHost->GetFlags());
+    TextureInfo id = aTextureInfo;
+    mCompositor->FallbackTextureInfo(id);
+    id.textureFlags = mTextureHost->GetFlags();
+    mTextureHost = mCompositor->CreateTextureHost(id);
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;
@@ -34,7 +37,7 @@ ImageHostSingle::UpdateImage(const TextureIdentifier& aTextureIdentifier,
   return result;
 }
 
-void
+void  
 ImageHostSingle::Composite(EffectChain& aEffectChain,
                            float aOpacity,
                            const gfx::Matrix4x4& aTransform,
@@ -75,24 +78,24 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
 }
 
 void
-ImageHostSingle::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  NS_ASSERTION((aTextureIdentifier.mBufferType == BUFFER_TEXTURE &&
-                aTextureIdentifier.mTextureType == TEXTURE_SHMEM) ||
-               (aTextureIdentifier.mBufferType == BUFFER_SHARED &&
-                aTextureIdentifier.mTextureType == TEXTURE_SHARED) ||
-               (aTextureIdentifier.mBufferType == BUFFER_DIRECT_EXTERNAL &&
-                aTextureIdentifier.mTextureType == TEXTURE_SHMEM),
+  NS_ASSERTION((aTextureInfo.imageType == BUFFER_TEXTURE &&
+                aTextureInfo.memoryType == TEXTURE_SHMEM) ||
+               (aTextureInfo.imageType == BUFFER_SHARED &&
+                aTextureInfo.memoryType == TEXTURE_SHARED) ||
+               (aTextureInfo.imageType == BUFFER_DIRECT_EXTERNAL &&
+                aTextureInfo.memoryType == TEXTURE_SHMEM),
                "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }
 
 
 SharedImage
-YUVImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
+YUVImageHost::UpdateImage(const TextureInfo& aTextureInfo,
                           const SharedImage& aImage)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YUV, "BufferType mismatch.");
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YUV, "BufferType mismatch.");
   
   if (aImage.type() == SharedImage::TYUVImage) {
     // update all channels at once
@@ -106,7 +109,7 @@ YUVImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
   }
 
   // update a single channel
-  mTextures[aTextureIdentifier.mDescriptor]->Update(aImage);
+  mTextures[aTextureInfo.mDescriptor]->Update(aImage);
 
   return aImage;
 }
@@ -141,17 +144,17 @@ YUVImageHost::Composite(EffectChain& aEffectChain,
 }
 
 void
-YUVImageHost::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+YUVImageHost::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YUV, "BufferType mismatch.");
-  mTextures[aTextureIdentifier.mDescriptor] = aTextureHost;
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YUV, "BufferType mismatch.");
+  mTextures[aTextureInfo.mDescriptor] = aTextureHost;
 }
 
 SharedImage
-YCbCrImageHost::UpdateImage(const TextureIdentifier& aTextureIdentifier,
+YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
                             const SharedImage& aImage)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YCBCR, "BufferType mismatch.");
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YCBCR, "BufferType mismatch.");
 
   mPictureRect = aImage.get_YCbCrImage().picture();;
 
@@ -184,10 +187,10 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
 }
 
 void
-YCbCrImageHost::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+YCbCrImageHost::AddTextureHost(const TextureInfo& aTextureInfo,
                                TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_YCBCR, "BufferType mismatch.");
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YCBCR, "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }
 
@@ -200,31 +203,33 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
 
     if (aType == BUFFER_YUV) {
-      TextureIdentifier id;
-      id.mBufferType = BUFFER_YUV;
-      id.mTextureType = TEXTURE_SHMEM;
+      TextureInfo id;
+      id.imageType = BUFFER_YUV;
+      id.memoryType = TEXTURE_SHMEM;
       RefPtr<TextureHost> textureHost;
       for (uint32_t i = 0; i < 3; ++i) {
         id.mDescriptor = i;
-        textureHost = mCompositor->CreateTextureHost(id, NoFlags);
+        id.textureFlags = NoFlags;
+        textureHost = mCompositor->CreateTextureHost(id);
         mImageHost->AddTextureHost(id, textureHost);
       }
     } else {
-      TextureIdentifier id;
-      id.mBufferType = mImageHost->GetType();
-      id.mTextureType = TEXTURE_SHMEM;
-      RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id, NoFlags);
+      TextureInfo id;
+      id.imageType = mImageHost->GetType();
+      id.memoryType = TEXTURE_SHMEM;
+      id.textureFlags = NoFlags;
+      RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id);
       mImageHost->AddTextureHost(id, textureHost);
     }
   }
 }
 
 SharedImage
-ImageHostBridge::UpdateImage(const TextureIdentifier& aTextureIdentifier,
+ImageHostBridge::UpdateImage(const TextureInfo& aTextureInfo,
                              const SharedImage& aImage)
 {
   // The image data will be queried at render time
-  uint64_t newID = aTextureIdentifier.mDescriptor;
+  uint64_t newID = aTextureInfo.mDescriptor;
   if (newID != mImageContainerID) {
     mImageContainerID = newID;
     mImageVersion = 0;
@@ -266,9 +271,9 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
       (img = ImageContainerParent::GetSharedImage(mImageContainerID))) {
     EnsureImageHost(BufferTypeForImageBridgeType(img->type()));
     if (mImageHost) {
-      TextureIdentifier textureId;
-      textureId.mBufferType = mImageHost->GetType();
-      textureId.mTextureType = TEXTURE_SHMEM;
+      TextureInfo textureId;
+      textureId.imageType = mImageHost->GetType();
+      textureId.memoryType = TEXTURE_SHMEM;
       mImageHost->UpdateImage(textureId, *img);
   
       mImageVersion = imgVersion;
@@ -287,9 +292,9 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
 }
 
 void
-ImageHostBridge::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ImageHostBridge::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_BRIDGE, "BufferType mismatch.");
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_BRIDGE, "BufferType mismatch.");
   // nothing to do
 }
 

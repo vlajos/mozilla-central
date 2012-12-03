@@ -193,10 +193,10 @@ public:
     // only called for ImageBridge and then there is nothing to do
   }
 
-  virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
+  virtual void SetBackBuffer(const TextureInfo& aTextureInfo,
                              const SharedImage& aBuffer)
   {
-    mImageClient->SetBuffer(aTextureIdentifier, aBuffer);
+    mImageClient->SetBuffer(aTextureInfo, aBuffer);
   }
 
   virtual void Disconnect()

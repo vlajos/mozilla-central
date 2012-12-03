@@ -194,7 +194,7 @@ public:
    * possibly-toroidally-rotated |aNewFrontBuffer|.  |aBufferRotation|
    * is buffer's rotation, if any.
    */
-  void PaintedThebesBuffer(ShadowableLayer* aThebes,
+  void PaintedThebesBuffer(PTextureChild* aTexture,
                            const nsIntRegion& aUpdatedRegion,
                            const nsIntRect& aBufferRect,
                            const nsIntPoint& aBufferRotation,
@@ -214,16 +214,18 @@ public:
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
    */
-  void UpdateTexture(ShadowableLayer* aLayer,
-                     TextureIdentifier aIdentifier,
+/*  void UpdateTexture(ShadowableLayer* aLayer,
+                     TextureInfo aIdentifier,
                      const SharedImage& aImage);
+*/  void UpdateTexture(PTextureChild* aTexture,
+                       const SharedImage& aImage);
 
   /**
    * Communicate to the compositor that aRegion in the texture identified by aLayer
    * and aIdentifier has been updated to aThebesBuffer.
    */
-  void UpdateTextureRegion(ShadowableLayer* aThebes,
-                           TextureIdentifier aIdentifier,
+  void UpdateTextureRegion(TextureClient* aTexture,
+                           const TextureInfo& aIdentifier,
                            const ThebesBuffer& aThebesBuffer,
                            const nsIntRegion& aUpdatedRegion);
 
@@ -323,11 +325,7 @@ public:
 
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
   
-  void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier)
-  {
-    mMaxTextureSize = aIdentifier.mMaxTextureSize;
-    mParentBackend = aIdentifier.mParentBackend;
-  }
+  void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
 
   /**
    * Create texture or buffer clients, see comments in CompositingFactory
@@ -582,18 +580,18 @@ public:
 
   /**
    * Add aTextureHost to a layer. This call should be passed directtly to
-   * the layer's buffer host, aTextureIdentifier can be used however the
+   * the layer's buffer host, aTextureInfo can be used however the
    * buffer host/client want to.
    */
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo,
                               TextureHost* aTextureHost) {}
 
   /**
    * Pass aFront to in to the texture host identified by this layer and
-   * aTextureIdentifier. After this call, aNewBack should point to the old
+   * aTextureInfo. After this call, aNewBack should point to the old
    * data in the texture.
    */
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
+  virtual void SwapTexture(const TextureInfo& aTextureInfo,
                            const SharedImage& aFront,
                            SharedImage* aNewBack) {}
 
@@ -647,8 +645,7 @@ public:
    * for the remote layer).
    */
   virtual void
-  SwapTexture(const TextureIdentifier& aTextureIdentifier,
-              const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
+  SwapTexture(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
               OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
               OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {}
   virtual void

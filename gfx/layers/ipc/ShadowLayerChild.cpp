@@ -35,9 +35,9 @@ ShadowLayerChild::ActorDestroy(ActorDestroyReason why)
   }
 }
 
-PTextureChild* ShadowLayerChild::AllocPTexture()
+PTextureChild* ShadowLayerChild::AllocPTexture(const TextureInfo& aInfo)
 {
-  return new TextureChild;
+  return new TextureChild; // TODO[nical]: use textureInfo?
 }
 bool ShadowLayerChild::DeallocPTexture(PTextureChild* actor)
 {

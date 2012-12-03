@@ -23,7 +23,6 @@ public:
 
   void Initialize(PLayerChild* aLayer,
                   PLayersChild* aShadowManager);
-
 private:
 };
 

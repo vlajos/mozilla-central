@@ -10,6 +10,7 @@
 #include "gfxASurface.h"
 #include "Compositor.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "GLContext.h"
 
 namespace mozilla {
@@ -21,6 +22,7 @@ namespace gl {
 namespace layers {
 
 class TextureChild;
+class ContentClient;
 
 /* This class allows texture clients to draw into textures through Azure or
  * thebes and applies locking semantics to allow GPU or CPU level
@@ -33,7 +35,8 @@ public:
   typedef gl::GLContext GLContext;
   typedef gl::TextureImage TextureImage;
 
-  virtual ~TextureClient() {}
+  virtual ~TextureClient();
+
   /* This will return an identifier that can be sent accross a process or
    * thread boundary and used to construct a TextureHost object
    * which can then be used as a texture for rendering by a compatible
@@ -41,14 +44,14 @@ public:
    * TextureHostIdentifier specified by the compositor that this identifier
    * is to be used with.
    */
-  virtual const TextureIdentifier& GetIdentifier()
+  virtual const TextureInfo& GetTextureInfo() const
   {
-    return mIdentifier;
+    return mTextureInfo;
   }
   
   void SetDescriptor(uint32_t aDescriptor)
   {
-    mIdentifier.mDescriptor = aDescriptor;
+    NS_ABORT_IF_FALSE(false,"we may need to get rid of texture 'descriptor'");
   }
 
   /**
@@ -84,16 +87,19 @@ public:
                              const nsIntPoint& aBufferRotation);
   virtual void Destroyed(ShadowableLayer* aLayer);
 
-protected:
-  TextureClient(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
-    : mLayerForwarder(aLayerForwarder)
-  {
-    mIdentifier.mBufferType = aBufferType;
+  void SetTextureChild(PTextureChild* aTextureChild) {
+    mTextureChild = aTextureChild;
   }
+  PTextureChild* GetTextureChild() const {
+    return mTextureChild;
+  }
+protected:
+  TextureClient(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
 
   ShadowLayerForwarder* mLayerForwarder;
   SurfaceDescriptor mDescriptor;
-  TextureIdentifier mIdentifier;
+  TextureInfo mTextureInfo;
+  PTextureChild* mTextureChild;
 };
 
 class TextureClientShmem : public TextureClient
@@ -133,7 +139,7 @@ protected:
   TextureClientShared(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
     : TextureClient(aLayerForwarder, aBufferType)
   {
-    mIdentifier.mTextureType = TEXTURE_SHARED;
+    mTextureInfo.memoryType = TEXTURE_SHARED;
   }
 
   friend class CompositingFactory;

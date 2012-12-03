@@ -7,6 +7,10 @@
 
 include protocol PLayers;
 include protocol PTexture; 
+include "mozilla/layers/TextureFactoryIdentifier.h";
+
+using mozilla::layers::BufferType;
+using mozilla::layers::TextureInfo;
 
 namespace mozilla {
 namespace layers {
@@ -34,7 +38,7 @@ async protocol PLayer {
      * being deleted "soon" (usually immediately).
      */
 parent:
-    async PTexture();
+    async PTexture(TextureInfo textureInfo);
     async __delete__();
 };
 

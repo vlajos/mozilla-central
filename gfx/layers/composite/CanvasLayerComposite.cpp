@@ -6,6 +6,7 @@
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 #include "CanvasLayerComposite.h"
 #include "ImageHost.h"
@@ -37,19 +38,19 @@ CanvasLayerComposite::EnsureImageHost(BufferType aHostType)
 }
 
 void
-CanvasLayerComposite::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+CanvasLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo,
                                      TextureHost* aTextureHost)
 {
-  EnsureImageHost(aTextureIdentifier.mBufferType);
+  EnsureImageHost(aTextureInfo.imageType);
 
   if (CanUseOpaqueSurface()) {
     aTextureHost->AddFlag(UseOpaqueSurface);
   }
-  mImageHost->AddTextureHost(aTextureIdentifier, aTextureHost);
+  mImageHost->AddTextureHost(aTextureInfo, aTextureHost);
 }
 
 void
-CanvasLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
+CanvasLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
                                   const SharedImage& aFront,
                                   SharedImage* aNewBack)
 {
@@ -59,7 +60,7 @@ CanvasLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
     return;
   }
 
-  *aNewBack = mImageHost->UpdateImage(aTextureIdentifier, aFront);
+  *aNewBack = mImageHost->UpdateImage(aTextureInfo, aFront);
 }
 
 void

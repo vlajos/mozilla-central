@@ -394,17 +394,6 @@ public:
   virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) { return true; }
 
   /**
-   * Create a new texture host for aLayer of a kind specified by aTextureIdentifier
-   */
-  virtual void CreateTextureHostFor(ShadowLayer* aLayer,
-                                    const TextureIdentifier& aTextureIdentifier,
-                                    TextureFlags aFlags)
-  {
-    //TODO[nrc] make pure virtual when all layer managers use Compositor
-    NS_ERROR("Should have been overridden");
-  }
-
-  /**
    * Returns a TextureFactoryIdentifier which describes properties of the backend
    * used to decide what kind of texture and buffer clients to create
    */

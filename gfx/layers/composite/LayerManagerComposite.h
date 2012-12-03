@@ -96,14 +96,6 @@ public:
     return mCompositor->CanUseCanvasLayerForSize(aSize);
   }
 
-  virtual void CreateTextureHostFor(ShadowLayer* aLayer,
-                                    const TextureIdentifier& aTextureIdentifier,
-                                    TextureFlags aFlags)
-  {
-    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(aTextureIdentifier, aFlags);
-    aLayer->AddTextureHost(aTextureIdentifier, textureHost);
-  }
-
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier()
   {
     return mCompositor->GetTextureFactoryIdentifier();

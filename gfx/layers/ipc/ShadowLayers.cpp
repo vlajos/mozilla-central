@@ -16,6 +16,7 @@
 #include "mozilla/layers/PLayerChild.h"
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/PLayersParent.h"
+#include "mozilla/layers/TextureChild.h"
 #include "ShadowLayers.h"
 #include "ShadowLayerChild.h"
 #include "gfxipc/ShadowLayerUtils.h"
@@ -239,13 +240,13 @@ ShadowLayerForwarder::RepositionChild(ShadowableLayer* aContainer,
 }
 
 void
-ShadowLayerForwarder::PaintedThebesBuffer(ShadowableLayer* aThebes,
+ShadowLayerForwarder::PaintedThebesBuffer(PTextureChild* aTexture,
                                           const nsIntRegion& aUpdatedRegion,
                                           const nsIntRect& aBufferRect,
                                           const nsIntPoint& aBufferRotation,
                                           const SurfaceDescriptor& aNewFrontBuffer)
 {
-  mTxn->AddPaint(OpPaintThebesBuffer(NULL, Shadow(aThebes),
+  mTxn->AddPaint(OpPaintThebesBuffer(NULL, aTexture,
                                      ThebesBuffer(aNewFrontBuffer,
                                                   aBufferRect,
                                                   aBufferRotation),
@@ -263,23 +264,19 @@ ShadowLayerForwarder::PaintedTiledLayerBuffer(ShadowableLayer* aLayer,
 }
 
 void
-ShadowLayerForwarder::UpdateTexture(ShadowableLayer* aLayer,
-                                    TextureIdentifier aIdentifier,
+ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
                                     const SharedImage& aImage)
 {
-  mTxn->AddPaint(OpPaintTexture(nullptr, Shadow(aLayer),
-                                aIdentifier,
-                                aImage));
+  mTxn->AddPaint(OpPaintTexture(nullptr, aTexture, aImage));
 }
 
 void
-ShadowLayerForwarder::UpdateTextureRegion(ShadowableLayer* aThebes,
-                                          TextureIdentifier aIdentifier,
+ShadowLayerForwarder::UpdateTextureRegion(TextureClient* aTexture,
+                                          const TextureInfo& aTextureInfo, // TODO[nical] unused param
                                           const ThebesBuffer& aThebesBuffer,
                                           const nsIntRegion& aUpdatedRegion)
 {
-  mTxn->AddPaint(OpPaintTextureRegion(nullptr, Shadow(aThebes),
-                                      aIdentifier,
+  mTxn->AddPaint(OpPaintTextureRegion(nullptr, aTexture->GetTextureChild(),
                                       aThebesBuffer,
                                       aUpdatedRegion));
 }
@@ -290,6 +287,14 @@ ShadowLayerForwarder::UpdatePictureRect(ShadowableLayer* aLayer,
 {
   mTxn->AddNoSwapPaint(OpUpdatePictureRect(nullptr, Shadow(aLayer), aRect));
 }
+
+void 
+ShadowLayerForwarder::IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier)
+{
+  mMaxTextureSize = aIdentifier.mMaxTextureSize;
+  mParentBackend = aIdentifier.mParentBackend;
+}
+
 
 bool
 ShadowLayerForwarder::EndTransaction(InfallibleTArray<EditReply>* aReplies)
@@ -561,10 +566,12 @@ ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHost
                                                                          aTextureHostType,
                                                                          aBufferType,
                                                                          this, aStrict);
-
-  // send client's id and type (not aImageSourceType) to Compositor
-  TextureIdentifier textureId = client->GetIdentifier();
-  mTxn->AddEdit(OpCreateTextureHost(nullptr, Shadow(aLayer), textureId, aFlags));
+  TextureChild* textureChild
+    = static_cast<TextureChild*>(Shadow(aLayer)->SendPTextureConstructor(client->GetTextureInfo()));
+  mTxn->AddEdit(OpAttachTexture(nullptr, Shadow(aLayer),
+                                nullptr, textureChild));
+  client->SetTextureChild(textureChild);
+  textureChild->SetTextureClient(client);
 
   return client.forget();
 }

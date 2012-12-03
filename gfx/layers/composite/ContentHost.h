@@ -59,7 +59,7 @@ class AContentHost : public BufferHost
 public:
   /**
    * Update the content host.
-   * aTextureIdentifier identifies the texture host which should be updated.
+   * aTextureInfo identifies the texture host which should be updated.
    * aNewBack is the new data
    * aUpdated is the region which should be updated
    * aNewfront may point to the old data in this content host after the call
@@ -67,8 +67,7 @@ public:
    * aNewValidRegionFront is the valid region in aNewFront
    * aUpdatedRegionBack is the region in aNewBackResult which has been updated
    */
-  virtual void UpdateThebes(const TextureIdentifier& aTextureIdentifier,
-                            const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionFront,
@@ -153,8 +152,7 @@ public:
 
   virtual BufferType GetType() { return BUFFER_CONTENT_DIRECT; }
 
-  virtual void UpdateThebes(const TextureIdentifier& aTextureIdentifier,
-                            const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionFront,
@@ -163,7 +161,7 @@ public:
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 };
 
 // We're using resources owned by our texture as the front buffer.
@@ -178,8 +176,7 @@ public:
 
   virtual BufferType GetType() { return BUFFER_CONTENT; }
 
-  virtual void UpdateThebes(const TextureIdentifier& aTextureIdentifier,
-                            const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionFront,
@@ -188,7 +185,7 @@ public:
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 };
 
 }

@@ -12,11 +12,10 @@ include protocol PLayer;
 include protocol PRenderFrame;
 include protocol PTexture;
 
-include "gfxipc/ShadowLayerUtils.h";
-include "Compositor.h";
 include "mozilla/WidgetUtils.h";
 include "mozilla/TimeStamp.h";
 include "nsCSSProperty.h";
+include "gfxipc/ShadowLayerUtils.h";
 
 using gfxPoint3D;
 using nscoord;
@@ -25,7 +24,6 @@ using nsPoint;
 using mozilla::TimeDuration;
 using mozilla::TimeStamp;
 using mozilla::ScreenRotation;
-using mozilla::layers::TextureIdentifier;
 using nsCSSProperty;
 
 /**
@@ -51,6 +49,11 @@ struct OpCreateImageLayer      { PLayer layer; };
 struct OpCreateColorLayer      { PLayer layer; };
 struct OpCreateCanvasLayer     { PLayer layer; };
 struct OpCreateRefLayer        { PLayer layer; };
+
+struct OpAttachTexture {
+  PLayer layer;
+  PTexture texture;
+};
 
 struct ThebesBuffer {
   SurfaceDescriptor buffer;
@@ -210,12 +213,6 @@ struct OpSetLayerAttributes {
   LayerAttributes attrs;
 };
 
-struct OpCreateTextureHost {
-  PLayer layer;
-  TextureIdentifier textureIdentifier;
-  int textureFlags;
-};
-
 // Monkey with the tree structure
 struct OpSetRoot          { PLayer root; };
 struct OpInsertAfter      { PLayer container; PLayer childLayer; PLayer after; };
@@ -227,7 +224,7 @@ struct OpRaiseToTopChild  { PLayer container; PLayer childLayer; };
 
 // Paint (buffer update)
 struct OpPaintThebesBuffer {
-  PLayer layer;
+  PTexture texture;
   ThebesBuffer newFrontBuffer;
   nsIntRegion updatedRegion;
 };
@@ -239,33 +236,13 @@ struct OpPaintTiledLayerBuffer {
   uintptr_t tiledLayerBuffer;
 };
 
-struct OpPaintCanvas  {
-  PLayer layer;
+struct OpPaintCanvas {
+  PTexture texture;
   SharedImage newFrontBuffer;
   bool needYFlip;
 };
 
 struct OpPaintTexture {
-  PLayer layer;
-  TextureIdentifier textureIdentifier;
-  SharedImage image;
-};
-
-struct OpPaintTextureRegion {
-  PLayer layer;
-  TextureIdentifier textureIdentifier;
-  ThebesBuffer newFrontBuffer;
-  nsIntRegion updatedRegion;
-};
-
-//TODO[nrc] names
-struct OpCreateTextureForLayer { 
-  PLayer layer;
-  PTexture texture;
-};
-
-/*
-struct OpPaintTexture {
   PTexture texture;
   SharedImage image;
 };
@@ -275,7 +252,6 @@ struct OpPaintTextureRegion {
   ThebesBuffer newFrontBuffer;
   nsIntRegion updatedRegion;
 };
-*/
 
 struct OpUpdatePictureRect {
   PLayer layer;
@@ -290,8 +266,6 @@ union Edit {
   OpCreateColorLayer;
   OpCreateCanvasLayer;
   OpCreateRefLayer;
-  OpCreateTextureForLayer;
-  OpCreateTextureHost;
 
   OpSetLayerAttributes;
   
@@ -309,17 +283,17 @@ union Edit {
 
   OpPaintTexture;
   OpPaintTextureRegion;
+  OpAttachTexture;
 };
 
 
 // Replies to operations
-struct OpBufferSwap   { PLayer layer; SurfaceDescriptor newBackBuffer; };
+// struct OpBufferSwap   { PLayer layer; SurfaceDescriptor newBackBuffer; };
 
 struct OpImageSwap { PLayer layer; SharedImage newBackImage; };
 
 struct OpThebesBufferSwap {
-  PLayer layer;
-  TextureIdentifier textureIdentifier;
+  PTexture texture;
   OptionalThebesBuffer newBackBuffer;
   nsIntRegion newValidRegion;
   // If the parent took the child's old back buffer and returned its
@@ -333,17 +307,16 @@ struct OpThebesBufferSwap {
 };
 
 struct OpTextureSwap {
-  PLayer layer;
-  TextureIdentifier textureIdentifier;
+  PTexture texture;
   SharedImage image;
 };
 
 // Unit of a "changeset reply".  This is a weird abstraction, probably
 // only to be used for buffer swapping.
 union EditReply {
-  OpBufferSwap;
+  //OpBufferSwap;
   OpThebesBufferSwap;
-  OpImageSwap;
+  OpImageSwap; // will be removed
   OpTextureSwap;
 };
 

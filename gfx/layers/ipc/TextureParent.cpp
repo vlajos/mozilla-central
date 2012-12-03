@@ -4,11 +4,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/TextureParent.h"
+#include "Compositor.h"
 
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 namespace mozilla {
 namespace layers {
 
+TextureParent::TextureParent(const TextureInfo& aInfo)
+: mTextureInfo(aInfo)
+{
+    printf("\n\nTextureParent::TextureParent\n\n\n");
+}
+
+TextureParent::~TextureParent()
+{
+    mTextureHost = nullptr;
+}
+
+void TextureParent::SetTextureHost(TextureHost* aTexture)
+{
+    mTextureHost = aTexture;
+}
+
+TextureHost* TextureParent::GetTextureHost() const
+{
+    return mTextureHost.get();
+}
 
 
 } // namespace

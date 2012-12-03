@@ -333,12 +333,12 @@ public:
     NS_ABORT_IF_FALSE(!mShadow, "can't have two shadows (yet)");
     mShadow = aShadow;
   }
-
+/*
   virtual void SetBackBuffer(const SharedImage& aBuffer)
   {
     NS_RUNTIMEABORT("if this default impl is called, |aBuffer| leaks");
   }
-
+*/
   virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
                              const SharedImage& aBuffer)
   {

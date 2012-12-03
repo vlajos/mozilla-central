@@ -10,6 +10,7 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "SharedTextureImage.h"
 #include "GLContext.h"
+#include "mozilla/layers/TextureChild.h"
 
 using namespace mozilla::gl;
 
@@ -17,10 +18,20 @@ namespace mozilla {
 namespace layers {
 
 
+TextureClient::TextureClient(ShadowLayerForwarder* aLayerForwarder,
+                             BufferType aBufferType)
+  : mLayerForwarder(aLayerForwarder)
+{
+  mTextureInfo.imageType = aBufferType;
+}
+
+TextureClient::~TextureClient()
+{}
+
 void
 TextureClient::Updated(ShadowableLayer* aLayer)
 {
-  mLayerForwarder->UpdateTexture(aLayer, mIdentifier, SharedImage(mDescriptor));
+  mLayerForwarder->UpdateTexture(mTextureChild, SharedImage(mDescriptor));
 }
 
 void
@@ -31,13 +42,13 @@ TextureClient::Destroyed(ShadowableLayer* aLayer)
 }
 
 void
-TextureClient::UpdatedRegion(ShadowableLayer* aLayer,
+TextureClient::UpdatedRegion(ShadowableLayer* aLayer, //TODO[nical] this arg is useless now
                              const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation)
 {
-  mLayerForwarder->UpdateTextureRegion(aLayer,
-                                       mIdentifier,
+  mLayerForwarder->UpdateTextureRegion(this,
+                                       mTextureInfo,
                                        ThebesBuffer(mDescriptor, aBufferRect, aBufferRotation),
                                        aUpdatedRegion);
 
@@ -49,8 +60,8 @@ TextureClientShmem::TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, Bu
   , mSurface(nullptr)
   , mSurfaceAsImage(nullptr)
 {
-  mIdentifier.mTextureType = TEXTURE_SHMEM;
-  mIdentifier.mDescriptor = 0;
+  mTextureInfo.memoryType = TEXTURE_SHMEM;
+  mTextureInfo.mDescriptor = 0;
 }
 
 TextureClientShmem::~TextureClientShmem()
@@ -130,7 +141,7 @@ TextureClientSharedGL::TextureClientSharedGL(ShadowLayerForwarder* aLayerForward
                                              BufferType aBufferType)
   : TextureClientShared(aLayerForwarder, aBufferType)
 {
-  mIdentifier.mTextureType = TEXTURE_SHARED_GL;
+  mTextureInfo.memoryType = TEXTURE_SHARED_GL;
 }
 
 TextureClientSharedGL::~TextureClientSharedGL()
@@ -174,10 +185,11 @@ TextureClientSharedGL::Unlock()
   mDescriptor = SurfaceDescriptor();
 }
 
-TextureClientBridge::TextureClientBridge(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
+TextureClientBridge::TextureClientBridge(ShadowLayerForwarder* aLayerForwarder,
+                                         BufferType aBufferType)
   : TextureClient(aLayerForwarder, aBufferType)
 {
-  mIdentifier.mTextureType = TEXTURE_BRIDGE;
+  mTextureInfo.memoryType = TEXTURE_BRIDGE;
 }
 
 /* static */ BufferType

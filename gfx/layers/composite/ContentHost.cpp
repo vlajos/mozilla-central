@@ -6,6 +6,7 @@
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "ContentHost.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 namespace mozilla {
 namespace layers {
@@ -151,8 +152,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
 
 void
-ContentHostTexture::UpdateThebes(const TextureIdentifier& aTextureIdentifier,
-                                 const ThebesBuffer& aNewFront,
+ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  const nsIntRegion& aUpdated,
                                  OptionalThebesBuffer* aNewBack,
                                  const nsIntRegion& aOldValidRegionFront,
@@ -194,17 +194,16 @@ ContentHostTexture::UpdateThebes(const TextureIdentifier& aTextureIdentifier,
 }
 
 void
-ContentHostTexture::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ContentHostTexture::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_CONTENT &&
-               aTextureIdentifier.mTextureType == TEXTURE_SHMEM,
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_CONTENT &&
+               aTextureInfo.memoryType == TEXTURE_SHMEM,
                "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }
 
 void
-ContentHostDirect::UpdateThebes(const TextureIdentifier& aTextureIdentifier,
-                                const ThebesBuffer& aNewBack,
+ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
                                 const nsIntRegion& aUpdated,
                                 OptionalThebesBuffer* aNewFront,
                                 const nsIntRegion& aOldValidRegionFront,
@@ -244,11 +243,11 @@ ContentHostDirect::UpdateThebes(const TextureIdentifier& aTextureIdentifier,
 }
 
 void
-ContentHostDirect::AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+ContentHostDirect::AddTextureHost(const TextureInfo& aTextureInfo,
                                   TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureIdentifier.mBufferType == BUFFER_CONTENT_DIRECT &&
-               aTextureIdentifier.mTextureType == TEXTURE_SHMEM,
+  NS_ASSERTION(aTextureInfo.imageType == BUFFER_CONTENT_DIRECT &&
+               aTextureInfo.memoryType == TEXTURE_SHMEM,
                "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }

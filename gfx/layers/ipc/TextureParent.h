@@ -7,15 +7,29 @@
 #define MOZILLA_LAYERS_TEXTUREPARENT_H
 
 #include "mozilla/layers/PTextureParent.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h"
 
 namespace mozilla {
 namespace layers {
 
+class TextureHost;
+class TextureInfo;
+
 class TextureParent : public PTextureParent
 {
 public:
+    TextureParent(const TextureInfo& aInfo);
+    virtual ~TextureParent();
 
+    void SetTextureHost(TextureHost* aTexture);
+    TextureHost* GetTextureHost() const;
+
+    const TextureInfo& GetTextureInfo() const {
+        return mTextureInfo;
+    }
 private:
+    TextureInfo mTextureInfo;
+    RefPtr<TextureHost> mTextureHost;
 };
 
 } // namespace

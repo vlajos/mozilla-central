@@ -916,7 +916,7 @@ nsHTMLCanvasElement::SetWriteOnly()
 }
 
 void
-nsHTMLCanvasElement::InvalidateCanvasContent(const gfx::Rect* damageRect)
+nsHTMLCanvasElement::InvalidateCanvasContent(const mozilla::gfx::Rect* damageRect)
 {
   // We don't need to flush anything here; if there's no frame or if
   // we plan to reframe we don't need to invalidate it anyway.

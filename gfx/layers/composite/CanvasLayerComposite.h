@@ -48,9 +48,9 @@ public:
     NS_ERROR("Should never be called");
   }
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
+  virtual void SwapTexture(const TextureInfo& aTextureInfo,
                            const SharedImage& aFront,
                            SharedImage* aNewBack);
 

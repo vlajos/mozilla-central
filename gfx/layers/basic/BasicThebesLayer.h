@@ -142,6 +142,7 @@ public:
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
+/*
   void SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
                              const OptionalThebesBuffer& aBuffer,
                              const nsIntRegion& aValidRegion,
@@ -155,7 +156,7 @@ public:
                                           aFrontUpdatedRegion,
                                           mValidRegion);
   }
-
+*/
   virtual void Disconnect();
 
   virtual BasicShadowableThebesLayer* AsThebes() { return this; }

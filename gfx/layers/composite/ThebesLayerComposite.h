@@ -36,13 +36,12 @@ public:
                     nsIntRegion* aFrontUpdatedRegion)
   { NS_ERROR("Should not be called"); }
 
-  virtual void SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                           const ThebesBuffer& aNewFront,
+  virtual void SwapTexture(const ThebesBuffer& aNewFront,
                            const nsIntRegion& aUpdatedRegion,
                            OptionalThebesBuffer* aNewBack,
                            nsIntRegion* aNewBackValidRegion,
                            OptionalThebesBuffer* aReadOnlyFront,
-                           nsIntRegion* aFrontUpdatedRegion);
+                           nsIntRegion* aFrontUpdatedRegion) MOZ_OVERRIDE;
                            
   virtual void DestroyFrontBuffer();
 
@@ -62,7 +61,7 @@ public:
                            Surface* aPreviousSurface = nullptr);
   virtual void CleanupResources();
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 
 private:
   void EnsureBuffer(BufferType aHostType);

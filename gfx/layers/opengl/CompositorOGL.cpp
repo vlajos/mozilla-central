@@ -10,6 +10,7 @@
 #include "SurfaceOGL.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "mozilla/layers/PLayer.h"
 
 #include "gfxUtils.h"
 
@@ -746,24 +747,20 @@ CompositorOGL::CreateBufferHost(BufferType aType)
   }
 }
 
-TextureIdentifier
-CompositorOGL::FallbackIdentifier(const TextureIdentifier& aId)
+void
+CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {
   //TODO[nrc] change this when you fix the fuck up
-  TextureIdentifier result = aId;
-  if (aId.mBufferType == BUFFER_DIRECT) {
-    result.mBufferType = BUFFER_TEXTURE;
+  if (aId.imageType == BUFFER_DIRECT) {
+    aId.imageType = BUFFER_TEXTURE;
   }
-
-  return result;
 }
 
 TemporaryRef<TextureHost>
-CompositorOGL::CreateTextureHost(const TextureIdentifier &aIdentifier,
-                                 TextureFlags aFlags)
+CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
 {
   RefPtr<TextureHost> result = nullptr;
-  switch (aIdentifier.mTextureType) {
+  switch (aInfo.memoryType) {
   case TEXTURE_SHARED:
     result = new TextureHostOGLShared(mGLContext);
     break;
@@ -772,21 +769,21 @@ CompositorOGL::CreateTextureHost(const TextureIdentifier &aIdentifier,
     break;
   case TEXTURE_SHMEM:
     //TODO[nrc] fuck up
-    if (aIdentifier.mBufferType == BUFFER_YUV) {
+    if (aInfo.imageType == BUFFER_YUV) {
       result = new GLTextureAsTextureHost(mGLContext);
-    } else if (aIdentifier.mBufferType == BUFFER_YCBCR) {
+    } else if (aInfo.imageType == BUFFER_YCBCR) {
       result = new YCbCrTextureHost(mGLContext);
-    } else if (aIdentifier.mBufferType == BUFFER_CONTENT_DIRECT) {
+    } else if (aInfo.imageType == BUFFER_CONTENT_DIRECT) {
       //TODO[nrc] should probably use the below path with fallback, but check
       result = new TextureImageAsTextureHostWithBuffer(mGLContext);
-    } else if (aIdentifier.mBufferType == BUFFER_DIRECT) {
+    } else if (aInfo.imageType == BUFFER_DIRECT) {
       if (ShadowLayerManager::SupportsDirectTexturing()) {
         result = new TextureImageAsTextureHostWithBuffer(mGLContext);
       } else {
         result = new TextureImageAsTextureHost(mGLContext);
       }
 #ifdef MOZ_WIDGET_GONK
-    } else if (aIdentifier.mBufferType == BUFFER_DIRECT_EXTERNAL) {
+    } else if (aInfo.imageType == BUFFER_DIRECT_EXTERNAL) {
       result = new DirectExternalTextureHost(mGLContext);
 #endif
     } else {
@@ -800,7 +797,7 @@ CompositorOGL::CreateTextureHost(const TextureIdentifier &aIdentifier,
 
   NS_ASSERTION(result, "Result should have been created.");
  
-  result->SetFlags(aFlags);
+  result->SetFlags(aInfo.textureFlags );
   return result.forget();
 }
 

@@ -29,9 +29,9 @@
 #include "gfxASurface.h"
 #include "jsapi.h"
 #include "LayersTypes.h"
-#include "Compositor.h"
 #include "FrameMetrics.h"
 #include "nsCSSProperty.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h"
 
 #ifdef _MSC_VER
 #pragma warning( disable : 4800 )
@@ -1009,21 +1009,23 @@ struct ParamTraits<mozilla::layers::TextureFactoryIdentifier>
 };
 
 template<>
-struct ParamTraits<mozilla::layers::TextureIdentifier>
+struct ParamTraits<mozilla::layers::TextureInfo>
 {
-  typedef mozilla::layers::TextureIdentifier paramType;
+  typedef mozilla::layers::TextureInfo paramType;
   
   static void Write(Message* aMsg, const paramType& aParam)
   {
-    WriteParam(aMsg, aParam.mBufferType);
-    WriteParam(aMsg, aParam.mTextureType);
-    WriteParam(aMsg, aParam.mDescriptor);
+    WriteParam(aMsg, aParam.imageType);
+    WriteParam(aMsg, aParam.memoryType);
+    WriteParam(aMsg, aParam.textureFlags);
+    WriteParam(aMsg, aParam.mDescriptor); // TODO[nical] will go away
   }
 
   static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
   {
-    return ReadParam(aMsg, aIter, &aResult->mBufferType) &&
-           ReadParam(aMsg, aIter, &aResult->mTextureType) &&
+    return ReadParam(aMsg, aIter, &aResult->imageType) &&
+           ReadParam(aMsg, aIter, &aResult->memoryType) &&
+           ReadParam(aMsg, aIter, &aResult->textureFlags) &&
            ReadParam(aMsg, aIter, &aResult->mDescriptor);
   }
 };
@@ -1043,6 +1045,7 @@ struct ParamTraits<mozilla::layers::TextureHostType>
                           mozilla::layers::TEXTURE_BRIDGE
 >
 {};
+
 
 
 } /* namespace IPC */

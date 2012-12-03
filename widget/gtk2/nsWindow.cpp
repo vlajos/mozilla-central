@@ -13,7 +13,6 @@
 #endif
 
 #include "prlink.h"
-#include "nsWindow.h"
 #include "nsGTKToolkit.h"
 #include "nsIRollupListener.h"
 #include "nsIDOMNode.h"
@@ -111,10 +110,12 @@ extern "C" {
 #include "gfxXlibSurface.h"
 #include "cairo-xlib.h"
 #endif
-
+  
 #include "nsShmImage.h"
 
 #include "nsIDOMWheelEvent.h"
+
+#include "nsWindow.h"
 
 using namespace mozilla;
 using namespace mozilla::widget;

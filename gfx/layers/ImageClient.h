@@ -31,10 +31,10 @@ public:
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer) = 0;
 
   /**
-   * Set the buffer of a texture client (identified by aTextureIdentifier) to
+   * Set the buffer of a texture client (identified by aTextureInfo) to
    * aBuffer. Intended to be used with a buffer from the compositor
    */
-  virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
+  virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SharedImage& aBuffer) = 0;
 
   /**
@@ -54,7 +54,7 @@ public:
                      TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
-  virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
+  virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SharedImage& aBuffer);
 
   virtual void Updated(ShadowableLayer* aLayer);
@@ -71,7 +71,7 @@ public:
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
 
-  virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
+  virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SharedImage& aBuffer) {}
 
   virtual void Updated(ShadowableLayer* aLayer);
@@ -87,7 +87,7 @@ public:
                  TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
-  virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
+  virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SharedImage& aBuffer);
   virtual void Updated(ShadowableLayer* aLayer);
 private:
@@ -107,7 +107,7 @@ public:
                     TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
-  virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
+  virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SharedImage& aBuffer) {}
   virtual void Updated(ShadowableLayer* aLayer);
 

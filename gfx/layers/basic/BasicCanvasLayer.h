@@ -129,13 +129,13 @@ public:
   {
     NS_ERROR("Should not be called.");
   }
-  
+/*
   virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
                              const SharedImage& aBuffer)
   {
     mCanvasClient->SetBuffer(aTextureIdentifier, aBuffer);
   }
-
+*/
   virtual void Disconnect()
   {
     mCanvasClient = nullptr;

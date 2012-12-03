@@ -43,8 +43,7 @@ public:
   virtual void Destroy();
 
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(const TextureIdentifier &aIdentifier,
-                      TextureFlags aFlags) MOZ_OVERRIDE;
+    CreateTextureHost(const TextureInfo& aInfo) MOZ_OVERRIDE;
 
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {
@@ -61,7 +60,7 @@ public:
   virtual TemporaryRef<BufferHost> 
     CreateBufferHost(BufferType aType) MOZ_OVERRIDE;
 
-  virtual TextureIdentifier FallbackIdentifier(const TextureIdentifier& aId);
+  virtual void FallbackTextureInfo(TextureInfo& aId) MOZ_OVERRIDE;
 
   virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
                                               SurfaceInitMode aInit) MOZ_OVERRIDE;

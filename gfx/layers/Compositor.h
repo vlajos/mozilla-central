@@ -13,6 +13,7 @@
 #include "nsAutoPtr.h"
 #include "nsRegion.h"
 #include "LayersTypes.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h"
 
 class gfxContext;
 class gfxASurface;
@@ -35,38 +36,7 @@ class ISurfaceDeAllocator;
 class BufferHost;
 class TextureHost;
 class SurfaceDescriptor;
-
-enum TextureFormat
-{
-  TEXTUREFORMAT_BGRX32,
-  TEXTUREFORMAT_BGRA32,
-  TEXTUREFORMAT_BGR16,
-  TEXTUREFORMAT_Y8
-};
-
-
-enum BufferType
-{
-  BUFFER_UNKNOWN,
-  BUFFER_YUV,
-  BUFFER_YCBCR,
-  BUFFER_DIRECT_EXTERNAL,
-  BUFFER_SHARED,
-  BUFFER_TEXTURE,
-  BUFFER_BRIDGE,
-  BUFFER_CONTENT,
-  BUFFER_CONTENT_DIRECT,
-  BUFFER_DIRECT
-};
-
-enum TextureHostType
-{
-  TEXTURE_UNKNOWN,
-  TEXTURE_SHMEM,
-  TEXTURE_SHARED,
-  TEXTURE_SHARED_GL,
-  TEXTURE_BRIDGE
-};
+class TextureInfo;
 
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
@@ -76,37 +46,6 @@ const TextureFlags ForceSingleTile    = 0x4;
 const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 
-
-/**
- * Sent from the compositor to the drawing LayerManager, includes properties
- * of the compositor and should (in the future) include information (BufferType)
- * about what kinds of buffer and texture clients to create.
- */
-struct TextureFactoryIdentifier
-{
-  LayersBackend mParentBackend;
-  int32_t mMaxTextureSize;
-};
-
-/**
- * Identifies a texture client/host pair and their type. Sent with updates
- * from a drawing layers to a compositing layer, it should be passed directly
- * to the BufferHost. How the identifier is used depends on the buffer
- * client/host pair.
- */
-struct TextureIdentifier
-{
-  BufferType mBufferType;
-  TextureHostType mTextureType;
-  uint64_t mDescriptor;
-};
-
-static bool operator==(const TextureIdentifier& aLeft, const TextureIdentifier& aRight)
-{
-  return aLeft.mBufferType == aRight.mBufferType &&
-         aLeft.mTextureType == aRight.mTextureType &&
-         aLeft.mDescriptor == aRight.mDescriptor;
-}
 
 class Texture : public RefCounted<Texture>
 {
@@ -469,7 +408,7 @@ public:
    * Create a new texture host of a kind specified by aIdentifier
    */
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(const TextureIdentifier &aIdentifier, TextureFlags aFlags) = 0;
+    CreateTextureHost(const TextureInfo& aInfo) = 0;
 
   /**
    * Create a new buffer host of a kind specified by aType
@@ -478,11 +417,11 @@ public:
     CreateBufferHost(BufferType aType) = 0;
 
   /**
-   * return a TextureIdentifier to be used in a fallback situation for aId
+   * modifies the TextureIdentifier if needed in a fallback situation for aId
    */
-  virtual TextureIdentifier FallbackIdentifier(const TextureIdentifier& aId)
+  virtual void FallbackTextureInfo(TextureInfo& aInfo)
   {
-    return aId;
+    // nothing to do
   }
 
   /**
@@ -590,6 +529,7 @@ class CanvasClient;
 class ContentClient;
 class ShadowLayerForwarder;
 class ShadowableLayer;
+class PTextureChild;
 
 class CompositingFactory
 {

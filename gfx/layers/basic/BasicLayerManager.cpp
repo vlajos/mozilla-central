@@ -7,6 +7,7 @@
 #include "mozilla/layers/PLayerChild.h"
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/PLayersParent.h"
+#include "mozilla/layers/TextureChild.h"
 
 #include "gfxSharedImageSurface.h"
 #include "gfxImageSurface.h"
@@ -1200,37 +1201,22 @@ BasicShadowLayerManager::ForwardTransaction()
         MOZ_LAYERS_LOG(("[LayersForwarder] ThebesBufferSwap"));
 
         const OpThebesBufferSwap& obs = reply.get_OpThebesBufferSwap();
-        BasicShadowableThebesLayer* thebes = GetBasicShadowable(obs)->AsThebes();
-        thebes->SetBackBufferAndAttrs(obs.textureIdentifier(),
-                                      obs.newBackBuffer(),
-                                      obs.newValidRegion(),
-                                      obs.readOnlyFrontBuffer(),
-                                      obs.frontUpdatedRegion());
-        break;
-      }
-      case EditReply::TOpBufferSwap: {
-        NS_WARNING("Shouldn't get used with Compositor");
-        MOZ_LAYERS_LOG(("[LayersForwarder] BufferSwap"));
 
-        const OpBufferSwap& obs = reply.get_OpBufferSwap();
-        const SharedImage& newBack = obs.newBackBuffer();
-        if (newBack.type() == SharedImage::TSurfaceDescriptor) {
-          GetBasicShadowable(obs)->SetBackBuffer(newBack.get_SurfaceDescriptor());
-        } else if (newBack.type() == SharedImage::Tnull_t) {
-          GetBasicShadowable(obs)->SetBackBuffer(SurfaceDescriptor());
+        TextureClient* textureClient = static_cast<TextureChild*>(obs.textureChild())->GetTextureClient();
+        MOZ_ASSERT(textureClient, "textureChild should have a ContentClient");
+/*
+        contentClient->SetBackBufferAndAttrs(obs.newBackBuffer(),
+                                             obs.newValidRegion(),
+                                             obs.readOnlyFrontBuffer(),
+                                             obs.frontUpdatedRegion());
+*/
+        if (obs.newBackBuffer().type() == OptionalThebesBuffer::Tnull_t) {
+          textureClient->SetDescriptor(SurfaceDescriptor());
         } else {
-          NS_RUNTIMEABORT("Unknown back image type");
+          textureClient->SetDescriptor(obs.newBackBuffer().get_ThebesBuffer().buffer());
         }
-        break;
-      }
-      case EditReply::TOpImageSwap: {
-        NS_WARNING("Shouldn't get used with Compositor");
-        MOZ_LAYERS_LOG(("[LayersForwarder] BufferSwap (image bridge)"));
-
-        const OpImageSwap& ois = reply.get_OpImageSwap();
-        BasicShadowableLayer* layer = GetBasicShadowable(ois);
-        layer->SetBackBuffer(ois.newBackImage());
-
+        // TODO[nical] take care of the buffer rect, rotation, valid region...
+        // cf ContentClientTexture::SetBackBufferAndAttrs
         break;
       }
       case EditReply::TOpTextureSwap: {
@@ -1238,8 +1224,19 @@ BasicShadowLayerManager::ForwardTransaction()
 
         const OpTextureSwap& ots = reply.get_OpTextureSwap();
         BasicShadowableLayer* layer = GetBasicShadowable(ots);
-        layer->SetBackBuffer(ots.textureIdentifier(), ots.image());
 
+        PTextureChild* textureChild = ots.textureChild();
+        MOZ_ASSERT(textureChild);
+
+        TextureClient* texClient = static_cast<TextureChild*>(textureChild)->GetTextureClient();
+
+        SharedImage::Type type = ots.image().type();
+        if (type != SharedImage::TSurfaceDescriptor) {
+          texClient->SetDescriptor(SurfaceDescriptor());
+          return;
+        }
+
+        texClient->SetDescriptor(ots.image().get_SurfaceDescriptor());
         break;
       }
 

@@ -75,7 +75,7 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 
 
 void
-ImageClientTexture::SetBuffer(const TextureIdentifier& aTextureIdentifier,
+ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
                               const SharedImage& aBuffer)
 {
   SharedImage::Type type = aBuffer.type();
@@ -214,13 +214,13 @@ ImageClientYUV::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 }
 
 void
-ImageClientYUV::SetBuffer(const TextureIdentifier& aTextureIdentifier,
+ImageClientYUV::SetBuffer(const TextureInfo& aTextureInfo,
                           const SharedImage& aBuffer)
 {
   SharedImage::Type type = aBuffer.type();
 
   TextureClient* textureClient;
-  switch (aTextureIdentifier.mDescriptor) {
+  switch (aTextureInfo.mDescriptor) {
   case 0:
     textureClient = mTextureClientY;
     break;

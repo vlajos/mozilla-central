@@ -27,7 +27,7 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr) = 0;
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo,
                               TextureHost* aTextureHost) = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}

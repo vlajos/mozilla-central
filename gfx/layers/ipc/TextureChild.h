@@ -11,11 +11,24 @@
 namespace mozilla {
 namespace layers {
 
+class TextureClient;
+
 class TextureChild : public PTextureChild
 {
 public:
+    TextureChild()
+    : mTextureClient(nullptr)
+    {}
 
+    void SetTextureClient(TextureClient* aClient) {
+        mTextureClient = aClient;
+    }
+
+    TextureClient* GetTextureClient() const {
+        return mTextureClient;
+    }
 private:
+    TextureClient* mTextureClient;
 };
 
 } // namespace

@@ -20,6 +20,7 @@
 #include "ShadowLayerUtils.h"
 #include "TiledLayerBuffer.h"
 #include "gfxPlatform.h" 
+#include "mozilla/layers/TextureParent.h"
 
 typedef std::vector<mozilla::layers::EditReply> EditReplyVector;
 
@@ -37,18 +38,28 @@ cast(const PLayerParent* in)
     static_cast<const ShadowLayerParent*>(in));
 }
 
+template<class OpPaintT>
+static TextureHost*
+AsTextureHost(const OpPaintT& op)
+{
+  return static_cast<TextureParent*>(op.textureParent())->GetTextureHost();
+}
+
+template<class OpPaintT>
+Layer* GetLayerFromOpPaint(const OpPaintT& op)
+{
+  PTextureParent* textureParent = op.textureParent();
+  MOZ_ASSERT(textureParent);
+  ShadowLayerParent* shadow = cast(textureParent->Manager());
+
+  return shadow->AsLayer();
+}
+
 template<class OpCreateT>
 static ShadowLayerParent*
 AsShadowLayer(const OpCreateT& op)
 {
   return cast(op.layerParent());
-}
-
-template<class OpCreateT>
-static const TextureIdentifier
-AsTextureId(const OpCreateT& op)
-{
-  return static_cast<const TextureIdentifier>(op.textureIdentifier());
 }
 
 static ShadowLayerParent*
@@ -327,21 +338,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       }
       break;
     }
-
-    case Edit::TOpCreateTextureHost: {
-      MOZ_LAYERS_LOG(("[ParentSide] CreateTextureHost"));
-
-      const OpCreateTextureHost& op = edit.get_OpCreateTextureHost();
-      ShadowLayer* layer = AsShadowLayer(op)->AsLayer()->AsShadowLayer();
-      const TextureIdentifier textureId = AsTextureId(op);
-      TextureFlags flags = static_cast<TextureFlags>(op.textureFlags());
-      layer_manager()->CreateTextureHostFor(layer, textureId, flags);
-      layer->SetAllocator(this);
-
-      break;
-    }
-
-      // Tree ops
+    // Tree ops
     case Edit::TOpSetRoot: {
       MOZ_LAYERS_LOG(("[ParentSide] SetRoot"));
 
@@ -407,9 +404,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintThebesBuffer& op = edit.get_OpPaintThebesBuffer();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
       ShadowThebesLayer* thebes =
-        static_cast<ShadowThebesLayer*>(shadow->AsLayer());
+        static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op)->AsShadowLayer());
       const ThebesBuffer& newFront = op.newFrontBuffer();
 
       RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
@@ -423,8 +419,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
                    &readonlyFront, &frontUpdatedRegion);
       replyv.push_back(
         OpThebesBufferSwap(
-          shadow, NULL,
-          TextureIdentifier(),
+          op.textureParent(), NULL,
           newBack, newValidRegion,
           readonlyFront, frontUpdatedRegion));
 
@@ -435,37 +430,61 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       MOZ_LAYERS_LOG(("[ParentSide] Paint CanvasLayer"));
 
       const OpPaintCanvas& op = edit.get_OpPaintCanvas();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
-      ShadowCanvasLayer* canvas =
-        static_cast<ShadowCanvasLayer*>(shadow->AsLayer());
+      ShadowCanvasLayer* canvas = static_cast<ShadowCanvasLayer*>(GetLayerFromOpPaint(op)->AsShadowLayer());
 
       RenderTraceInvalidateStart(canvas, "FF00FF", canvas->GetVisibleRegion().GetBounds());
 
       canvas->SetAllocator(this);
+
+      // -----------
+      // this looks like a typical texture swap for most OpPaint[...] operations
+      TextureHost* textureHost = AsTextureHost(op);
+
       SharedImage newBack;
-      canvas->Swap(op.newFrontBuffer(), op.needYFlip(), &newBack);
+      bool success;
+      textureHost->Update(op.newFrontBuffer(), &newBack, &success);
+      if (!success) {
+        NS_ASSERTION(newBack.type() == SharedImage::Tnull_t, "fail should give null result");
+      }
+      // -----------
+
       canvas->Updated();
-      replyv.push_back(OpBufferSwap(shadow, NULL,
-                                    newBack));
+      replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
+//      replyv.push_back(OpBufferSwap(shadow, NULL,
+//                                    newBack));
 
       RenderTraceInvalidateEnd(canvas, "FF00FF");
       break;
     }
+    case Edit::TOpAttachTexture: {
+      const OpAttachTexture& op = edit.get_OpAttachTexture();
+      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
+      ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
+      Layer* layer = layerParent->AsLayer();
+      MOZ_ASSERT(layer);
+      Compositor* compositor
+        = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+
+      RefPtr<TextureHost> textureHost = compositor->CreateTextureHost(textureParent->GetTextureInfo());
+      textureParent->SetTextureHost(textureHost.get());
+      layer->AsShadowLayer()->AddTextureHost(textureParent->GetTextureInfo(), textureHost.get());
+      break;
+    }
     case Edit::TOpPaintTexture: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint Texture"));
+      MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
 
       const OpPaintTexture& op = edit.get_OpPaintTexture();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
-      Layer* layer = shadow->AsLayer();
+
+      Layer* layer = GetLayerFromOpPaint(op);
       ShadowLayer* shadowLayer = layer->AsShadowLayer();
-      const TextureIdentifier textureId = AsTextureId(op);
 
       RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
-
+      TextureHost* texture = AsTextureHost(op);
       shadowLayer->SetAllocator(this);
       SharedImage newBack;
-      shadowLayer->SwapTexture(textureId, op.image(), &newBack);
-      replyv.push_back(OpTextureSwap(shadow, nullptr, textureId, newBack));
+      texture->Update(op.image(), &newBack);
+      //shadowLayer->SwapTexture(textureId, op.image(), &newBack);
+      replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
  
       RenderTraceInvalidateEnd(layer, "FF00FF");
       break;
@@ -474,10 +493,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintTextureRegion& op = edit.get_OpPaintTextureRegion();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
       ShadowThebesLayer* thebes =
-        static_cast<ShadowThebesLayer*>(shadow->AsLayer());
-      const TextureIdentifier textureId = AsTextureId(op);
+        static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op));
       const ThebesBuffer& newFront = op.newFrontBuffer();
 
       RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
@@ -487,14 +504,12 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       nsIntRegion newValidRegion;
       OptionalThebesBuffer readonlyFront;
       nsIntRegion frontUpdatedRegion;
-      thebes->SwapTexture(textureId,
-                          newFront, op.updatedRegion(),
+      thebes->SwapTexture(newFront, op.updatedRegion(),
                           &newBack, &newValidRegion,
                           &readonlyFront, &frontUpdatedRegion);
       replyv.push_back(
         OpThebesBufferSwap(
-          shadow, nullptr,
-          textureId,
+          op.textureParent(), nullptr,
           newBack, newValidRegion,
           readonlyFront, frontUpdatedRegion));
 

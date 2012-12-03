@@ -166,6 +166,7 @@ EXPORTS_mozilla/layers =\
         ShadowLayersParent.h \
         ShadowLayersManager.h \
         TextureChild.h \
+        TextureFactoryIdentifier.h \
         TextureParent.h \
         RenderTrace.h \
         SharedImageUtils.h \

@@ -15,20 +15,20 @@ include protocol POfflineCacheUpdate;
 include protocol PIndexedDB;
 include DOMTypes;
 include URIParams;
+include CompositorUtils;
 
 include "gfxMatrix.h";
-include "Compositor.h";
 include "FrameMetrics.h";
 include "IPC/nsGUIEventIPC.h";
 include "mozilla/dom/TabMessageUtils.h";
 include "mozilla/dom/PermissionMessageUtils.h";
 include "mozilla/layout/RenderFrameUtils.h";
+include "mozilla/layers/TextureFactoryIdentifier.h";
 
 using IPC::Principal;
 using gfxMatrix;
 using gfxRect;
 using gfxSize;
-using mozilla::layers::TextureFactoryIdentifier;
 using mozilla::layers::FrameMetrics;
 using mozilla::layout::ScrollingBehavior;
 using mozilla::WindowsHandle;
@@ -48,6 +48,7 @@ using nsSelectionEvent;
 using nsTextEvent;
 using nsTouchEvent;
 using RemoteDOMEvent;
+using mozilla::layers::TextureFactoryIdentifier;
 
 namespace mozilla {
 namespace dom {

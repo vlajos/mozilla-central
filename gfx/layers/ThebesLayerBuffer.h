@@ -52,9 +52,9 @@ public:
 
   ThebesLayerBuffer(BufferSizePolicy aBufferSizePolicy)
     : mBufferProvider(nullptr)
+    , mBuffer(nullptr)
     , mBufferRotation(0,0)
     , mBufferSizePolicy(aBufferSizePolicy)
-    , mBuffer(nullptr)
   {
     MOZ_COUNT_CTOR(ThebesLayerBuffer);
   }

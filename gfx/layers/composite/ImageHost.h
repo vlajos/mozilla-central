@@ -14,7 +14,7 @@ namespace layers {
 class ImageHost : public BufferHost
 {
 public:
-  virtual SharedImage UpdateImage(const TextureIdentifier& aTextureIdentifier,
+  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
                                   const SharedImage& aImage) = 0;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
@@ -42,10 +42,10 @@ public:
 
   virtual BufferType GetType() { return mType; }
 
-  virtual SharedImage UpdateImage(const TextureIdentifier& aTextureIdentifier,
+  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
                                   const SharedImage& aImage);
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier,
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo,
                               TextureHost* aTextureHost);
 
   virtual TemporaryRef<TextureHost> GetTextureHost() { return mTextureHost; }
@@ -79,7 +79,7 @@ public:
 
   // aImage contains all three plains, we could also send them seperately and 
   // update mTextures one at a time
-  virtual SharedImage UpdateImage(const TextureIdentifier& aTextureIdentifier,
+  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
                                   const SharedImage& aImage);
 
   virtual void Composite(EffectChain& aEffectChain,
@@ -90,7 +90,7 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr);
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect)
   {
@@ -112,7 +112,7 @@ public:
 
   virtual BufferType GetType() { return BUFFER_YCBCR; }
 
-  virtual SharedImage UpdateImage(const TextureIdentifier& aTextureIdentifier,
+  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
                                   const SharedImage& aImage);
 
   virtual void Composite(EffectChain& aEffectChain,
@@ -123,7 +123,7 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr);
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 
 protected:
   RefPtr<TextureHost> mTextureHost;
@@ -141,7 +141,7 @@ public:
 
   virtual BufferType GetType() { return BUFFER_BRIDGE; }
 
-  virtual SharedImage UpdateImage(const TextureIdentifier& aTextureIdentifier,
+  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
                                   const SharedImage& aImage);
 
   virtual void Composite(EffectChain& aEffectChain,
@@ -152,7 +152,7 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr);
 
-  virtual void AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost);
+  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 
 protected:
   void EnsureImageHost(BufferType aType);

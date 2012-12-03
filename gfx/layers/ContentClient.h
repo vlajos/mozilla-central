@@ -45,8 +45,7 @@ public:
   // back buffer (i.e. as they were for the old back buffer)
   virtual void SyncFrontBufferToBackBuffer() {}
 
-  virtual void SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
-                                     const OptionalThebesBuffer& aBuffer,
+  virtual void SetBackBufferAndAttrs(const OptionalThebesBuffer& aBuffer,
                                      const nsIntRegion& aValidRegion,
                                      const OptionalThebesBuffer& aReadOnlyFrontBuffer,
                                      const nsIntRegion& aFrontUpdatedRegion,

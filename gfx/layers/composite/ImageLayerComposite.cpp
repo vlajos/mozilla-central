@@ -13,6 +13,7 @@
 #include "gfx2DGlue.h"
 
 #include "Compositor.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 using namespace mozilla::gfx;
 
@@ -31,15 +32,15 @@ ImageLayerComposite::~ImageLayerComposite()
 {}
 
 void
-ImageLayerComposite::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ImageLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  EnsureImageHost(aTextureIdentifier.mBufferType);
+  EnsureImageHost(aTextureInfo.imageType);
 
-  mImageHost->AddTextureHost(aTextureIdentifier, aTextureHost);
+  mImageHost->AddTextureHost(aTextureInfo, aTextureHost);
 }
 
 void
-ImageLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
+ImageLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
                                  const SharedImage& aFront,
                                  SharedImage* aNewBack)
 {
@@ -49,7 +50,7 @@ ImageLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
     return;
   }
 
-  *aNewBack = mImageHost->UpdateImage(aTextureIdentifier, aFront);
+  *aNewBack = mImageHost->UpdateImage(aTextureInfo, aFront);
 }
 
 void

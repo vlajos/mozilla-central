@@ -18,7 +18,7 @@
 #include "gfxUtils.h"
 #include "gfx2DGlue.h"
 
-//#include "base/message_loop.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 namespace mozilla {
 namespace layers {
@@ -40,11 +40,11 @@ ThebesLayerComposite::~ThebesLayerComposite()
 {}
 
 void
-ThebesLayerComposite::AddTextureHost(const TextureIdentifier& aTextureIdentifier, TextureHost* aTextureHost)
+ThebesLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  EnsureBuffer(aTextureIdentifier.mBufferType);
+  EnsureBuffer(aTextureInfo.imageType);
 
-  mBuffer->AddTextureHost(aTextureIdentifier, aTextureHost);
+  mBuffer->AddTextureHost(aTextureInfo, aTextureHost);
 }
 
 
@@ -61,8 +61,7 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
 }
 
 void
-ThebesLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
-                                  const ThebesBuffer& aNewFront,
+ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
                                   const nsIntRegion& aUpdatedRegion,
                                   OptionalThebesBuffer* aNewBack,
                                   nsIntRegion* aNewBackValidRegion,
@@ -77,8 +76,7 @@ ThebesLayerComposite::SwapTexture(const TextureIdentifier& aTextureIdentifier,
     return;
   }
   
-  mBuffer->UpdateThebes(aTextureIdentifier,
-                        aNewFront,
+  mBuffer->UpdateThebes(aNewFront,
                         aUpdatedRegion,
                         aNewBack,
                         mValidRegionForNextBackBuffer,
