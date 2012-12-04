@@ -19,7 +19,7 @@
 #include "mozilla/Util.h"
 #include "LayerSorter.h"
 #include "AnimationCommon.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 
 using namespace mozilla::layers;
 using namespace mozilla::gfx;

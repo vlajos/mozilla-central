@@ -14,11 +14,12 @@
 
 #include "ThebesLayerBuffer.h"
 #include "ThebesLayerComposite.h"
-#include "ContentHost.h"
+#include "mozilla/layers/ContentHost.h"
 #include "gfxUtils.h"
 #include "gfx2DGlue.h"
 
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "mozilla/layers/Effects.h"
 
 namespace mozilla {
 namespace layers {

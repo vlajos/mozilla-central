@@ -3,14 +3,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "TextureOGL.h"
-#include "CompositorOGL.h"
-#include "ImageHost.h"
-#include "ContentHost.h"
-#include "SurfaceOGL.h"
+#include "mozilla/layers/TextureOGL.h"
+#include "mozilla/layers/CompositorOGL.h"
+#include "mozilla/layers/ImageHost.h"
+#include "mozilla/layers/ContentHost.h"
+#include "mozilla/layers/SurfaceOGL.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/PLayer.h"
+#include "mozilla/layers/Effects.h"
 
 #include "gfxUtils.h"
 

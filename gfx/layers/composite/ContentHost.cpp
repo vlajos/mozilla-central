@@ -5,8 +5,9 @@
 
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/ShadowLayers.h"
-#include "ContentHost.h"
+#include "mozilla/layers/ContentHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "mozilla/layers/Effects.h"
 
 namespace mozilla {
 namespace layers {

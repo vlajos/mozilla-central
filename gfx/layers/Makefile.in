@@ -37,16 +37,14 @@ EXPORTS = \
         BasicThebesLayer.h \
         BufferHost.h \
         LayerManagerComposite.h \
-        Compositor.h \
-        CompositorOGL.h \
-        ContentHost.h \
-		Composer2D.h \
+        Composer2D.h \
         GonkIOSurfaceImage.h \
         FrameMetrics.h \
         CompositorChild.h \
         CompositorParent.h \
         ImageContainer.h \
         ImageLayers.h \
+        ImageLayerOGL.h \
         ImageHost.h \
         LayerImplComposite.h \
         ImageTypes.h \
@@ -74,10 +72,6 @@ CPPSRCS = \
         BasicLayersImpl.cpp \
         BasicThebesLayer.cpp \
         BasicTiledThebesLayer.cpp \
-        CanvasClient.cpp \
-        CompositorOGL.cpp \
-        ContentClient.cpp \
-        ContentHost.cpp \
         ImageContainer.cpp \
         Layers.cpp \
         RenderTrace.cpp \
@@ -88,7 +82,6 @@ CPPSRCS = \
         ContainerLayerOGL.cpp \
         ImageLayerOGL.cpp \
         LayerManagerOGL.cpp \
-        TextureOGL.cpp \
         ThebesLayerOGL.cpp \
         TiledThebesLayerOGL.cpp \
         ReusableTileStoreOGL.cpp \
@@ -102,9 +95,6 @@ CPPSRCS = \
         LayerSorter.cpp \
         LayerTreeInvalidation.cpp \
         ImageLayers.cpp \
-        ImageClient.cpp \
-        ImageHost.cpp \
-        TextureClient.cpp \
         TexturePoolOGL.cpp \
         $(NULL)
 
@@ -152,34 +142,46 @@ EXPORTS_mozilla/layers =\
         AsyncPanZoomController.h \
         Axis.h \
         BufferClient.h \
+        Compositor.h \
+        CompositorOGL.h \
+        ContentHost.h \
         CompositorCocoaWidgetHelper.h \
         CompositorChild.h \
         CompositorParent.h \
+        Effects.h \
         GeckoContentController.h \
         GestureEventListener.h \
         ImageBridgeChild.h \
         ImageBridgeParent.h \
         ImageContainerChild.h \
         ImageContainerParent.h \
+        ImageHost.h \
         ShadowLayers.h \
         ShadowLayersChild.h \
         ShadowLayersParent.h \
         ShadowLayersManager.h \
         TextureChild.h \
+        TextureOGL.h \
         TextureFactoryIdentifier.h \
         TextureParent.h \
         RenderTrace.h \
         SharedImageUtils.h \
         ShmemYCbCrImage.h \
+        SurfaceOGL.h \
         $(NULL)
 
 CPPSRCS += \
         AsyncPanZoomController.cpp \
         Axis.cpp \
         BufferClient.cpp \
+        CanvasClient.cpp \
+        Compositor.cpp \
+        CompositorOGL.cpp \
         CompositorCocoaWidgetHelper.cpp \
         CompositorChild.cpp \
         CompositorParent.cpp \
+        ContentClient.cpp \
+        ContentHost.cpp \
         GestureEventListener.cpp \
         ImageBridgeChild.cpp \
         ImageBridgeParent.cpp \
@@ -191,6 +193,10 @@ CPPSRCS += \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
         ShmemYCbCrImage.cpp \
+        ImageClient.cpp \
+        ImageHost.cpp \
+        TextureClient.cpp \
+        TextureOGL.cpp \
         TextureChild.cpp \
         TextureParent.cpp \
         $(NULL)

@@ -6,8 +6,8 @@
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/PLayers.h"
 #include "TiledLayerBuffer.h"
-#include "TextureOGL.h"
-#include "SurfaceOGL.h"
+#include "mozilla/layers/TextureOGL.h"
+#include "mozilla/layers/SurfaceOGL.h"
 #include "LayerManagerComposite.h"
 
 /* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
@@ -15,7 +15,7 @@
 
 #include "ThebesLayerBuffer.h"
 #include "ThebesLayerOGL.h"
-#include "ContentHost.h"
+#include "mozilla/layers/ContentHost.h"
 #include "gfxUtils.h"
 #include "gfx2DGlue.h"
 #include "gfxTeeSurface.h"

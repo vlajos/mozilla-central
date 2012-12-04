@@ -6,7 +6,7 @@
 #ifndef MOZILLA_GFX_COMPOSITOROGL_H
 #define MOZILLA_GFX_COMPOSITOROGL_H
 
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "GLContext.h"
 #include "LayerManagerOGLProgram.h"
 

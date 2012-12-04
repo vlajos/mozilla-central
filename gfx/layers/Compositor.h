@@ -37,6 +37,13 @@ class BufferHost;
 class TextureHost;
 class SurfaceDescriptor;
 class TextureInfo;
+class TextureClient;
+class ImageClient;
+class CanvasClient;
+class ContentClient;
+class ShadowLayerForwarder;
+class ShadowableLayer;
+class PTextureChild;
 
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
@@ -89,8 +96,8 @@ public:
 class TextureHost
 {
 public:
-  TextureHost() : mFlags(NoFlags), mIsBuffered(false) {}
-  virtual ~TextureHost() {}
+  TextureHost(bool aBuffered = false);
+  virtual ~TextureHost();
 
   virtual void AddRef() = 0;
   virtual void Release() = 0;
@@ -101,27 +108,33 @@ public:
    * Update the texture host from a SharedImage, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The
    * texture client should know what to expect
+   * The buffering logic is implemented here rather than in the specialized classes
    */
   void Update(const SharedImage& aImage,
               SharedImage* aResult = nullptr,
               bool* aIsInitialised = nullptr,
-              bool* aNeedsReset = nullptr) {
-    UpdateImpl(aImage, aResult, aIsInitialised, aNeedsReset);
-  }
+              bool* aNeedsReset = nullptr);
 
+  /**
+   * What should be implemented by the backend-specific TextureHost classes 
+   */
   virtual void UpdateImpl(const SharedImage& aImage,
                           SharedImage* aResult = nullptr,
                           bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr) {}
+                          bool* aNeedsReset = nullptr)
+  {
+    NS_RUNTIMEABORT("Should not be reached");
+  }
 
   /**
    * Updates a region of the texture host from aSurface
    */
-  void Update(gfxASurface* aSurface, nsIntRegion& aRegion) {
-    UpdateImpl(aSurface, aRegion);
-  }
+  void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
 
-  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
+  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
+  {
+    NS_RUNTIMEABORT("SHould not be reached");
+  };
 
   /**
    * Lock the texture host for compositing, returns an effect that should
@@ -141,8 +154,6 @@ public:
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
-//  virtual gfx::IntSize GetSize() const = 0;
-
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
   virtual TileIterator* GetAsTileIterator() { return nullptr; }
@@ -154,7 +165,7 @@ public:
 protected:
   TextureFlags mFlags;
   bool mIsBuffered;
-  //SharedImage mBuffer;
+  SharedImage* mBuffer;
 };
 
 /**
@@ -178,194 +189,6 @@ enum SurfaceInitMode
   INIT_MODE_COPY
 };
 
-enum EffectTypes
-{
-  EFFECT_BGRX,
-  EFFECT_RGBX,
-  EFFECT_BGRA,
-  EFFECT_RGB,
-  EFFECT_RGBA,
-  EFFECT_RGBA_EXTERNAL,
-  EFFECT_YCBCR,
-  EFFECT_COMPONENT_ALPHA,
-  EFFECT_SOLID_COLOR,
-  EFFECT_MASK,
-  EFFECT_SURFACE,
-  EFFECT_MAX
-};
-
-struct Effect : public RefCounted<Effect>
-{
-  Effect(uint32_t aType) : mType(aType) {}
-
-  uint32_t mType;
-};
-
-struct EffectMask : public Effect
-{
-  EffectMask(TextureSource *aMaskTexture,
-             const gfx::Matrix4x4 &aMaskTransform)
-    : Effect(EFFECT_MASK), mMaskTexture(aMaskTexture)
-    , mIs3D(false)
-    , mMaskTransform(aMaskTransform)
-  {}
-
-  RefPtr<TextureSource> mMaskTexture;
-  bool mIs3D;
-  gfx::Matrix4x4 mMaskTransform;
-};
-
-struct EffectSurface : public Effect
-{
-  EffectSurface(Surface *aSurface)
-    : Effect(EFFECT_SURFACE), mSurface(aSurface)
-  {}
-
-  RefPtr<Surface> mSurface;
-};
-
-struct EffectBGRX : public Effect
-{
-  EffectBGRX(TextureSource *aBGRXTexture,
-             bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : Effect(EFFECT_BGRX), mBGRXTexture(aBGRXTexture)
-    , mPremultiplied(aPremultiplied), mFilter(aFilter)
-    , mFlipped(aFlipped)
-  {}
-
-  RefPtr<TextureSource> mBGRXTexture;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectRGBX : public Effect
-{
-  EffectRGBX(TextureSource *aRGBXTexture,
-             bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : Effect(EFFECT_RGBX), mRGBXTexture(aRGBXTexture)
-    , mPremultiplied(aPremultiplied), mFilter(aFilter)
-    , mFlipped(aFlipped)
-  {}
-
-  RefPtr<TextureSource> mRGBXTexture;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectBGRA : public Effect
-{
-  EffectBGRA(TextureSource *aBGRATexture,
-             bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : Effect(EFFECT_BGRA), mBGRATexture(aBGRATexture)
-    , mPremultiplied(aPremultiplied), mFilter(aFilter)
-    , mFlipped(aFlipped)
-  {}
-
-  RefPtr<TextureSource> mBGRATexture;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectRGB : public Effect
-{
-  EffectRGB(TextureSource *aRGBTexture,
-            bool aPremultiplied,
-            mozilla::gfx::Filter aFilter,
-            bool aFlipped = false)
-    : Effect(EFFECT_RGB), mRGBTexture(aRGBTexture)
-    , mPremultiplied(aPremultiplied), mFilter(aFilter)
-    , mFlipped(aFlipped)
-  {}
-
-  RefPtr<TextureSource> mRGBTexture;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectRGBA : public Effect
-{
-  EffectRGBA(TextureSource *aRGBATexture,
-             bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : Effect(EFFECT_RGBA), mRGBATexture(aRGBATexture)
-    , mPremultiplied(aPremultiplied), mFilter(aFilter)
-    , mFlipped(aFlipped)
-  {}
-
-  RefPtr<TextureSource> mRGBATexture;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectRGBAExternal : public Effect
-{
-  EffectRGBAExternal(TextureSource *aRGBATexture,
-                     const gfx::Matrix4x4 &aTextureTransform,
-                     bool aPremultiplied,
-                     mozilla::gfx::Filter aFilter,
-                     bool aFlipped = false)
-    : Effect(EFFECT_RGBA_EXTERNAL), mRGBATexture(aRGBATexture)
-    , mTextureTransform(aTextureTransform), mPremultiplied(aPremultiplied)
-    , mFilter(aFilter), mFlipped(aFlipped)
-  {}
-
-  RefPtr<TextureSource> mRGBATexture;
-  gfx::Matrix4x4 mTextureTransform;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectYCbCr : public Effect
-{
-  EffectYCbCr(TextureSource *aY, TextureSource *aCb, TextureSource *aCr,
-              mozilla::gfx::Filter aFilter)
-    : Effect(EFFECT_YCBCR), mY(aY), mCb(aCb), mCr(aCr)
-    , mFilter(aFilter)
-  {}
-
-  RefPtr<TextureSource> mY;
-  RefPtr<TextureSource> mCb;
-  RefPtr<TextureSource> mCr;
-  mozilla::gfx::Filter mFilter;
-};
-
-struct EffectComponentAlpha : public Effect
-{
-  EffectComponentAlpha(TextureSource *aOnWhite, TextureSource *aOnBlack)
-    : Effect(EFFECT_COMPONENT_ALPHA), mOnWhite(aOnWhite), mOnBlack(aOnBlack)
-  {}
-
-  RefPtr<TextureSource> mOnWhite;
-  RefPtr<TextureSource> mOnBlack;
-};
-
-struct EffectSolidColor : public Effect
-{
-  EffectSolidColor(const mozilla::gfx::Color &aColor)
-    : Effect(EFFECT_SOLID_COLOR), mColor(aColor)
-  {}
-
-  mozilla::gfx::Color mColor;
-};
-
-struct EffectChain
-{
-  // todo - define valid grammar
-  RefPtr<Effect> mEffects[EFFECT_MAX];
-};
 
 class Compositor : public RefCounted<Compositor>
 {
@@ -522,14 +345,6 @@ public:
 protected:
   uint32_t mCompositorID;
 };
-
-class TextureClient;
-class ImageClient;
-class CanvasClient;
-class ContentClient;
-class ShadowLayerForwarder;
-class ShadowableLayer;
-class PTextureChild;
 
 class CompositingFactory
 {

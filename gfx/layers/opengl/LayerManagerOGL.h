@@ -7,7 +7,7 @@
 #define GFX_LAYERMANAGEROGL_H
 
 #include "Layers.h"
-#include "CompositorOGL.h"
+#include "mozilla/layers/CompositorOGL.h"
 #include "LayerManagerOGLProgram.h"
 
 #include "mozilla/TimeStamp.h"

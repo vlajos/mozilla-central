@@ -8,7 +8,7 @@
 
 #include "mozilla/layers/LayersSurfaces.h"
 #include "gfxASurface.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "GLContext.h"

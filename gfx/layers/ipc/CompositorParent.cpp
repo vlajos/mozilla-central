@@ -17,7 +17,7 @@
 #include "AutoOpenSurface.h"
 #include "BasicLayers.h"
 #include "CompositorParent.h"
-#include "CompositorOGL.h"
+#include "mozilla/layers/CompositorOGL.h"
 #include "nsGkAtoms.h"
 #include "nsIWidget.h"
 #include "RenderTrace.h"

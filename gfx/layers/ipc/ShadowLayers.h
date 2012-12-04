@@ -12,7 +12,7 @@
 #include "GLDefs.h"
 
 #include "ImageLayers.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "mozilla/ipc/SharedMemory.h"
 #include "mozilla/WidgetUtils.h"
 

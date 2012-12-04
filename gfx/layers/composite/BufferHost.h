@@ -6,7 +6,7 @@
 #ifndef MOZILLA_GFX_BUFFERHOST_H
 #define MOZILLA_GFX_BUFFERHOST_H
 
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 
 namespace mozilla {
 namespace layers {

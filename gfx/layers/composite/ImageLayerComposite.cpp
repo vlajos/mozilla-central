@@ -12,8 +12,9 @@
 #include "gfxImageSurface.h"
 #include "gfx2DGlue.h"
 
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "mozilla/layers/Effects.h"
 
 using namespace mozilla::gfx;
 

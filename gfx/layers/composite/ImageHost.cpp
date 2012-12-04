@@ -8,6 +8,7 @@
 #include "ImageHost.h"
 
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "mozilla/layers/Effects.h"
 
 namespace mozilla {
 namespace layers {

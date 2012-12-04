@@ -21,7 +21,7 @@
 #include "mozilla/Preferences.h"
 #include "BasicLayers.h"
 #include "LayerManagerOGL.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "nsIXULRuntime.h"
 #include "nsIXULWindow.h"
 #include "nsIBaseWindow.h"

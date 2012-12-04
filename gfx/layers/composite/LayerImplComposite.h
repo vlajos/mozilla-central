@@ -10,6 +10,7 @@
 #include "LayerManagerComposite.h"
 #include "LayersTypes.h"
 #include "gfx2DGlue.h"
+#include "mozilla/layers/Effects.h"
 
 namespace mozilla {
 namespace layers {

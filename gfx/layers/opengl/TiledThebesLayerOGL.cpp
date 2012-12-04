@@ -3,7 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/PLayersChild.h"
-#include "TextureOGL.h"
+#include "mozilla/layers/TextureOGL.h"
 #include "TiledThebesLayerOGL.h"
 #include "ReusableTileStoreOGL.h"
 #include "BasicTiledThebesLayer.h"

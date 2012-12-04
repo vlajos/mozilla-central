@@ -5,7 +5,7 @@
 
 #include "ContainerLayerOGL.h"
 #include "gfxUtils.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "gfxPlatform.h"
 
 namespace mozilla {

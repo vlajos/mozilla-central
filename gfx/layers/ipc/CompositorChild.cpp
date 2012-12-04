@@ -8,7 +8,7 @@
 #include "CompositorParent.h"
 #include "LayerManagerOGL.h"
 #include "mozilla/layers/ShadowLayersChild.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 
 using mozilla::layers::ShadowLayersChild;
 

@@ -22,7 +22,6 @@
 #include "mozilla/layers/CompositorChild.h"
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layout/RenderFrameChild.h"
-#include "Compositor.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/unused.h"
 #include "mozIApplication.h"

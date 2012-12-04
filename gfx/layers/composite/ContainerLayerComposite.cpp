@@ -5,7 +5,7 @@
 
 #include "ContainerLayerComposite.h"
 #include "gfxUtils.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "LayersTypes.h"
 #include "gfx2DGlue.h"
 

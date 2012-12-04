@@ -7,9 +7,10 @@
 #define MOZILLA_GFX_TEXTUREOGL_H
  
 #include "ImageLayerOGL.h"
-#include "CompositorOGL.h"
+#include "mozilla/layers/CompositorOGL.h"
 #include "GLContext.h"
 #include "gfx2DGlue.h"
+#include "mozilla/layers/Effects.h"
 
 #define CLASS_NAME(name) virtual char* ClassName() const { return #name ;}
 

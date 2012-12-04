@@ -17,7 +17,6 @@
 #include "mozilla/layers/AsyncPanZoomController.h"
 #include "mozilla/layers/CompositorParent.h"
 #include "mozilla/layers/ShadowLayersParent.h"
-#include "Compositor.h"
 #include "nsContentUtils.h"
 #include "nsFrameLoader.h"
 #include "nsIObserver.h"

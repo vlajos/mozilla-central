@@ -6,10 +6,10 @@
 #ifndef MOZILLA_GFX_SURFACEOGL_H
 #define MOZILLA_GFX_SURFACEOGL_H
 
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 
 #ifdef MOZ_DUMP_PAINTING
-#include "CompositorOGL.h"
+#include "mozilla/layers/CompositorOGL.h"
 #endif
 
 namespace mozilla {

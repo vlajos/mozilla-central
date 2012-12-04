@@ -6,7 +6,7 @@
 #ifndef GFX_LayerManagerComposite_H
 #define GFX_LayerManagerComposite_H
 
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 
 #include "mozilla/layers/ShadowLayers.h"
 
