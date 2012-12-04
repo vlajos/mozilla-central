@@ -116,7 +116,7 @@ public:
   Layer* GetLayer() { return this; }
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr);
+                           CompositingRenderTarget* aPreviousTarget = nullptr);
   virtual void CleanupResources() { }
 
   // Shadow

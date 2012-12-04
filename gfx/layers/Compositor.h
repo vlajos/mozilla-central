@@ -172,10 +172,10 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class Surface : public RefCounted<Surface>
+class CompositingRenderTarget : public RefCounted<CompositingRenderTarget>
 {
 public:
-  virtual ~Surface() {}
+  virtual ~CompositingRenderTarget() {}
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor) { return nullptr; }
@@ -251,29 +251,29 @@ public:
    * This creates a Surface that can be used as a rendering target by this
    * compositor.
    */
-  virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
-                                              SurfaceInitMode aInit) = 0;
+  virtual TemporaryRef<CompositingRenderTarget> CreateRenderTarget(const gfx::IntRect &aRect,
+                                                                              SurfaceInitMode aInit) = 0;
 
   /**
    * This creates a Surface that can be used as a rendering target by this compositor,
    * and initializes this surface by copying from the given surface. If the given surface
    * is nullptr, the screen frame in progress is used as the source.
    */
-  virtual TemporaryRef<Surface> CreateSurfaceFromSurface(const gfx::IntRect &aRect,
-                                                         const Surface *aSource) = 0;
+  virtual TemporaryRef<CompositingRenderTarget> CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+                                                                             const CompositingRenderTarget* aSource) = 0;
 
   /**
    * Sets the given surface as the target for subsequent calls to DrawQuad.
    * Passing nullptr as aSurface sets the screen as the target.
    */
-  virtual void SetSurfaceTarget(Surface *aSurface) = 0;
+  virtual void SetRenderTarget(CompositingRenderTarget *aSurface) = 0;
 
   /**
    * Mostly the compositor will pull the size from a widget and this will
    * be ignored, but compositor implementations are free to use it if they
    * like.
    */
-  virtual void SetSurfaceSize(int aWidth, int aHeight) = 0;
+  virtual void SetRenderTargetSize(int aWidth, int aHeight) = 0;
 
   /**
    * This tells the compositor to actually draw a quad, where the area is

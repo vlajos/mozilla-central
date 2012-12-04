@@ -167,7 +167,7 @@ EXPORTS_mozilla/layers =\
         RenderTrace.h \
         SharedImageUtils.h \
         ShmemYCbCrImage.h \
-        SurfaceOGL.h \
+        CompositingRenderTargetOGL.h \
         $(NULL)
 
 CPPSRCS += \

@@ -17,7 +17,7 @@ enum EffectTypes
   EFFECT_COMPONENT_ALPHA,
   EFFECT_SOLID_COLOR,
   EFFECT_MASK,
-  EFFECT_SURFACE,
+  EFFECT_RENDER_TARGET,
   EFFECT_MAX
 };
 
@@ -42,13 +42,13 @@ struct EffectMask : public Effect
   gfx::Matrix4x4 mMaskTransform;
 };
 
-struct EffectSurface : public Effect
+struct EffectRenderTarget : public Effect
 {
-  EffectSurface(Surface *aSurface)
-    : Effect(EFFECT_SURFACE), mSurface(aSurface)
+  EffectRenderTarget(CompositingRenderTarget *aRenderTarget)
+    : Effect(EFFECT_RENDER_TARGET), mRenderTarget(aRenderTarget)
   {}
 
-  RefPtr<Surface> mSurface;
+  RefPtr<CompositingRenderTarget> mRenderTarget;
 };
 
 struct EffectBGRX : public Effect

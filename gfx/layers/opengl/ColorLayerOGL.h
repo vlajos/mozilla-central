@@ -33,7 +33,7 @@ public:
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr);
+                           CompositingRenderTarget* aPreviousSurface = nullptr);
   virtual void CleanupResources() {};
 };
 

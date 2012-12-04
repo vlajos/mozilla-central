@@ -276,7 +276,7 @@ public:
    */
   void SetSurfaceSize(int width, int height)
   {
-    mCompositor->SetSurfaceSize(width, height);
+    mCompositor->SetRenderTargetSize(width, height);
   }
 
   ///////////////////////////////
@@ -431,7 +431,7 @@ public:
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr) = 0;
+                           CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
   typedef mozilla::gl::GLContext GLContext;
 

@@ -72,9 +72,9 @@ ContainerLayerComposite::RepositionChild(Layer* aChild, Layer* aAfter)
 void
 ContainerLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                      const nsIntRect& aClipRect,
-                                     Surface* aPreviousSurface)
+                                     CompositingRenderTarget* aPreviousTarget)
 {
-  ContainerRender(this, aPreviousSurface, aOffset, mCompositeManager, aClipRect);
+  ContainerRender(this, aPreviousTarget, aOffset, mCompositeManager, aClipRect);
 }
 
 void
@@ -114,9 +114,9 @@ CompositeRefLayer::GetFirstChildComposite()
 void
 CompositeRefLayer::RenderLayer(const nsIntPoint& aOffset,
                                const nsIntRect& aClipRect,
-                               Surface* aPreviousSurface)
+                               CompositingRenderTarget* aPreviousTarget)
 {
-  ContainerRender(this, aPreviousSurface, aOffset, mCompositeManager, aClipRect);
+  ContainerRender(this, aPreviousTarget, aOffset, mCompositeManager, aClipRect);
 }
 
 void

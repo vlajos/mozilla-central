@@ -7,7 +7,7 @@
 #include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/ImageHost.h"
 #include "mozilla/layers/ContentHost.h"
-#include "mozilla/layers/SurfaceOGL.h"
+#include "mozilla/layers/CompositingRenderTargetOGL.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/PLayer.h"
@@ -802,19 +802,22 @@ CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
   return result.forget();
 }
 
-TemporaryRef<Surface>
-CompositorOGL::CreateSurface(const gfx::IntRect &aRect, SurfaceInitMode aInit)
+TemporaryRef<CompositingRenderTarget>
+CompositorOGL::CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aInit)
 {
-  RefPtr<SurfaceOGL> surface = new SurfaceOGL(mGLContext);
+  RefPtr<CompositingRenderTargetOGL> surface = new CompositingRenderTargetOGL(mGLContext);
   CreateFBOWithTexture(aRect, aInit, 0, &(surface->mFBO), &(surface->mTexture));
   return surface.forget();
 }
 
-TemporaryRef<Surface>
-CompositorOGL::CreateSurfaceFromSurface(const gfx::IntRect &aRect, const Surface *aSource)
+TemporaryRef<CompositingRenderTarget>
+CompositorOGL::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+                                            const CompositingRenderTarget *aSource)
 {
-  RefPtr<SurfaceOGL> surface = new SurfaceOGL(mGLContext);
-  const SurfaceOGL* sourceSurface = static_cast<const SurfaceOGL*>(aSource);
+  RefPtr<CompositingRenderTargetOGL> surface
+    = new CompositingRenderTargetOGL(mGLContext);
+  const CompositingRenderTargetOGL* sourceSurface
+    = static_cast<const CompositingRenderTargetOGL*>(aSource);
   if (aSource) {
     CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->mFBO,
                          &(surface->mFBO), &(surface->mTexture));
@@ -826,10 +829,11 @@ CompositorOGL::CreateSurfaceFromSurface(const gfx::IntRect &aRect, const Surface
 }
 
 void
-CompositorOGL::SetSurfaceTarget(Surface *aSurface)
+CompositorOGL::SetRenderTarget(CompositingRenderTarget *aSurface)
 {
   if (aSurface) {
-    SurfaceOGL* surface = static_cast<SurfaceOGL*>(aSurface);
+    CompositingRenderTargetOGL* surface
+      = static_cast<CompositingRenderTargetOGL*>(aSurface);
     if (mBoundFBO != surface->mFBO) {
       mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, surface->mFBO);
       mBoundFBO = surface->mFBO;
@@ -1427,10 +1431,11 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);
     }
-  } else if (aEffectChain.mEffects[EFFECT_SURFACE]) {
-    EffectSurface* effectSurface =
-      static_cast<EffectSurface*>(aEffectChain.mEffects[EFFECT_SURFACE].get());
-    RefPtr<SurfaceOGL> surface = static_cast<SurfaceOGL*>(effectSurface->mSurface.get());
+  } else if (aEffectChain.mEffects[EFFECT_RENDER_TARGET]) {
+    EffectRenderTarget* effectRenderTarget =
+      static_cast<EffectRenderTarget*>(aEffectChain.mEffects[EFFECT_RENDER_TARGET].get());
+    RefPtr<CompositingRenderTargetOGL> surface
+      = static_cast<CompositingRenderTargetOGL*>(effectRenderTarget->mRenderTarget.get());
 
     ShaderProgramOGL *program = GetProgram(GetFBOLayerProgramType(), maskType);
 
@@ -1518,7 +1523,7 @@ CompositorOGL::AbortFrame()
 }
 
 void
-CompositorOGL::SetSurfaceSize(int aWidth, int aHeight)
+CompositorOGL::SetRenderTargetSize(int aWidth, int aHeight)
 {
   mSurfaceSize.width = aWidth;
   mSurfaceSize.height = aHeight;

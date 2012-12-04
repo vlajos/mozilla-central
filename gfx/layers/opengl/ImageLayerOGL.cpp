@@ -214,7 +214,7 @@ ImageLayerOGL::GetLayer()
 void
 ImageLayerOGL::RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
-                           Surface*)
+                           CompositingRenderTarget*)
 {
   nsRefPtr<ImageContainer> container = GetContainer();
 

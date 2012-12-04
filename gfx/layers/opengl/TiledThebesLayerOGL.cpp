@@ -249,7 +249,8 @@ TiledThebesLayerOGL::RenderTile(const TiledTexture& aTile,
 }
 
 void
-TiledThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
+TiledThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect,
+                                 CompositingRenderTarget*)
 {
   gl()->MakeCurrent();
   gl()->fActiveTexture(LOCAL_GL_TEXTURE0);

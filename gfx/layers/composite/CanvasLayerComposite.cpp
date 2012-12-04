@@ -79,7 +79,8 @@ CanvasLayerComposite::GetLayer()
 }
 
 void
-CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
+CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect,
+                                  CompositingRenderTarget*)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;

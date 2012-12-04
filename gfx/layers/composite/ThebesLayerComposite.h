@@ -58,7 +58,7 @@ public:
   virtual bool IsEmpty();
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr);
+                           CompositingRenderTarget* aPreviousTarget = nullptr);
   virtual void CleanupResources();
 
   virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);

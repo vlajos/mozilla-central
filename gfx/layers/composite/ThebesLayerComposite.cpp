@@ -126,7 +126,7 @@ ThebesLayerComposite::IsEmpty()
 void
 ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                   const nsIntRect& aClipRect,
-                                  Surface* aPreviousSurface)
+                                  CompositingRenderTarget* aPreviousTarget)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;

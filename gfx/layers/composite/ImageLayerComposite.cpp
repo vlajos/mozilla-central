@@ -88,7 +88,7 @@ ImageLayerComposite::GetLayer()
 void
 ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                  const nsIntRect& aClipRect,
-                                 Surface*)
+                                 CompositingRenderTarget*)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;

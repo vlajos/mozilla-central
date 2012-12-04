@@ -259,7 +259,7 @@ CanvasLayerOGL::UpdateSurface()
 void
 CanvasLayerOGL::RenderLayer(const nsIntPoint& aOffset,
                             const nsIntRect& aClipRect,
-                            Surface*)
+                            CompositingRenderTarget*)
 {
   UpdateSurface();
   if (mOGLManager->CompositingDisabled()) {

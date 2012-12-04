@@ -203,7 +203,7 @@ protected:
 
   void
   ContainerRender(ContainerT* aContainer,
-                  Surface* aPreviousSurface,
+                  CompositingRenderTarget* aPreviousTarget,
                   const nsIntPoint& aOffset,
                   ManagerT* aManager,
                   const nsIntRect& aClipRect)
@@ -211,7 +211,7 @@ protected:
     /**
      * Setup our temporary surface for rendering the contents of this container.
      */
-    RefPtr<Surface> surface;
+    RefPtr<CompositingRenderTarget> surface;
 
     Compositor* compositor = aManager->GetCompositor();
 
@@ -254,16 +254,16 @@ protected:
       surfaceRect -= gfx::IntPoint(childOffset.x, childOffset.y);
       if (!aManager->CompositingDisabled()) {
         if (surfaceCopyNeeded) {
-          surface = compositor->CreateSurfaceFromSurface(surfaceRect, aPreviousSurface);
+          surface = compositor->CreateRenderTargetFromSource(surfaceRect, aPreviousTarget);
         } else {
-          surface = compositor->CreateSurface(surfaceRect, mode);
+          surface = compositor->CreateRenderTarget(surfaceRect, mode);
         }
-        compositor->SetSurfaceTarget(surface);
+        compositor->SetRenderTarget(surface);
       }
       childOffset.x = visibleRect.x;
       childOffset.y = visibleRect.y;
     } else {
-      surface = aPreviousSurface;
+      surface = aPreviousTarget;
       aContainer->mSupportsComponentAlphaChildren = (aContainer->GetContentFlags() & Layer::CONTENT_OPAQUE) ||
         (aContainer->GetParent() && aContainer->GetParent()->SupportsComponentAlphaChildren());
     }
@@ -294,7 +294,7 @@ protected:
 
     if (needsSurface) {
       // Unbind the current surface and rebind the previous one.
-      compositor->SetSurfaceTarget(aPreviousSurface);
+      compositor->SetRenderTarget(aPreviousTarget);
 #ifdef MOZ_DUMP_PAINTING
       if (gfxUtils::sDumpPainting) {
         nsRefPtr<gfxImageSurface> surf = surface->Dump(aManager->GetCompositor());
@@ -314,8 +314,8 @@ protected:
           effectChain.mEffects[EFFECT_MASK] = maskEffect;
         }
 
-        RefPtr<Effect> effect = new EffectSurface(surface);
-        effectChain.mEffects[EFFECT_SURFACE] = effect;
+        RefPtr<Effect> effect = new EffectRenderTarget(surface);
+        effectChain.mEffects[EFFECT_RENDER_TARGET] = effect;
         gfx::Matrix4x4 transform;
         ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 

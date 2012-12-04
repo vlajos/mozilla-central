@@ -62,13 +62,14 @@ public:
 
   virtual void FallbackTextureInfo(TextureInfo& aId) MOZ_OVERRIDE;
 
-  virtual TemporaryRef<Surface> CreateSurface(const gfx::IntRect &aRect,
-                                              SurfaceInitMode aInit) MOZ_OVERRIDE;
+  virtual TemporaryRef<CompositingRenderTarget> 
+  CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aInit) MOZ_OVERRIDE;
 
-  virtual TemporaryRef<Surface> CreateSurfaceFromSurface(const gfx::IntRect &aRect,
-                                                         const Surface *aSource) MOZ_OVERRIDE;
+  virtual TemporaryRef<CompositingRenderTarget>
+  CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+                               const CompositingRenderTarget *aSource) MOZ_OVERRIDE;
 
-  virtual void SetSurfaceTarget(Surface *aSurface) MOZ_OVERRIDE;
+  virtual void SetRenderTarget(CompositingRenderTarget *aSurface) MOZ_OVERRIDE;
 
   virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
                         const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
@@ -100,7 +101,7 @@ public:
   /**
    * Set the size of the EGL surface we're rendering to.
    */
-  virtual void SetSurfaceSize(int aWidth, int aHeight);
+  virtual void SetRenderTargetSize(int aWidth, int aHeight);
 
   GLContext* gl() const { return mGLContext; }
 
@@ -112,6 +113,7 @@ public:
     mGLContext->MakeCurrent(aForce);
   }
 
+  // TODO[nical] rename this
   virtual void SetTarget(gfxContext* aTarget)
   {
     mTarget = aTarget;

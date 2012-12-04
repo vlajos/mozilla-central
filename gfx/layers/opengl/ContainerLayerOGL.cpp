@@ -59,9 +59,9 @@ ContainerLayerOGL::GetFirstChildOGL()
 void
 ContainerLayerOGL::RenderLayer(const nsIntPoint& aOffset,
                                const nsIntRect& aClipRect,
-                               Surface* aPreviousSurface)
+                               CompositingRenderTarget* aPreviousTarget)
 {
-  ContainerRender(this, aPreviousSurface, aOffset, mOGLManager, aClipRect);
+  ContainerRender(this, aPreviousTarget, aOffset, mOGLManager, aClipRect);
 }
 
 void

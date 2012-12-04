@@ -345,7 +345,7 @@ CompositorParent::SetEGLSurfaceSize(int width, int height)
   NS_ASSERTION(mRenderToEGLSurface, "Compositor created without RenderToEGLSurface provided");
   mEGLSurfaceSize.SizeTo(width, height);
   if (mLayerManager) {
-    mLayerManager->GetCompositor()->SetSurfaceSize(mEGLSurfaceSize.width, mEGLSurfaceSize.height);
+    mLayerManager->GetCompositor()->SetRenderTargetSize(mEGLSurfaceSize.width, mEGLSurfaceSize.height);
   }
 }
 

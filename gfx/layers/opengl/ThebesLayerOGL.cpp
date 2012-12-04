@@ -7,7 +7,7 @@
 #include "mozilla/layers/PLayers.h"
 #include "TiledLayerBuffer.h"
 #include "mozilla/layers/TextureOGL.h"
-#include "mozilla/layers/SurfaceOGL.h"
+#include "mozilla/layers/CompositingRenderTargetOGL.h"
 #include "LayerManagerComposite.h"
 
 /* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
@@ -692,7 +692,7 @@ ThebesLayerOGL::InvalidateRegion(const nsIntRegion &aRegion)
 void
 ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
                             const nsIntRect& aClipRect,
-                            Surface* aPreviousSurface)
+                            CompositingRenderTarget* aPreviousTarget)
 {
   if (!mBuffer && !CreateSurface()) {
     return;
@@ -749,9 +749,9 @@ ThebesLayerOGL::RenderLayer(const nsIntPoint& aOffset,
 
   // Drawing thebes layers can change the current context, reset it.
   gl()->MakeCurrent();
-  if (aPreviousSurface) {
+  if (aPreviousTarget) {
     gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
-                           static_cast<SurfaceOGL*>(aPreviousSurface)->mFBO);
+                           static_cast<CompositingRenderTargetOGL*>(aPreviousTarget)->mFBO);
   } else {
     gl()->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
   }

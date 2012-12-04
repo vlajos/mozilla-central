@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_GFX_SURFACEOGL_H
-#define MOZILLA_GFX_SURFACEOGL_H
+#ifndef MOZILLA_GFX_COMPOSITINGRENDERTARGETOGL_H
+#define MOZILLA_GFX_COMPOSITINGRENDERTARGETOGL_H
 
 #include "mozilla/layers/Compositor.h"
 
@@ -15,16 +15,16 @@
 namespace mozilla {
 namespace layers {
 
-class SurfaceOGL : public Surface
+class CompositingRenderTargetOGL : public CompositingRenderTarget
 {
   typedef mozilla::gl::GLContext GLContext;
 
 public:
-  SurfaceOGL(GLContext* aGL)
+  CompositingRenderTargetOGL(GLContext* aGL)
     : mGL(aGL) 
   {}
 
-  ~SurfaceOGL()
+  ~CompositingRenderTargetOGL()
   {
     mGL->fDeleteTextures(1, &mTexture);
     mGL->fDeleteFramebuffers(1, &mFBO);

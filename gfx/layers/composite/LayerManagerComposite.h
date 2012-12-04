@@ -250,7 +250,7 @@ public:
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
-                           Surface* aPreviousSurface = nullptr) = 0;
+                           CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
   virtual void CleanupResources() = 0;
 

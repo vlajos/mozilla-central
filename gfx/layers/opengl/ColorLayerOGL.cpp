@@ -10,7 +10,8 @@ namespace mozilla {
 namespace layers {
 
 void
-ColorLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect, Surface*)
+ColorLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect,
+                           CompositingRenderTarget*)
 {
   RenderColorLayer(this, mOGLManager->GetCompositor(), aOffset, aClipRect);
 }

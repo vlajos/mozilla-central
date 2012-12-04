@@ -14,7 +14,7 @@ namespace layers {
 void
 ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                  const nsIntRect& aClipRect,
-                                 Surface*)
+                                 CompositingRenderTarget*)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;
