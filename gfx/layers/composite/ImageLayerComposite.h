@@ -40,11 +40,11 @@ public:
   virtual void Disconnect();
 
   virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
-
+/*
   virtual void SwapTexture(const TextureInfo& aTextureInfo,
                            const SharedImage& aFront,
                            SharedImage* aNewBack);
-
+*/
   virtual void SetPictureRect(const nsIntRect& aPictureRect);
 
   // LayerOGL impl

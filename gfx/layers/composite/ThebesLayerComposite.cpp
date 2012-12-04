@@ -61,6 +61,7 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
   }
 }
 
+// TODO[nical] remove swap
 void
 ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
                                   const nsIntRegion& aUpdatedRegion,

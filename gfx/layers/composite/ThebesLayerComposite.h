@@ -27,21 +27,6 @@ public:
   virtual ~ThebesLayerComposite();
 
   virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
-
-  virtual void Swap(const ThebesBuffer& aNewFront,
-                    const nsIntRegion& aUpdatedRegion,
-                    OptionalThebesBuffer* aNewBack,
-                    nsIntRegion* aNewBackValidRegion,
-                    OptionalThebesBuffer* aReadOnlyFront,
-                    nsIntRegion* aFrontUpdatedRegion)
-  { NS_ERROR("Should not be called"); }
-
-  virtual void SwapTexture(const ThebesBuffer& aNewFront,
-                           const nsIntRegion& aUpdatedRegion,
-                           OptionalThebesBuffer* aNewBack,
-                           nsIntRegion* aNewBackValidRegion,
-                           OptionalThebesBuffer* aReadOnlyFront,
-                           nsIntRegion* aFrontUpdatedRegion) MOZ_OVERRIDE;
                            
   virtual void DestroyFrontBuffer();
 
@@ -51,6 +36,15 @@ public:
   {
     ShadowThebesLayer::SetValidRegion(aRegion);
   }
+
+  // TODO[nical] remove Swap from layer
+  void SwapTexture(const ThebesBuffer& aNewFront,
+                   const nsIntRegion& aUpdatedRegion,
+                   OptionalThebesBuffer* aNewBack,
+                   nsIntRegion* aNewBackValidRegion,
+                   OptionalThebesBuffer* aReadOnlyFront,
+                   nsIntRegion* aFrontUpdatedRegion);
+
 
   // LayerComposite impl
   void Destroy();

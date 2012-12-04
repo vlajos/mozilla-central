@@ -129,7 +129,7 @@ struct EnumSerializer {
   typedef E paramType;
 
   static bool IsLegalValue(const paramType &aValue) {
-    return smallestLegal <= aValue && aValue < highBound;
+    return smallestLegal <= aValue && aValue <= highBound;
   }
 
   static void Write(Message* aMsg, const paramType& aValue) {

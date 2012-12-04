@@ -198,7 +198,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     const Edit& edit = cset[i];
 
     switch (edit.type()) {
-      // Create* ops
+    // Create* ops
     case Edit::TOpCreateThebesLayer: {
       MOZ_LAYERS_LOG(("[ParentSide] CreateThebesLayer"));
 
@@ -234,7 +234,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
       nsRefPtr<ShadowCanvasLayer> layer = 
         layer_manager()->CreateShadowCanvasLayer();
-      layer->SetAllocator(this);
       AsShadowLayer(edit.get_OpCreateCanvasLayer())->Bind(layer);
       break;
     }
@@ -243,7 +242,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
       nsRefPtr<ShadowRefLayer> layer =
         layer_manager()->CreateShadowRefLayer();
-      layer->SetAllocator(this);
       AsShadowLayer(edit.get_OpCreateRefLayer())->Bind(layer);
       break;
     }
@@ -414,9 +412,15 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       nsIntRegion newValidRegion;
       OptionalThebesBuffer readonlyFront;
       nsIntRegion frontUpdatedRegion;
+      // TODO[nical] move to PTexture update
       thebes->Swap(newFront, op.updatedRegion(),
                    &newBack, &newValidRegion,
                    &readonlyFront, &frontUpdatedRegion);
+
+      // We have to invalidate the pixels painted into the new buffer.
+      // They might overlap with our old pixels.
+      //aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
+
       replyv.push_back(
         OpThebesBufferSwap(
           op.textureParent(), NULL,
@@ -468,6 +472,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RefPtr<TextureHost> textureHost = compositor->CreateTextureHost(textureParent->GetTextureInfo());
       textureParent->SetTextureHost(textureHost.get());
       layer->AsShadowLayer()->AddTextureHost(textureParent->GetTextureInfo(), textureHost.get());
+      layer->AsShadowLayer()->SetAllocator(this);
       break;
     }
     case Edit::TOpPaintTexture: {

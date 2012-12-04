@@ -39,7 +39,7 @@ ImageLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost
 
   mImageHost->AddTextureHost(aTextureInfo, aTextureHost);
 }
-
+/*
 void
 ImageLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
                                  const SharedImage& aFront,
@@ -53,7 +53,7 @@ ImageLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
 
   *aNewBack = mImageHost->UpdateImage(aTextureInfo, aFront);
 }
-
+*/
 void
 ImageLayerComposite::EnsureImageHost(BufferType aHostType)
 {

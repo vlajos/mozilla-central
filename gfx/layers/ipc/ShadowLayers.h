@@ -591,10 +591,11 @@ public:
    * aTextureInfo. After this call, aNewBack should point to the old
    * data in the texture.
    */
+/*
   virtual void SwapTexture(const TextureInfo& aTextureInfo,
                            const SharedImage& aFront,
                            SharedImage* aNewBack) {}
-
+*/
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }
   const nsIntRect* GetShadowClipRect() { return mUseShadowClipRect ? &mShadowClipRect : nullptr; }
@@ -638,6 +639,9 @@ public:
   }
 
   /**
+   * Swap[Texture] methods will most likely be removed from layers class at some point in the 
+   * layers refactoring (Swap will only operate at The PTexture/TextureHost level)
+   *
    * CONSTRUCTION PHASE ONLY
    *
    * Publish the remote layer's back ThebesLayerBuffer to this shadow,
@@ -648,10 +652,13 @@ public:
   SwapTexture(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
               OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
               OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {}
+
   virtual void
   Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
        OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
-       OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) = 0;
+       OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {
+    NS_RUNTIMEABORT("should not use layer swap");
+  };
 
   /**
    * CONSTRUCTION PHASE ONLY
@@ -719,9 +726,6 @@ public:
    * CONSTRUCTION PHASE ONLY
    * @see ShadowCanvasLayer::Swap
    */
-  virtual void Swap(const SharedImage& aFront,
-                    SharedImage* aNewBack) = 0;
-
   virtual ShadowLayer* AsShadowLayer() { return this; }
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
