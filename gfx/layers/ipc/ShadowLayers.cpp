@@ -778,6 +778,15 @@ AutoOpenSurface::GetAsImage()
   return mSurfaceAsImage.get();
 }
 
+void ISurfaceDeAllocator::DestroySharedSurface(const SharedImage* aImage)
+{
+  if (aImage->type() == SharedImage::TSurfaceDescriptor) {
+    SurfaceDescriptor dsc = aImage->get_SurfaceDescriptor();
+    DestroySharedSurface(&dsc);
+  } else if (aImage->type() == SharedImage::TYCbCrImage) {
+    NS_RUNTIMEABORT("TODO[nical]");
+  }
+}
 
 } // namespace layers
 } // namespace mozilla

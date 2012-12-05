@@ -102,7 +102,6 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
  
 void
 TextureImageAsTextureHost::UpdateImpl(const SharedImage& aImage,
-                                  SharedImage* aResult,
                                   bool* aIsInitialised,
                                   bool* aNeedsReset)
 {
@@ -125,17 +124,14 @@ TextureImageAsTextureHost::UpdateImpl(const SharedImage& aImage,
   nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
   mTexImage->DirectUpdate(surf.Get(), updateRegion);
  
-  if (aResult) {
-    *aResult = aImage;
-  }
-
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
 }
  
 void
-TextureImageAsTextureHost::UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
+TextureImageAsTextureHost::UpdateImpl(gfxASurface* aSurface,
+                                      nsIntRegion& aRegion)
 {
   if (!mTexImage ||
       mTexImage->mSize != aSurface->GetSize() ||
@@ -192,31 +188,20 @@ TextureImageHost::TextureImageHost(GLContext* aGL, TextureImage* aTexImage)
  
 TextureImageAsTextureHostWithBuffer::~TextureImageAsTextureHostWithBuffer()
 {
-  if (IsSurfaceDescriptorValid(mBufferDescriptor)) {
-    mDeAllocator->DestroySharedSurface(&mBufferDescriptor);
-  }
 }
- 
+
 void
 TextureImageAsTextureHostWithBuffer::UpdateImpl(const SurfaceDescriptor& aNewBuffer,
-                                            SharedImage* aResult,
-                                            bool* aIsInitialised,
-                                            bool* aNeedsReset)
+                                                bool* aIsInitialised,
+                                                bool* aNeedsReset)
 {
+  MOZ_ASSERT(IsBuffered());
   AutoOpenSurface newBack(OPEN_READ_ONLY, aNewBuffer);
   if (aNeedsReset) {
     *aNeedsReset = EnsureBuffer(newBack.Size());
   }
 
-  if (aResult) {
-    *aResult = IsSurfaceDescriptorValid(mBufferDescriptor)
-                 ? SharedImage(mBufferDescriptor)
-                 : SharedImage(null_t());
-  }
-
-  mBufferDescriptor = aNewBuffer;
- 
-  if (!IsSurfaceDescriptorValid(mBufferDescriptor)) {
+  if (!IsSurfaceDescriptorValid(aNewBuffer)) {
     if (aIsInitialised) {
       *aIsInitialised = false;
     }
@@ -225,7 +210,7 @@ TextureImageAsTextureHostWithBuffer::UpdateImpl(const SurfaceDescriptor& aNewBuf
  
   nsRefPtr<TextureImage> texImage =
       ShadowLayerManager::OpenDescriptorForDirectTexturing(
-        mGL, mBufferDescriptor, WrapMode(mGL, mFlags & AllowRepeat));
+        mGL, aNewBuffer, WrapMode(mGL, mFlags & AllowRepeat));
  
   if (!texImage) {
     NS_WARNING("Could not create texture for direct texturing");
@@ -242,25 +227,29 @@ TextureImageAsTextureHostWithBuffer::UpdateImpl(const SurfaceDescriptor& aNewBuf
     *aIsInitialised = true;
   }
 }
- 
+
 bool
 TextureImageAsTextureHostWithBuffer::EnsureBuffer(nsIntSize aSize)
 {
-  AutoOpenSurface surf(OPEN_READ_ONLY, mBufferDescriptor);
+  MOZ_ASSERT(IsBuffered());
+  if (GetBuffer()->type() != SharedImage::TSurfaceDescriptor) {
+    return false;
+  }
+  SurfaceDescriptor& surfDesc = GetBuffer()->get_SurfaceDescriptor();
+  AutoOpenSurface surf(OPEN_READ_ONLY, surfDesc);
   if (surf.Size() != aSize) {
     mTexImage = nullptr;
-    if (IsSurfaceDescriptorValid(mBufferDescriptor)) {
-      mDeAllocator->DestroySharedSurface(&mBufferDescriptor);
+    if (IsSurfaceDescriptorValid(surfDesc)) {
+      mDeAllocator->DestroySharedSurface(&surfDesc);
     }
     return true;
   }
  
   return false;
 }
- 
+
 void
 TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
-                             SharedImage* aResult,
                              bool* aIsInitialised,
                              bool* aNeedsReset)
 {
@@ -284,10 +273,6 @@ TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
   }
   mSharedHandle = newHandle;
  
-  if (aResult) {
-    *aResult = aImage;
-  }
-
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
@@ -334,15 +319,10 @@ TextureHostOGLShared::Unlock()
  
 void
 TextureHostOGLSharedWithBuffer::UpdateImpl(const SharedImage& aImage,
-                                       SharedImage* aResult,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
 {
   TextureHostOGLShared::UpdateImpl(aImage);
-  mBuffer = SharedImage(aImage.get_SurfaceDescriptor());
-  if (aResult) {
-    *aResult = mBuffer;
-  }
 
   if (aIsInitialised) {
     *aIsInitialised = true;
@@ -352,7 +332,6 @@ TextureHostOGLSharedWithBuffer::UpdateImpl(const SharedImage& aImage,
  
 void
 GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,
-                               SharedImage* aResult,
                                bool* aIsInitialised,
                                bool* aNeedsReset)
 {
@@ -384,10 +363,6 @@ GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,
                               true);
   NS_ASSERTION(textureId == mTexture.GetTextureID(), "texture handle id changed");
  
-  if (aResult) {
-    *aResult = aImage;
-  }
-
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
@@ -423,7 +398,6 @@ GLTextureAsTextureSource::UpdateImpl(gfx::IntSize aSize, uint8_t* aData, uint32_
 
 void
 YCbCrTextureHost::UpdateImpl(const SharedImage& aImage,
-                         SharedImage* aResult,
                          bool* aIsInitialised,
                          bool* aNeedsReset)
 {
@@ -440,10 +414,6 @@ YCbCrTextureHost::UpdateImpl(const SharedImage& aImage,
   mTextures[0].UpdateImpl(size, shmemImage.GetYData(), shmemImage.GetYStride(), mGL);
   mTextures[1].UpdateImpl(CbCrSize, shmemImage.GetCbData(), shmemImage.GetCbCrStride(), mGL);
   mTextures[2].UpdateImpl(CbCrSize, shmemImage.GetCrData(), shmemImage.GetCbCrStride(), mGL);
-
-  if (aResult) {
-    *aResult = aImage;
-  }
 
   if (aIsInitialised) {
     *aIsInitialised = true;
@@ -464,9 +434,8 @@ YCbCrTextureHost::Lock(const gfx::Filter& aFilter)
 #ifdef MOZ_WIDGET_GONK
 void
 DirectExternalTextureHost::UpdateImpl(const SharedImage& aImage,
-                                  SharedImage* aResult,
-                                  bool* aIsInitialised,
-                                  bool* aNeedsReset)
+                                      bool* aIsInitialised,
+                                      bool* aNeedsReset)
 {
   NS_ASSERTION(aImage->type() == SharedImage::TSurfaceDescriptor);
   NS_ASSERTION(aImage->get_SurfaceDescriptor().type() == SurfaceDescriptor::TSurfaceDescriptorGralloc));
@@ -480,10 +449,6 @@ DirectExternalTextureHost::UpdateImpl(const SharedImage& aImage,
   mGL->MakeCurrent();
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
   mGL->BindExternalBuffer(mExternalBufferTexture.GetTextureID(), graphicBuffer->getNativeBuffer());
-
-  if (aResult) {
-    *aResult = aImage;
-  }
 
   if (aIsInitialised) {
     *aIsInitialised = true;

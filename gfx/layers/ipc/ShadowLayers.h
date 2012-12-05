@@ -513,7 +513,9 @@ protected:
 class ISurfaceDeAllocator
 {
 public:
+  void DestroySharedSurface(const SharedImage* aImage);
   virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) = 0;
+  // TODO[nical] SurfaceDescriptor should be const
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
 protected:
   ~ISurfaceDeAllocator() {}

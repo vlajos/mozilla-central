@@ -96,13 +96,16 @@ public:
 class TextureHost
 {
 public:
-  TextureHost(bool aBuffered = false);
+  enum Buffering { NONE, BUFFERED };
+
+  TextureHost(Buffering aBuffering = Buffering::NONE);
   virtual ~TextureHost();
 
   virtual void AddRef() = 0;
   virtual void Release() = 0;
 
-  bool IsBuffered() const { return mIsBuffered; }
+  bool IsBuffered() const { return mBuffering == Buffering::BUFFERED; }
+  SharedImage* GetBuffer() const { return mBuffer; }
 
   /**
    * Update the texture host from a SharedImage, aResult may contain the old
@@ -114,17 +117,6 @@ public:
               SharedImage* aResult = nullptr,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr);
-
-  /**
-   * What should be implemented by the backend-specific TextureHost classes 
-   */
-  virtual void UpdateImpl(const SharedImage& aImage,
-                          SharedImage* aResult = nullptr,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr)
-  {
-    NS_RUNTIMEABORT("Should not be reached");
-  }
 
   /**
    * Updates a region of the texture host from aSurface
@@ -162,10 +154,30 @@ public:
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
+
 protected:
+  void SetBuffering(Buffering aBuffering,
+                    ISurfaceDeAllocator* aDeAllocator = nullptr) {
+    MOZ_ASSERT (aBuffering == Buffering::NONE || aDeAllocator);
+    mBuffering = aBuffering;
+    mDeAllocator = aDeAllocator;
+  }
+  /**
+   * Should be implemented by the backend-specific TextureHost classes 
+   */
+  virtual void UpdateImpl(const SharedImage& aImage,
+                          bool* aIsInitialised,
+                          bool* aNeedsReset)
+  {
+    NS_RUNTIMEABORT("Should not be reached");
+  }
+
+
+
   TextureFlags mFlags;
-  bool mIsBuffered;
+  Buffering mBuffering;
   SharedImage* mBuffer;
+  ISurfaceDeAllocator* mDeAllocator;
 };
 
 /**

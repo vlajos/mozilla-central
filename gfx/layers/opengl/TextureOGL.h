@@ -88,6 +88,7 @@ public:
   CLASS_NAME(TextureHostOGL)
 protected:
   TextureHostOGL()
+  : TextureHost(TextureHost::Buffering::NONE)
   {}
  
 };
@@ -145,7 +146,6 @@ public:
   }
  
   virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
@@ -205,12 +205,12 @@ public:
   }
 
   virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr) {}
   virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
 };
 
+// TODO[nical] this class should desapear (buffering is done in TextureHost)
 class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
 {
 public:
@@ -218,9 +218,8 @@ public:
   ~TextureImageAsTextureHostWithBuffer();
  
   virtual void UpdateImpl(const SurfaceDescriptor& aNewBuffer,
-                      SharedImage* aResult = nullptr,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr);
+                          bool* aIsInitialised = nullptr,
+                          bool* aNeedsReset = nullptr);
   /**
    * Set deallocator for data recieved from IPC protocol
    * We should be able to set allocator right before swap call
@@ -235,13 +234,14 @@ public:
 protected:
   TextureImageAsTextureHostWithBuffer(GLContext* aGL)
     : TextureImageAsTextureHost(aGL)
-  {}
+  {
+    SetBuffering(TextureHost::Buffering::BUFFERED);
+  }
  
   // returns true if the buffer was reset
   bool EnsureBuffer(nsIntSize aSize);
  
   ISurfaceDeAllocator* mDeAllocator;
-  SurfaceDescriptor mBufferDescriptor;
  
   friend class CompositorOGL;
 };
@@ -271,7 +271,6 @@ public:
  
   // override from TextureHost
   virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
@@ -301,22 +300,23 @@ protected:
   friend class CompositorOGL;
 };
 
+// TODO[nical] this class should desapear (buffering is done in TextureHost)
 class TextureHostOGLSharedWithBuffer : public TextureHostOGLShared
 {
 public:
   CLASS_NAME(TextureHostOGLSharedWithBuffer)
-  virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
  
 protected:
+    virtual void UpdateImpl(const SharedImage& aImage,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
+
   TextureHostOGLSharedWithBuffer(GLContext* aGL)
     : TextureHostOGLShared(aGL)
-  {}
- 
-  SharedImage mBuffer;
- 
+  {
+    SetBuffering(TextureHost::Buffering::BUFFERED);
+  }
+  
   friend class CompositorOGL;
 };
 
@@ -381,7 +381,6 @@ public:
   }
  
   virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
 
@@ -416,7 +415,6 @@ public:
   virtual void Release() { RefCounter::Release(); }
 
   virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
@@ -450,7 +448,6 @@ public:
   }
  
   virtual void UpdateImpl(const SharedImage& aImage,
-                      SharedImage* aResult = nullptr,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
