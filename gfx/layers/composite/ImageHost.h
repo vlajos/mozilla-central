@@ -68,40 +68,6 @@ protected:
   BufferType mType;
 };
 
-class YUVImageHost : public ImageHost
-{
-public:
-  YUVImageHost(Compositor* aCompositor)
-    : ImageHost(aCompositor)
-  {}
-
-  virtual BufferType GetType() { return BUFFER_YUV; }
-
-  // aImage contains all three plains, we could also send them seperately and 
-  // update mTextures one at a time
-  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
-                                  const SharedImage& aImage);
-
-  virtual void Composite(EffectChain& aEffectChain,
-                         float aOpacity,
-                         const gfx::Matrix4x4& aTransform,
-                         const gfx::Point& aOffset,
-                         const gfx::Filter& aFilter,
-                         const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr);
-
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
-
-  virtual void SetPictureRect(const nsIntRect& aPictureRect)
-  {
-    mPictureRect = aPictureRect;
-  }
-
-protected:
-  RefPtr<TextureHost> mTextures[3];
-  nsIntRect mPictureRect;
-};
-
 // a YCbCr buffer which uses a single texture host
 class YCbCrImageHost : public ImageHost
 {

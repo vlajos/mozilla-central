@@ -201,10 +201,6 @@ CompositingFactory::TypeForImage(Image* aImage) {
   if (aImage->GetFormat() == SHARED_TEXTURE) {
     return BUFFER_SHARED;
   }
-  if (aImage->GetFormat() == PLANAR_YCBCR) {
-    return BUFFER_YUV;
-  }
-
   return BUFFER_TEXTURE;
 }
 
@@ -222,11 +218,6 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
       result = new ImageClientShared(aLayerForwarder, aLayer, aFlags);
     }
     break;
-  case BUFFER_YUV:
-    if (aLayer->AsLayer()->Manager()->IsCompositingCheap()) {
-      result = new ImageClientYUV(aLayerForwarder, aLayer, aFlags);
-      break;
-    }
     // fall through to BUFFER_TEXTURE
   case BUFFER_TEXTURE:
     if (aParentBackend == LAYERS_OPENGL) {

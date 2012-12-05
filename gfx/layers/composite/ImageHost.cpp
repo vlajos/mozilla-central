@@ -91,66 +91,6 @@ ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aT
   mTextureHost = aTextureHost;
 }
 
-
-SharedImage
-YUVImageHost::UpdateImage(const TextureInfo& aTextureInfo,
-                          const SharedImage& aImage)
-{
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YUV, "BufferType mismatch.");
-  
-  if (aImage.type() == SharedImage::TYUVImage) {
-    // update all channels at once
-    const YUVImage& yuv = aImage.get_YUVImage();
-
-    mTextures[0]->Update(SurfaceDescriptor(yuv.Ydata()));
-    mTextures[1]->Update(SurfaceDescriptor(yuv.Udata()));
-    mTextures[2]->Update(SurfaceDescriptor(yuv.Vdata()));
-
-    return aImage;
-  }
-
-  // update a single channel
-  mTextures[aTextureInfo.mDescriptor]->Update(aImage);
-
-  return aImage;
-}
-
-void
-YUVImageHost::Composite(EffectChain& aEffectChain,
-                        float aOpacity,
-                        const gfx::Matrix4x4& aTransform,
-                        const gfx::Point& aOffset,
-                        const gfx::Filter& aFilter,
-                        const gfx::Rect& aClipRect,
-                        const nsIntRegion* aVisibleRegion /* = nullptr */)
-{
-  mTextures[0]->Lock(aFilter);
-  mTextures[1]->Lock(aFilter);
-  mTextures[2]->Lock(aFilter);
-
-  EffectYCbCr* effect = new EffectYCbCr(mTextures[0]->GetAsTextureSource(),
-                                        mTextures[1]->GetAsTextureSource(),
-                                        mTextures[2]->GetAsTextureSource(),
-                                        aFilter);
-  aEffectChain.mEffects[EFFECT_YCBCR] = effect;
-  gfx::Rect rect(0, 0, mPictureRect.width, mPictureRect.height);
-  gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y,
-                       mPictureRect.width, mPictureRect.height);
-  mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect,
-                        aEffectChain, aOpacity, aTransform, aOffset);
-
-  mTextures[0]->Unlock();
-  mTextures[1]->Unlock();
-  mTextures[2]->Unlock();
-}
-
-void
-YUVImageHost::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
-{
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YUV, "BufferType mismatch.");
-  mTextures[aTextureInfo.mDescriptor] = aTextureHost;
-}
-
 SharedImage
 YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
                             const SharedImage& aImage)
@@ -203,25 +143,12 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     RefPtr<BufferHost> bufferHost = mCompositor->CreateBufferHost(aType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
 
-    if (aType == BUFFER_YUV) {
-      TextureInfo id;
-      id.imageType = BUFFER_YUV;
-      id.memoryType = TEXTURE_SHMEM;
-      RefPtr<TextureHost> textureHost;
-      for (uint32_t i = 0; i < 3; ++i) {
-        id.mDescriptor = i;
-        id.textureFlags = NoFlags;
-        textureHost = mCompositor->CreateTextureHost(id);
-        mImageHost->AddTextureHost(id, textureHost);
-      }
-    } else {
-      TextureInfo id;
-      id.imageType = mImageHost->GetType();
-      id.memoryType = TEXTURE_SHMEM;
-      id.textureFlags = NoFlags;
-      RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id);
-      mImageHost->AddTextureHost(id, textureHost);
-    }
+    TextureInfo id;
+    id.imageType = mImageHost->GetType();
+    id.memoryType = TEXTURE_SHMEM;
+    id.textureFlags = NoFlags;
+    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id);
+    mImageHost->AddTextureHost(id, textureHost);
   }
 }
 
@@ -243,8 +170,6 @@ BufferType
 BufferTypeForImageBridgeType(SharedImage::Type aType)
 {
   switch (aType) {
-  case SharedImage::TYUVImage:
-    return BUFFER_YUV;
   case SharedImage::TYCbCrImage:
     return BUFFER_YCBCR;
   case SharedImage::TSurfaceDescriptor:

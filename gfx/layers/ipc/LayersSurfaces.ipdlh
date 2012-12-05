@@ -70,17 +70,9 @@ struct YCbCrImage {
   nsIntRect picture;
 };
 
-// Will be removed in the near future
-struct YUVImage {
-  Shmem Ydata;
-  Shmem Udata;
-  Shmem Vdata;
-};
-
 union SharedImage {
   SurfaceDescriptor;
   YCbCrImage;
-  YUVImage;
   null_t;
 };
 

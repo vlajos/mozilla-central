@@ -725,8 +725,6 @@ TemporaryRef<BufferHost>
 CompositorOGL::CreateBufferHost(BufferType aType)
 {
   switch (aType) {
-  case BUFFER_YUV:
-    return new YUVImageHost(this);
   case BUFFER_YCBCR:
     return new YCbCrImageHost(this);
 #ifdef MOZ_WIDGET_GONK
@@ -770,9 +768,7 @@ CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
     break;
   case TEXTURE_SHMEM:
     //TODO[nrc] fuck up
-    if (aInfo.imageType == BUFFER_YUV) {
-      result = new GLTextureAsTextureHost(mGLContext);
-    } else if (aInfo.imageType == BUFFER_YCBCR) {
+    if (aInfo.imageType == BUFFER_YCBCR) {
       result = new YCbCrTextureHost(mGLContext);
     } else if (aInfo.imageType == BUFFER_CONTENT_DIRECT) {
       //TODO[nrc] should probably use the below path with fallback, but check

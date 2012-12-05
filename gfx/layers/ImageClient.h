@@ -79,25 +79,6 @@ private:
   RefPtr<TextureClient> mTextureClient;
 };
 
-class ImageClientYUV : public ImageClient
-{
-public:
-  ImageClientYUV(ShadowLayerForwarder* aLayerForwarder,
-                 ShadowableLayer* aLayer,
-                 TextureFlags aFlags);
-
-  virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
-  virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SharedImage& aBuffer);
-  virtual void Updated(ShadowableLayer* aLayer);
-private:
-  ShadowLayerForwarder* mLayerForwarder;
-  RefPtr<TextureClient> mTextureClientY;
-  RefPtr<TextureClient> mTextureClientU;
-  RefPtr<TextureClient> mTextureClientV;
-  nsIntRect mPictureRect;
-};
-
 // we store the ImageBridge id in the TextureClientIdentifier
 class ImageClientBridge : public ImageClient
 {
