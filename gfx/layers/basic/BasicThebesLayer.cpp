@@ -183,7 +183,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
       // if we are shrinking the valid region to nothing. So use mRegionToDraw
       // instead.
       NS_WARN_IF_FALSE(state.mRegionToDraw.IsEmpty(),
-                       "No context when we have something to draw; resource exhaustion?");
+                       "No context when we have something to draw, resource exhaustion?");
     }
   }
 
@@ -372,148 +372,6 @@ protected:
   }
 };
 
-class BasicShadowThebesLayer : public ShadowThebesLayer, public BasicImplData {
-public:
-  BasicShadowThebesLayer(BasicShadowLayerManager* aLayerManager)
-    : ShadowThebesLayer(aLayerManager, static_cast<BasicImplData*>(this))
-  {
-    MOZ_COUNT_CTOR(BasicShadowThebesLayer);
-  }
-  virtual ~BasicShadowThebesLayer()
-  {
-    // If Disconnect() wasn't called on us, then we assume that the
-    // remote side shut down and IPC is disconnected, so we let IPDL
-    // clean up our front surface Shmem.
-    MOZ_COUNT_DTOR(BasicShadowThebesLayer);
-  }
-
-  virtual void SetValidRegion(const nsIntRegion& aRegion)
-  {
-    mOldValidRegion = mValidRegion;
-    ShadowThebesLayer::SetValidRegion(aRegion);
-  }
-
-  virtual void Disconnect()
-  {
-    DestroyFrontBuffer();
-    ShadowThebesLayer::Disconnect();
-  }
-
-  virtual void
-  Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
-       OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
-       OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion);
-
-  virtual void DestroyFrontBuffer()
-  {
-    mFrontBuffer.Clear();
-    mValidRegion.SetEmpty();
-    mOldValidRegion.SetEmpty();
-
-    if (IsSurfaceDescriptorValid(mFrontBufferDescriptor)) {
-      mAllocator->DestroySharedSurface(&mFrontBufferDescriptor);
-    }
-  }
-
-  virtual void PaintThebes(gfxContext* aContext,
-                           Layer* aMaskLayer,
-                           LayerManager::DrawThebesLayerCallback aCallback,
-                           void* aCallbackData,
-                           ReadbackProcessor* aReadback);
-
-private:
-  BasicShadowLayerManager* BasicManager()
-  {
-    return static_cast<BasicShadowLayerManager*>(mManager);
-  }
-
-  ShadowThebesLayerBuffer mFrontBuffer;
-  // Describes the gfxASurface we hand out to |mFrontBuffer|.
-  SurfaceDescriptor mFrontBufferDescriptor;
-  // When we receive an update from our remote partner, we stow away
-  // our previous parameters that described our previous front buffer.
-  // Then when we Swap() back/front buffers, we can return these
-  // parameters to our partner (adjusted as needed).
-  nsIntRegion mOldValidRegion;
-};
-
-void
-BasicShadowThebesLayer::Swap(const ThebesBuffer& aNewFront,
-                             const nsIntRegion& aUpdatedRegion,
-                             OptionalThebesBuffer* aNewBack,
-                             nsIntRegion* aNewBackValidRegion,
-                             OptionalThebesBuffer* aReadOnlyFront,
-                             nsIntRegion* aFrontUpdatedRegion)
-{
-  if (IsSurfaceDescriptorValid(mFrontBufferDescriptor)) {
-    AutoOpenSurface autoNewFrontBuffer(OPEN_READ_ONLY, aNewFront.buffer());
-    AutoOpenSurface autoCurrentFront(OPEN_READ_ONLY, mFrontBufferDescriptor);
-    if (autoCurrentFront.Size() != autoNewFrontBuffer.Size()) {
-      // Current front buffer is obsolete
-      DestroyFrontBuffer();
-    }
-  }
-  // This code relies on Swap() arriving *after* attribute mutations.
-  if (IsSurfaceDescriptorValid(mFrontBufferDescriptor)) {
-    *aNewBack = ThebesBuffer();
-    aNewBack->get_ThebesBuffer().buffer() = mFrontBufferDescriptor;
-  } else {
-    *aNewBack = null_t();
-  }
-  // We have to invalidate the pixels painted into the new buffer.
-  // They might overlap with our old pixels.
-  aNewBackValidRegion->Sub(mOldValidRegion, aUpdatedRegion);
-
-  nsIntRect backRect;
-  nsIntPoint backRotation;
-  mFrontBuffer.Swap(
-    aNewFront.rect(), aNewFront.rotation(),
-    &backRect, &backRotation);
-
-  if (aNewBack->type() != OptionalThebesBuffer::Tnull_t) {
-    aNewBack->get_ThebesBuffer().rect() = backRect;
-    aNewBack->get_ThebesBuffer().rotation() = backRotation;
-  }
-
-  mFrontBufferDescriptor = aNewFront.buffer();
-
-  *aReadOnlyFront = aNewFront;
-  *aFrontUpdatedRegion = aUpdatedRegion;
-}
-
-void
-BasicShadowThebesLayer::PaintThebes(gfxContext* aContext,
-                                    Layer* aMaskLayer,
-                                    LayerManager::DrawThebesLayerCallback aCallback,
-                                    void* aCallbackData,
-                                    ReadbackProcessor* aReadback)
-{
-  NS_ASSERTION(BasicManager()->InDrawing(),
-               "Can only draw in drawing phase");
-  NS_ASSERTION(BasicManager()->IsRetained(),
-               "ShadowThebesLayer makes no sense without retained mode");
-
-  if (!IsSurfaceDescriptorValid(mFrontBufferDescriptor)) {
-    return;
-  }
-
-  AutoOpenSurface autoFrontBuffer(OPEN_READ_ONLY, mFrontBufferDescriptor);
-  mFrontBuffer.ProvideBuffer(&autoFrontBuffer);
-
-  // Pull out the mask surface and transform here, because the mask
-  // is internal to basic layers
-  AutoMaskData mask;
-  if (GetMaskData(aMaskLayer, &mask)) {
-    mFrontBuffer.DrawTo(this, aContext, GetEffectiveOpacity(),
-                        mask.GetSurface(), &mask.GetTransform());
-  } else {
-    mFrontBuffer.DrawTo(this, aContext, GetEffectiveOpacity(),
-                        nullptr, nullptr);
-  }
-
-  mFrontBuffer.RevokeBuffer();
-}
-
 already_AddRefed<ThebesLayer>
 BasicLayerManager::CreateThebesLayer()
 {
@@ -522,13 +380,29 @@ BasicLayerManager::CreateThebesLayer()
   return layer.forget();
 }
 
-already_AddRefed<ShadowThebesLayer>
-BasicShadowLayerManager::CreateShadowThebesLayer()
+already_AddRefed<ThebesLayer>
+BasicShadowLayerManager::CreateThebesLayer()
 {
   NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-  nsRefPtr<ShadowThebesLayer> layer = new BasicShadowThebesLayer(this);
-  return layer.forget();
+#ifdef FORCE_BASICTILEDTHEBESLAYER
+  if (HasShadowManager() && GetParentBackendType() == LAYERS_OPENGL) {
+    // BasicTiledThebesLayer doesn't support main
+    // thread compositing so only return this layer
+    // type if we have a shadow manager.
+    nsRefPtr<BasicTiledThebesLayer> layer =
+      new BasicTiledThebesLayer(this);
+    MAYBE_CREATE_SHADOW(Thebes);
+    return layer.forget();
+  } else
+#endif
+  {
+    nsRefPtr<BasicShadowableThebesLayer> layer =
+      new BasicShadowableThebesLayer(this);
+    MAYBE_CREATE_SHADOW(Thebes);
+    return layer.forget();
+  }
 }
+
 
 }
 }

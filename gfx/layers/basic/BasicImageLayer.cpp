@@ -263,106 +263,6 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   mImageClient->Updated(BasicManager()->Hold(this));
 }
 
-class BasicShadowImageLayer : public ShadowImageLayer, public BasicImplData {
-public:
-  BasicShadowImageLayer(BasicShadowLayerManager* aLayerManager) :
-    ShadowImageLayer(aLayerManager, static_cast<BasicImplData*>(this))
-  {
-    MOZ_COUNT_CTOR(BasicShadowImageLayer);
-  }
-  virtual ~BasicShadowImageLayer()
-  {
-    MOZ_COUNT_DTOR(BasicShadowImageLayer);
-  }
-
-  virtual void Disconnect()
-  {
-    DestroyFrontBuffer();
-    ShadowImageLayer::Disconnect();
-  }
-
-  virtual void Swap(const SharedImage& aNewFront,
-                    SharedImage* aNewBack);
-
-  virtual void DestroyFrontBuffer()
-  {
-    if (mAllocator && IsSurfaceDescriptorValid(mFrontBuffer)) {
-      mAllocator->DestroySharedSurface(&mFrontBuffer);
-    }
-  }
-
-  virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
-  virtual bool GetAsSurface(gfxASurface** aSurface,
-                            SurfaceDescriptor* aDescriptor);
-
-protected:
-  BasicShadowLayerManager* BasicManager()
-  {
-    return static_cast<BasicShadowLayerManager*>(mManager);
-  }
-
-  SurfaceDescriptor mFrontBuffer;
-  gfxIntSize mSize;
-};
-
-void
-BasicShadowImageLayer::Swap(const SharedImage& aNewFront,
-                            SharedImage* aNewBack)
-{
-  AutoOpenSurface autoSurface(OPEN_READ_ONLY, aNewFront);
-  // Destroy mFrontBuffer if size different or image type is different
-  bool surfaceConfigChanged = autoSurface.Size() != mSize;
-  if (IsSurfaceDescriptorValid(mFrontBuffer)) {
-    AutoOpenSurface autoFront(OPEN_READ_ONLY, mFrontBuffer);
-    surfaceConfigChanged = surfaceConfigChanged ||
-                           autoSurface.ContentType() != autoFront.ContentType();
-  }
-  if (surfaceConfigChanged) {
-    DestroyFrontBuffer();
-    mSize = autoSurface.Size();
-  }
-
-  // If mFrontBuffer
-  if (IsSurfaceDescriptorValid(mFrontBuffer)) {
-    *aNewBack = mFrontBuffer;
-  } else {
-    *aNewBack = null_t();
-  }
-  mFrontBuffer = aNewFront;
-}
-
-void
-BasicShadowImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
-{
-  if (!IsSurfaceDescriptorValid(mFrontBuffer)) {
-    return;
-  }
-
-  AutoOpenSurface autoSurface(OPEN_READ_ONLY, mFrontBuffer);
-  nsRefPtr<gfxPattern> pat = new gfxPattern(autoSurface.Get());
-  pat->SetFilter(mFilter);
-
-  // The visible region can extend outside the image, so just draw
-  // within the image bounds.
-  AutoSetOperator setOperator(aContext, GetOperator());
-  PaintContext(pat,
-               nsIntRegion(nsIntRect(0, 0, mSize.width, mSize.height)),
-               GetEffectiveOpacity(), aContext,
-               aMaskLayer);
-}
-
-bool
-BasicShadowImageLayer::GetAsSurface(gfxASurface** aSurface,
-                                    SurfaceDescriptor* aDescriptor)
-{
-  if (!IsSurfaceDescriptorValid(mFrontBuffer)) {
-    return false;
-  }
-
-  *aDescriptor = mFrontBuffer;
-  return true;
- }
-
 already_AddRefed<ImageLayer>
 BasicLayerManager::CreateImageLayer()
 {
@@ -370,7 +270,6 @@ BasicLayerManager::CreateImageLayer()
   nsRefPtr<ImageLayer> layer = new BasicImageLayer(this);
   return layer.forget();
 }
-
 already_AddRefed<ImageLayer>
 BasicShadowLayerManager::CreateImageLayer()
 {
@@ -378,14 +277,6 @@ BasicShadowLayerManager::CreateImageLayer()
   nsRefPtr<BasicShadowableImageLayer> layer =
     new BasicShadowableImageLayer(this);
   MAYBE_CREATE_SHADOW(Image);
-  return layer.forget();
-}
-
-already_AddRefed<ShadowImageLayer>
-BasicShadowLayerManager::CreateShadowImageLayer()
-{
-  NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-  nsRefPtr<ShadowImageLayer> layer = new BasicShadowImageLayer(this);
   return layer.forget();
 }
 

@@ -159,48 +159,6 @@ private:
   bool mBufferIsOpaque;
   RefPtr<CanvasClient> mCanvasClient;
 };
- 
-class BasicShadowCanvasLayer : public ShadowCanvasLayer,
-                               public BasicImplData
-{
-public:
-  BasicShadowCanvasLayer(BasicShadowLayerManager* aLayerManager) :
-    ShadowCanvasLayer(aLayerManager, static_cast<BasicImplData*>(this))
-  {
-    MOZ_COUNT_CTOR(BasicShadowCanvasLayer);
-  }
-  virtual ~BasicShadowCanvasLayer()
-  {
-    MOZ_COUNT_DTOR(BasicShadowCanvasLayer);
-  }
-
-  virtual void Disconnect()
-  {
-    DestroyFrontBuffer();
-    ShadowCanvasLayer::Disconnect();
-  }
-
-  virtual void Initialize(const Data& aData);
-  void Swap(const SharedImage& aNewFront, bool needYFlip, SharedImage* aNewBack);
-
-  virtual void DestroyFrontBuffer()
-  {
-    if (IsSurfaceDescriptorValid(mFrontSurface)) {
-      mAllocator->DestroySharedSurface(&mFrontSurface);
-    }
-  }
-
-  virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
-
-private:
-  BasicShadowLayerManager* BasicManager()
-  {
-    return static_cast<BasicShadowLayerManager*>(mManager);
-  }
-
-  SurfaceDescriptor mFrontSurface;
-  bool mNeedsYFlip;
-};
 
 }
 }

@@ -254,76 +254,6 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   mCanvasClient->Updated(BasicManager()->Hold(this));
 }
 
-void
-BasicShadowCanvasLayer::Initialize(const Data& aData)
-{
-  NS_RUNTIMEABORT("Incompatibe surface type");
-}
-
-void
-BasicShadowCanvasLayer::Swap(const SharedImage& aNewFront, bool needYFlip,
-                             SharedImage* aNewBack)
-{
-  AutoOpenSurface autoSurface(OPEN_READ_ONLY, aNewFront);
-  // Destroy mFrontBuffer if size different
-  gfxIntSize sz = autoSurface.Size();
-  bool surfaceConfigChanged = sz != gfxIntSize(mBounds.width, mBounds.height);
-  if (IsSurfaceDescriptorValid(mFrontSurface)) {
-    AutoOpenSurface autoFront(OPEN_READ_ONLY, mFrontSurface);
-    surfaceConfigChanged = surfaceConfigChanged ||
-                           autoSurface.ContentType() != autoFront.ContentType();
-  }
-  if (surfaceConfigChanged) {
-    DestroyFrontBuffer();
-    mBounds.SetRect(0, 0, sz.width, sz.height);
-  }
-
-  mNeedsYFlip = needYFlip;
-  // If mFrontBuffer
-  if (IsSurfaceDescriptorValid(mFrontSurface)) {
-    *aNewBack = mFrontSurface;
-  } else {
-    *aNewBack = null_t();
-  }
-  mFrontSurface = aNewFront;
-}
-
-void
-BasicShadowCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
-{
-  NS_ASSERTION(BasicManager()->InDrawing(),
-               "Can only draw in drawing phase");
-
-  if (!IsSurfaceDescriptorValid(mFrontSurface)) {
-    return;
-  }
-
-  AutoOpenSurface autoSurface(OPEN_READ_ONLY, mFrontSurface);
-  nsRefPtr<gfxPattern> pat = new gfxPattern(autoSurface.Get());
-
-  pat->SetFilter(mFilter);
-  pat->SetExtend(gfxPattern::EXTEND_PAD);
-
-  gfxRect r(0, 0, mBounds.width, mBounds.height);
-
-  gfxMatrix m;
-  if (mNeedsYFlip) {
-    m = aContext->CurrentMatrix();
-    aContext->Translate(gfxPoint(0.0, mBounds.height));
-    aContext->Scale(1.0, -1.0);
-  }
-
-  AutoSetOperator setOperator(aContext, GetOperator());
-  aContext->NewPath();
-  // No need to snap here; our transform has already taken care of it
-  aContext->Rectangle(r);
-  aContext->SetPattern(pat);
-  FillWithMask(aContext, GetEffectiveOpacity(), aMaskLayer);
-
-  if (mNeedsYFlip) {
-    aContext->SetMatrix(m);
-  }
-}
 
 already_AddRefed<CanvasLayer>
 BasicLayerManager::CreateCanvasLayer()
@@ -343,13 +273,6 @@ BasicShadowLayerManager::CreateCanvasLayer()
   return layer.forget();
 }
 
-already_AddRefed<ShadowCanvasLayer>
-BasicShadowLayerManager::CreateShadowCanvasLayer()
-{
-  NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-  nsRefPtr<ShadowCanvasLayer> layer = new BasicShadowCanvasLayer(this);
-  return layer.forget();
-}
 
 }
 }
