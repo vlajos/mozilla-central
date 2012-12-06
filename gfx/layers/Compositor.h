@@ -54,19 +54,6 @@ const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 
 
-class Texture : public RefCounted<Texture>
-{
-public:
-  /* aRegion is the region of the Texture to upload to. aData is a pointer to the
-   * top-left of the bound of the region to be uploaded. If the compositor that
-   * created this texture does not support partial texture upload, aRegion must be
-   * equal to this Texture's rect.
-   */
-  virtual void
-    UpdateTexture(const nsIntRegion& aRegion, int8_t *aData, uint32_t aStride) = 0;
-  virtual ~Texture() {}
-};
-
 // a texture or part of texture used for compositing
 class TextureSource
 {
@@ -232,12 +219,6 @@ public:
   virtual void SetTarget(gfxContext *aTarget) = 0;
 
   virtual void MakeCurrent(bool aForce = false) = 0;
-
-  /* This creates a texture based on an in-memory bitmap.
-   */
-  virtual TemporaryRef<Texture>
-    CreateTextureForData(const gfx::IntSize &aSize, PRInt8 *aData, uint32_t aStride,
-                         TextureFormat aFormat) = 0;
 
   /**
    * Create a new texture host of a kind specified by aIdentifier

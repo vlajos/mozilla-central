@@ -674,53 +674,6 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
   }
 }
 
-TemporaryRef<Texture>
-CompositorOGL::CreateTextureForData(const gfx::IntSize &aSize, PRInt8 *aData, PRUint32 aStride,
-                                    TextureFormat aFormat)
-{
-  GLuint textureHandle;
-  mGLContext->fGenTextures(1, &textureHandle);
-
-  RefPtr<TextureOGL> texture = new TextureOGL(mGLContext, textureHandle, aSize);
-
-  mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureHandle); 
-  mGLContext->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER,
-                             LOCAL_GL_LINEAR);
-  mGLContext->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MAG_FILTER,
-                             LOCAL_GL_LINEAR);
-  mGLContext->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S,
-                             LOCAL_GL_CLAMP_TO_EDGE);
-  mGLContext->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T,
-                             LOCAL_GL_CLAMP_TO_EDGE);
-
-  switch (aFormat) {
-    case TEXTUREFORMAT_BGRX32:
-    case TEXTUREFORMAT_BGRA32:
-      texture->SetProperties(LOCAL_GL_RGBA, LOCAL_GL_RGBA,
-                             LOCAL_GL_UNSIGNED_BYTE, 4);
-      break;
-    case TEXTUREFORMAT_BGR16:
-      texture->SetProperties(LOCAL_GL_RGB, mGLContext->IsGLES2()
-                                           ? LOCAL_GL_RGB
-                                           : LOCAL_GL_RGBA,
-                             LOCAL_GL_UNSIGNED_SHORT_5_6_5, 2);
-      break;
-    case TEXTUREFORMAT_Y8:
-      texture->SetProperties(LOCAL_GL_LUMINANCE, mGLContext->IsGLES2()
-                                                 ? LOCAL_GL_LUMINANCE
-                                                 : LOCAL_GL_RGBA,
-                             LOCAL_GL_UNSIGNED_BYTE, 1);
-      break;
-    default:
-      MOZ_NOT_REACHED("aFormat is not a valid TextureFormat");
-  }
-
-  texture->UpdateTexture(nsIntRegion(nsIntRect(0, 0, aSize.width, aSize.height)),
-                         aData, aStride);
-
-  return texture.forget();
-}
-
 TemporaryRef<BufferHost> 
 CompositorOGL::CreateBufferHost(BufferType aType)
 {

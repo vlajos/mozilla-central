@@ -33,54 +33,6 @@ public:
 
 };
 
-//TODO[nrc] TextureOGL and Texture are only used by CreateTextureForData,
-// which is not used anywhere, so what are they for?
-class TextureOGL : public Texture
-{
-  typedef mozilla::gl::GLContext GLContext;
-public:
-  CLASS_NAME(TextureOGL)
-  TextureOGL(GLContext* aGL, GLuint aTextureHandle, const gfx::IntSize& aSize)
-    : mGL(aGL)
-    , mTextureHandle(aTextureHandle)
-    , mSize(aSize)
-  {}
- 
-  virtual GLuint GetTextureHandle()
-  {
-    return mTextureHandle;
-  }
- 
-  virtual gfx::IntSize GetSize()
-  {
-    return mSize;
-  }
- 
-  virtual void UpdateTexture(const nsIntRegion& aRegion,
-                             int8_t *aData,
-                             uint32_t aStride) MOZ_OVERRIDE;
- 
-  void SetProperties(GLenum aFormat,
-                    GLenum aInternalFormat,
-                    GLenum aType,
-                    uint32_t aPixelSize)
-  {
-    mFormat = aFormat;
-    mInternalFormat = aInternalFormat;
-    mType = aType;
-    mPixelSize = aPixelSize;
-  }
- 
-private:
-  GLuint mTextureHandle;
-  GLenum mFormat;
-  GLenum mInternalFormat;
-  GLenum mType;
-  nsRefPtr<GLContext> mGL;
-  uint32_t mPixelSize;
-  gfx::IntSize mSize;
-};
-
 // abstract
 class TextureHostOGL : public TextureHost
 {

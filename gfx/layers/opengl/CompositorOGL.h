@@ -53,10 +53,6 @@ public:
     return result;
   }
 
-  virtual TemporaryRef<Texture>
-    CreateTextureForData(const gfx::IntSize &aSize, PRInt8 *aData, PRUint32 aStride,
-                         TextureFormat aFormat) MOZ_OVERRIDE;
-
   virtual TemporaryRef<BufferHost> 
     CreateBufferHost(BufferType aType) MOZ_OVERRIDE;
 

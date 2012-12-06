@@ -22,41 +22,6 @@ DataOffset(uint32_t aStride, uint32_t aPixelSize, const nsIntPoint &aPoint)
   return data;
 }
  
-void
-TextureOGL::UpdateTexture(const nsIntRegion& aRegion, int8_t *aData, uint32_t aStride)
-{
-  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
-  if (!mGL->CanUploadSubTextures() ||
-      (aRegion.IsEqual(nsIntRect(0, 0, mSize.width, mSize.height)))) {
-    mGL->TexImage2D(LOCAL_GL_TEXTURE_2D, 0, mInternalFormat,
-                    mSize.width, mSize.height, aStride, mPixelSize,
-                    0, mFormat, mType, aData);
-  } else {
-    nsIntRegionRectIterator iter(aRegion);
-    const nsIntRect *iterRect;
- 
-    nsIntPoint topLeft = aRegion.GetBounds().TopLeft();
- 
-    while ((iterRect = iter.Next())) {
-      // The inital data pointer is at the top left point of the region's
-      // bounding rectangle. We need to find the offset of this rect
-      // within the region and adjust the data pointer accordingly.
-      int8_t* rectData = aData + DataOffset(aStride, mPixelSize, iterRect->TopLeft() - topLeft);
-      mGL->TexSubImage2D(LOCAL_GL_TEXTURE_2D,
-                        0,
-                        iterRect->x,
-                        iterRect->y,
-                        iterRect->width,
-                        iterRect->height,
-                        aStride,
-                        mPixelSize,
-                        mFormat,
-                        mType,
-                        rectData);
-    }
-  }
-}
- 
 static void
 MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
 {
