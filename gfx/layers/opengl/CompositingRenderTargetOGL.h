@@ -15,7 +15,8 @@
 namespace mozilla {
 namespace layers {
 
-class CompositingRenderTargetOGL : public CompositingRenderTarget
+class CompositingRenderTargetOGL : public CompositingRenderTarget,
+                                   public TextureSourceOGL
 {
   typedef mozilla::gl::GLContext GLContext;
 
@@ -23,6 +24,17 @@ public:
   CompositingRenderTargetOGL(GLContext* aGL)
     : mGL(aGL) 
   {}
+
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
+
+  gfx::IntSize GetSize() const MOZ_OVERRIDE { return mSize; }
+
+  gl::BindableTexture* GetTexture() const MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("Not implemented");
+    return nullptr;
+  }
+
+  bool IsValid() const MOZ_OVERRIDE { return false ; } // TODO[nical] not implemented
 
   ~CompositingRenderTargetOGL()
   {

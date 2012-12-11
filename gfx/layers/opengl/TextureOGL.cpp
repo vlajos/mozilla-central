@@ -63,8 +63,94 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   }
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
+
+void AwesomeTextureHostOGL::UpdateImpl(const SharedImage& aImage,
+                                       bool* aIsInitialised,
+                                       bool* aNeedsReset)
+{
+  printf("--- AwesomeTextureHostOGL::UpdateImpl %p\n", this);
+
+  SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
  
+  AutoOpenSurface surf(OPEN_READ_ONLY, surface);
+  nsIntSize size = surf.Size();
+
+  if (!mTexture ||
+      mTexture->GetSize() != size ||
+      mTexture->GetContentType() != surf.ContentType()) {
+    mTexture = mGL->CreateTextureImage(size,
+                                       surf.ContentType(),
+                                       WrapMode(mGL, mFlags & AllowRepeat),
+                                       FlagsToGLFlags(mFlags)).get(); // TODO[nical] eeek!
+    mSize = gfx::IntSize(size.width, size.height);
+  }
  
+  // XXX this is always just ridiculously slow
+  nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
+  mTexture->DirectUpdate(surf.Get(), updateRegion);
+
+  // mTexture = texImage.forget();
+
+  if (aIsInitialised) {
+    *aIsInitialised = true;
+  }
+}
+
+// thebes
+void
+AwesomeTextureHostOGL::UpdateImpl(gfxASurface* aSurface,
+                                      nsIntRegion& aRegion)
+{
+  if (!mTexture ||
+      mTexture->GetSize() != aSurface->GetSize() ||
+      mTexture->GetContentType() != aSurface->GetContentType()) {
+    mTexture = mGL->CreateTextureImage(aSurface->GetSize(),
+                                        aSurface->GetContentType(),
+                                        WrapMode(mGL, mFlags & AllowRepeat),
+                                        FlagsToGLFlags(mFlags)).get();
+    mSize = gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
+  }
+ 
+  mTexture->DirectUpdate(aSurface, aRegion);
+}
+
+Effect*
+AwesomeTextureHostOGL::Lock(const gfx::Filter& aFilter)
+{
+  printf("--- AwesomeTextureHostOGL::Lock %p\n", this);
+
+  if (!mTexture) {
+    NS_WARNING("TextureImageAsTextureHost to be composited without texture");
+    return nullptr;
+  } else {
+    printf("--- Lock should be good %p\n", this);    
+  }
+  NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
+                "Image layer has alpha image");
+
+  if (mTexture->InUpdate()) {
+    mTexture->EndUpdate();
+  }
+
+  switch (mTexture->GetShaderProgramType()) {
+  case gl::RGBXLayerProgramType :
+    return new EffectRGBX(new SimpleTextureSourceOGL(this),
+                          true, aFilter, mFlags & NeedsYFlip);
+  case gl::BGRXLayerProgramType :
+    return new EffectBGRX(new SimpleTextureSourceOGL(this),
+                          true, aFilter, mFlags & NeedsYFlip);
+  case gl::BGRALayerProgramType :
+    return new EffectBGRA(new SimpleTextureSourceOGL(this),
+                          true, aFilter, mFlags & NeedsYFlip);
+  case gl::RGBALayerProgramType :
+    return new EffectRGBA(new SimpleTextureSourceOGL(this),
+                          true, aFilter, mFlags & NeedsYFlip);
+  }
+  NS_RUNTIMEABORT("Shader type not yet supported");
+  return nullptr;
+}
+
+/*
 void
 TextureImageAsTextureHost::UpdateImpl(const SharedImage& aImage,
                                   bool* aIsInitialised,
@@ -212,7 +298,7 @@ TextureImageAsTextureHostWithBuffer::EnsureBuffer(nsIntSize aSize)
  
   return false;
 }
-
+*/
 void
 TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
                              bool* aIsInitialised,
@@ -220,7 +306,7 @@ TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSharedTextureDescriptor,
               "Invalid descriptor");
- 
+
   SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
   SharedTextureDescriptor texture = surface.get_SharedTextureDescriptor();
  
@@ -262,13 +348,13 @@ TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
   }
  
   if (mFlags & UseOpaqueSurface) {
-    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBX(new SimpleTextureSourceOGL(this), true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerProgramType) {
-    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBA(new SimpleTextureSourceOGL(this), true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerExternalProgramType) {
     gfx::Matrix4x4 textureTransform;
     ToMatrix4x4(handleDetails.mTextureTransform, textureTransform);
-    return new EffectRGBAExternal(this, textureTransform, true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBAExternal(new SimpleTextureSourceOGL(this), textureTransform, true, aFilter, mFlags & NeedsYFlip);
   } else {
     NS_RUNTIMEABORT("Shader type not yet supported");
     return nullptr;
@@ -294,7 +380,7 @@ TextureHostOGLSharedWithBuffer::UpdateImpl(const SharedImage& aImage,
   }
 }
  
- 
+/*
 void
 GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,
                                bool* aIsInitialised,
@@ -317,10 +403,10 @@ GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,
   }
  
   //TODO[nrc] I don't see why we need a new image surface here, but should check
-  /*nsRefPtr<gfxASurface> surf = new gfxImageSurface(aData.mYChannel,
-                                                    mSize,
-                                                    aData.mYStride,
-                                                    gfxASurface::ImageFormatA8);*/
+  //nsRefPtr<gfxASurface> surf = new gfxImageSurface(aData.mYChannel,
+  //                                                  mSize,
+  //                                                  aData.mYStride,
+  //                                                  gfxASurface::ImageFormatA8);
   GLuint textureId = mTexture.GetTextureID();
   mGL->UploadSurfaceToTexture(surf.GetAsImage(),
                               nsIntRect(0, 0, mSize.width, mSize.height),
@@ -431,5 +517,7 @@ DirectExternalTextureHost::Lock(const gfx::Filter& aFilter)
 }
 #endif
 
-} /* layers */
-} /* mozilla */
+*/
+
+} // namespace
+} // namespace

@@ -40,11 +40,7 @@ public:
   virtual void Disconnect();
 
   virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
-/*
-  virtual void SwapTexture(const TextureInfo& aTextureInfo,
-                           const SharedImage& aFront,
-                           SharedImage* aNewBack);
-*/
+
   virtual void SetPictureRect(const nsIntRect& aPictureRect);
 
   // LayerOGL impl
@@ -55,9 +51,6 @@ public:
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
                            CompositingRenderTarget* aPreviousTarget = nullptr);
-
-  virtual TemporaryRef<TextureSource> AsTextureSource();
-
 
   virtual void CleanupResources();
 

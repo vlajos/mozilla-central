@@ -13,7 +13,6 @@ namespace layers {
 TextureParent::TextureParent(const TextureInfo& aInfo)
 : mTextureInfo(aInfo)
 {
-    printf("\n\nTextureParent::TextureParent\n\n\n");
 }
 
 TextureParent::~TextureParent()

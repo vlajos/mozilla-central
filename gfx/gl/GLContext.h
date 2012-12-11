@@ -74,29 +74,13 @@ enum ShaderProgramType {
     NumProgramTypes
 };
 
-
-/**
- * A TextureImage encapsulates a surface that can be drawn to by a
- * Thebes gfxContext and (hopefully efficiently!) synchronized to a
- * texture in the server.  TextureImages are associated with one and
- * only one GLContext.
- *
- * Implementation note: TextureImages attempt to unify two categories
- * of backends
- *
- *  (1) proxy to server-side object that can be bound to a texture;
- *      e.g. Pixmap on X11.
- *
- *  (2) efficient manager of texture memory; e.g. by having clients draw
- *      into a scratch buffer which is then uploaded with
- *      glTexSubImage2D().
- */
-class TextureImage
+class BindableTexture : public RefCounted<BindableTexture>
 {
-    NS_INLINE_DECL_REFCOUNTING(TextureImage)
-    friend class layers::TextureImageAsTextureHost;
-    friend class layers::TextureImageHost;
 public:
+    typedef gfxASurface::gfxContentType ContentType;
+
+    virtual ~BindableTexture() {}
+
     enum TextureState
     {
       Created, // Texture created, but has not had glTexImage called to initialize it.
@@ -116,9 +100,70 @@ public:
         ProcessShared    = 0x1
     };
 
-    typedef gfxASurface::gfxContentType ContentType;
+    virtual nsIntSize GetSize() const = 0;
 
-    virtual ~TextureImage() {}
+    virtual void BindTexture(GLenum aTextureUnit) = 0;
+    virtual void ReleaseTexture() {}
+
+    virtual GLenum GetWrapMode() const = 0;
+    virtual GLuint GetTextureID() = 0; // TODO[nical] const
+
+    virtual ContentType GetContentType() const = 0;
+
+    virtual bool InUpdate() const = 0;
+    /**
+     * Finish the active update and synchronize with the server, if
+     * necessary.
+     *
+     * BeginUpdate() must have been called exactly once before
+     * EndUpdate().
+     */
+    virtual void EndUpdate() = 0;
+
+    class ScopedBindTexture
+    {
+    public:
+        ScopedBindTexture(BindableTexture *aTexture, GLenum aTextureUnit) :
+          mTexture(aTexture)
+        {
+            if (mTexture) {
+                mTexture->BindTexture(aTextureUnit);
+            }
+        }
+
+        ~ScopedBindTexture()
+        {
+            if (mTexture) {
+                mTexture->ReleaseTexture();
+            }
+        }
+
+    protected:
+        BindableTexture *mTexture;
+    };
+};
+
+/**
+ * A TextureImage encapsulates a surface that can be drawn to by a
+ * Thebes gfxContext and (hopefully efficiently!) synchronized to a
+ * texture in the server.  TextureImages are associated with one and
+ * only one GLContext.
+ *
+ * Implementation note: TextureImages attempt to unify two categories
+ * of backends
+ *
+ *  (1) proxy to server-side object that can be bound to a texture;
+ *      e.g. Pixmap on X11.
+ *
+ *  (2) efficient manager of texture memory; e.g. by having clients draw
+ *      into a scratch buffer which is then uploaded with
+ *      glTexSubImage2D().
+ */
+class TextureImage : public BindableTexture
+{
+    friend class layers::TextureImageAsTextureHost;
+    friend class layers::TextureImageHost;
+public:
 
     /**
      * Returns a gfxASurface for updating |aRegion| of the client's
@@ -151,14 +196,6 @@ public:
      */
     virtual void GetUpdateRegion(nsIntRegion& aForRegion) {
     }
-    /**
-     * Finish the active update and synchronize with the server, if
-     * necessary.
-     *
-     * BeginUpdate() must have been called exactly once before
-     * EndUpdate().
-     */
-    virtual void EndUpdate() = 0;
 
     /**
      * The Image may contain several textures for different regions (tiles).
@@ -170,6 +207,10 @@ public:
     virtual bool NextTile() {
         return false;
     }
+
+    nsIntSize GetSize() const MOZ_OVERRIDE { return mSize; }
+
+    GLenum GetWrapMode() const { return mWrapMode; }
 
     // Function prototype for a tile iteration callback. Returning false will
     // cause iteration to be interrupted (i.e. the corresponding NextTile call
@@ -186,8 +227,6 @@ public:
     virtual nsIntRect GetTileRect() {
         return nsIntRect(nsIntPoint(0,0), mSize);
     }
-
-    virtual GLuint GetTextureID() = 0;
 
     virtual uint32_t GetTileCount() {
         return 1;
@@ -221,47 +260,33 @@ public:
      */
     virtual bool DirectUpdate(gfxASurface *aSurf, const nsIntRegion& aRegion, const nsIntPoint& aFrom = nsIntPoint(0,0)) = 0;
 
-    virtual void BindTexture(GLenum aTextureUnit) = 0;
-    virtual void ReleaseTexture() {}
-
     void BindTextureAndApplyFilter(GLenum aTextureUnit) {
         BindTexture(aTextureUnit);
         ApplyFilter();
     }
 
-    class ScopedBindTexture
+    // TODO[nical] decide whether we should put this into Texture
+    class ScopedBindTextureAndApplyFilter
     {
     public:
-        ScopedBindTexture(TextureImage *aTexture, GLenum aTextureUnit) :
-          mTexture(aTexture)
+        ScopedBindTextureAndApplyFilter(TextureImage *aTexture, GLenum aTextureUnit) 
+        : mTexture(aTexture)
         {
             if (mTexture) {
                 mTexture->BindTexture(aTextureUnit);
+                mTexture->ApplyFilter();
             }
         }
 
-        ~ScopedBindTexture()
+        ~ScopedBindTextureAndApplyFilter()
         {
             if (mTexture) {
                 mTexture->ReleaseTexture();
-            }       
+            }
         }
 
     protected:
         TextureImage *mTexture;
-    };
-
-    class ScopedBindTextureAndApplyFilter
-        : public ScopedBindTexture
-    {
-    public:
-        ScopedBindTextureAndApplyFilter(TextureImage *aTexture, GLenum aTextureUnit) :
-          ScopedBindTexture(aTexture, aTextureUnit)
-        {
-            if (mTexture) {
-                mTexture->ApplyFilter();
-            }
-        }
     };
 
     /**
@@ -283,10 +308,7 @@ public:
     virtual already_AddRefed<gfxASurface> GetBackingSurface()
     { return NULL; }
 
-    const nsIntSize& GetSize() const { return mSize; }
     ContentType GetContentType() const { return mContentType; }
-    virtual bool InUpdate() const = 0;
-    GLenum GetWrapMode() const { return mWrapMode; }
 
     void SetFilter(gfxPattern::GraphicsFilter aFilter) { mFilter = aFilter; }
 

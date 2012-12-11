@@ -69,8 +69,8 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     } while (it->NextTile());
   } else {
     gfx::Rect rect(0, 0,
-                   mTextureHost->GetAsTextureSource()->GetSize().width,
-                   mTextureHost->GetAsTextureSource()->GetSize().height);
+                   mTextureHost->GetSize().width,
+                   mTextureHost->GetSize().height);
     mCompositor->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
                           aOpacity, aTransform, aOffset);
   }

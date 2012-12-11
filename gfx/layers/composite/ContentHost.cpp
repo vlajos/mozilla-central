@@ -29,9 +29,12 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
+        return; // TODO[nical] this does not belong here
+        /*
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
           new EffectComponentAlpha(mTextureHostOnWhite->GetAsTextureSource(),
                                    mTextureHost->GetAsTextureSource());
+        */
       } else {
         return;
       }
@@ -59,7 +62,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   region.MoveBy(-origin);           // translate into TexImage space, buffer origin might not be at texture (0,0)
 
   // Figure out the intersecting draw region
-  gfx::IntSize texSize = mTextureHost->GetAsTextureSource()->GetSize();
+  gfx::IntSize texSize = mTextureHost->GetSize();
   nsIntRect textureRect = nsIntRect(0, 0, texSize.width, texSize.height);
   textureRect.MoveBy(region.GetBounds().TopLeft());
   nsIntRegion subregion;
@@ -162,6 +165,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  nsIntRegion* aNewValidRegionFront,
                                  nsIntRegion* aUpdatedRegionBack)
 {
+  printf("xxx ContentHostTexture::UpdateThebes\n");
   AutoOpenSurface surface(OPEN_READ_ONLY, aNewFront.buffer());
   gfxASurface* updated = surface.Get();
 
@@ -213,6 +217,7 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
                                 nsIntRegion* aNewValidRegionFront,
                                 nsIntRegion* aUpdatedRegionBack)
 {
+  printf("xxx ContentHostDirect::UpdateThebes\n");
   mBufferRect = aNewBack.rect();
   mBufferRotation = aNewBack.rotation();
 

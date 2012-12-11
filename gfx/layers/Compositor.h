@@ -44,6 +44,7 @@ class ContentClient;
 class ShadowLayerForwarder;
 class ShadowableLayer;
 class PTextureChild;
+class TextureSourceOGL;
 
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
@@ -53,16 +54,13 @@ const TextureFlags ForceSingleTile    = 0x4;
 const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 
-
 // a texture or part of texture used for compositing
-class TextureSource
+class TextureSource : public RefCounted<TextureSource>
 {
 public:
-  virtual void AddRef() = 0;
-  virtual void Release() = 0;
   virtual gfx::IntSize GetSize() const = 0;
-
   virtual ~TextureSource() {};
+  virtual TextureSourceOGL* AsSourceOGL() { return nullptr; }
 };
 
 /**
@@ -80,16 +78,13 @@ public:
 };
 
 // Interface, used only on the compositor process
-class TextureHost
+class TextureHost : public RefCounted<TextureHost>
 {
 public:
   enum Buffering { NONE, BUFFERED };
 
   TextureHost(Buffering aBuffering = Buffering::NONE);
   virtual ~TextureHost();
-
-  virtual void AddRef() = 0;
-  virtual void Release() = 0;
 
   bool IsBuffered() const { return mBuffering == Buffering::BUFFERED; }
   SharedImage* GetBuffer() const { return mBuffer; }
@@ -129,6 +124,7 @@ public:
    */
   virtual void Abort() {}
 
+  // TODO[nical] these probably doesn't belong here
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
@@ -136,7 +132,8 @@ public:
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
   virtual TileIterator* GetAsTileIterator() { return nullptr; }
-  virtual TextureSource* GetAsTextureSource() { return nullptr; }
+
+  virtual gfx::IntSize GetSize() const = 0;
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
@@ -159,8 +156,6 @@ protected:
     NS_RUNTIMEABORT("Should not be reached");
   }
 
-
-
   TextureFlags mFlags;
   Buffering mBuffering;
   SharedImage* mBuffer;
@@ -171,7 +166,7 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class CompositingRenderTarget : public RefCounted<CompositingRenderTarget>
+class CompositingRenderTarget : public TextureSource
 {
 public:
   virtual ~CompositingRenderTarget() {}

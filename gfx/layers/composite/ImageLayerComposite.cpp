@@ -116,22 +116,6 @@ ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                         clipRect);
 }
 
-TemporaryRef<TextureSource> 
-ImageLayerComposite::AsTextureSource()
-{
-  // Our image host ought to be able to supply us with its texture host
-  // which ought to be convertable to a texture source. If we want to use
-  // complex ImageHosts/TextureHosts as mask layers then we will have to
-  // do more work here.
-
-  RefPtr<TextureHost> textureHost = mImageHost->GetTextureHost();
-  if (!textureHost) {
-    return nullptr;
-  }
-
-  return textureHost->GetAsTextureSource();
-}
-
 void
 ImageLayerComposite::SetPictureRect(const nsIntRect& aPictureRect)
 {

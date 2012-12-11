@@ -385,6 +385,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
 
     case Edit::TOpPaintTiledLayerBuffer: {
+      printf("*** OpPaintTiledLayerBuffer \n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint TiledLayerBuffer"));
       const OpPaintTiledLayerBuffer& op = edit.get_OpPaintTiledLayerBuffer();
       ShadowLayerParent* shadow = AsShadowLayer(op);
@@ -399,6 +400,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpPaintThebesBuffer: {
+      printf("*** OpPaintThebesBuffer \n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintThebesBuffer& op = edit.get_OpPaintThebesBuffer();
@@ -461,6 +463,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpAttachTexture: {
+      printf("*** OpAttachTexture \n");
       const OpAttachTexture& op = edit.get_OpAttachTexture();
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
       ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
@@ -476,6 +479,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpPaintTexture: {
+      printf("*** OpPaintTexture\n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
 
       const OpPaintTexture& op = edit.get_OpPaintTexture();
@@ -495,6 +499,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpPaintTextureRegion: {
+      printf("*** OpPaintTextureRegion\n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintTextureRegion& op = edit.get_OpPaintTextureRegion();

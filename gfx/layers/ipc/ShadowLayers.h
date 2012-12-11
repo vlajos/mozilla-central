@@ -653,7 +653,9 @@ public:
   virtual void
   SwapTexture(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
               OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
-              OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {}
+              OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {
+    NS_RUNTIMEABORT("should be implemented or not used");
+  }
 
   virtual void
   Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
