@@ -15,7 +15,6 @@ include protocol POfflineCacheUpdate;
 include protocol PIndexedDB;
 include DOMTypes;
 include URIParams;
-include CompositorUtils;
 
 include "gfxMatrix.h";
 include "FrameMetrics.h";
