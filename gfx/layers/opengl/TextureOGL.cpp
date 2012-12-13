@@ -89,7 +89,7 @@ void AwesomeTextureHostOGL::UpdateImpl(const SharedImage& aImage,
   nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
   mTexture->DirectUpdate(surf.Get(), updateRegion);
 
-  // mTexture = texImage.forget();
+    // mTexture = texImage.forget();
 
   if (aIsInitialised) {
     *aIsInitialised = true;
@@ -149,6 +149,18 @@ AwesomeTextureHostOGL::Lock(const gfx::Filter& aFilter)
   NS_RUNTIMEABORT("Shader type not yet supported");
   return nullptr;
 }
+
+bool
+AwesomeTextureHostOGL::AddMaskEffect(EffectChain& aEffects,
+                       const gfx::Matrix4x4& aTransform,
+                       bool aIs3D)
+{
+  EffectMask* effect = new EffectMask(new SimpleTextureSourceOGL(this), aTransform);
+  effect->mIs3D = aIs3D;
+  aEffects.mEffects[EFFECT_MASK] = effect;
+  return true;
+}
+
 
 /*
 void

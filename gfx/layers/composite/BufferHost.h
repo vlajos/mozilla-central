@@ -35,6 +35,18 @@ public:
                               TextureHost* aTextureHost) = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
+
+  /**
+   * Adds a mask effect using this texture as the mask, if possible.
+   * \return true if the effect was added, false otherwise.
+   */
+  virtual bool AddMaskEffect(EffectChain& aEffects,
+                             const gfx::Matrix4x4& aTransform,
+                             bool aIs3D = false)
+  {
+    NS_WARNING("TODO[nical] Not implemented");
+    return false;
+  }
 };
 
 }

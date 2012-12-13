@@ -38,7 +38,13 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
   return result;
 }
 
-void  
+bool
+ImageHostSingle::AddMaskEffect(EffectChain& aEffects, const gfx::Matrix4x4& aTransform, bool is3D)
+{
+  return mTextureHost->AddMaskEffect(aEffects, aTransform, is3D);
+}
+
+void
 ImageHostSingle::Composite(EffectChain& aEffectChain,
                            float aOpacity,
                            const gfx::Matrix4x4& aTransform,

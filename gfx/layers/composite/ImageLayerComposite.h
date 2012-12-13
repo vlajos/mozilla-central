@@ -11,7 +11,6 @@
 
 #include "LayerManagerComposite.h"
 #include "ImageLayers.h"
-//#include "yuv_convert.h"
 #include "mozilla/Mutex.h"
 
 namespace mozilla {
@@ -53,6 +52,8 @@ public:
                            CompositingRenderTarget* aPreviousTarget = nullptr);
 
   virtual void CleanupResources();
+
+  BufferHost* GetBufferHost() MOZ_OVERRIDE;
 
 private:
   void EnsureImageHost(BufferType aHostType);

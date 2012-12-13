@@ -45,7 +45,7 @@ public:
                    OptionalThebesBuffer* aReadOnlyFront,
                    nsIntRegion* aFrontUpdatedRegion);
 
-
+  BufferHost* GetBufferHost() MOZ_OVERRIDE;
   // LayerComposite impl
   void Destroy();
   Layer* GetLayer();

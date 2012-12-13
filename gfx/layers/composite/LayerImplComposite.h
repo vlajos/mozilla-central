@@ -28,8 +28,7 @@ RenderColorLayer(ColorLayer* aLayer, Compositor *aCompositor,
   effects.mEffects[EFFECT_SOLID_COLOR] = effectColor;
   nsIntRect visibleRect = aLayer->GetEffectiveVisibleRegion().GetBounds();
 
-  effects.mEffects[EFFECT_MASK] =
-    LayerManagerComposite::MakeMaskEffect(aLayer->GetMaskLayer());
+  LayerManagerComposite::AddMaskEffect(aLayer->GetMaskLayer(), effects);
 
   gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
   float opacity = aLayer->GetEffectiveOpacity();
@@ -307,11 +306,8 @@ protected:
         EffectChain effectChain;
         MaskType maskType = MaskNone;
         if (aContainer->GetMaskLayer()) {
-          EffectMask* maskEffect = LayerManagerComposite::MakeMaskEffect(aContainer->GetMaskLayer());
-          if (!aContainer->GetTransform().CanDraw2D()) {
-            maskEffect->mIs3D = true;
-          }
-          effectChain.mEffects[EFFECT_MASK] = maskEffect;
+          bool is3D = !aContainer->GetTransform().CanDraw2D();
+          LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(), effectChain, is3D);
         }
 
         RefPtr<Effect> effect = new EffectRenderTarget(surface);

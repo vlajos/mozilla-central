@@ -54,6 +54,8 @@ public:
   }
 
   virtual void CleanupResources();
+
+  BufferHost* GetBufferHost() MOZ_OVERRIDE { return nullptr; }
 };
 
 class CompositeRefLayer : public ShadowRefLayer,
@@ -88,6 +90,8 @@ public:
   }
 
   virtual void CleanupResources();
+
+    BufferHost* GetBufferHost() MOZ_OVERRIDE { return nullptr; }
 };
 
 } /* layers */

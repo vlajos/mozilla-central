@@ -14,6 +14,8 @@
 #include "ImageLayerComposite.h"
 #include "ColorLayerComposite.h"
 #include "CanvasLayerComposite.h"
+#include "BufferHost.h"
+#include "mozilla/gfx/Matrix.h"
 //TODO[nrc] tiled thebes layers
 //#include "TiledThebesLayerComposite.h"
 #include "mozilla/TimeStamp.h"
@@ -321,18 +323,16 @@ LayerManagerComposite::CreateShadowRefLayer()
   return nsRefPtr<CompositeRefLayer>(new CompositeRefLayer(this)).forget();
 }
 
-/* static */EffectMask*
-LayerManagerComposite::MakeMaskEffect(Layer* aMaskLayer)
+bool
+LayerManagerComposite::AddMaskEffect(Layer* aMaskLayer, EffectChain& aEffects, bool aIs3D)
 {
-  if (aMaskLayer) {
-    LayerComposite* maskLayerComposite = static_cast<LayerComposite*>(aMaskLayer->ImplData());
-    RefPtr<TextureSource> maskTexture = maskLayerComposite->AsTextureSource();
-    Matrix4x4 transform;
-    ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
-    return new EffectMask(maskTexture, transform);
+  if (!aMaskLayer) {
+    return false;
   }
-
-  return nullptr;
+  LayerComposite* maskLayerComposite = static_cast<LayerComposite*>(aMaskLayer->ImplData());
+  gfx::Matrix4x4 transform;
+  ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
+  return maskLayerComposite->GetBufferHost()->AddMaskEffect(aEffects, transform, aIs3D);
 }
 
 TemporaryRef<DrawTarget>

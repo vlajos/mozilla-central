@@ -63,6 +63,10 @@ public:
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
 
+  virtual bool AddMaskEffect(EffectChain& aEffects,
+                             const gfx::Matrix4x4& aTransform,
+                             bool is3D) MOZ_OVERRIDE;
+
 protected:
   RefPtr<TextureHost> mTextureHost;
   BufferType mType;
