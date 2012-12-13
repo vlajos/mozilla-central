@@ -7,11 +7,8 @@
 #define GFX_LayerManagerComposite_H
 
 #include "mozilla/layers/Compositor.h"
-
 #include "mozilla/layers/ShadowLayers.h"
-
 #include "mozilla/TimeStamp.h"
-
 
 #ifdef XP_WIN
 #include <windows.h>

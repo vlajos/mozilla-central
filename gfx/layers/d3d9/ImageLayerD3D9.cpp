@@ -557,7 +557,7 @@ ShadowImageLayerD3D9::Swap(const SharedImage& aNewFront,
   } else {
     // TODO[nical] YUVImage ahs been replaced by YCbCrImage
     // which does the same job but better.
-    NS_RUNTIMEABORT("unimplemented")
+    NS_RUNTIMEABORT("unimplemented");
   }
   
   *aNewBack = aNewFront;

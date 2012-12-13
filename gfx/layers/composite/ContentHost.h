@@ -124,6 +124,12 @@ public:
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
 
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
+  {
+    //TODO[nrc]
+    return LayerRenderState();
+  }
+
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump()
   {

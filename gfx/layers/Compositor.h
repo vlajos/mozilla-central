@@ -35,7 +35,6 @@ class Image;
 class ISurfaceDeAllocator;
 class BufferHost;
 class TextureHost;
-class SurfaceDescriptor;
 class TextureInfo;
 class TextureClient;
 class ImageClient;
@@ -138,6 +137,8 @@ public:
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
+
+  virtual LayerRenderState GetRenderState() = 0;
 
 protected:
   void SetBuffering(Buffering aBuffering,

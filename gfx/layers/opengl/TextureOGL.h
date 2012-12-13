@@ -40,6 +40,12 @@ public:
    */
   virtual bool IsValid() const = 0;
 
+  //TODO[nrc] each TextureHost should implment this properly
+  virtual LayerRenderState GetRenderState()
+  {
+    return LayerRenderState();
+  }
+
 protected:
   TextureHostOGL(TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE)
   : TextureHost(aBuffering)

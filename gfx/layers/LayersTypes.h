@@ -8,6 +8,9 @@
 
 namespace mozilla {
 namespace layers {
+
+class SurfaceDescriptor;
+  
 enum LayersBackend {
   LAYERS_NONE = 0,
   LAYERS_BASIC,
@@ -29,6 +32,31 @@ enum MaskType {
   Mask2d,         // mask layer for layers with 2D transforms
   Mask3d,         // mask layer for layers with 3D transforms
   NumMaskTypes
+};
+
+// LayerRenderState for Composer2D
+enum LayerRenderStateFlags {
+  LAYER_RENDER_STATE_Y_FLIPPED = 1 << 0,
+  LAYER_RENDER_STATE_BUFFER_ROTATION = 1 << 1
+};
+
+struct LayerRenderState {
+  LayerRenderState() : mSurface(nullptr), mFlags(0)
+  {}
+
+  LayerRenderState(SurfaceDescriptor* aSurface, uint32_t aFlags = 0)
+    : mSurface(aSurface)
+    , mFlags(aFlags)
+  {}
+
+  bool YFlipped() const
+  { return mFlags & LAYER_RENDER_STATE_Y_FLIPPED; }
+
+  bool BufferRotated() const
+  { return mFlags & LAYER_RENDER_STATE_BUFFER_ROTATION; }
+
+  SurfaceDescriptor* mSurface;
+  uint32_t mFlags;
 };
 
 }

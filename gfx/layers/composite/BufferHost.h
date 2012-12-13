@@ -31,6 +31,8 @@ public:
                               TextureHost* aTextureHost) = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
+
+  virtual LayerRenderState GetRenderState() = 0;
 };
 
 }

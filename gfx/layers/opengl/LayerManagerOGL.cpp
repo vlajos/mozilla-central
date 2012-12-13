@@ -146,7 +146,8 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
     mThebesLayerCallbackData = aCallbackData;
     SetCompositingDisabled(aFlags & END_NO_COMPOSITE);
 
-#ifdef MOZ_WIDGET_GONK // TODO[nical] the b2g 2D compositing code does not fit in the 
+#ifdef MOZ_WIDGET_GONK
+    // TODO[nical] the b2g 2D compositing code does not fit in the 
     // compositor code, so I don't know yet where to put the fps counter stuff for b2g
     // (for the general case the code has moved into CompositorOGL)
     bool needGLRender = true;

@@ -796,10 +796,11 @@ LayerManagerD3D10::Render(EndTransactionFlags aFlags)
 
     SurfaceDescriptorD3D10 sd;
     GetDescriptor(mBackBuffer, &sd);
-    ShadowLayerForwarder::PaintedThebesBuffer(windowLayer,
+    //TODO[nrc] signature of PaintedThebesBuffer has changed
+    /*ShadowLayerForwarder::PaintedThebesBuffer(windowLayer,
                                               contentRect,
                                               contentRect, nsIntPoint(),
-                                              sd);
+                                              sd);*/
 
     // A source in the graphics pipeline can't also be a target.  So
     // unbind here to avoid racing with the chrome process sourcing

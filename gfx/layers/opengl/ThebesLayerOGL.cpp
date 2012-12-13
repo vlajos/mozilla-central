@@ -238,13 +238,14 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   bool canReuseBuffer;
   nsIntRect destBufferRect;
 
-  // TODO[nical] GL Code in here makes me unhappy
   nsRefPtr<TextureImage> texImage = mTextureHost
-                                    ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHost.get())->GetTexture())
-                                    : nullptr;
+    ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(
+      mTextureHost.get())->GetTexture())
+    : nullptr;
   nsRefPtr<TextureImage> texImageOnWhite = mTextureHostOnWhite 
-                                           ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHostOnWhite.get())->GetTexture())
-                                           : nullptr;
+    ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(
+      mTextureHostOnWhite.get())->GetTexture())
+    : nullptr;
   while (true) {
     mode = mLayer->GetSurfaceMode();
     contentType = aContentType;
@@ -399,8 +400,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       if (mOGLLayer->OGLManager()->FBOTextureTarget() == LOCAL_GL_TEXTURE_2D) {
         nsIntRect overlap;
 
-        // TODO[nical] (merge) I have no idea what i am doing -----[
-
         // The buffer looks like:
         //  ______
         // |1  |2 |  Where the center point is offset by mBufferRotation from the top-left corner.
@@ -423,25 +422,12 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         nsIntRect srcBufferSpaceTopRight(mBufferRotation.x, 0, mBufferRect.width - mBufferRotation.x, mBufferRotation.y);
         nsIntRect srcBufferSpaceTopLeft(0, 0, mBufferRotation.x, mBufferRotation.y);
         nsIntRect srcBufferSpaceBottomLeft(0, mBufferRotation.y, mBufferRotation.x, mBufferRect.height - mBufferRotation.y);
-        //   ]------ TODO[nical]
 
         overlap.IntersectRect(mBufferRect, destBufferRect);
 
         nsIntRect srcRect(overlap), dstRect(overlap);
         srcRect.MoveBy(- mBufferRect.TopLeft() + mBufferRotation);
-        dstRect.MoveBy(- destBufferRect.TopLeft());
         
-        if (mBufferRotation != nsIntPoint(0, 0)) {
-          // If mBuffer is rotated, then BlitTextureImage will only be copying the bottom-right section
-          // of the buffer. We need to invalidate the remaining sections so that they get redrawn too.
-          // Alternatively we could teach BlitTextureImage to rearrange the rotated segments onto
-          // the new buffer.
-          
-          // When the rotated buffer is reorganised, the bottom-right section will be drawn in the top left.
-          // Find the point where this content ends.
-          nsIntPoint rotationPoint(mBufferRect.x + mBufferRect.width - mBufferRotation.x, 
-                                   mBufferRect.y + mBufferRect.height - mBufferRotation.y);
-        }
         nsIntRect srcRectDrawTopRight(srcRect);
         nsIntRect srcRectDrawTopLeft(srcRect);
         nsIntRect srcRectDrawBottomLeft(srcRect);
@@ -479,11 +465,10 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         dstRectDrawTopLeft   .MoveBy(-destBufferRect.TopLeft());
         dstRectDrawBottomLeft.MoveBy(-destBufferRect.TopLeft());
 
-        // TODO[nical] not so happy that BufferHost does some GL trickery
+        destBuffer->Resize(destBufferRect.Size());
+
         TextureImage* texImageSource
           = static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHost.get())->GetTexture());
-        
-        destBuffer->Resize(destBufferRect.Size());
 
         gl()->BlitTextureImage(texImageSource, srcRect,
                                destBuffer, dstRect);
@@ -491,8 +476,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
           // Draw the remaining quadrants. We call BlitTextureImage 3 extra
           // times instead of doing a single draw call because supporting that
           // with a tiled source is quite tricky.
-
-          // TODO[nical] here mTexImage should become mTextureHost
           if (!srcRectDrawTopRight.IsEmpty())
             gl()->BlitTextureImage(texImageSource, srcRectDrawTopRight,
                                    destBuffer, dstRectDrawTopRight);
@@ -507,7 +490,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
 
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
-          // TODO[nical] nicht nicht nicht! no GL should be seen around here.
           TextureImage* texImageSourceOnWhite 
               = static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHostOnWhite.get())->GetTexture());
         
@@ -786,18 +768,7 @@ ThebesLayerOGL::GetLayer()
 {
   return this;
 }
-/* TODO[nical] commented this out during the merge
-LayerRenderState
-ShadowThebesLayerOGL::GetRenderState()
-{
-  if (!mBuffer || mDestroyed) {
-    return LayerRenderState();
-  }
-  uint32_t flags = (mBuffer->Rotation() != nsIntPoint()) ?
-                   LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
-  return LayerRenderState(&mBufferDescriptor, flags);
-}
-*/
+
 bool
 ThebesLayerOGL::IsEmpty()
 {

@@ -380,30 +380,6 @@ private:
 #endif
 };
 
-enum LayerRenderStateFlags {
-  LAYER_RENDER_STATE_Y_FLIPPED = 1 << 0,
-  LAYER_RENDER_STATE_BUFFER_ROTATION = 1 << 1
-};
-
-struct LayerRenderState {
-  LayerRenderState() : mSurface(nullptr), mFlags(0)
-  {}
-
-  LayerRenderState(SurfaceDescriptor* aSurface, uint32_t aFlags = 0)
-    : mSurface(aSurface)
-    , mFlags(aFlags)
-  {}
-
-  bool YFlipped() const
-  { return mFlags & LAYER_RENDER_STATE_Y_FLIPPED; }
-
-  bool BufferRotated() const
-  { return mFlags & LAYER_RENDER_STATE_BUFFER_ROTATION; }
-
-  SurfaceDescriptor* mSurface;
-  uint32_t mFlags;
-};
-
 /**
  * General information and tree management for OGL layers.
  */
@@ -426,8 +402,6 @@ public:
   virtual void Destroy() = 0;
 
   virtual Layer* GetLayer() = 0;
-
-  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,

@@ -7,6 +7,7 @@
 #define MOZILLA_GFX_IMAGEHOST_H
 
 #include "BufferHost.h"
+#include "mozilla/layers/ImageContainerParent.h"
 
 namespace mozilla {
 namespace layers {
@@ -20,7 +21,6 @@ public:
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
 
   virtual TemporaryRef<TextureHost> GetTextureHost() { return nullptr; }
-
 
 protected:
   ImageHost(Compositor* aCompositor)
@@ -63,6 +63,11 @@ public:
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
 
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
+  {
+    return mTextureHost->GetRenderState();
+  }
+
 protected:
   RefPtr<TextureHost> mTextureHost;
   BufferType mType;
@@ -90,6 +95,11 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr);
 
   virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
+
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
+  {
+    return LayerRenderState();
+  }
 
 protected:
   RefPtr<TextureHost> mTextureHost;
@@ -119,6 +129,23 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr);
 
   virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
+
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
+  {
+    // Update the associated compositor ID in case Composer2D succeeds,
+    // because we won't enter RenderLayer() if so ...
+    ImageContainerParent::SetCompositorIDForImage(
+      mImageContainerID, mCompositor->GetCompositorID());
+    // ... but do *not* try to update the local image version.  We need
+    // to retain that information in case we fall back on GL, so that we
+    // can upload / attach buffers properly.
+
+    SharedImage* img = ImageContainerParent::GetSharedImage(mImageContainerID);
+    if (img && img->type() == SharedImage::TSurfaceDescriptor) {
+      return LayerRenderState(&img->get_SurfaceDescriptor());
+    }
+    return LayerRenderState();
+  }
 
 protected:
   void EnsureImageHost(BufferType aType);

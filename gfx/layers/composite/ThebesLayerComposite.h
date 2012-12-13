@@ -45,6 +45,7 @@ public:
                    OptionalThebesBuffer* aReadOnlyFront,
                    nsIntRegion* aFrontUpdatedRegion);
 
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   // LayerComposite impl
   void Destroy();

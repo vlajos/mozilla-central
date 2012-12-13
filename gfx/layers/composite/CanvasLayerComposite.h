@@ -40,6 +40,8 @@ public:
 
   virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
 
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
+
   // ShadowCanvasLayer impl
   virtual void Swap(const SharedImage& aNewFront,
                     bool needYFlip,

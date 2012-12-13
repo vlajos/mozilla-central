@@ -79,6 +79,15 @@ ImageLayerComposite::Destroy()
   }
 }
 
+LayerRenderState
+ImageLayerComposite::GetRenderState()
+{
+  if (!mImageHost) {
+    return LayerRenderState();
+  }
+  return mImageHost->GetRenderState();
+}
+
 Layer*
 ImageLayerComposite::GetLayer()
 {

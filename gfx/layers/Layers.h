@@ -74,6 +74,7 @@ class ShadowableLayer;
 class ShadowLayerForwarder;
 class ShadowLayerManager;
 class SpecificLayerAttributes;
+class SurfaceDescriptor;
 class Compositor;
 struct TextureIdentifier;
 struct TextureFactoryIdentifier;
@@ -1050,6 +1051,8 @@ public:
   void SetDebugColorIndex(uint32_t aIndex) { mDebugColorIndex = aIndex; }
   uint32_t GetDebugColorIndex() { return mDebugColorIndex; }
 #endif
+
+  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
 protected:
   Layer(LayerManager* aManager, void* aImplData);

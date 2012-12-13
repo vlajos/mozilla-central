@@ -78,6 +78,19 @@ CanvasLayerComposite::GetLayer()
   return this;
 }
 
+LayerRenderState
+CanvasLayerComposite::GetRenderState()
+{
+  if (mDestroyed || !mImageHost) {
+    return LayerRenderState();
+  }
+  return mImageHost->GetRenderState();
+
+  //TODO[nrc] this should be done in TextureHost::GetRenderState for any texture host with a SurfaceDescriptor
+  //  LayerRenderState(&mFrontBufferDescriptor,
+  //                        mNeedsYFlip ? LAYER_RENDER_STATE_Y_FLIPPED : 0);
+}
+
 void
 CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect,
                                   CompositingRenderTarget*)
