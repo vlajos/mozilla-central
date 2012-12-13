@@ -44,14 +44,12 @@ EXPORTS = \
         CompositorParent.h \
         ImageContainer.h \
         ImageLayers.h \
-        ImageLayerOGL.h \
         ImageHost.h \
         LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
         LayersTypes.h \
         LayerManagerOGLShaders.h \
-        LayerManagerOGL.h \
         LayerManagerOGLProgram.h \
         LayerSorter.h \
         LayerTreeInvalidation.h \
@@ -77,14 +75,7 @@ CPPSRCS = \
         RenderTrace.cpp \
         ReadbackProcessor.cpp \
         ThebesLayerBuffer.cpp \
-        CanvasLayerOGL.cpp \
-        ColorLayerOGL.cpp \
-        ContainerLayerOGL.cpp \
-        ImageLayerOGL.cpp \
-        LayerManagerOGL.cpp \
-        ThebesLayerOGL.cpp \
         TiledThebesLayerOGL.cpp \
-        ReusableTileStoreOGL.cpp \
         LayerManagerOGLProgram.cpp \
         CanvasLayerComposite.cpp \
         ColorLayerComposite.cpp \

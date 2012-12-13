@@ -6,7 +6,6 @@
 #ifndef MOZILLA_GFX_TEXTUREOGL_H
 #define MOZILLA_GFX_TEXTUREOGL_H
  
-#include "ImageLayerOGL.h"
 #include "mozilla/layers/CompositorOGL.h"
 #include "GLContext.h"
 #include "gfx2DGlue.h"

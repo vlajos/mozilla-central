@@ -107,7 +107,6 @@ static Atom sPluginIMEAtom = nullptr;
 #include "Layers.h"
 #include "GLContextProvider.h"
 #include "BasicLayers.h"
-#include "LayerManagerOGL.h"
 #include "nsFastStartupQt.h"
 
 // If embedding clients want to create widget without real parent window
@@ -123,7 +122,6 @@ extern "C" {
 using namespace mozilla;
 using namespace mozilla::widget;
 using mozilla::gl::GLContext;
-using mozilla::layers::LayerManagerOGL;
 
 // Cached offscreen surface
 static nsRefPtr<gfxASurface> gBufferSurface;
@@ -387,10 +385,10 @@ nsWindow::Destroy(void)
     /** Need to clean our LayerManager up while still alive */
     if (mLayerManager) {
         nsRefPtr<GLContext> gl = nullptr;
-        if (mLayerManager->GetBackendType() == mozilla::layers::LAYERS_OPENGL) {
-            LayerManagerOGL *ogllm = static_cast<LayerManagerOGL*>(mLayerManager.get());
-            gl = ogllm->gl();
-        }
+        // if (mLayerManager->GetBackendType() == mozilla::layers::LAYERS_OPENGL) {
+        //     LayerManagerOGL *ogllm = static_cast<LayerManagerOGL*>(mLayerManager.get());
+        //     gl = ogllm->gl();
+        // }
 
         mLayerManager->Destroy();
 
@@ -1049,30 +1047,31 @@ nsWindow::DoPaint(QPainter* aPainter, const QStyleOptionGraphicsItem* aOption, Q
     if (startup) {
         startup->RemoveFakeLayout();
     }
-
-    if (GetLayerManager(nullptr)->GetBackendType() == mozilla::layers::LAYERS_OPENGL) {
-        aPainter->beginNativePainting();
-        nsIntRegion region(rect);
-        static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager(nullptr))->
-            SetClippingRegion(region);
-
-        gfxMatrix matr;
-        matr.Translate(gfxPoint(aPainter->transform().dx(), aPainter->transform().dy()));
-#ifdef MOZ_ENABLE_QTMOBILITY
-        // This is needed for rotate transformation on MeeGo
-        // This will work very slow if pixman does not handle rotation very well
-        matr.Rotate((M_PI/180) * gOrientationFilter.GetWindowRotationAngle());
-        static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager(nullptr))->
-            SetWorldTransform(matr);
-#endif //MOZ_ENABLE_QTMOBILITY
-
-        if (mWidgetListener)
-          painted = mWidgetListener->PaintWindow(this, region, nsIWidgetListener::SENT_WILL_PAINT | nsIWidgetListener::WILL_SEND_DID_PAINT);
-        aPainter->endNativePainting();
-        if (mWidgetListener)
-          mWidgetListener->DidPaintWindow();
-        return painted;
-    }
+// TODO reimplement on-main-thread gl layers using compositor API or drop it
+//
+//    if (GetLayerManager(nullptr)->GetBackendType() == mozilla::layers::LAYERS_OPENGL) {
+//        aPainter->beginNativePainting();
+//        nsIntRegion region(rect);
+//        static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager(nullptr))->
+//            SetClippingRegion(region);
+//
+//        gfxMatrix matr;
+//        matr.Translate(gfxPoint(aPainter->transform().dx(), aPainter->transform().dy()));
+//#ifdef MOZ_ENABLE_QTMOBILITY
+//        // This is needed for rotate transformation on MeeGo
+//        // This will work very slow if pixman does not handle rotation very well
+//        matr.Rotate((M_PI/180) * gOrientationFilter.GetWindowRotationAngle());
+//        static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager(nullptr))->
+//            SetWorldTransform(matr);
+//#endif //MOZ_ENABLE_QTMOBILITY
+//
+//        if (mWidgetListener)
+//          painted = mWidgetListener->PaintWindow(this, region, nsIWidgetListener::SENT_WILL_PAINT | nsIWidgetListener::WILL_SEND_DID_PAINT);
+//        aPainter->endNativePainting();
+//        if (mWidgetListener)
+//          mWidgetListener->DidPaintWindow();
+//        return painted;
+//    }
 
     gfxQtPlatform::RenderMode renderMode = gfxQtPlatform::GetPlatform()->GetRenderMode();
     int depth = aPainter->device()->depth();

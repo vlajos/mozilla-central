@@ -103,7 +103,6 @@ extern "C" {
 #include "gfxImageSurface.h"
 #include "gfxUtils.h"
 #include "Layers.h"
-#include "LayerManagerOGL.h"
 #include "GLContextProvider.h"
 
 #ifdef MOZ_X11
@@ -120,7 +119,6 @@ extern "C" {
 using namespace mozilla;
 using namespace mozilla::widget;
 using mozilla::gl::GLContext;
-using mozilla::layers::LayerManagerOGL;
 
 // Don't put more than this many rects in the dirty region, just fluff
 // out to the bounding-box if there are more
@@ -609,17 +607,7 @@ nsWindow::Destroy(void)
 
     /** Need to clean our LayerManager up while still alive */
     if (mLayerManager) {
-        nsRefPtr<GLContext> gl = nullptr;
-        if (mLayerManager->GetBackendType() == mozilla::layers::LAYERS_OPENGL) {
-            LayerManagerOGL *ogllm = static_cast<LayerManagerOGL*>(mLayerManager.get());
-            gl = ogllm->gl();
-        }
-
         mLayerManager->Destroy();
-
-        if (gl) {
-            gl->MarkDestroyed();
-        }
     }
     mLayerManager = nullptr;
 
@@ -2136,13 +2124,7 @@ nsWindow::OnExposeEvent(cairo_t *cr)
         return TRUE;
 
     } else if (GetLayerManager()->GetBackendType() == mozilla::layers::LAYERS_OPENGL) {
-        LayerManagerOGL *manager = static_cast<LayerManagerOGL*>(GetLayerManager());
-        manager->SetClippingRegion(region);
-
-        listener->PaintWindow(this, region, nsIWidgetListener::SENT_WILL_PAINT | nsIWidgetListener::WILL_SEND_DID_PAINT);
-        listener->DidPaintWindow();
-
-        g_free(rects);
+        NS_RUNTIMEABORT("gl layers don'exist anymore");
         return TRUE;
     }
 

@@ -29,6 +29,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
+        MOZ_ASSERT(false, "not implemented");
         return; // TODO[nical] this does not belong here
         /*
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =

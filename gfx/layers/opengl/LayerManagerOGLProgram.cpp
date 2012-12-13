@@ -4,7 +4,6 @@
 
 #include "LayerManagerOGLProgram.h"
 #include "LayerManagerOGLShaders.h"
-#include "LayerManagerOGL.h"
 
 namespace mozilla {
 namespace layers {
@@ -359,7 +358,7 @@ ShaderProgramOGL::CreateProgram(const char *aVertexShaderString,
   mProgram = result;
   return true;
 }
-
+/*
 bool
 ShaderProgramOGL::LoadMask(Layer* aMaskLayer)
 {
@@ -393,6 +392,6 @@ ShaderProgramOGL::LoadMask(Layer* aMaskLayer)
 
   return true;
 }
-
+*/
 } /* layers */
 } /* mozilla */

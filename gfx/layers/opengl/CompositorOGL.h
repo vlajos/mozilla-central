@@ -16,8 +16,6 @@ namespace mozilla {
 
 namespace layers {
 
-//TODO[nrc] remove this when we remove the friend decl
-class LayerManagerOGL;
 struct FPSState;
 
 class CompositorOGL : public Compositor
@@ -329,9 +327,6 @@ private:
   nsAutoPtr<FPSState> mFPS;
   static bool sDrawFPS;
   static bool sFrameCounter;
-
-  //TODO[nrc] remove this when we are using only the compositor API in LayerManagerOGL
-  friend class LayerManagerOGL;
 };
 
 }

@@ -127,7 +127,6 @@
 #include "LayerManagerD3D10.h"
 #endif
 
-#include "LayerManagerOGL.h"
 #include "nsIGfxInfo.h"
 #include "BasicLayers.h"
 #include "nsUXThemeConstants.h"
@@ -3299,12 +3298,14 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
         }
 
         if (status == nsIGfxInfo::FEATURE_NO_INFO) {
+          NS_WARNING("on-main-thread gl layers not supported");
+          /*
           nsRefPtr<LayerManagerOGL> layerManager =
             new LayerManagerOGL(this);
           if (layerManager->Initialize()) {
             mLayerManager = layerManager;
           }
-
+          */
         } else {
           NS_WARNING("OpenGL accelerated layers are not supported on this system.");
         }
