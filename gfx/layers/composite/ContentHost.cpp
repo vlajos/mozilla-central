@@ -29,7 +29,8 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
-        return; // TODO[nical] this does not belong here
+        return; // TODO[nical] this does not belong here 
+                //       [nrc] why not?
         /*
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
           new EffectComponentAlpha(mTextureHostOnWhite->GetAsTextureSource(),
@@ -233,17 +234,26 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
 
   bool needsReset;
   SharedImage newFrontBuffer;
-  mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
-  //TODO[nrc] if !mInitialised should we fallback to a different texturehost?
+  mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
+                       &mInitialised, &needsReset);
+  if (!mInitialised) {
+    // try falling back to a (hopefully) more reliable texture host
+    mTextureHost = nullptr; //TODO[nrc] hmm, which texture host? Probably basic shmem thing, waiting for nical to finish refactoring texture hosts
+    mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
+                         &mInitialised, &needsReset);
+  }
   if (newFrontBuffer.type() == SharedImage::TSurfaceDescriptor) {
-    *aNewFront = ThebesBuffer(newFrontBuffer.get_SurfaceDescriptor(), mBufferRect, mBufferRotation);
+    *aNewFront = ThebesBuffer(newFrontBuffer.get_SurfaceDescriptor(),
+                              mBufferRect, mBufferRotation);
   } else {
     *aNewFront = null_t();
   }
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.
-  aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
+  aNewValidRegionFront->Sub(needsReset
+                              ? nsIntRegion()
+                              : aOldValidRegionFront, aUpdated);
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 }
