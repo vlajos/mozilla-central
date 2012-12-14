@@ -124,6 +124,8 @@ public:
   virtual void Abort() {}
 
   // TODO[nical] these probably doesn't belong here
+  // nrc: do we not need them in order to composite a texture?
+  // Or should we pass them in from the BufferHost? Or store in a TextureSource or something?
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
@@ -288,6 +290,12 @@ public:
   virtual void EndFrame(const gfxMatrix& aTransform) = 0;
 
   /**
+   * Post rendering stuff if the rendering is outside of this Compositor
+   * e.g., by Composer2D
+   */
+  virtual void EndFrameForExternalComposition(const gfxMatrix& aTransform) = 0;
+
+  /**
    * Tidy up if BeginFrame has been called, but EndFrame won't be
    */
   virtual void AbortFrame() = 0;
@@ -330,6 +338,10 @@ public:
    */
   virtual void Pause() {}
   virtual void Resume() {}
+
+  // I expect we will want to move mWidget into this class and implement this
+  // method properly.
+  virtual nsIWidget* GetWidget() const { return nullptr; }
 
 protected:
   uint32_t mCompositorID;

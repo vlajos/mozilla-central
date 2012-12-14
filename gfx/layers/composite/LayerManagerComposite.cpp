@@ -27,8 +27,8 @@
 #else
 #include "gfxPlatform.h"
 #endif
-#include "nsIWidget.h"
 
+#include "nsIWidget.h"
 #include "nsIServiceManager.h"
 #include "nsIConsoleService.h"
 
@@ -52,6 +52,13 @@ using namespace mozilla::gfx;
 LayerManagerComposite::LayerManagerComposite(Compositor* aCompositor)
 {
   mCompositor = aCompositor;
+}
+
+bool
+LayerManagerComposite::Initialize()
+{
+  mComposer2D = mCompositor->GetWidget()->GetComposer2D();
+  return mCompositor->Initialize();
 }
 
 void
@@ -211,6 +218,11 @@ LayerManagerComposite::Render()
   SAMPLE_LABEL("LayerManagerComposite", "Render");
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
+    return;
+  }
+
+  if (mComposer2D && mComposer2D->TryRender(mRoot, mWorldMatrix)) {
+    mCompositor->EndFrameForExternalComposition(mWorldMatrix);
     return;
   }
 

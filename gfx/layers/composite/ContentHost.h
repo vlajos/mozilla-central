@@ -126,7 +126,10 @@ public:
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
   {
-    //TODO[nrc]
+    uint32_t flags = (mBufferRotation != nsIntPoint()) ?
+                     LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
+    //TODO[nrc] I think we need the SurfaceDescriptor from the texture host
+    //return LayerRenderState(&mBufferDescriptor, flags);
     return LayerRenderState();
   }
 

@@ -1484,10 +1484,11 @@ CompositorOGL::EndFrame(const gfxMatrix& aTransform)
   }
 #endif
 
+  mFrameInProgress = false;
+
   if (mTarget) {
     CopyToTarget(mTarget, aTransform);
     mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
-    mFrameInProgress = false;
     return;
   }
 
@@ -1505,7 +1506,25 @@ CompositorOGL::EndFrame(const gfxMatrix& aTransform)
 
   mGLContext->SwapBuffers();
   mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
-  mFrameInProgress = false;
+}
+
+void
+CompositorOGL::EndFrameForExternalComposition(const gfxMatrix& aTransform)
+{
+  if (sDrawFPS) {
+    if (!mFPS) {
+      mFPS = new FPSState();
+    }
+    double fps = mFPS->mCompositionFps.AddFrameAndGetFps(TimeStamp::Now());
+    printf_stderr("HWComposer: FPS is %g\n", fps);
+  }
+
+  // This lets us reftest and screenshot content rendered externally
+  if (mTarget) {
+    MakeCurrent();
+    CopyToTarget(mTarget, aTransform);
+    mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
+  }
 }
 
 void

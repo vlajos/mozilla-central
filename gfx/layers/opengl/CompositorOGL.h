@@ -74,6 +74,7 @@ public:
                         const gfx::Point &aOffset) MOZ_OVERRIDE;
 
   virtual void EndFrame(const gfxMatrix& aTransform) MOZ_OVERRIDE;
+  virtual void EndFrameForExternalComposition(const gfxMatrix& aTransform) MOZ_OVERRIDE;
   virtual void AbortFrame() MOZ_OVERRIDE;
 
   virtual bool SupportsPartialTextureUpdate() MOZ_OVERRIDE
@@ -149,6 +150,8 @@ public:
   virtual void Pause();
   virtual void Resume();
 
+  virtual nsIWidget* GetWidget() const MOZ_OVERRIDE { return mWidget; }
+
 private:
   /** 
    * Context target, nullptr when drawing directly to our swap chain.
@@ -156,7 +159,7 @@ private:
   nsRefPtr<gfxContext> mTarget;
 
   /** Widget associated with this compositor */
-  nsIWidget *mWidget;  // TODO: Do we really need to keep this?
+  nsIWidget *mWidget;
   nsIntSize mWidgetSize;
   nsRefPtr<GLContext> mGLContext;
 

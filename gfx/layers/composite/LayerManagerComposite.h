@@ -8,6 +8,7 @@
 
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "Composer2D.h"
 #include "mozilla/TimeStamp.h"
 
 #ifdef XP_WIN
@@ -40,12 +41,9 @@ public:
   virtual void Destroy();
 
   /**
-   * \return True is initialization was succesful, false when it was not.
+   * return True if initialization was succesful, false when it was not.
    */
-  bool Initialize()
-  {
-    return mCompositor->Initialize();
-  }
+  bool Initialize();
 
   Compositor* GetCompositor() const { return mCompositor; }
 
@@ -208,6 +206,9 @@ private:
   void Render();
 
   void WorldTransformRect(nsIntRect& aRect);
+
+  /** Our more efficient but less powerful alter ego, if one is available. */
+  nsRefPtr<Composer2D> mComposer2D;
 
   /* Thebes layer callbacks; valid at the end of a transaciton,
    * while rendering */

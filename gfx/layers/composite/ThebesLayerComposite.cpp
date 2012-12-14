@@ -131,10 +131,6 @@ ThebesLayerComposite::GetRenderState()
     return LayerRenderState();
   }
   return mBuffer->GetRenderState();
-  //TODO[nrc] need to move this into some ContentHost
-  //uint32_t flags = (mBuffer->Rotation() != nsIntPoint()) ?
-  //                 LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
-  //return LayerRenderState(&mBufferDescriptor, flags);
 }
 
 void

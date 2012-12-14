@@ -146,35 +146,7 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
     mThebesLayerCallbackData = aCallbackData;
     SetCompositingDisabled(aFlags & END_NO_COMPOSITE);
 
-#ifdef MOZ_WIDGET_GONK
-    // TODO[nical] the b2g 2D compositing code does not fit in the 
-    // compositor code, so I don't know yet where to put the fps counter stuff for b2g
-    // (for the general case the code has moved into CompositorOGL)
-    bool needGLRender = true;
-    if (mComposer2D && mComposer2D->TryRender(mRoot, mWorldMatrix)) {
-      needGLRender = false;
-
-      if (sDrawFPS) {
-        if (!mFPS) {
-          mFPS = new FPSState();
-        }
-        double fps = mFPS->mCompositionFps.AddFrameAndGetFps(TimeStamp::Now());
-        printf_stderr("HWComposer: FPS is %g\n", fps);
-      }
-
-      // This lets us reftest and screenshot content rendered by the
-      // 2d composer.
-      if (mTarget) {
-        MakeCurrent();
-        CopyToTarget(mTarget);
-        mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
-      }
-      MOZ_ASSERT(!needGLRender);
-    }
-    if (needGLRender) {
-      Render();
-    }
-#endif
+    Render();
 
     mThebesLayerCallback = nullptr;
     mThebesLayerCallbackData = nullptr;
