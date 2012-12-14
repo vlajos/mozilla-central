@@ -730,19 +730,19 @@ CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
       result = new YCbCrTextureHostOGL(mGLContext);
     } else if (aInfo.imageType == BUFFER_CONTENT_DIRECT) {
       //TODO[nrc] should probably use the below path with fallback, but check
-      result = new AwesomeTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
+      result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
     } else if (aInfo.imageType == BUFFER_DIRECT) {
       if (ShadowLayerManager::SupportsDirectTexturing()) {
-        result = new AwesomeTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
+        result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
       } else {
-        result = new AwesomeTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
+        result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
       }
 #ifdef MOZ_WIDGET_GONK
     } else if (aInfo.imageType == BUFFER_DIRECT_EXTERNAL) {
       result = new DirectExternalTextureHost(mGLContext);
 #endif
     } else {
-      result = new AwesomeTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
+      result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
     }
     break;
   case TEXTURE_UNKNOWN:
@@ -1135,7 +1135,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     program->SetRenderOffset(aOffset.x, aOffset.y);
     if (maskType != MaskNone) {
       textureMask->BindTexture(LOCAL_GL_TEXTURE0);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
       program->SetMaskTextureUnit(0);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
@@ -1175,7 +1174,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     texture = source->AsSourceOGL()->GetTexture();
 
     texture->BindTexture(LOCAL_GL_TEXTURE0);
-    //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, texture->GetTextureHandle());
     mGLContext->ApplyFilterToBoundTexture(filter);
 
     program->Activate();
@@ -1187,7 +1185,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     if (maskType != MaskNone) {
       mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
       textureMask->BindTexture(LOCAL_GL_TEXTURE1);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
       program->SetMaskTextureUnit(1);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
@@ -1223,8 +1220,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     }
 
     texture->BindTexture(LOCAL_GL_TEXTURE0);
-    //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, texture->GetTextureHandle());
-
+    
     mGLContext->ApplyFilterToBoundTexture(filter);
 
     program->Activate();
@@ -1236,7 +1232,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     if (maskType != MaskNone) {
       mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
       textureMask->BindTexture(LOCAL_GL_TEXTURE1);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
       program->SetMaskTextureUnit(1);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
@@ -1294,7 +1289,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     if (aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
       texture->BindTexture(LOCAL_GL_TEXTURE0);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, texture->GetTextureHandle());
     } else {
       texture->BindTexture(0);
     }
@@ -1310,7 +1304,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     if (maskType != MaskNone) {
       mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
       textureMask->BindTexture(LOCAL_GL_TEXTURE1);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
       program->SetMaskTextureUnit(1);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
@@ -1340,17 +1333,11 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     gfxPattern::GraphicsFilter filter = gfx::ThebesFilter(effectYCbCr->mFilter);
 
-    //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
     textureY->BindTexture(LOCAL_GL_TEXTURE0);
-    //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureY->GetTextureHandle());
     mGLContext->ApplyFilterToBoundTexture(filter);
-    //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
     textureCb->BindTexture(LOCAL_GL_TEXTURE1);
-    //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureCb->GetTextureHandle());
     mGLContext->ApplyFilterToBoundTexture(filter);
-    //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE2);
     textureCr->BindTexture(LOCAL_GL_TEXTURE2);
-    //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureCr->GetTextureHandle());
     mGLContext->ApplyFilterToBoundTexture(filter);
 
     ShaderProgramOGL *program = GetProgram(YCbCrLayerProgramType, maskType);
@@ -1362,9 +1349,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     program->SetRenderOffset(aOffset.x, aOffset.y);
     program->SetLayerQuadRect(aRect);
     if (maskType != MaskNone) {
-      //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE3);
       textureMask->BindTexture(LOCAL_GL_TEXTURE3);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
       program->SetMaskTextureUnit(3);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
@@ -1395,11 +1380,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
                                  LOCAL_GL_ONE, LOCAL_GL_ONE);
       }
 
-      //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureOnBlack->GetTextureHandle());
       textureOnBlack->BindTexture(LOCAL_GL_TEXTURE0);
-      //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureOnWhite->GetTextureHandle());
       textureOnWhite->BindTexture(LOCAL_GL_TEXTURE1);
       
       program->Activate();
@@ -1432,8 +1413,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     ShaderProgramOGL *program = GetProgram(GetFBOLayerProgramType(), maskType);
 
     surface->GetTexture()->BindTexture(LOCAL_GL_TEXTURE0);
-    //mGLContext->fBindTexture(mFBOTextureTarget, surface->mTexture);
-
+    
     program->Activate();
     program->SetTextureUnit(0);
     program->SetLayerOpacity(aOpacity);
@@ -1441,8 +1421,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     program->SetRenderOffset(aOffset.x, aOffset.y);
     program->SetLayerQuadRect(aRect);
     if (maskType != MaskNone) {
-      //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
-      //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
       textureMask->BindTexture(LOCAL_GL_TEXTURE1);
       program->SetMaskTextureUnit(1);
       program->SetMaskLayerTransform(maskQuadTransform);

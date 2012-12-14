@@ -64,12 +64,10 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
-void AwesomeTextureHostOGL::UpdateImpl(const SharedImage& aImage,
+void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
 {
-  printf("--- AwesomeTextureHostOGL::UpdateImpl %p\n", this);
-
   SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
  
   AutoOpenSurface surf(OPEN_READ_ONLY, surface);
@@ -98,8 +96,8 @@ void AwesomeTextureHostOGL::UpdateImpl(const SharedImage& aImage,
 
 // thebes
 void
-AwesomeTextureHostOGL::UpdateImpl(gfxASurface* aSurface,
-                                      nsIntRegion& aRegion)
+TextureImageAsTextureHostOGL::UpdateImpl(gfxASurface* aSurface,
+                                  nsIntRegion& aRegion)
 {
   if (!mTexture ||
       mTexture->GetSize() != aSurface->GetSize() ||
@@ -115,15 +113,11 @@ AwesomeTextureHostOGL::UpdateImpl(gfxASurface* aSurface,
 }
 
 Effect*
-AwesomeTextureHostOGL::Lock(const gfx::Filter& aFilter)
+TextureImageAsTextureHostOGL::Lock(const gfx::Filter& aFilter)
 {
-  printf("--- AwesomeTextureHostOGL::Lock %p\n", this);
-
   if (!mTexture) {
     NS_WARNING("TextureImageAsTextureHost to be composited without texture");
     return nullptr;
-  } else {
-    printf("--- Lock should be good %p\n", this);    
   }
   NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
                 "Image layer has alpha image");
@@ -151,7 +145,7 @@ AwesomeTextureHostOGL::Lock(const gfx::Filter& aFilter)
 }
 
 bool
-AwesomeTextureHostOGL::AddMaskEffect(EffectChain& aEffects,
+TextureImageAsTextureHostOGL::AddMaskEffect(EffectChain& aEffects,
                        const gfx::Matrix4x4& aTransform,
                        bool aIs3D)
 {

@@ -97,14 +97,11 @@ private:
   uint32_t mIndex;
 };
 
-
-// TODO[nical] obviously the naming will change when I get to cleanup all the 
-// TextureHost classes and free some names
-class AwesomeTextureHostOGL : public TextureHostOGL
+class TextureImageAsTextureHostOGL : public TextureHostOGL
                             , public TileIterator
 {
 public:
-  AwesomeTextureHostOGL(gl::GLContext* aGL, TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
+  TextureImageAsTextureHostOGL(gl::GLContext* aGL, TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
                         gl::TextureImage* aTexImage = nullptr)
   : mGL(aGL), mTexture(aTexImage)
   {
@@ -185,6 +182,8 @@ public:
   gl::TextureImage::TextureShareType mShareType;
 };
 
+
+// TODO[nical] this class isn't implemented/usable
 class SharedTextureAsTextureHostOGL : public TextureHostOGL
 {
 public:
