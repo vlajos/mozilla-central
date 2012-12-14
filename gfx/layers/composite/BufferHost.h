@@ -11,6 +11,10 @@
 namespace mozilla {
 namespace layers {
 
+/**
+ * A BufferHost is owned by a layer and manages one or several TextureHosts.
+ * The implementation should be platform-independent.
+ */
 class BufferHost : public RefCounted<BufferHost>
 {
 public:
@@ -33,6 +37,18 @@ public:
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
   virtual LayerRenderState GetRenderState() = 0;
+
+  /**
+   * Adds a mask effect using this texture as the mask, if possible.
+   * \return true if the effect was added, false otherwise.
+   */
+  virtual bool AddMaskEffect(EffectChain& aEffects,
+                             const gfx::Matrix4x4& aTransform,
+                             bool aIs3D = false)
+  {
+    NS_WARNING("TODO[nical] Not implemented");
+    return false;
+  }
 };
 
 }

@@ -44,6 +44,7 @@ class ShadowLayerForwarder;
 class ShadowableLayer;
 class PTextureChild;
 class TextureSourceOGL;
+class Matrix4x4;
 
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
@@ -106,7 +107,7 @@ public:
 
   virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
   {
-    NS_RUNTIMEABORT("SHould not be reached");
+    NS_RUNTIMEABORT("Should not be reached");
   };
 
   /**
@@ -114,6 +115,19 @@ public:
    * be used to composite this texture.
    */
   virtual Effect* Lock(const gfx::Filter& aFilter) { return nullptr; }
+
+  /**
+   * Adds a mask effect using this texture as the mask, if possible.
+   * \return true if the effect was added, false otherwise.
+   */
+  virtual bool AddMaskEffect(EffectChain& aEffects,
+                             const gfx::Matrix4x4& aTransform,
+                             bool aIs3D = false)
+  {
+    NS_WARNING("TODO[nical] not implemented");
+    return false;
+  }
+
   // Unlock the texture host after compositing
   virtual void Unlock() {}
 

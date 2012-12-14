@@ -47,6 +47,7 @@ public:
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
+  BufferHost* GetBufferHost() MOZ_OVERRIDE;
   // LayerComposite impl
   void Destroy();
   Layer* GetLayer();

@@ -6,7 +6,6 @@
 
 #include "CompositorChild.h"
 #include "CompositorParent.h"
-#include "LayerManagerOGL.h"
 #include "mozilla/layers/ShadowLayersChild.h"
 #include "mozilla/layers/Compositor.h"
 

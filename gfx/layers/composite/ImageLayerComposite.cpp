@@ -110,8 +110,7 @@ ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
   mCompositor->MakeCurrent();
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] =
-    LayerManagerComposite::MakeMaskEffect(mMaskLayer);
+  LayerManagerComposite::AddMaskEffect(mMaskLayer, effectChain);
 
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
@@ -123,6 +122,11 @@ ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                         gfx::Point(aOffset.x, aOffset.y),
                         gfx::ToFilter(mFilter),
                         clipRect);
+}
+
+BufferHost*
+ImageLayerComposite::GetBufferHost() {
+  return mImageHost.get();
 }
 
 void

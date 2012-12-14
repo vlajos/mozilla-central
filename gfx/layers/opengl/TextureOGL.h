@@ -6,7 +6,6 @@
 #ifndef MOZILLA_GFX_TEXTUREOGL_H
 #define MOZILLA_GFX_TEXTUREOGL_H
  
-#include "ImageLayerOGL.h"
 #include "mozilla/layers/CompositorOGL.h"
 #include "GLContext.h"
 #include "gfx2DGlue.h"
@@ -144,7 +143,11 @@ public:
     }
   }
 
-  // TileIterator
+  bool AddMaskEffect(EffectChain& aEffects,
+                     const gfx::Matrix4x4& aTransform,
+                     bool aIs3D) MOZ_OVERRIDE;
+
+  // TileIterator, TODO[nical] this belongs to TextureSource
   virtual TileIterator* GetAsTileIterator() { return this; }
   void SetFilter(const gfx::Filter& aFilter) { mTexture->SetFilter(gfx::ThebesFilter(aFilter)); }
   virtual void BeginTileIteration() { mTexture->BeginTileIteration(); }

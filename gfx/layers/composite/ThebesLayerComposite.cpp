@@ -158,7 +158,7 @@ ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
 #endif
 
   EffectChain effectChain;
-  effectChain.mEffects[EFFECT_MASK] = LayerManagerComposite::MakeMaskEffect(mMaskLayer);
+  LayerManagerComposite::AddMaskEffect(mMaskLayer, effectChain);
 
   mBuffer->Composite(effectChain,
                      GetEffectiveOpacity(), 
@@ -168,8 +168,13 @@ ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                      clipRect,
                      &GetEffectiveVisibleRegion());
 }
-void
 
+BufferHost*
+ThebesLayerComposite::GetBufferHost() {
+  return mBuffer.get();
+}
+
+void
 ThebesLayerComposite::DestroyFrontBuffer()
 {
   mBuffer = nullptr;

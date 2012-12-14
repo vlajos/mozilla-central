@@ -70,6 +70,8 @@ public:
 
   virtual void CleanupResources();
 
+  BufferHost* GetBufferHost() MOZ_OVERRIDE;
+
 private:
   void EnsureImageHost(BufferType aHostType);
 

@@ -28,8 +28,7 @@ class ShadowImageLayer;
 class ShadowCanvasLayer;
 class ShadowColorLayer;
 
-class THEBES_API LayerManagerComposite :
-    public ShadowLayerManager
+class THEBES_API LayerManagerComposite : public ShadowLayerManager
 {
 public:
   LayerManagerComposite(Compositor* aCompositor);
@@ -180,7 +179,9 @@ public:
     mCompositor->PrepareViewport(viewport.width, viewport.height, mWorldMatrix);
   }
 
-  static EffectMask* MakeMaskEffect(Layer* aMaskLayer);
+  static bool AddMaskEffect(Layer* aMaskLayer,
+                            EffectChain& aEffect,
+                            bool aIs3D = false);
 
   bool CompositingDisabled() { return mCompositingDisabled; }
   void SetCompositingDisabled(bool aCompositingDisabled) { mCompositingDisabled = aCompositingDisabled; }
@@ -222,7 +223,7 @@ private:
 
 
 /**
- * General information and tree management for OGL layers.
+ * General information and tree management for layers.
  */
 class LayerComposite
 {
@@ -250,17 +251,9 @@ public:
                            const nsIntRect& aClipRect,
                            CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
-  virtual void CleanupResources() = 0;
+  virtual BufferHost* GetBufferHost() = 0;
 
-  /**
-   * Get a texture source representation of the layer. This should not be used
-   * for normal rendering. It is used for using the layer as a mask layer, any
-   * layer that can be used as a mask layer should override this method.
-   */
-  virtual TemporaryRef<TextureSource> AsTextureSource()
-  {
-    return nullptr;
-  }
+  virtual void CleanupResources() = 0;
 
 protected:
   LayerManagerComposite* mCompositeManager;

@@ -30,6 +30,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     if (mTextureHostOnWhite) {
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
         return; // TODO[nical] this does not belong here 
+        MOZ_ASSERT(false, "not implemented");
                 //       [nrc] why not?
         /*
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
@@ -236,6 +237,8 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   SharedImage newFrontBuffer;
   mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
                        &mInitialised, &needsReset);
+  
+  //TODO[nrc] if !mInitialised should we fallback to a different texturehost?
   if (!mInitialised) {
     // try falling back to a (hopefully) more reliable texture host
     mTextureHost = nullptr; //TODO[nrc] hmm, which texture host? Probably basic shmem thing, waiting for nical to finish refactoring texture hosts
