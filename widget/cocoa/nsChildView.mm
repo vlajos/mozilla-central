@@ -50,6 +50,7 @@
 #include "gfxQuartzSurface.h"
 #include "nsRegion.h"
 #include "Layers.h"
+#include "LayerManagerOGL.h"
 #include "GLContext.h"
 #include "mozilla/layers/CompositorCocoaWidgetHelper.h"
 #ifdef ACCESSIBILITY
@@ -1688,8 +1689,6 @@ nsChildView::CreateCompositor()
 {
   nsBaseWidget::CreateCompositor();
   if (mCompositorChild) {
-    NS_WARNING("TODO gl layers code needs to be fixed");
-    /*
     LayerManagerOGL *manager =
       static_cast<LayerManagerOGL*>(compositor::GetLayerManager(mCompositorParent));
 
@@ -1698,7 +1697,6 @@ nsChildView::CreateCompositor()
 
     [(ChildView *)mView setGLContext:glContext];
     [(ChildView *)mView setUsingOMTCompositor:true];
-    */
   }
 }
 
@@ -1752,9 +1750,6 @@ nsChildView::DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect)
     return;
   }
 
-  NS_WARNING("TODO some gl layer code needs to be reimplemented");
-  retrun;
-  /*
   nsRefPtr<LayerManagerOGL> manager(static_cast<LayerManagerOGL*>(aManager));
   if (!manager) {
     return;
@@ -1784,7 +1779,6 @@ nsChildView::DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect)
     DrawResizer(image->GetCGContext());
 
     mResizerImage->EndUpdate();
-  */
   }
 
   NS_ABORT_IF_FALSE(mResizerImage, "Must have a texture allocated by now!");

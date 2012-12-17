@@ -37,6 +37,7 @@ using mozilla::plugins::PluginInstanceParent;
 #include "nsIWidgetListener.h"
 #include "mozilla/unused.h"
 
+#include "LayerManagerOGL.h"
 #include "BasicLayers.h"
 #ifdef MOZ_ENABLE_D3D9_LAYER
 #include "LayerManagerD3D9.h"
@@ -498,11 +499,8 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
         }
         break;
       case LAYERS_OPENGL:
-        NS_RUNTIMEABORT("on-main-thread gl layers not supported");
-
-        //static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager())->
-        //  SetClippingRegion(region);
-
+        static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager())->
+          SetClippingRegion(region);
         result = listener->PaintWindow(this, region, nsIWidgetListener::SENT_WILL_PAINT | nsIWidgetListener::WILL_SEND_DID_PAINT);
         break;
 #ifdef MOZ_ENABLE_D3D9_LAYER

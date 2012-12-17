@@ -38,6 +38,7 @@ using mozilla::unused;
 
 #include "Layers.h"
 #include "BasicLayers.h"
+#include "LayerManagerOGL.h"
 #include "GLContext.h"
 #include "GLContextProvider.h"
 
@@ -717,7 +718,12 @@ nsWindow::GetLayerManager(PLayersChild*, LayersBackend, LayerManagerPersistence,
         }
 
         if (sGLContext) {
-            NS_WARNING("on-main-thread gl layers not supported right now");
+                nsRefPtr<mozilla::layers::LayerManagerOGL> layerManager =
+                        new mozilla::layers::LayerManagerOGL(this);
+
+                if (layerManager && layerManager->Initialize(sGLContext))
+                        mLayerManager = layerManager;
+                sValidSurface = true;
         }
 
         if (!sGLContext || !mLayerManager) {
@@ -1019,7 +1025,12 @@ nsWindow::DrawTo(gfxASurface *targetSurface, const nsIntRect &invalidRect)
             }
 
             case mozilla::layers::LAYERS_OPENGL: {
-                NS_RUNTIMEABORT("on main thread gl layers not supported");
+
+                static_cast<mozilla::layers::LayerManagerOGL*>(GetLayerManager(nullptr))->
+                    SetClippingRegion(nsIntRegion(boundsRect));
+
+                painted = mWidgetListener->PaintWindow(this, region, 0);
+                break;
             }
 
             default:
@@ -2195,6 +2206,14 @@ nsWindow::ScheduleResumeComposition(int width, int height)
 float
 nsWindow::ComputeRenderIntegrity()
 {
+    if (sCompositorParent) {
+        mozilla::layers::LayerManagerOGL* manager =
+          static_cast<mozilla::layers::LayerManagerOGL*>(sCompositorParent->GetLayerManager());
+        if (manager) {
+            return manager->ComputeRenderIntegrity();
+        }
+    }
+
     return 1.f;
 }
 

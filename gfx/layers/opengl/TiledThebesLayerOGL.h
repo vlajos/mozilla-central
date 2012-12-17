@@ -8,6 +8,7 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "TiledLayerBuffer.h"
 #include "Layers.h"
+#include "LayerManagerOGL.h"
 #include "BasicTiledThebesLayer.h"
 #include <algorithm>
 
@@ -18,6 +19,8 @@ class GLContext;
 }
 
 namespace layers {
+
+class ReusableTileStoreOGL;
 
 class TiledTexture {
 public:
@@ -98,6 +101,52 @@ private:
   void GetFormatAndTileForImageFormat(gfxASurface::gfxImageFormat aFormat,
                                       GLenum& aOutFormat,
                                       GLenum& aOutType);
+};
+
+class TiledThebesLayerOGL : public ShadowThebesLayer,
+                            public LayerOGL,
+                            public TiledLayerComposer
+{
+public:
+  TiledThebesLayerOGL(LayerManagerOGL *aManager);
+  virtual ~TiledThebesLayerOGL();
+
+  // LayerOGL impl
+  void Destroy() {}
+  Layer* GetLayer() { return this; }
+  virtual void RenderLayer(const nsIntPoint& aOffset,
+                           const nsIntRect& aClipRect,
+                           CompositingRenderTarget* aPreviousTarget = nullptr);
+  virtual void CleanupResources() { }
+
+  // Shadow
+  virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
+  virtual void DestroyFrontBuffer() {}
+  void Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
+       OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
+       OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion)
+  {
+    NS_ABORT_IF_FALSE(false, "Not supported");
+  }
+  void PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuffer);
+  void ProcessUploadQueue();
+
+  void MemoryPressure();
+
+  // Renders a single given tile.
+  void RenderTile(const TiledTexture& aTile,
+                  const gfx3DMatrix& aTransform,
+                  const nsIntPoint& aOffset,
+                  const nsIntRegion& aScreenRegion,
+                  const nsIntPoint& aTextureOffset,
+                  const nsIntSize& aTextureBounds,
+                  Layer* aMaskLayer);
+
+private:
+  nsIntRegion                  mRegionToUpload;
+  BasicTiledLayerBuffer        mMainMemoryTiledBuffer;
+  TiledLayerBufferOGL          mVideoMemoryTiledBuffer;
+  ReusableTileStoreOGL*        mReusableTileStore;
 };
 
 } // layers

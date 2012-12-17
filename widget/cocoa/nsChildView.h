@@ -87,6 +87,9 @@ namespace gl {
 class TextureImage;
 }
 
+namespace layers {
+class LayerManagerOGL;
+}
 }
 
 @interface NSEvent (Undocumented)

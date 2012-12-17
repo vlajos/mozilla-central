@@ -12,7 +12,6 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/PLayer.h"
 #include "mozilla/layers/Effects.h"
-#include "nsIWidget.h"
 
 #include "gfxUtils.h"
 

@@ -20,6 +20,7 @@
 #include "nsIServiceManager.h"
 #include "mozilla/Preferences.h"
 #include "BasicLayers.h"
+#include "LayerManagerOGL.h"
 #include "mozilla/layers/Compositor.h"
 #include "nsIXULRuntime.h"
 #include "nsIXULWindow.h"
@@ -892,7 +893,18 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
 
     if (mUseLayersAcceleration) {
       if (!mLayerManager) {
-        NS_WARNING("on-main-thread gl layers are temporarily removed");
+        nsRefPtr<LayerManagerOGL> layerManager = new LayerManagerOGL(this);
+        /**
+         * XXX - On several OSes initialization is expected to fail for now.
+         * If we'd get a non-basic layer manager they'd crash. This is ok though
+         * since on those platforms it will fail. Anyone implementing new
+         * platforms on LayerManagerOGL should ensure their widget is able to
+         * deal with it though!
+         */
+
+        if (layerManager->Initialize(nullptr, mForceLayersAcceleration)) {
+          mLayerManager = layerManager;
+        }
       }
     }
     if (!mLayerManager) {

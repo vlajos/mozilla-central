@@ -11,10 +11,6 @@
 namespace mozilla {
 namespace layers {
 
-/**
- * A BufferHost is owned by a layer and manages one or several TextureHosts.
- * The implementation should be platform-independent.
- */
 class BufferHost : public RefCounted<BufferHost>
 {
 public:

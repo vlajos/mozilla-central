@@ -46,6 +46,7 @@ class GraphicBuffer;
 
 namespace mozilla {
   namespace layers {
+    class LayerManagerOGL;
     class ColorTextureLayerProgram;
     class TextureImageAsTextureHost;
     class TextureImageHost;

@@ -205,7 +205,7 @@ public:
    * the layer's coordinates to the mask's coordinates is loaded; this must be
    * a 2D transform.
    */
-  //bool LoadMask(Layer* aLayer);
+  bool LoadMask(Layer* aLayer);
 
   /**
    * The following set of methods set a uniform argument to the shader program.

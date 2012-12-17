@@ -28,7 +28,8 @@ class ShadowImageLayer;
 class ShadowCanvasLayer;
 class ShadowColorLayer;
 
-class THEBES_API LayerManagerComposite : public ShadowLayerManager
+class THEBES_API LayerManagerComposite :
+    public ShadowLayerManager
 {
 public:
   LayerManagerComposite(Compositor* aCompositor);

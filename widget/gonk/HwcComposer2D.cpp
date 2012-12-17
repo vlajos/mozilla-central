@@ -20,6 +20,7 @@
 
 #include "Framebuffer.h"
 #include "HwcComposer2D.h"
+#include "LayerManagerOGL.h"
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include "mozilla/StaticPtr.h"
@@ -273,7 +274,8 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
         return true;
     }
 
-    LayerRenderState state = aLayer->GetRenderState();
+    LayerOGL* layerGL = static_cast<LayerOGL*>(aLayer->ImplData());
+    LayerRenderState state = layerGL->GetRenderState();
 
     if (!state.mSurface ||
         state.mSurface->type() != SurfaceDescriptor::TSurfaceDescriptorGralloc) {
