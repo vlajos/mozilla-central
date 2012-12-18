@@ -28,7 +28,9 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     TextureInfo id = aTextureInfo;
     mCompositor->FallbackTextureInfo(id);
     id.textureFlags = mTextureHost->GetFlags();
-    mTextureHost = mCompositor->CreateTextureHost(id);
+    mTextureHost = mCompositor->CreateTextureHost(id.imageType,
+                                                  id.memoryType,
+                                                  id.textureFlags);
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;
@@ -57,6 +59,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     return;
   }
 
+  mTextureHost->UpdateAsyncTexture();
   if (Effect* effect = mTextureHost->Lock(aFilter)) {
     aEffectChain.mEffects[effect->mType] = effect;
   } else {
@@ -102,8 +105,9 @@ YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
                             const SharedImage& aImage)
 {
   NS_ASSERTION(aTextureInfo.imageType == BUFFER_YCBCR, "BufferType mismatch.");
+  NS_ASSERTION(aTextureInfo.memoryType == TEXTURE_SHMEM, "BufferType mismatch.");
 
-  mPictureRect = aImage.get_YCbCrImage().picture();;
+  mPictureRect = aImage.get_YCbCrImage().picture();
 
   SharedImage result;
   mTextureHost->Update(aImage, &result);
@@ -117,8 +121,9 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
                           const gfx::Point& aOffset,
                           const gfx::Filter& aFilter,
                           const gfx::Rect& aClipRect,
-                          const nsIntRegion* aVisibleRegion /* = nullptr */)
+                          const nsIntRegion* aVisibleRegion)
 {
+  mTextureHost->UpdateAsyncTexture();
   if (Effect* effect = mTextureHost->Lock(aFilter)) {
     NS_ASSERTION(effect->mType == EFFECT_YCBCR, "expected YCbCr effect");
     aEffectChain.mEffects[effect->mType] = effect;
@@ -153,7 +158,9 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     id.imageType = mImageHost->GetType();
     id.memoryType = TEXTURE_SHMEM;
     id.textureFlags = NoFlags;
-    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id);
+    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id.imageType,
+                                                                     id.memoryType,
+                                                                     id.textureFlags);
     mImageHost->AddTextureHost(id, textureHost);
   }
 }

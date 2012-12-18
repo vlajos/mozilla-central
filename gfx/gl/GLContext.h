@@ -265,7 +265,7 @@ public:
         ApplyFilter();
     }
 
-    // TODO[nical] decide whether we should put this into Texture
+    // TODO[nical] decide whether we should put this into TextureImage
     class ScopedBindTextureAndApplyFilter
     {
     public:

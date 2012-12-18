@@ -59,6 +59,8 @@ public:
 
   virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 
+  virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
+
 private:
   void EnsureBuffer(BufferType aHostType);
 

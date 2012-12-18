@@ -156,6 +156,32 @@ public:
 
   virtual LayerRenderState GetRenderState() = 0;
 
+  /**
+   * \return true if this TextureHost uses ImageBridge
+   */
+  bool IsAsync() const {
+    return mAsyncContainerID != 0;
+  }
+
+  void SetAsyncContainerID(uint64_t aID) {
+    mAsyncContainerID = aID;
+  }
+
+  void SetCompositorID(uint32_t aID) {
+    mCompositorID = aID;
+  }
+
+  /**
+   * If this TextureHost uses ImageBridge, try to fetch the SharedImage in
+   * the ImageBridge global map and call Update on it.
+   * If it does not use ImageBridge, do nothing and return true.
+   * Return false if using ImageBridge and failed to fetch the texture.
+   * The texture is checked against a version ID to avoid calling Update
+   * several times on the same image.
+   * Should be called before Lock.
+   */
+  bool UpdateAsyncTexture();
+
 protected:
   void SetBuffering(Buffering aBuffering,
                     ISurfaceDeAllocator* aDeAllocator = nullptr) {
@@ -163,6 +189,7 @@ protected:
     mBuffering = aBuffering;
     mDeAllocator = aDeAllocator;
   }
+
   /**
    * Should be implemented by the backend-specific TextureHost classes 
    */
@@ -173,9 +200,15 @@ protected:
     NS_RUNTIMEABORT("Should not be reached");
   }
 
+  // Texture info
   TextureFlags mFlags;
   Buffering mBuffering;
   SharedImage* mBuffer;
+  // ImageBridge
+  uint64_t mAsyncContainerID;
+  uint32_t mAsyncTextureVersion;
+  uint32_t mCompositorID;
+
   ISurfaceDeAllocator* mDeAllocator;
 };
 
@@ -236,8 +269,9 @@ public:
    * Create a new texture host of a kind specified by aIdentifier
    */
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(const TextureInfo& aInfo) = 0;
-
+    CreateTextureHost(BufferType aImageType,
+                      TextureHostType aMemoryType,
+                      uint32_t aTextureFlags) = 0;
   /**
    * Create a new buffer host of a kind specified by aType
    */

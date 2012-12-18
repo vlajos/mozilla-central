@@ -6,6 +6,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/layers/ShadowLayers.h" // for ISurfaceDeAllocator
+#include "mozilla/layers/ImageContainerParent.h"
 
 namespace mozilla {
 namespace layers {
@@ -13,6 +14,9 @@ namespace layers {
 TextureHost::TextureHost(Buffering aBuffering)
   : mFlags(NoFlags)
   , mBuffering(aBuffering)
+  , mAsyncContainerID(0)
+  , mAsyncTextureVersion(0)
+  , mCompositorID(0)
 {
   if (aBuffering != Buffering::NONE) {
     mBuffer = new SharedImage;
@@ -46,6 +50,24 @@ void TextureHost::Update(const SharedImage& aImage,
       *aResult = aImage;
     }
   }
+}
+
+bool TextureHost::UpdateAsyncTexture()
+{
+  if (!IsAsync()) {
+    return true;
+  }
+  ImageContainerParent::SetCompositorIDForImage(mAsyncContainerID, mCompositorID);
+  uint32_t imgVersion = ImageContainerParent::GetSharedImageVersion(mAsyncContainerID);
+  if (imgVersion != mAsyncTextureVersion) {
+    SharedImage* img = ImageContainerParent::GetSharedImage(mAsyncContainerID);
+    if (!img) {
+      return false;
+    }
+    Update(*img, img, nullptr, nullptr);
+    mAsyncTextureVersion = imgVersion;
+  }
+  return true;
 }
 
 void TextureHost::Update(gfxASurface* aSurface, nsIntRegion& aRegion) {

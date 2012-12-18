@@ -76,6 +76,7 @@ class ShadowLayerManager;
 class SpecificLayerAttributes;
 class SurfaceDescriptor;
 class Compositor;
+class LayerComposite;
 struct TextureIdentifier;
 struct TextureFactoryIdentifier;
 struct EffectMask;
@@ -930,6 +931,12 @@ public:
    * ShadowableLayer.  Can be used anytime.
    */
   virtual ShadowableLayer* AsShadowableLayer() { return nullptr; }
+
+  /**
+   * Dynamic cast to a LayerComposite.  Return null if this is not a
+   * ShadowableLayer.  Can be used anytime.
+   */
+  virtual LayerComposite* AsLayerComposite() {return nullptr; }
 
   // These getters can be used anytime.  They return the effective
   // values that should be used when drawing this layer to screen,

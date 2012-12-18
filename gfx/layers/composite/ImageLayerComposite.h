@@ -57,6 +57,8 @@ public:
 
   BufferHost* GetBufferHost() MOZ_OVERRIDE;
 
+  virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
+
 private:
   void EnsureImageHost(BufferType aHostType);
 

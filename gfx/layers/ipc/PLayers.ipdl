@@ -55,6 +55,11 @@ struct OpAttachTexture {
   PTexture texture;
 };
 
+struct OpAttachAsyncTexture {
+  PTexture texture;
+  uint64_t containerID;
+};
+
 struct ThebesBuffer {
   SurfaceDescriptor buffer;
   nsIntRect rect;
@@ -284,6 +289,7 @@ union Edit {
   OpPaintTexture;
   OpPaintTextureRegion;
   OpAttachTexture;
+  OpAttachAsyncTexture;
 };
 
 

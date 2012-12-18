@@ -503,8 +503,8 @@ public:
   gl::BindableTexture* GetTexture(uint32_t channel) const MOZ_OVERRIDE {
     switch (channel) {
       case 0 : return mYTexture;
-      case 1 : return mYTexture;
-      case 2 : return mYTexture;
+      case 1 : return mCbTexture;
+      case 2 : return mCrTexture;
     }
     return nullptr;
   }
@@ -515,12 +515,13 @@ public:
 
   virtual void UpdateImpl(const SharedImage& aImage,
                           bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr) {
-    NS_RUNTIMEABORT("Not implemented");    
-  }
+                          bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
+
   virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {
     NS_RUNTIMEABORT("should not be called");
   }
+
+  Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
   gfx::IntSize GetSize() const MOZ_OVERRIDE {
     if (!mYTexture) {
@@ -530,7 +531,7 @@ public:
     nsIntSize s = mYTexture->GetSize();
     return gfx::IntSize(s.width, s.height);
   }
-
+private:
   RefPtr<gl::TextureImage> mYTexture;
   RefPtr<gl::TextureImage> mCbTexture;
   RefPtr<gl::TextureImage> mCrTexture;

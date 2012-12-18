@@ -211,14 +211,18 @@ public:
                                BasicTiledLayerBuffer* aTiledLayerBuffer);
 
   /**
+   * Notify the compositor that a texture will be updated asynchronously
+   * through ImageBridge, using an ID to connect the protocols on the 
+   * compositor side.
+   */
+  void AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID);
+
+  /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
    */
-/*  void UpdateTexture(ShadowableLayer* aLayer,
-                     TextureInfo aIdentifier,
+  void UpdateTexture(PTextureChild* aTexture,
                      const SharedImage& aImage);
-*/  void UpdateTexture(PTextureChild* aTexture,
-                       const SharedImage& aImage);
 
   /**
    * Communicate to the compositor that aRegion in the texture identified by aLayer
@@ -588,16 +592,6 @@ public:
   virtual void AddTextureHost(const TextureInfo& aTextureInfo,
                               TextureHost* aTextureHost) {}
 
-  /**
-   * Pass aFront to in to the texture host identified by this layer and
-   * aTextureInfo. After this call, aNewBack should point to the old
-   * data in the texture.
-   */
-/*
-  virtual void SwapTexture(const TextureInfo& aTextureInfo,
-                           const SharedImage& aFront,
-                           SharedImage* aNewBack) {}
-*/
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }
   const nsIntRect* GetShadowClipRect() { return mUseShadowClipRect ? &mShadowClipRect : nullptr; }

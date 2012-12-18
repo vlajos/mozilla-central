@@ -143,15 +143,14 @@ ImageClientBridge::ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
 bool
 ImageClientBridge::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 {
-  mTextureClient->SetDescriptor(aContainer->GetAsyncContainerID());
-
+  mTextureClient->SetAsyncContainerID(aContainer->GetAsyncContainerID());
   return true;
 }
 
 void
 ImageClientBridge::Updated(ShadowableLayer* aLayer)
 {
-  mTextureClient->Updated(aLayer);
+  //mTextureClient->Updated(aLayer);
 }
 
 }

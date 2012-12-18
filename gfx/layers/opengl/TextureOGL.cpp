@@ -8,6 +8,7 @@
 #include "gfx2DGlue.h"
 #include "ShmemYCbCrImage.h"
 #include "GLContext.h"
+#include "gfxImageSurface.h"
 
 using namespace mozilla::gl;
 
@@ -385,7 +386,74 @@ TextureHostOGLSharedWithBuffer::UpdateImpl(const SharedImage& aImage,
     *aIsInitialised = true;
   }
 }
- 
+
+void
+YCbCrTextureHostOGL::UpdateImpl(const SharedImage& aImage,
+                         bool* aIsInitialised,
+                         bool* aNeedsReset)
+{
+  NS_ASSERTION(aImage.type() == SharedImage::TYCbCrImage, "SharedImage mismatch");
+
+  ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
+                             aImage.get_YCbCrImage().offset());
+
+  gfxIntSize gfxSize = shmemImage.GetYSize();
+  gfx::IntSize size = gfx::IntSize(gfxSize.width, gfxSize.height);
+  gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
+  gfx::IntSize CbCrSize = gfx::IntSize(gfxCbCrSize.width, gfxCbCrSize.height);
+
+  if (!mYTexture || mYTexture->GetSize() != gfxSize) {
+    mYTexture = mGL->CreateTextureImage(gfxSize,
+                                        gfxASurface::CONTENT_ALPHA,
+                                        WrapMode(mGL, mFlags), // TODO check the flags
+                                        FlagsToGLFlags(mFlags)).get();
+  }
+  if (!mCbTexture || mCbTexture->GetSize() != gfxCbCrSize) {
+    mCbTexture = mGL->CreateTextureImage(gfxCbCrSize,
+                                         gfxASurface::CONTENT_ALPHA,
+                                         WrapMode(mGL, mFlags), // TODO check the flags
+                                         FlagsToGLFlags(mFlags)).get();
+  }
+  if (!mCrTexture || mCrTexture->GetSize() != gfxSize) {
+    mCrTexture = mGL->CreateTextureImage(gfxCbCrSize,
+                                         gfxASurface::CONTENT_ALPHA,
+                                         WrapMode(mGL, mFlags), // TODO check the flags
+                                         FlagsToGLFlags(mFlags)).get();
+  }
+
+  gfxImageSurface tempY(shmemImage.GetYData(),
+                        gfxSize, shmemImage.GetYStride(),
+                        gfxASurface::ImageFormatA8);
+  gfxImageSurface tempCb(shmemImage.GetCbData(),
+                         gfxCbCrSize, shmemImage.GetCbCrStride(),
+                         gfxASurface::ImageFormatA8);
+  gfxImageSurface tempCr(shmemImage.GetCrData(),
+                         gfxCbCrSize, shmemImage.GetCbCrStride(),
+                         gfxASurface::ImageFormatA8);
+
+  nsIntRegion yRegion(nsIntRect(0, 0, gfxSize.width, gfxSize.height));
+  nsIntRegion cbCrRegion(nsIntRect(0, 0, gfxCbCrSize.width, gfxCbCrSize.height));
+  
+  mYTexture->DirectUpdate(&tempY, yRegion);
+  mCbTexture->DirectUpdate(&tempCb, cbCrRegion);
+  mCrTexture->DirectUpdate(&tempCr, cbCrRegion);
+
+  if (aIsInitialised) {
+    *aIsInitialised = true;
+  }
+}
+
+Effect*
+YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
+{
+  EffectYCbCr* effect = new EffectYCbCr(new SimpleTextureSourceOGL(this, 0),
+                                        new SimpleTextureSourceOGL(this, 1),
+                                        new SimpleTextureSourceOGL(this, 2),
+                                        aFilter);
+  return effect;
+}
+
+
 /*
 void
 GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,

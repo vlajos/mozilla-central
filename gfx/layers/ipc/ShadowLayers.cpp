@@ -264,9 +264,22 @@ ShadowLayerForwarder::PaintedTiledLayerBuffer(ShadowableLayer* aLayer,
 }
 
 void
+ShadowLayerForwarder::AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID)
+{
+  mTxn->AddEdit(OpAttachAsyncTexture(nullptr, aTexture, aID));
+}
+
+
+void
 ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
                                     const SharedImage& aImage)
 {
+  printf("ShadowLayerForwarder::UpdateTexture %p : %i\n", aTexture, aImage.type());
+  if (aImage.type() == SharedImage::TSurfaceDescriptor) {
+    if (aImage.get_SurfaceDescriptor().type() == SurfaceDescriptor::T__None) {
+      printf("STOP\n");
+    } 
+  }
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture, aImage));
 }
 

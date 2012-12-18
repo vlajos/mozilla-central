@@ -31,7 +31,9 @@ TextureClient::~TextureClient()
 void
 TextureClient::Updated(ShadowableLayer* aLayer)
 {
-  mLayerForwarder->UpdateTexture(mTextureChild, SharedImage(mDescriptor));
+  if (mDescriptor.type() != SurfaceDescriptor::T__None) {
+    mLayerForwarder->UpdateTexture(mTextureChild, SharedImage(mDescriptor));
+  }
 }
 
 void
@@ -39,6 +41,12 @@ TextureClient::Destroyed(ShadowableLayer* aLayer)
 {
   mLayerForwarder->DestroyedThebesBuffer(aLayer,
                                          mDescriptor);
+}
+
+void
+TextureClient::SetAsyncContainerID(uint64_t aID)
+{
+  mLayerForwarder->AttachAsyncTexture(GetTextureChild(), aID);
 }
 
 void
@@ -51,7 +59,6 @@ TextureClient::UpdatedRegion(ShadowableLayer* aLayer, //TODO[nical] this arg is 
                                        mTextureInfo,
                                        ThebesBuffer(mDescriptor, aBufferRect, aBufferRotation),
                                        aUpdatedRegion);
-
 }
 
 
@@ -189,7 +196,7 @@ TextureClientBridge::TextureClientBridge(ShadowLayerForwarder* aLayerForwarder,
                                          BufferType aBufferType)
   : TextureClient(aLayerForwarder, aBufferType)
 {
-  mTextureInfo.memoryType = TEXTURE_BRIDGE;
+  mTextureInfo.memoryType = TEXTURE_SHMEM;
 }
 
 /* static */ BufferType

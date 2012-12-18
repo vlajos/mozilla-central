@@ -25,13 +25,21 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
   if (!mTextureHost || !mInitialised)
     return;
-
+  mTextureHost->UpdateAsyncTexture();
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
+      // TODO[nical] if this is main-thread code, it doesn't make sense to ensure
+      // that async texture is updated because this TextureHost is not async.
+      // For non-async TextureHost UpdateAsyncTexture does nothing.
+      mTextureHostOnWhite->UpdateAsyncTexture();
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
-        return; // TODO[nical] this does not belong here 
         MOZ_ASSERT(false, "not implemented");
+        return; // TODO[nical] this does not belong here 
                 //       [nrc] why not?
+                //     [nical] creating TextureSources should belong to the 
+                //             TextureHost, in case some TextureHost require
+                //             specific TextureSource implementation an to
+                //             keep the backend dependent code within Texture*
         /*
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
           new EffectComponentAlpha(mTextureHostOnWhite->GetAsTextureSource(),

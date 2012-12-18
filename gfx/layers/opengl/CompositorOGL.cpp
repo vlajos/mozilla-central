@@ -681,22 +681,28 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
 TemporaryRef<BufferHost> 
 CompositorOGL::CreateBufferHost(BufferType aType)
 {
+  RefPtr<BufferHost> result;
   switch (aType) {
   case BUFFER_YCBCR:
-    return new YCbCrImageHost(this);
+    result = new YCbCrImageHost(this);
+    return result.forget();
 #ifdef MOZ_WIDGET_GONK
   case BUFFER_DIRECT_EXTERNAL:
 #endif
   case BUFFER_SHARED:
   case BUFFER_TEXTURE:
   case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
-    return new ImageHostSingle(this, aType);
+    result = new ImageHostSingle(this, aType);
+    return result.forget();
   case BUFFER_BRIDGE:
-    return new ImageHostBridge(this);
+    result = new ImageHostBridge(this);
+    return result.forget();
   case BUFFER_CONTENT:
-    return new ContentHostTexture(this);
+    result = new ContentHostTexture(this);
+    return result.forget();
   case BUFFER_CONTENT_DIRECT:
-    return new ContentHostDirect(this);
+    result = new ContentHostDirect(this);
+    return result.forget();
   default:
     NS_ERROR("Unknown BufferType");
     return nullptr;
@@ -713,10 +719,12 @@ CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 }
 
 TemporaryRef<TextureHost>
-CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
+CompositorOGL::CreateTextureHost(BufferType aImageType,
+                                 TextureHostType aMemoryType,
+                                 uint32_t aTextureFlags)
 {
   RefPtr<TextureHost> result = nullptr;
-  switch (aInfo.memoryType) {
+  switch (aMemoryType) {
   case TEXTURE_SHARED:
     result = new TextureHostOGLShared(mGLContext);
     break;
@@ -725,19 +733,19 @@ CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
     break;
   case TEXTURE_SHMEM:
     //TODO[nrc] fuck up
-    if (aInfo.imageType == BUFFER_YCBCR) {
+    if (aImageType == BUFFER_YCBCR) {
       result = new YCbCrTextureHostOGL(mGLContext);
-    } else if (aInfo.imageType == BUFFER_CONTENT_DIRECT) {
+    } else if (aImageType == BUFFER_CONTENT_DIRECT) {
       //TODO[nrc] should probably use the below path with fallback, but check
       result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
-    } else if (aInfo.imageType == BUFFER_DIRECT) {
+    } else if (aImageType == BUFFER_DIRECT) {
       if (ShadowLayerManager::SupportsDirectTexturing()) {
         result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
       } else {
         result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
       }
 #ifdef MOZ_WIDGET_GONK
-    } else if (aInfo.imageType == BUFFER_DIRECT_EXTERNAL) {
+    } else if (aImageType == BUFFER_DIRECT_EXTERNAL) {
       result = new DirectExternalTextureHost(mGLContext);
 #endif
     } else {
@@ -746,12 +754,13 @@ CompositorOGL::CreateTextureHost(const TextureInfo& aInfo)
     break;
   case TEXTURE_UNKNOWN:
   default:
+    NS_WARNING("Unknown texture type");
     return nullptr;
   }
 
   NS_ASSERTION(result, "Result should have been created.");
  
-  result->SetFlags(aInfo.textureFlags );
+  result->SetFlags(aTextureFlags );
   return result.forget();
 }
 

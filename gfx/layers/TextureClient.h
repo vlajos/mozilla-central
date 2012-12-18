@@ -49,10 +49,7 @@ public:
     return mTextureInfo;
   }
   
-  void SetDescriptor(uint32_t aDescriptor)
-  {
-    NS_ABORT_IF_FALSE(false,"we may need to get rid of texture 'descriptor'");
-  }
+  void SetAsyncContainerID(uint64_t aDescriptor);
 
   /**
    * The Lock* methods lock the texture client for drawing into, providing some 

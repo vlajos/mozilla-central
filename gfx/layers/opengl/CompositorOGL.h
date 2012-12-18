@@ -43,8 +43,10 @@ public:
   virtual void Destroy();
 
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(const TextureInfo& aInfo) MOZ_OVERRIDE;
-
+  CreateTextureHost(BufferType aImageType,
+                    TextureHostType aMemoryType,
+                    uint32_t aTextureFlags) MOZ_OVERRIDE;
+  
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {
     TextureFactoryIdentifier result;

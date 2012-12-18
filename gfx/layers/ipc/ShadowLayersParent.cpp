@@ -472,10 +472,22 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       Compositor* compositor
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
 
-      RefPtr<TextureHost> textureHost = compositor->CreateTextureHost(textureParent->GetTextureInfo());
+      TextureInfo info = textureParent->GetTextureInfo();
+      RefPtr<TextureHost> textureHost = compositor->CreateTextureHost(info.imageType,
+                                                                      info.memoryType,
+                                                                      info.textureFlags);
+      textureHost->SetCompositorID(compositor->GetCompositorID());
       textureParent->SetTextureHost(textureHost.get());
       layer->AsShadowLayer()->AddTextureHost(textureParent->GetTextureInfo(), textureHost.get());
       layer->AsShadowLayer()->SetAllocator(this);
+      break;
+    }
+    case Edit::TOpAttachAsyncTexture: {
+      // For ImageBridge
+      const OpAttachAsyncTexture& op = edit.get_OpAttachAsyncTexture();
+      TextureHost* host = AsTextureHost(op);
+      MOZ_ASSERT(host, "TextureHost not created");
+      host->SetAsyncContainerID(op.containerID());
       break;
     }
     case Edit::TOpPaintTexture: {
