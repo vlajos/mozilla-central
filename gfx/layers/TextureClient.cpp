@@ -50,8 +50,7 @@ TextureClient::SetAsyncContainerID(uint64_t aID)
 }
 
 void
-TextureClient::UpdatedRegion(ShadowableLayer* aLayer, //TODO[nical] this arg is useless now
-                             const nsIntRegion& aUpdatedRegion,
+TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation)
 {
@@ -68,7 +67,6 @@ TextureClientShmem::TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, Bu
   , mSurfaceAsImage(nullptr)
 {
   mTextureInfo.memoryType = TEXTURE_SHMEM;
-  mTextureInfo.mDescriptor = 0;
 }
 
 TextureClientShmem::~TextureClientShmem()

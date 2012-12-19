@@ -238,7 +238,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   bool canReuseBuffer;
   nsIntRect destBufferRect;
 
-  // TODO[nical] GL Code in here makes me unhappy
   nsRefPtr<TextureImage> texImage = mTextureHost
                                     ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHost.get())->GetTexture())
                                     : nullptr;
@@ -399,8 +398,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
       if (mOGLLayer->OGLManager()->FBOTextureTarget() == LOCAL_GL_TEXTURE_2D) {
         nsIntRect overlap;
 
-        // TODO[nical] (merge) I have no idea what i am doing -----[
-
         // The buffer looks like:
         //  ______
         // |1  |2 |  Where the center point is offset by mBufferRotation from the top-left corner.
@@ -423,7 +420,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         nsIntRect srcBufferSpaceTopRight(mBufferRotation.x, 0, mBufferRect.width - mBufferRotation.x, mBufferRotation.y);
         nsIntRect srcBufferSpaceTopLeft(0, 0, mBufferRotation.x, mBufferRotation.y);
         nsIntRect srcBufferSpaceBottomLeft(0, mBufferRotation.y, mBufferRotation.x, mBufferRect.height - mBufferRotation.y);
-        //   ]------ TODO[nical]
 
         overlap.IntersectRect(mBufferRect, destBufferRect);
 

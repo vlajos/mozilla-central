@@ -78,8 +78,7 @@ public:
   }
 
   virtual void Updated(ShadowableLayer* aLayer);
-  virtual void UpdatedRegion(ShadowableLayer* aLayer,
-                             const nsIntRegion& aUpdatedRegion,
+  virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation);
   virtual void Destroyed(ShadowableLayer* aLayer);

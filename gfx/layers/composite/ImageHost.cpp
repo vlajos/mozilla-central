@@ -170,12 +170,6 @@ ImageHostBridge::UpdateImage(const TextureInfo& aTextureInfo,
                              const SharedImage& aImage)
 {
   // The image data will be queried at render time
-  uint64_t newID = aTextureInfo.mDescriptor;
-  if (newID != mImageContainerID) {
-    mImageContainerID = newID;
-    mImageVersion = 0;
-  }
-
   return aImage;
 }
 

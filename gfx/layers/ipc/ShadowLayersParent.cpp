@@ -385,7 +385,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
 
     case Edit::TOpPaintTiledLayerBuffer: {
-      printf("*** OpPaintTiledLayerBuffer \n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint TiledLayerBuffer"));
       const OpPaintTiledLayerBuffer& op = edit.get_OpPaintTiledLayerBuffer();
       ShadowLayerParent* shadow = AsShadowLayer(op);
@@ -400,7 +399,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpPaintThebesBuffer: {
-      printf("*** OpPaintThebesBuffer \n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintThebesBuffer& op = edit.get_OpPaintThebesBuffer();
@@ -414,7 +412,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       nsIntRegion newValidRegion;
       OptionalThebesBuffer readonlyFront;
       nsIntRegion frontUpdatedRegion;
-      // TODO[nical] move to PTexture update
       thebes->Swap(newFront, op.updatedRegion(),
                    &newBack, &newValidRegion,
                    &readonlyFront, &frontUpdatedRegion);
@@ -441,9 +438,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateStart(canvas, "FF00FF", canvas->GetVisibleRegion().GetBounds());
 
       canvas->SetAllocator(this);
-
-      // -----------
-      // this looks like a typical texture swap for most OpPaint[...] operations
       TextureHost* textureHost = AsTextureHost(op);
 
       SharedImage newBack;
@@ -452,18 +446,14 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       if (!success) {
         NS_ASSERTION(newBack.type() == SharedImage::Tnull_t, "fail should give null result");
       }
-      // -----------
 
       canvas->Updated();
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
-//      replyv.push_back(OpBufferSwap(shadow, NULL,
-//                                    newBack));
 
       RenderTraceInvalidateEnd(canvas, "FF00FF");
       break;
     }
     case Edit::TOpAttachTexture: {
-      printf("*** OpAttachTexture \n");
       const OpAttachTexture& op = edit.get_OpAttachTexture();
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
       ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
@@ -491,7 +481,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpPaintTexture: {
-      printf("*** OpPaintTexture\n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
 
       const OpPaintTexture& op = edit.get_OpPaintTexture();
@@ -504,14 +493,12 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       shadowLayer->SetAllocator(this);
       SharedImage newBack;
       texture->Update(op.image(), &newBack);
-      //shadowLayer->SwapTexture(textureId, op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
  
       RenderTraceInvalidateEnd(layer, "FF00FF");
       break;
     }
     case Edit::TOpPaintTextureRegion: {
-      printf("*** OpPaintTextureRegion\n");
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintTextureRegion& op = edit.get_OpPaintTextureRegion();

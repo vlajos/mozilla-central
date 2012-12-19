@@ -37,7 +37,6 @@ public:
     ShadowThebesLayer::SetValidRegion(aRegion);
   }
 
-  // TODO[nical] remove Swap from layer
   void SwapTexture(const ThebesBuffer& aNewFront,
                    const nsIntRegion& aUpdatedRegion,
                    OptionalThebesBuffer* aNewBack,

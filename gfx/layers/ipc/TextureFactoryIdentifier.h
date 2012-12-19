@@ -57,7 +57,6 @@ struct TextureInfo
   BufferType imageType;
   TextureHostType memoryType;
   uint32_t textureFlags;
-  uint64_t mDescriptor; // TODO[nical] kick this out of there
 };
   
 } // namespace

@@ -1018,15 +1018,13 @@ struct ParamTraits<mozilla::layers::TextureInfo>
     WriteParam(aMsg, aParam.imageType);
     WriteParam(aMsg, aParam.memoryType);
     WriteParam(aMsg, aParam.textureFlags);
-    WriteParam(aMsg, aParam.mDescriptor); // TODO[nical] will go away
   }
 
   static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->imageType) &&
            ReadParam(aMsg, aIter, &aResult->memoryType) &&
-           ReadParam(aMsg, aIter, &aResult->textureFlags) &&
-           ReadParam(aMsg, aIter, &aResult->mDescriptor);
+           ReadParam(aMsg, aIter, &aResult->textureFlags); // &&
   }
 };
 

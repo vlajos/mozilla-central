@@ -1399,8 +1399,6 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetRenderOffset(aOffset.x, aOffset.y);
       program->SetLayerQuadRect(aRect);
       if (maskType != MaskNone) {
-        //mGLContext->fActiveTexture(LOCAL_GL_TEXTURE2);
-        //mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, textureMask->GetTextureHandle());
         textureMask->BindTexture(LOCAL_GL_TEXTURE2);
         program->SetMaskTextureUnit(2);
         program->SetMaskLayerTransform(maskQuadTransform);

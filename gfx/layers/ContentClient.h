@@ -110,8 +110,7 @@ public:
                                                  aDidSelfCopy);
 
     NS_ASSERTION(mTextureClient, "No texture client?!");
-    mTextureClient->UpdatedRegion(aLayer,
-                                  updatedRegion,
+    mTextureClient->UpdatedRegion(updatedRegion,
                                   BufferRect(),
                                   BufferRotation());
   }
