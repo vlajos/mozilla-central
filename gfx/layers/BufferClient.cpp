@@ -22,7 +22,7 @@ BufferClient::~BufferClient()
 void BufferClient::Initialize(PLayerChild* aLayer,
                               PLayersChild* aShadowManager)
 {
-  // TODO[nical]
+
 }
 
 

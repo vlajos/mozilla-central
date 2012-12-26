@@ -23,6 +23,7 @@ namespace layers {
  * Deserialization from SharedImage into objects implementing BindableTexture
  * (UpdateImpl), owns these objects, provides acces to them (GetTexture) and
  * creates the corresponding effects to pass to the compositor (Lock).
+ * This class is meant to be used on the compositor thread.
  */
 class TextureHostOGL : public TextureHost
 {
@@ -43,8 +44,15 @@ public:
   //TODO[nrc] each TextureHost should implment this properly
   virtual LayerRenderState GetRenderState()
   {
+    NS_WARNING("TextureHost::GetRenderState should be overriden");
     return LayerRenderState();
   }
+
+  TemporaryRef<TextureSource> GetPrimaryTextureSource() MOZ_OVERRIDE;
+
+  bool AddMaskEffect(EffectChain& aEffects,
+                     const gfx::Matrix4x4& aTransform,
+                     bool aIs3D) MOZ_OVERRIDE;
 
 protected:
   TextureHostOGL(TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE)
@@ -134,16 +142,7 @@ public:
     return gfx::IntSize(s.width, s.height);
   }
 
-  void Abort()
-  {
-    if (mTexture->InUpdate()) {
-      mTexture->EndUpdate();
-    }
-  }
-
-  bool AddMaskEffect(EffectChain& aEffects,
-                     const gfx::Matrix4x4& aTransform,
-                     bool aIs3D) MOZ_OVERRIDE;
+  void Abort() MOZ_OVERRIDE;
 
   // TileIterator, TODO[nical] this belongs to TextureSource
   virtual TileIterator* GetAsTileIterator() { return this; }
@@ -274,80 +273,9 @@ struct TextureProxyHack : public gl::BindableTexture
     return mHost->GetContentType();
   }
 
-  virtual bool InUpdate() const MOZ_OVERRIDE {
-    return false;
-  }
-
-  virtual void EndUpdate() MOZ_OVERRIDE {}
-
   RefPtr<T> mHost;
 };
 
-/*
-//thin TextureHost wrapper around a TextureImage
-class TextureImageAsTextureHost : public TextureSourceHostOGL
-                                , public TileIterator
-{
-public:
-  virtual GLuint GetTextureHandle()
-  {
-    return mTexImage->GetTextureID();
-  }
- 
-  virtual GLenum GetWrapMode() const
-  {
-    return mTexImage->mWrapMode;
-  }
- 
-  virtual void SetWrapMode(GLenum aWrapMode)
-  {
-    mTexImage->mWrapMode = aWrapMode;
-  }
- 
-  virtual void UpdateImpl(const SharedImage& aImage,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr);
-  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
-  
-  virtual void Abort();
-
-  virtual TileIterator* GetAsTileIterator() { return this; }
-  virtual Effect* Lock(const gfx::Filter& aFilter);
- 
-  void SetFilter(const gfx::Filter& aFilter) { mTexImage->SetFilter(gfx::ThebesFilter(aFilter)); }
-  virtual void BeginTileIteration() { mTexImage->BeginTileIteration(); }
-  virtual nsIntRect GetTileRect() { return mTexImage->GetTileRect(); }
-  virtual size_t GetTileCount() { return mTexImage->GetTileCount(); }
-  virtual bool NextTile() { return mTexImage->NextTile(); }
-
-#ifdef DEBUG
-  virtual bool IsAlpha() { return mTexImage->GetContentType() == gfxASurface::CONTENT_ALPHA; }
-#endif
- 
-#ifdef MOZ_DUMP_PAINTING
-  virtual already_AddRefed<gfxImageSurface> Dump()
-  {
-    return mGL->GetTexImage(GetTextureHandle(), false, mTexImage->GetShaderProgramType());
-  }
-#endif
-
-  virtual void BindTexture(int aUnit) { mTexImage->BindTexture(aUnit); }
- 
-protected:
-  typedef mozilla::gl::GLContext GLContext;
-  typedef mozilla::gl::TextureImage TextureImage;
- 
-  TextureImageAsTextureHost(GLContext* aGL)
-    : mGL(aGL)
-    , mTexImage(nullptr)
-  {}
- 
-  GLContext* mGL;
-  nsRefPtr<TextureImage> mTexImage;
- 
-  friend class CompositorOGL;
-};
-*/
 /*
 // a TextureImageAsTextureHost for use with main thread composition
 // i.e., where we draw to it directly, and do not have a texture client
@@ -370,41 +298,16 @@ public:
   virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
 };
 
-// TODO[nical] this class should desapear (buffering is done in TextureHost)
-class TextureImageAsTextureHostWithBuffer : public TextureImageAsTextureHost
-{
-public:
-  CLASS_NAME(TextureImageAsTextureHostWithBuffer)
-  ~TextureImageAsTextureHostWithBuffer();
- 
-  virtual void UpdateImpl(const SurfaceDescriptor& aNewBuffer,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr);
-  virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator)
-  {
-    NS_ASSERTION(!mDeAllocator || mDeAllocator == aDeAllocator, "Stomping allocator?");
-    mDeAllocator = aDeAllocator;
-  }
- 
-protected:
-  TextureImageAsTextureHostWithBuffer(GLContext* aGL)
-    : TextureImageAsTextureHost(aGL)
-  {
-    SetBuffering(TextureHost::Buffering::BUFFERED);
-  }
- 
-  // returns true if the buffer was reset
-  bool EnsureBuffer(nsIntSize aSize);
- 
-  ISurfaceDeAllocator* mDeAllocator;
- 
-  friend class CompositorOGL;
-};
 */
+
+// TODO[nical] this class is not usable yet
 class TextureHostOGLShared : public TextureHostOGL
 {
 public:
   typedef gfxASurface::gfxContentType ContentType;
+  typedef mozilla::gl::GLContext GLContext;
+  typedef mozilla::gl::TextureImage TextureImage;
+
 
   virtual ~TextureHostOGLShared()
   {
@@ -419,15 +322,15 @@ public:
     return mTextureHandle;
   }
 
-  bool IsValid() const { return true; } // TODO[nical]
- 
+  bool IsValid() const { return mTextureHandle != 0; }
+
   // override from TextureHost
   virtual void UpdateImpl(const SharedImage& aImage,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
   virtual void Unlock();
- 
+
   virtual GLenum GetWrapMode() const {
     return mWrapMode;
   }
@@ -457,42 +360,21 @@ public:
     return gfxASurface::CONTENT_COLOR;
   }
 
+  TextureHostOGLShared(GLContext* aGL,
+                       TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE)
+  : mGL(aGL)
+  {
+    SetBuffering(aBuffering);
+  }
+
 protected:
-  typedef mozilla::gl::GLContext GLContext;
-  typedef mozilla::gl::TextureImage TextureImage;
- 
-  TextureHostOGLShared(GLContext* aGL)
-    : mGL(aGL)
-  {}
- 
+
   gfx::IntSize mSize;
-  GLContext* mGL;
+  gl::GLContext* mGL;
   GLuint mTextureHandle;
   GLenum mWrapMode;
   gl::SharedTextureHandle mSharedHandle;
   gl::TextureImage::TextureShareType mShareType;
- 
-  friend class CompositorOGL;
-};
-
-// TODO[nical] this class should desapear (buffering is done in TextureHost)
-class TextureHostOGLSharedWithBuffer : public TextureHostOGLShared
-{
-public:
-  CLASS_NAME(TextureHostOGLSharedWithBuffer)
- 
-protected:
-    virtual void UpdateImpl(const SharedImage& aImage,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
-
-  TextureHostOGLSharedWithBuffer(GLContext* aGL)
-    : TextureHostOGLShared(aGL)
-  {
-    SetBuffering(TextureHost::Buffering::BUFFERED);
-  }
-  
-  friend class CompositorOGL;
 };
 
 class YCbCrTextureHostOGL : public TextureHostOGL
@@ -531,6 +413,15 @@ public:
     nsIntSize s = mYTexture->GetSize();
     return gfx::IntSize(s.width, s.height);
   }
+
+  bool AddMaskEffect(EffectChain& aEffects,
+                     const gfx::Matrix4x4& aTransform,
+                     bool aIs3D) MOZ_OVERRIDE
+  {
+    NS_WARNING("YCbCrTextureHostOGL cannot be used as mask");
+    return false;
+  }
+
 private:
   RefPtr<gl::TextureImage> mYTexture;
   RefPtr<gl::TextureImage> mCbTexture;

@@ -28,23 +28,14 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   mTextureHost->UpdateAsyncTexture();
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
-      // TODO[nical] if this is main-thread code, it doesn't make sense to ensure
-      // that async texture is updated because this TextureHost is not async.
+      // TODO: if this is main-thread code, we don't need to ensure
       // For non-async TextureHost UpdateAsyncTexture does nothing.
       mTextureHostOnWhite->UpdateAsyncTexture();
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
-        MOZ_ASSERT(false, "not implemented");
-        return; // TODO[nical] this does not belong here 
-                //       [nrc] why not?
-                //     [nical] creating TextureSources should belong to the 
-                //             TextureHost, in case some TextureHost require
-                //             specific TextureSource implementation an to
-                //             keep the backend dependent code within Texture*
-        /*
+        RefPtr<TextureSource> sourceOnBlack = mTextureHost->GetPrimaryTextureSource();
+        RefPtr<TextureSource> sourceOnWhite = mTextureHostOnWhite->GetPrimaryTextureSource();
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
-          new EffectComponentAlpha(mTextureHostOnWhite->GetAsTextureSource(),
-                                   mTextureHost->GetAsTextureSource());
-        */
+          new EffectComponentAlpha(sourceOnBlack.get(), sourceOnWhite.get());
       } else {
         return;
       }
@@ -164,6 +155,12 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
 }
 
+bool ContentHost::AddMaskEffect(EffectChain& aEffects,
+                                const gfx::Matrix4x4& aTransform,
+                                bool aIs3D)
+{
+  return mTextureHost->AddMaskEffect(aEffects, aTransform, aIs3D);
+}
 
 void
 ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
@@ -175,7 +172,6 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  nsIntRegion* aNewValidRegionFront,
                                  nsIntRegion* aUpdatedRegionBack)
 {
-  printf("xxx ContentHostTexture::UpdateThebes\n");
   AutoOpenSurface surface(OPEN_READ_ONLY, aNewFront.buffer());
   gfxASurface* updated = surface.Get();
 

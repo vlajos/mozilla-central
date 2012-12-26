@@ -755,6 +755,95 @@ void GLContext::ApplyFilterToBoundTexture(GLuint aTarget,
     }
 }
 
+BasicTexture::BasicTexture(GLContext* aGL)
+: mGL(aGL),
+  mTexture(0),
+  mWrapMode(LOCAL_GL_REPEAT),
+  mContentType(ContentType::CONTENT_COLOR)
+{
+
+}
+
+BasicTexture::BasicTexture(GLContext* aGL, GLuint aExistingTexture)
+: mGL(aGL),
+  mTexture(aExistingTexture),
+  mWrapMode(LOCAL_GL_REPEAT),
+  mContentType(ContentType::CONTENT_COLOR)
+{
+
+}
+
+
+BasicTexture::~BasicTexture()
+{
+    if (mTexture != 0) {
+        mGL->fDeleteTextures(1, &mTexture);
+        mTexture = 0;
+    }
+}
+
+void BasicTexture::GenTexture(GLenum aWrapMode)
+{
+    if (mTexture == 0) {
+        return;
+    }
+    mWrapMode = aWrapMode;
+    mGL->fGenTextures(1, &mTexture);
+
+}
+
+void BasicTexture::BindTexture(GLenum aTextureUnit)
+{
+    MOZ_ASSERT(mTexture != 0);
+    mGL->fActiveTexture(aTextureUnit);
+    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
+}
+
+void BasicTexture::DirectUpdate(uint8_t* aData,
+                                gfx::IntSize aSize,
+                                ContentType aContentType,
+                                GLenum aWrapMode)
+{
+    if (mTexture == 0) {
+        GenTexture(aWrapMode);
+    }
+
+    mContentType = aContentType;
+
+    if (aSize != mSize) {
+        mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
+
+        GLenum format = LOCAL_GL_RGBA;
+        switch (mContentType) {
+            case ContentType::CONTENT_COLOR: {
+                format = LOCAL_GL_RGB; // TODO[nical] check that packing is correct (32 bits/pixel)
+                break;
+            }
+            case ContentType::CONTENT_ALPHA: {
+                format = LOCAL_GL_RGBA;
+                break;
+            }
+            case ContentType::CONTENT_COLOR_ALPHA: {
+                format = LOCAL_GL_RED;
+                break;
+            }
+            default: {
+                NS_RUNTIMEABORT("unsupported texture format ?");
+            }
+        }
+        mGL->fTexImage2D(LOCAL_GL_TEXTURE_2D,
+                                0,
+                                format,
+                                aSize.width,
+                                aSize.height,
+                                0,
+                                format,
+                                LOCAL_GL_UNSIGNED_BYTE,
+                                aData);
+    }
+}
+
+
 BasicTextureImage::~BasicTextureImage()
 {
     GLContext *ctx = mGLContext;

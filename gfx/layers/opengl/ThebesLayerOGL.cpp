@@ -475,7 +475,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         dstRectDrawTopLeft   .MoveBy(-destBufferRect.TopLeft());
         dstRectDrawBottomLeft.MoveBy(-destBufferRect.TopLeft());
 
-        // TODO[nical] not so happy that BufferHost does some GL trickery
         TextureImage* texImageSource
           = static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHost.get())->GetTexture());
         
@@ -488,7 +487,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
           // times instead of doing a single draw call because supporting that
           // with a tiled source is quite tricky.
 
-          // TODO[nical] here mTexImage should become mTextureHost
           if (!srcRectDrawTopRight.IsEmpty())
             gl()->BlitTextureImage(texImageSource, srcRectDrawTopRight,
                                    destBuffer, dstRectDrawTopRight);
@@ -503,7 +501,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
 
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
-          // TODO[nical] nicht nicht nicht! no GL should be seen around here.
           TextureImage* texImageSourceOnWhite 
               = static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHostOnWhite.get())->GetTexture());
         
@@ -782,18 +779,7 @@ ThebesLayerOGL::GetLayer()
 {
   return this;
 }
-/* TODO[nical] commented this out during the merge
-LayerRenderState
-ShadowThebesLayerOGL::GetRenderState()
-{
-  if (!mBuffer || mDestroyed) {
-    return LayerRenderState();
-  }
-  uint32_t flags = (mBuffer->Rotation() != nsIntPoint()) ?
-                   LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
-  return LayerRenderState(&mBufferDescriptor, flags);
-}
-*/
+
 bool
 ThebesLayerOGL::IsEmpty()
 {
@@ -806,5 +792,5 @@ ThebesLayerOGL::CleanupResources()
   mBuffer = nullptr;
 }
 
-} /* layers */
-} /* mozilla */
+} // layers
+} // mozilla

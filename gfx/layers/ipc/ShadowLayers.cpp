@@ -20,6 +20,7 @@
 #include "ShadowLayers.h"
 #include "ShadowLayerChild.h"
 #include "gfxipc/ShadowLayerUtils.h"
+#include "SharedImageUtils.h"
 #include "RenderTrace.h"
 #include "sampler.h"
 #include "nsXULAppAPI.h"
@@ -285,7 +286,6 @@ ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
 
 void
 ShadowLayerForwarder::UpdateTextureRegion(TextureClient* aTexture,
-                                          const TextureInfo& aTextureInfo, // TODO[nical] unused param
                                           const ThebesBuffer& aThebesBuffer,
                                           const nsIntRegion& aUpdatedRegion)
 {
@@ -796,8 +796,8 @@ void ISurfaceDeAllocator::DestroySharedSurface(const SharedImage* aImage)
   if (aImage->type() == SharedImage::TSurfaceDescriptor) {
     SurfaceDescriptor dsc = aImage->get_SurfaceDescriptor();
     DestroySharedSurface(&dsc);
-  } else if (aImage->type() == SharedImage::TYCbCrImage) {
-    NS_RUNTIMEABORT("TODO[nical]");
+  } else {
+    NS_RUNTIMEABORT("TODO[nical] not implemented");
   }
 }
 

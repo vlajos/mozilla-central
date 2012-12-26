@@ -40,14 +40,10 @@ public:
    */
   virtual bool AddMaskEffect(EffectChain& aEffects,
                              const gfx::Matrix4x4& aTransform,
-                             bool aIs3D = false)
-  {
-    NS_WARNING("TODO[nical] Not implemented");
-    return false;
-  }
+                             bool aIs3D = false) = 0;
 };
 
-}
-}
+} // namespace
+} // namespace
 
 #endif

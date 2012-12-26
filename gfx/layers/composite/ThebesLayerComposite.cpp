@@ -61,7 +61,9 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
   }
 }
 
-// TODO[nical] remove swap
+// TODO[nical] remove swap at the layer level
+// This will probably go away with buffer rotation when we
+// will use tiling instead.
 void
 ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
                                   const nsIntRegion& aUpdatedRegion,

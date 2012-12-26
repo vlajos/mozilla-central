@@ -755,7 +755,6 @@ nsBaseWidget::AutoUseBasicLayerManager::~AutoUseBasicLayerManager()
 bool
 nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
 {
-  //return true; // TODO[nical] debug
 #if defined(XP_WIN) || defined(ANDROID) || (MOZ_PLATFORM_MAEMO > 5) || \
     defined(MOZ_GL_PROVIDER) || defined(XP_MACOSX)
   bool accelerateByDefault = true;
@@ -850,7 +849,6 @@ void nsBaseWidget::CreateCompositor()
     if (!lf) {
       delete lm;
       mCompositorChild = nullptr;
-      NS_RUNTIMEABORT(" :( "); // TODO[nical]
       return;
     }
     lf->SetShadowManager(shadowManager);

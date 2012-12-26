@@ -55,7 +55,6 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntPoint& aBufferRotation)
 {
   mLayerForwarder->UpdateTextureRegion(this,
-                                       mTextureInfo,
                                        ThebesBuffer(mDescriptor, aBufferRect, aBufferRotation),
                                        aUpdatedRegion);
 }

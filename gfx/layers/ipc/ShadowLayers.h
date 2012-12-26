@@ -229,7 +229,6 @@ public:
    * and aIdentifier has been updated to aThebesBuffer.
    */
   void UpdateTextureRegion(TextureClient* aTexture,
-                           const TextureInfo& aIdentifier,
                            const ThebesBuffer& aThebesBuffer,
                            const nsIntRegion& aUpdatedRegion);
 
@@ -517,9 +516,9 @@ protected:
 class ISurfaceDeAllocator
 {
 public:
+  ISurfaceDeAllocator() {}
   void DestroySharedSurface(const SharedImage* aImage);
   virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) = 0;
-  // TODO[nical] SurfaceDescriptor should be const
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
 protected:
   ~ISurfaceDeAllocator() {}

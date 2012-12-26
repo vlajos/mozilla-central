@@ -145,6 +145,10 @@ protected:
     return mBufferRect.TopLeft() - mBufferRotation;
   }
 
+  virtual bool AddMaskEffect(EffectChain& aEffects,
+                           const gfx::Matrix4x4& aTransform,
+                           bool aIs3D = false) MOZ_OVERRIDE;
+
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
 };

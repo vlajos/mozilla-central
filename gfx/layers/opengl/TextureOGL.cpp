@@ -65,6 +65,12 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
+TemporaryRef<TextureSource> TextureHostOGL::GetPrimaryTextureSource()
+{
+  RefPtr<TextureSource> result = new SimpleTextureSourceOGL(this, 0);
+  return result.forget();
+}
+
 void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
@@ -87,8 +93,6 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
   // XXX this is always just ridiculously slow
   nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
   mTexture->DirectUpdate(surf.Get(), updateRegion);
-
-    // mTexture = texImage.forget();
 
   if (aIsInitialised) {
     *aIsInitialised = true;
@@ -145,8 +149,16 @@ TextureImageAsTextureHostOGL::Lock(const gfx::Filter& aFilter)
   return nullptr;
 }
 
+void
+TextureImageAsTextureHostOGL::Abort()
+{
+  if (mTexture->InUpdate()) {
+    mTexture->EndUpdate();
+  }
+}
+
 bool
-TextureImageAsTextureHostOGL::AddMaskEffect(EffectChain& aEffects,
+TextureHostOGL::AddMaskEffect(EffectChain& aEffects,
                        const gfx::Matrix4x4& aTransform,
                        bool aIs3D)
 {
@@ -156,156 +168,6 @@ TextureImageAsTextureHostOGL::AddMaskEffect(EffectChain& aEffects,
   return true;
 }
 
-
-/*
-void
-TextureImageAsTextureHost::UpdateImpl(const SharedImage& aImage,
-                                  bool* aIsInitialised,
-                                  bool* aNeedsReset)
-{
-  SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
- 
-  AutoOpenSurface surf(OPEN_READ_ONLY, surface);
-  nsIntSize size = surf.Size();
- 
-  if (!mTexImage ||
-      mTexImage->mSize != size ||
-      mTexImage->GetContentType() != surf.ContentType()) {
-    mTexImage = mGL->CreateTextureImage(size,
-                                        surf.ContentType(),
-                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                        FlagsToGLFlags(mFlags));
-    mSize = gfx::IntSize(size.width, size.height);
-  }
- 
-  // XXX this is always just ridiculously slow
-  nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
-  mTexImage->DirectUpdate(surf.Get(), updateRegion);
- 
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
-}
- 
-void
-TextureImageAsTextureHost::UpdateImpl(gfxASurface* aSurface,
-                                      nsIntRegion& aRegion)
-{
-  if (!mTexImage ||
-      mTexImage->mSize != aSurface->GetSize() ||
-      mTexImage->GetContentType() != aSurface->GetContentType()) {
-    mTexImage = mGL->CreateTextureImage(aSurface->GetSize(),
-                                        aSurface->GetContentType(),
-                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                        FlagsToGLFlags(mFlags));
-    mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
-  }
- 
-  mTexImage->DirectUpdate(aSurface, aRegion);
-}
- 
-Effect*
-TextureImageAsTextureHost::Lock(const gfx::Filter& aFilter)
-{
-  NS_ASSERTION(mTexImage->GetContentType() != gfxASurface::CONTENT_ALPHA,
-              "Image layer has alpha image");
- 
-  if (mTexImage->InUpdate()) {
-    mTexImage->EndUpdate();
-  }
-
- 
-  if (mTexImage->GetShaderProgramType() == gl::RGBXLayerProgramType) {
-      return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
-  } else if (mTexImage->GetShaderProgramType() == gl::BGRXLayerProgramType) {
-    return new EffectBGRX(this, true, aFilter, mFlags & NeedsYFlip);
-  } else if (mTexImage->GetShaderProgramType() == gl::BGRALayerProgramType) {
-    return new EffectBGRA(this, true, aFilter, mFlags & NeedsYFlip);
-  } else if (mTexImage->GetShaderProgramType() == gl::RGBALayerProgramType) {
-    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
-  } else {
-    NS_RUNTIMEABORT("Shader type not yet supported");
-    return nullptr;
-  }
-}
-
-void
-TextureImageAsTextureHost::Abort()
-{
-  if (mTexImage->InUpdate()) {
-    mTexImage->EndUpdate();
-  }
-}
-
-TextureImageHost::TextureImageHost(GLContext* aGL, TextureImage* aTexImage)
-  : TextureImageAsTextureHost(aGL)
-{
-  mTexImage = aTexImage;
-  mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
-}
- 
-TextureImageAsTextureHostWithBuffer::~TextureImageAsTextureHostWithBuffer()
-{
-}
-
-void
-TextureImageAsTextureHostWithBuffer::UpdateImpl(const SurfaceDescriptor& aNewBuffer,
-                                                bool* aIsInitialised,
-                                                bool* aNeedsReset)
-{
-  MOZ_ASSERT(IsBuffered());
-  AutoOpenSurface newBack(OPEN_READ_ONLY, aNewBuffer);
-  if (aNeedsReset) {
-    *aNeedsReset = EnsureBuffer(newBack.Size());
-  }
-
-  if (!IsSurfaceDescriptorValid(aNewBuffer)) {
-    if (aIsInitialised) {
-      *aIsInitialised = false;
-    }
-    return;
-  }
- 
-  nsRefPtr<TextureImage> texImage =
-      ShadowLayerManager::OpenDescriptorForDirectTexturing(
-        mGL, aNewBuffer, WrapMode(mGL, mFlags & AllowRepeat));
- 
-  if (!texImage) {
-    NS_WARNING("Could not create texture for direct texturing");
-    mTexImage = nullptr;
-
-    if (aIsInitialised) {
-      *aIsInitialised = false;
-    }
-    return;
-  }
- 
-  mTexImage = texImage;
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
-}
-
-bool
-TextureImageAsTextureHostWithBuffer::EnsureBuffer(nsIntSize aSize)
-{
-  MOZ_ASSERT(IsBuffered());
-  if (GetBuffer()->type() != SharedImage::TSurfaceDescriptor) {
-    return false;
-  }
-  SurfaceDescriptor& surfDesc = GetBuffer()->get_SurfaceDescriptor();
-  AutoOpenSurface surf(OPEN_READ_ONLY, surfDesc);
-  if (surf.Size() != aSize) {
-    mTexImage = nullptr;
-    if (IsSurfaceDescriptorValid(surfDesc)) {
-      mDeAllocator->DestroySharedSurface(&surfDesc);
-    }
-    return true;
-  }
- 
-  return false;
-}
-*/
 void
 TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
                              bool* aIsInitialised,
@@ -316,7 +178,7 @@ TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
 
   SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
   SharedTextureDescriptor texture = surface.get_SharedTextureDescriptor();
- 
+
   SharedTextureHandle newHandle = texture.handle();
   nsIntSize size = texture.size();
   mSize = gfx::IntSize(size.width, size.height);
@@ -324,13 +186,13 @@ TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
     mFlags |= NeedsYFlip;
   }
   mShareType = texture.shareType();
- 
+
   if (mSharedHandle &&
       newHandle != mSharedHandle) {
     mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
   }
   mSharedHandle = newHandle;
- 
+
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
@@ -373,18 +235,6 @@ TextureHostOGLShared::Unlock()
 {
   mGL->DetachSharedHandle(mShareType, mSharedHandle);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
-}
- 
-void
-TextureHostOGLSharedWithBuffer::UpdateImpl(const SharedImage& aImage,
-                                       bool* aIsInitialised,
-                                       bool* aNeedsReset)
-{
-  TextureHostOGLShared::UpdateImpl(aImage);
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
 }
 
 void
@@ -452,7 +302,6 @@ YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
                                         aFilter);
   return effect;
 }
-
 
 /*
 void

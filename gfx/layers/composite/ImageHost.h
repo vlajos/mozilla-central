@@ -12,6 +12,7 @@
 namespace mozilla {
 namespace layers {
 
+// abstract
 class ImageHost : public BufferHost
 {
 public:
@@ -104,6 +105,15 @@ public:
     return LayerRenderState();
   }
 
+  virtual bool AddMaskEffect(EffectChain& aEffects,
+                           const gfx::Matrix4x4& aTransform,
+                           bool aIs3D = false)
+  {
+    return false;
+    NS_WARNING("Trying to use YCbCrImageHost as mask");
+  }
+
+
 protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
@@ -150,6 +160,11 @@ public:
     return LayerRenderState();
   }
 
+  bool AddMaskEffect(EffectChain& aEffects,
+                     const gfx::Matrix4x4& aTransform,
+                     bool aIs3D = false) MOZ_OVERRIDE {
+    return mImageHost->AddMaskEffect(aEffects, aTransform, aIs3D);
+  }
 protected:
   void EnsureImageHost(BufferType aType);
 

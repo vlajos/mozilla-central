@@ -110,16 +110,6 @@ public:
 
     virtual ContentType GetContentType() const = 0;
 
-    virtual bool InUpdate() const = 0;
-    /**
-     * Finish the active update and synchronize with the server, if
-     * necessary.
-     *
-     * BeginUpdate() must have been called exactly once before
-     * EndUpdate().
-     */
-    virtual void EndUpdate() = 0;
-
     class ScopedBindTexture
     {
     public:
@@ -142,6 +132,62 @@ public:
         BindableTexture *mTexture;
     };
 };
+
+
+class BasicTexture : public BindableTexture
+{
+public:
+    BasicTexture(gl::GLContext* aGL);
+    BasicTexture(gl::GLContext* aGL, GLuint aExistingTexture);
+    ~BasicTexture();
+
+    virtual nsIntSize GetSize() const MOZ_OVERRIDE
+    {
+      return gfxIntSize(mSize.width, mSize.height);
+    }
+
+    void SetSize(gfxIntSize aSize) {
+        mSize.width = aSize.width;
+        mSize.height = aSize.height;
+    }
+
+    void SetSize(gfx::IntSize aSize) {
+        mSize = aSize;
+    }
+
+    virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE;
+
+    virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
+        return mWrapMode;
+    }
+
+    virtual GLuint GetTextureID() MOZ_OVERRIDE{
+      return mTexture;
+    }
+
+    virtual ContentType GetContentType() const MOZ_OVERRIDE {
+      return mContentType;
+    }
+
+    void SetContentType(ContentType aContentType) {
+      mContentType = aContentType;
+    }
+
+    void DirectUpdate(uint8_t* aData,
+                      gfx::IntSize aSize,
+                      ContentType aContentType,
+                      GLenum aWrapMode);
+
+private:
+    void GenTexture(GLenum aWrapMode);
+
+    GLContext* mGL;
+    gfx::IntSize mSize;
+    GLuint mTexture;
+    GLenum mWrapMode;
+    ContentType mContentType;
+};
+
 
 /**
  * A TextureImage encapsulates a surface that can be drawn to by a
@@ -196,6 +242,18 @@ public:
      */
     virtual void GetUpdateRegion(nsIntRegion& aForRegion) {
     }
+
+    virtual bool InUpdate() const = 0;
+    /**
+     * Finish the active update and synchronize with the server, if
+     * necessary.
+     *
+     * BeginUpdate() must have been called exactly once before
+     * EndUpdate().
+     */
+    virtual void EndUpdate() = 0;
+
+
 
     /**
      * The Image may contain several textures for different regions (tiles).
@@ -356,7 +414,7 @@ protected:
  * BasicTextureImage is the baseline TextureImage implementation ---
  * it updates its texture by allocating a scratch buffer for the
  * client to draw into, then using glTexSubImage2D() to upload the new
- * pixels.  Platforms must provide the code to create a new surface
+ * pixels. Platforms must provide the code to create a new surface
  * into which the updated pixels will be drawn, and the code to
  * convert the update surface's pixels into an image on which we can
  * glTexSubImage2D().

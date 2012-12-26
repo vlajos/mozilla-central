@@ -555,7 +555,7 @@ ShadowImageLayerD3D9::Swap(const SharedImage& aNewFront,
     AutoOpenSurface surf(OPEN_READ_ONLY, aNewFront.get_SurfaceDescriptor());
     mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
   } else {
-    // TODO[nical] YUVImage ahs been replaced by YCbCrImage
+    // YUVImage has been replaced by YCbCrImage
     // which does the same job but better.
     NS_RUNTIMEABORT("unimplemented");
   }

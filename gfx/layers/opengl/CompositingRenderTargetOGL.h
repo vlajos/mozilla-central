@@ -13,6 +13,10 @@
 #endif
 
 namespace mozilla {
+namespace gl {
+  class TextureImage;
+  class BindableTexture;
+}
 namespace layers {
 
 class CompositingRenderTargetOGL : public CompositingRenderTarget,
@@ -21,8 +25,8 @@ class CompositingRenderTargetOGL : public CompositingRenderTarget,
   typedef mozilla::gl::GLContext GLContext;
 
 public:
-  CompositingRenderTargetOGL(GLContext* aGL)
-    : mGL(aGL) 
+  CompositingRenderTargetOGL(GLContext* aGL, GLuint aTexure, GLuint aFBO)
+    : mGL(aGL), mFBO(aFBO), mTexture(new gl::BasicTexture(aGL, aTexure))
   {}
 
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
@@ -30,15 +34,20 @@ public:
   gfx::IntSize GetSize() const MOZ_OVERRIDE { return mSize; }
 
   gl::BindableTexture* GetTexture() const MOZ_OVERRIDE {
-    NS_RUNTIMEABORT("Not implemented");
-    return nullptr;
+    return mTexture.get();
   }
 
-  bool IsValid() const MOZ_OVERRIDE { return false ; } // TODO[nical] not implemented
+  bool IsValid() const MOZ_OVERRIDE {
+    return mTexture->GetTextureID() != 0;
+  }
+
+  GLuint GetFBO() const {
+    return mFBO;
+  }
 
   ~CompositingRenderTargetOGL()
   {
-    mGL->fDeleteTextures(1, &mTexture);
+    mTexture = nullptr;
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
@@ -46,16 +55,16 @@ public:
   virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor)
   {
     CompositorOGL* compositorOGL = static_cast<CompositorOGL*>(aCompositor);
-    return mGL->GetTexImage(mTexture, true, compositorOGL->GetFBOLayerProgramType());
+    return mGL->GetTexImage(mTexture->GetTextureID(), true, compositorOGL->GetFBOLayerProgramType());
   }
 #endif
 
-  gfx::IntSize mSize;
-  GLuint mTexture;
-  GLuint mFBO;
-
-private:
   GLContext* mGL;
+  GLuint mFBO;
+  gfx::IntSize mSize;
+  GLuint mTextureHandle;
+
+  RefPtr<gl::BasicTexture> mTexture;
 };
 
 

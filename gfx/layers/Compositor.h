@@ -111,6 +111,12 @@ public:
   };
 
   /**
+   * TODO[nical] I am not extremely happy with exposing this.
+   * Please avoid using it.
+   */
+  virtual TemporaryRef<TextureSource> GetPrimaryTextureSource() = 0;
+
+  /**
    * Lock the texture host for compositing, returns an effect that should
    * be used to composite this texture.
    */
@@ -122,11 +128,7 @@ public:
    */
   virtual bool AddMaskEffect(EffectChain& aEffects,
                              const gfx::Matrix4x4& aTransform,
-                             bool aIs3D = false)
-  {
-    NS_WARNING("TODO[nical] not implemented");
-    return false;
-  }
+                             bool aIs3D = false) = 0;
 
   // Unlock the texture host after compositing
   virtual void Unlock() {}

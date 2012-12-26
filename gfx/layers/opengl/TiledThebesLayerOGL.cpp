@@ -225,8 +225,9 @@ TiledThebesLayerOGL::RenderTile(const TiledTexture& aTile,
   RefPtr<TextureSource> texture; //= new TextureOGL(gl(), aTile.mTextureHandle,
                                   //            gfx::IntSize(aTextureBounds.width, aTextureBounds.height));
 
-  // TODO[nical] commented that to get it to build
-//  texture->SetWrapMode(LOCAL_GL_REPEAT);
+  // TODO commented that to get it to build, not sure it makes sense to change
+  // the state (wrap mode) of a texture source in a "Render" function
+  //texture->SetWrapMode(LOCAL_GL_REPEAT);
 
   if (aTile.mFormat == LOCAL_GL_RGB) {
     effect = new EffectRGB(texture, true, gfx::FILTER_LINEAR);

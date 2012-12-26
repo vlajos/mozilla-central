@@ -270,6 +270,10 @@ FPSState::DrawFPS(TimeStamp aNow,
 }
 
 
+
+
+
+
 #ifdef CHECK_CURRENT_PROGRAM
 int ShaderProgramOGL::sCurrentProgramKey = 0;
 #endif
@@ -729,7 +733,7 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
     result = new TextureHostOGLShared(mGLContext);
     break;
   case TEXTURE_SHARED_GL:
-    result = new TextureHostOGLSharedWithBuffer(mGLContext);
+    result = new TextureHostOGLShared(mGLContext, TextureHost::Buffering::BUFFERED);
     break;
   case TEXTURE_SHMEM:
     //TODO[nrc] fuck up
@@ -767,26 +771,31 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
 TemporaryRef<CompositingRenderTarget>
 CompositorOGL::CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aInit)
 {
-  RefPtr<CompositingRenderTargetOGL> surface = new CompositingRenderTargetOGL(mGLContext);
-  CreateFBOWithTexture(aRect, aInit, 0, &(surface->mFBO), &(surface->mTexture));
-  return surface.forget();
+  GLuint tex = 0;
+  GLuint fbo = 0;
+  CreateFBOWithTexture(aRect, aInit, 0, &fbo, &tex);
+  RefPtr<CompositingRenderTargetOGL> rt = new CompositingRenderTargetOGL(mGLContext, tex, fbo);
+  return rt.forget();
 }
 
 TemporaryRef<CompositingRenderTarget>
 CompositorOGL::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
                                             const CompositingRenderTarget *aSource)
 {
-  RefPtr<CompositingRenderTargetOGL> surface
-    = new CompositingRenderTargetOGL(mGLContext);
+  GLuint tex = 0;
+  GLuint fbo = 0;
   const CompositingRenderTargetOGL* sourceSurface
     = static_cast<const CompositingRenderTargetOGL*>(aSource);
   if (aSource) {
-    CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->mFBO,
-                         &(surface->mFBO), &(surface->mTexture));
+    CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->GetFBO(),
+                         &fbo, &tex);
   } else {
     CreateFBOWithTexture(aRect, INIT_MODE_COPY, 0,
-                         &(surface->mFBO), &(surface->mTexture));
+                         &fbo, &tex);
   }
+
+  RefPtr<CompositingRenderTargetOGL> surface
+    = new CompositingRenderTargetOGL(mGLContext, tex, fbo);
   return surface.forget();
 }
 
@@ -815,121 +824,6 @@ GetFrameBufferInternalFormat(GLContext* gl,
     return aWidget->GetGLFrameBufferFormat();
   }
   return LOCAL_GL_RGBA;
-}
-
-void
-CompositorOGL::CreateFBOWithTexture(const gfx::IntRect& aRect, SurfaceInitMode aInit,
-                                    GLuint aSourceFrameBuffer,
-                                    GLuint *aFBO, GLuint *aTexture)
-{
-  GLuint tex, fbo;
-
-  mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
-  mGLContext->fGenTextures(1, &tex);
-  mGLContext->fBindTexture(mFBOTextureTarget, tex);
-
-  if (aInit == INIT_MODE_COPY) {
-
-    if (mBoundFBO != aSourceFrameBuffer) {
-      mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aSourceFrameBuffer);
-    }
-
-    // We're going to create an RGBA temporary fbo.  But to
-    // CopyTexImage() from the current framebuffer, the framebuffer's
-    // format has to be compatible with the new texture's.  So we
-    // check the format of the framebuffer here and take a slow path
-    // if it's incompatible.
-    GLenum format =
-      GetFrameBufferInternalFormat(gl(), aSourceFrameBuffer, mWidget);
-
-    bool isFormatCompatibleWithRGBA
-        = gl()->IsGLES2() ? (format == LOCAL_GL_RGBA)
-                          : true;
-
-    if (isFormatCompatibleWithRGBA) {
-      mGLContext->fCopyTexImage2D(mFBOTextureTarget,
-                                  0,
-                                  LOCAL_GL_RGBA,
-                                  aRect.x, aRect.y,
-                                  aRect.width, aRect.height,
-                                  0);
-    } else {
-      // Curses, incompatible formats.  Take a slow path.
-
-      // RGBA
-      size_t bufferSize = aRect.width * aRect.height * 4;
-      nsAutoArrayPtr<uint8_t> buf(new uint8_t[bufferSize]);
-
-      mGLContext->fReadPixels(aRect.x, aRect.y,
-                              aRect.width, aRect.height,
-                              LOCAL_GL_RGBA,
-                              LOCAL_GL_UNSIGNED_BYTE,
-                              buf);
-      mGLContext->fTexImage2D(mFBOTextureTarget,
-                              0,
-                              LOCAL_GL_RGBA,
-                              aRect.width, aRect.height,
-                              0,
-                              LOCAL_GL_RGBA,
-                              LOCAL_GL_UNSIGNED_BYTE,
-                              buf);
-    }
-  } else {
-    mGLContext->fTexImage2D(mFBOTextureTarget,
-                            0,
-                            LOCAL_GL_RGBA,
-                            aRect.width, aRect.height,
-                            0,
-                            LOCAL_GL_RGBA,
-                            LOCAL_GL_UNSIGNED_BYTE,
-                            NULL);
-  }
-  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_MIN_FILTER,
-                             LOCAL_GL_LINEAR);
-  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_MAG_FILTER,
-                             LOCAL_GL_LINEAR);
-  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_S, 
-                             LOCAL_GL_CLAMP_TO_EDGE);
-  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_T, 
-                             LOCAL_GL_CLAMP_TO_EDGE);
-  mGLContext->fBindTexture(mFBOTextureTarget, 0);
-
-  mGLContext->fGenFramebuffers(1, &fbo);
-  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, fbo);
-  mGLContext->fFramebufferTexture2D(LOCAL_GL_FRAMEBUFFER,
-                                    LOCAL_GL_COLOR_ATTACHMENT0,
-                                    mFBOTextureTarget,
-                                    tex,
-                                    0);
-
-  // Making this call to fCheckFramebufferStatus prevents a crash on
-  // PowerVR. See bug 695246.
-  GLenum result = mGLContext->fCheckFramebufferStatus(LOCAL_GL_FRAMEBUFFER);
-  if (result != LOCAL_GL_FRAMEBUFFER_COMPLETE) {
-    nsAutoCString msg;
-    msg.Append("Framebuffer not complete -- error 0x");
-    msg.AppendInt(result, 16);
-    msg.Append(", mFBOTextureTarget 0x");
-    msg.AppendInt(mFBOTextureTarget, 16);
-    msg.Append(", aRect.width ");
-    msg.AppendInt(aRect.width);
-    msg.Append(", aRect.height ");
-    msg.AppendInt(aRect.height);
-    NS_RUNTIMEABORT(msg.get());
-  }
-
-  PrepareViewport(aRect.width, aRect.height, gfxMatrix());
-  mGLContext->fScissor(0, 0, aRect.width, aRect.height);
-
-  if (aInit == INIT_MODE_CLEAR) {
-    mGLContext->fClearColor(0.0, 0.0, 0.0, 0.0);
-    mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT);
-  }
-
-  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mBoundFBO);
-
-  *aFBO = fbo;
-  *aTexture = tex;
 }
 
 bool CompositorOGL::sDrawFPS = false;
@@ -1052,6 +946,122 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
   // Allow widget to render a custom background.
   mWidget->DrawWindowUnderlay();
 }
+
+void
+CompositorOGL::CreateFBOWithTexture(const gfx::IntRect& aRect, SurfaceInitMode aInit,
+                                    GLuint aSourceFrameBuffer,
+                                    GLuint *aFBO, GLuint *aTexture)
+{
+  GLuint tex, fbo;
+
+  mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
+  mGLContext->fGenTextures(1, &tex);
+  mGLContext->fBindTexture(mFBOTextureTarget, tex);
+
+  if (aInit == INIT_MODE_COPY) {
+
+    if (mBoundFBO != aSourceFrameBuffer) {
+      mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aSourceFrameBuffer);
+    }
+
+    // We're going to create an RGBA temporary fbo.  But to
+    // CopyTexImage() from the current framebuffer, the framebuffer's
+    // format has to be compatible with the new texture's.  So we
+    // check the format of the framebuffer here and take a slow path
+    // if it's incompatible.
+    GLenum format =
+      GetFrameBufferInternalFormat(gl(), aSourceFrameBuffer, mWidget);
+
+    bool isFormatCompatibleWithRGBA
+        = gl()->IsGLES2() ? (format == LOCAL_GL_RGBA)
+                          : true;
+
+    if (isFormatCompatibleWithRGBA) {
+      mGLContext->fCopyTexImage2D(mFBOTextureTarget,
+                                  0,
+                                  LOCAL_GL_RGBA,
+                                  aRect.x, aRect.y,
+                                  aRect.width, aRect.height,
+                                  0);
+    } else {
+      // Curses, incompatible formats.  Take a slow path.
+
+      // RGBA
+      size_t bufferSize = aRect.width * aRect.height * 4;
+      nsAutoArrayPtr<uint8_t> buf(new uint8_t[bufferSize]);
+
+      mGLContext->fReadPixels(aRect.x, aRect.y,
+                              aRect.width, aRect.height,
+                              LOCAL_GL_RGBA,
+                              LOCAL_GL_UNSIGNED_BYTE,
+                              buf);
+      mGLContext->fTexImage2D(mFBOTextureTarget,
+                              0,
+                              LOCAL_GL_RGBA,
+                              aRect.width, aRect.height,
+                              0,
+                              LOCAL_GL_RGBA,
+                              LOCAL_GL_UNSIGNED_BYTE,
+                              buf);
+    }
+  } else {
+    mGLContext->fTexImage2D(mFBOTextureTarget,
+                            0,
+                            LOCAL_GL_RGBA,
+                            aRect.width, aRect.height,
+                            0,
+                            LOCAL_GL_RGBA,
+                            LOCAL_GL_UNSIGNED_BYTE,
+                            NULL);
+  }
+  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_MIN_FILTER,
+                             LOCAL_GL_LINEAR);
+  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_MAG_FILTER,
+                             LOCAL_GL_LINEAR);
+  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_S, 
+                             LOCAL_GL_CLAMP_TO_EDGE);
+  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_T, 
+                             LOCAL_GL_CLAMP_TO_EDGE);
+  mGLContext->fBindTexture(mFBOTextureTarget, 0);
+
+  mGLContext->fGenFramebuffers(1, &fbo);
+  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, fbo);
+  mGLContext->fFramebufferTexture2D(LOCAL_GL_FRAMEBUFFER,
+                                    LOCAL_GL_COLOR_ATTACHMENT0,
+                                    mFBOTextureTarget,
+                                    tex,
+                                    0);
+
+  // Making this call to fCheckFramebufferStatus prevents a crash on
+  // PowerVR. See bug 695246.
+  GLenum result = mGLContext->fCheckFramebufferStatus(LOCAL_GL_FRAMEBUFFER);
+  if (result != LOCAL_GL_FRAMEBUFFER_COMPLETE) {
+    nsAutoCString msg;
+    msg.Append("Framebuffer not complete -- error 0x");
+    msg.AppendInt(result, 16);
+    msg.Append(", mFBOTextureTarget 0x");
+    msg.AppendInt(mFBOTextureTarget, 16);
+    msg.Append(", aRect.width ");
+    msg.AppendInt(aRect.width);
+    msg.Append(", aRect.height ");
+    msg.AppendInt(aRect.height);
+    NS_RUNTIMEABORT(msg.get());
+  }
+
+  PrepareViewport(aRect.width, aRect.height, gfxMatrix());
+  mGLContext->fScissor(0, 0, aRect.width, aRect.height);
+
+  if (aInit == INIT_MODE_CLEAR) {
+    mGLContext->fClearColor(0.0, 0.0, 0.0, 0.0);
+    mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT);
+  }
+
+  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mBoundFBO);
+
+  *aFBO = fbo;
+  *aTexture = tex;
+}
+
 
 void
 CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
@@ -1233,7 +1243,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     program->Activate();
     program->SetTextureUnit(0);
-    // program->SetLayerOpacity(aOpacity); // TODO[nical]
+    program->SetLayerOpacity(aOpacity);
     program->SetLayerTransform(aTransform);
     program->SetRenderOffset(aOffset.x, aOffset.y);
     program->SetLayerQuadRect(aRect);
@@ -1336,8 +1346,10 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     gl::BindableTexture* textureCb = sourceCb->AsSourceOGL()->GetTexture();
     gl::BindableTexture* textureCr = sourceCr->AsSourceOGL()->GetTexture();
 
-    // TODO[nical] handle situation instead of asserting
-    MOZ_ASSERT(textureY && textureCb && textureCr);
+    if (!textureY && !textureCb && !textureCr) {
+      NS_WARNING("Invalid layer texture.");
+      return;
+    }
 
     gfxPattern::GraphicsFilter filter = gfx::ThebesFilter(effectYCbCr->mFilter);
 
@@ -1368,12 +1380,13 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     RefPtr<TextureSource> sourceOnWhite = effectComponentAlpha->mOnWhite;
     RefPtr<TextureSource> sourceOnBlack = effectComponentAlpha->mOnBlack;
 
-    // TODO[nical] if we can get into a situation where the source is invalid, we should
-    // handle it rather than assert
-    MOZ_ASSERT(sourceOnBlack->AsSourceOGL()->IsValid());
-    gl::BindableTexture* textureOnBlack = sourceOnBlack->AsSourceOGL()->GetTexture();
+    if (!sourceOnBlack->AsSourceOGL()->IsValid() ||
+        !sourceOnWhite->AsSourceOGL()->IsValid()) {
+      NS_WARNING("Invalid layer texture for component alpha");
+      return;
+    }
 
-    MOZ_ASSERT(sourceOnWhite->AsSourceOGL()->IsValid());
+    gl::BindableTexture* textureOnBlack = sourceOnBlack->AsSourceOGL()->GetTexture();
     gl::BindableTexture* textureOnWhite = sourceOnWhite->AsSourceOGL()->GetTexture();
 
     for (PRInt32 pass = 1; pass <=2; ++pass) {
