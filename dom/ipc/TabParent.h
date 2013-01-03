@@ -96,8 +96,7 @@ public:
     virtual bool RecvEvent(const RemoteDOMEvent& aEvent);
     virtual bool RecvPRenderFrameConstructor(PRenderFrameParent* actor,
                                              ScrollingBehavior* scrolling,
-                                             LayersBackend* backend,
-                                             int32_t* maxTextureSize,
+                                             TextureFactoryIdentifier* identifier,
                                              uint64_t* layersId);
     virtual bool RecvBrowserFrameOpenWindow(PBrowserParent* aOpener,
                                             const nsString& aURL,

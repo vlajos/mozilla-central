@@ -105,11 +105,6 @@ public:
    */
   void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
 
-  virtual void UpdateImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
-  {
-    NS_RUNTIMEABORT("Should not be reached");
-  };
-
   /**
    * TODO[nical] I am not extremely happy with exposing this.
    * Please avoid using it.
@@ -201,6 +196,12 @@ protected:
   {
     NS_RUNTIMEABORT("Should not be reached");
   }
+
+  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
+  {
+    NS_RUNTIMEABORT("Should not be reached");
+  };
+
 
   // Texture info
   TextureFlags mFlags;

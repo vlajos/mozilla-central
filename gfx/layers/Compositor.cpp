@@ -71,7 +71,7 @@ bool TextureHost::UpdateAsyncTexture()
 }
 
 void TextureHost::Update(gfxASurface* aSurface, nsIntRegion& aRegion) {
-  UpdateImpl(aSurface, aRegion);
+  UpdateRegionImpl(aSurface, aRegion);
   MOZ_ASSERT(!IsBuffered(), "Buffered TextureHosts are not meant to do thebes updates");
 }
 

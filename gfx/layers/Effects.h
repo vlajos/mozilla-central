@@ -33,14 +33,17 @@ struct Effect : public RefCounted<Effect>
 struct EffectMask : public Effect
 {
   EffectMask(TextureSource *aMaskTexture,
+             gfx::IntSize aSize,
              const gfx::Matrix4x4 &aMaskTransform)
     : Effect(EFFECT_MASK), mMaskTexture(aMaskTexture)
     , mIs3D(false)
+    , mSize(aSize)
     , mMaskTransform(aMaskTransform)
   {}
 
   RefPtr<TextureSource> mMaskTexture;
   bool mIs3D;
+  gfx::IntSize mSize;
   gfx::Matrix4x4 mMaskTransform;
 };
 

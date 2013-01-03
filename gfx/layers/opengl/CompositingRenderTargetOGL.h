@@ -51,6 +51,10 @@ public:
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
+  GLenum GetWrapMode() const MOZ_OVERRIDE {
+    return LOCAL_GL_REPEAT; // TODO[nical] not sure this is the right thing to return by default.
+  }
+
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor)
   {

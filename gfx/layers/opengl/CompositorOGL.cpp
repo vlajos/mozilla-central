@@ -732,8 +732,11 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
   case TEXTURE_SHARED:
     result = new TextureHostOGLShared(mGLContext);
     break;
-  case TEXTURE_SHARED_GL:
+  case TEXTURE_SHARED_BUFFERED:
     result = new TextureHostOGLShared(mGLContext, TextureHost::Buffering::BUFFERED);
+    break;
+  case TEXTURE_SHMEM_YCBCR:
+    result = new YCbCrTextureHostOGL(mGLContext);
     break;
   case TEXTURE_SHMEM:
     //TODO[nrc] fuck up
@@ -1110,7 +1113,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     // We're assuming that the gl backend won't cheat and use NPOT
     // textures when glContext says it can't (which seems to happen
     // on a mac when you force POT textures)
-    gfx::IntSize maskSize = CalculatePOTSize(ns2gfxSize(textureMask->GetSize()), mGLContext);
+    gfx::IntSize maskSize = CalculatePOTSize(effectMask->mSize, mGLContext);
 
     const gfx::Matrix4x4& maskTransform = effectMask->mMaskTransform;
     NS_ASSERTION(maskTransform.Is2D(), "How did we end up with a 3D transform here?!");
@@ -1208,7 +1211,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     }
 
     BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
-                                   texture->GetWrapMode(), flipped);
+                                   source->AsSourceOGL()->GetWrapMode(), flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1254,7 +1257,8 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskLayerTransform(maskQuadTransform);
     }
 
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(), texture->GetWrapMode(), flipped);
+    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
+                                   source->AsSourceOGL()->GetWrapMode(), flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1418,7 +1422,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       }
 
       BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
-                                     textureOnBlack->GetWrapMode());
+                                     sourceOnBlack->AsSourceOGL()->GetWrapMode());
 
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);

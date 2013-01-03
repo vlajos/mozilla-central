@@ -100,15 +100,10 @@ public:
         ProcessShared    = 0x1
     };
 
-    virtual nsIntSize GetSize() const = 0;
-
     virtual void BindTexture(GLenum aTextureUnit) = 0;
     virtual void ReleaseTexture() {}
 
-    virtual GLenum GetWrapMode() const = 0;
     virtual GLuint GetTextureID() = 0; // TODO[nical] const
-
-    virtual ContentType GetContentType() const = 0;
 
     class ScopedBindTexture
     {
@@ -141,7 +136,7 @@ public:
     BasicTexture(gl::GLContext* aGL, GLuint aExistingTexture);
     ~BasicTexture();
 
-    virtual nsIntSize GetSize() const MOZ_OVERRIDE
+    virtual nsIntSize GetSize() const// MOZ_OVERRIDE
     {
       return gfxIntSize(mSize.width, mSize.height);
     }
@@ -157,7 +152,7 @@ public:
 
     virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE;
 
-    virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
+    virtual GLenum GetWrapMode() const {
         return mWrapMode;
     }
 
@@ -165,7 +160,7 @@ public:
       return mTexture;
     }
 
-    virtual ContentType GetContentType() const MOZ_OVERRIDE {
+    virtual ContentType GetContentType() const {
       return mContentType;
     }
 
@@ -266,7 +261,7 @@ public:
         return false;
     }
 
-    nsIntSize GetSize() const MOZ_OVERRIDE { return mSize; }
+    nsIntSize GetSize() const { return mSize; }
 
     GLenum GetWrapMode() const { return mWrapMode; }
 

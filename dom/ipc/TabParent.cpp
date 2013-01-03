@@ -1251,8 +1251,7 @@ TabParent::RecvBrowserFrameOpenWindow(PBrowserParent* aOpener,
 bool
 TabParent::RecvPRenderFrameConstructor(PRenderFrameParent* actor,
                                        ScrollingBehavior* scrolling,
-                                       LayersBackend* backend,
-                                       int32_t* maxTextureSize,
+                                       TextureFactoryIdentifier* factoryIdentifier,
                                        uint64_t* layersId)
 {
   RenderFrameParent* rfp = GetRenderFrame();

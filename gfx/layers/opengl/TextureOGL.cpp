@@ -71,6 +71,52 @@ TemporaryRef<TextureSource> TextureHostOGL::GetPrimaryTextureSource()
   return result.forget();
 }
 
+uint32_t deserializeSurfaceDescriptor(const SurfaceDescriptor& surface,
+                                      GLContext* aGL,
+                                      uint32_t currenttextureType,
+                                      nsTArray<RefPtr<gl::BindableTexture> >& outTextures)
+{
+  AutoOpenSurface surf(OPEN_READ_ONLY, surface);
+  nsIntSize size = surf.Size();
+  if (outTextures.size() != 1) {
+    outTextures.resize(1);
+    outTextures[0] = nullptr;
+  }
+
+  if (!outTextures[0] ||
+      outTextures[0]->GetSize() != size ||
+      outTextures[0]->GetContentType() != surf.ContentType()) {
+    outTextures[0] = aGL->CreateTextureImage(size,
+                                             surf.ContentType(),
+                                             WrapMode(aGL, mFlags & AllowRepeat),
+                                             FlagsToGLFlags(mFlags)).get();
+  }
+  // XXX this is always just ridiculously slow
+  nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
+  outTextures[0]->DirectUpdate(surf.Get(), updateRegion);
+
+  return 1;
+}
+
+/*
+void TextureHostOGL::UpdateImpl(const SharedImage& aImage,
+                                bool* aIsInitialised,
+                                bool* aNeedsReset)
+{
+  switch (aImage.type()) {
+    case SharedImage::TSurfaceDescriptor:
+      mTextureType = deserializeSurfaceDescriptor(aImage.get_SurfaceDescriptor(),
+                                                  mGL,
+                                                  mTextures);
+      *aIsInitialised = true;
+      break;
+    default:
+      NS_WARNING("unsupported SharedImage type");
+      // what shall we do here ?
+    break;
+  }
+}
+*/
 void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
@@ -101,8 +147,8 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
 
 // thebes
 void
-TextureImageAsTextureHostOGL::UpdateImpl(gfxASurface* aSurface,
-                                  nsIntRegion& aRegion)
+TextureImageAsTextureHostOGL::UpdateRegionImpl(gfxASurface* aSurface,
+                                               nsIntRegion& aRegion)
 {
   if (!mTexture ||
       mTexture->GetSize() != aSurface->GetSize() ||
@@ -162,7 +208,9 @@ TextureHostOGL::AddMaskEffect(EffectChain& aEffects,
                        const gfx::Matrix4x4& aTransform,
                        bool aIs3D)
 {
-  EffectMask* effect = new EffectMask(new SimpleTextureSourceOGL(this), aTransform);
+  EffectMask* effect = new EffectMask(new SimpleTextureSourceOGL(this),
+                                      GetSize(),
+                                      aTransform);
   effect->mIs3D = aIs3D;
   aEffects.mEffects[EFFECT_MASK] = effect;
   return true;
@@ -303,144 +351,6 @@ YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
   return effect;
 }
 
-/*
-void
-GLTextureAsTextureHost::UpdateImpl(const SharedImage& aImage,
-                               bool* aIsInitialised,
-                               bool* aNeedsReset)
-{
-  AutoOpenSurface surf(OPEN_READ_ONLY, aImage.get_SurfaceDescriptor());
-     
-  mSize = gfx::IntSize(surf.Size().width, surf.Size().height);
- 
-  if (!mTexture.IsAllocated()) {
-    mTexture.Allocate(mGL);
- 
-    NS_ASSERTION(mTexture.IsAllocated(),
-                  "Texture allocation failed!");
- 
-    mGL->MakeCurrent();
-    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture.GetTextureID());
-    mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
-    mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
-  }
- 
-  //TODO[nrc] I don't see why we need a new image surface here, but should check
-  //nsRefPtr<gfxASurface> surf = new gfxImageSurface(aData.mYChannel,
-  //                                                  mSize,
-  //                                                  aData.mYStride,
-  //                                                  gfxASurface::ImageFormatA8);
-  GLuint textureId = mTexture.GetTextureID();
-  mGL->UploadSurfaceToTexture(surf.GetAsImage(),
-                              nsIntRect(0, 0, mSize.width, mSize.height),
-                              textureId,
-                              true);
-  NS_ASSERTION(textureId == mTexture.GetTextureID(), "texture handle id changed");
- 
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
-}
-
-void
-GLTextureAsTextureSource::UpdateImpl(gfx::IntSize aSize, uint8_t* aData, uint32_t aStride, GLContext* aGL)
-{
-  if (aSize != mSize || !mTexture.IsAllocated()) {
-    mSize = aSize;
-
-    if (!mTexture.IsAllocated()) {
-      mTexture.Allocate(aGL);
-    }
-
-    aGL->MakeCurrent();
-    aGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture.GetTextureID());
-    aGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
-    aGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
-  }
-
-  GLuint textureId = mTexture.GetTextureID();
-  nsRefPtr<gfxASurface> surf = new gfxImageSurface(aData,
-                                                   gfxIntSize(mSize.width, mSize.height),
-                                                   aStride,
-                                                   gfxASurface::ImageFormatA8);
-  aGL->UploadSurfaceToTexture(surf,
-                              nsIntRect(0, 0, mSize.width, mSize.height),
-                              textureId,
-                              true);
-  NS_ASSERTION(textureId == mTexture.GetTextureID(), "texture handle id changed");
-}
-
-void
-YCbCrTextureHost::UpdateImpl(const SharedImage& aImage,
-                         bool* aIsInitialised,
-                         bool* aNeedsReset)
-{
-  NS_ASSERTION(aImage.type() == SharedImage::TYCbCrImage, "SharedImage mismatch");
-
-  ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
-                             aImage.get_YCbCrImage().offset());
-
-  gfxIntSize gfxSize = shmemImage.GetYSize();
-  gfx::IntSize size = gfx::IntSize(gfxSize.width, gfxSize.height);
-  gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
-  gfx::IntSize CbCrSize = gfx::IntSize(gfxCbCrSize.width, gfxCbCrSize.height);
-
-  mTextures[0].UpdateImpl(size, shmemImage.GetYData(), shmemImage.GetYStride(), mGL);
-  mTextures[1].UpdateImpl(CbCrSize, shmemImage.GetCbData(), shmemImage.GetCbCrStride(), mGL);
-  mTextures[2].UpdateImpl(CbCrSize, shmemImage.GetCrData(), shmemImage.GetCbCrStride(), mGL);
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
-}
-
-Effect*
-YCbCrTextureHost::Lock(const gfx::Filter& aFilter)
-{
-  EffectYCbCr* effect = new EffectYCbCr(&mTextures[0],
-                                        &mTextures[1],
-                                        &mTextures[2],
-                                        aFilter);
-
-  return effect;
-}
-
-#ifdef MOZ_WIDGET_GONK
-void
-DirectExternalTextureHost::UpdateImpl(const SharedImage& aImage,
-                                      bool* aIsInitialised,
-                                      bool* aNeedsReset)
-{
-  NS_ASSERTION(aImage->type() == SharedImage::TSurfaceDescriptor);
-  NS_ASSERTION(aImage->get_SurfaceDescriptor().type() == SurfaceDescriptor::TSurfaceDescriptorGralloc));
-
-  const SurfaceDescriptorGralloc& desc = aImage->get_SurfaceDescriptor().get_SurfaceDescriptorGralloc();
-  sp<GraphicBuffer> graphicBuffer = GrallocBufferActor::GetFrom(desc);
-  mSize = gfx::IntSize(graphicBuffer->getWidth(), graphicBuffer->getHeight());
-  if (!mExternalBufferTexture.IsAllocated()) {
-    mExternalBufferTexture.Allocate(mGL);
-  }
-  mGL->MakeCurrent();
-  mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
-  mGL->BindExternalBuffer(mExternalBufferTexture.GetTextureID(), graphicBuffer->getNativeBuffer());
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
-}
-
-Effect*
-DirectExternalTextureHost::Lock(const gfx::Filter& aFilter)
-{
-  if (!mExternalBufferTexture.IsAllocated()) {
-    return nullptr;
-  }
-
-  return new EffectRGBAExternal(this, gfx::Matrix4x4(), false, aFilter, false);
-}
-#endif
-
-*/
 
 } // namespace
 } // namespace

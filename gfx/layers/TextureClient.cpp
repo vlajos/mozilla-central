@@ -145,7 +145,7 @@ TextureClientSharedGL::TextureClientSharedGL(ShadowLayerForwarder* aLayerForward
                                              BufferType aBufferType)
   : TextureClientShared(aLayerForwarder, aBufferType)
 {
-  mTextureInfo.memoryType = TEXTURE_SHARED_GL;
+  mTextureInfo.memoryType = TEXTURE_SHARED_BUFFERED;
 }
 
 TextureClientSharedGL::~TextureClientSharedGL()
@@ -292,7 +292,7 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
 {
   RefPtr<TextureClient> result = nullptr;
   switch (aTextureHostType) {
-  case TEXTURE_SHARED_GL:
+  case TEXTURE_SHARED_BUFFERED:
     if (aParentBackend == LAYERS_OPENGL) {
       result = new TextureClientSharedGL(aLayerForwarder, aBufferHostType);
     }

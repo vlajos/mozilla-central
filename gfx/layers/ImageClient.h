@@ -16,6 +16,7 @@ namespace layers {
 class ImageContainer;
 class ImageLayer;
 
+// abstract. Used for image and canvas layers
 class ImageClient : public BufferClient
 {
 public:

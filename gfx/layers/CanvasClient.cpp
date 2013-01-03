@@ -57,7 +57,9 @@ CanvasClientWebGL::CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer, 
                                        TextureFlags aFlags)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED_GL, BUFFER_SHARED, aLayer, true, aFlags);
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED_BUFFERED,
+                                                           BUFFER_SHARED,
+                                                           aLayer, true, aFlags);
 }
 
 void
