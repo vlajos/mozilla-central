@@ -71,6 +71,7 @@ TemporaryRef<TextureSource> TextureHostOGL::GetPrimaryTextureSource()
   return result.forget();
 }
 
+/*
 uint32_t deserializeSurfaceDescriptor(const SurfaceDescriptor& surface,
                                       GLContext* aGL,
                                       uint32_t currenttextureType,
@@ -97,7 +98,7 @@ uint32_t deserializeSurfaceDescriptor(const SurfaceDescriptor& surface,
 
   return 1;
 }
-
+*/
 /*
 void TextureHostOGL::UpdateImpl(const SharedImage& aImage,
                                 bool* aIsInitialised,
