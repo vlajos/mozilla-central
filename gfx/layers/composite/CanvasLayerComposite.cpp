@@ -38,18 +38,14 @@ CanvasLayerComposite::EnsureImageHost(BufferType aHostType)
   }
 }
 
-void
-CanvasLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo,
-                                     TextureHost* aTextureHost)
-{
-  EnsureImageHost(aTextureInfo.imageType);
-
+void CanvasLayerComposite::SetBufferHost(BufferHost* aHost) {
+  mImageHost = static_cast<ImageHost*>(aHost);
   if (CanUseOpaqueSurface()) {
-    aTextureHost->AddFlag(UseOpaqueSurface);
+    mImageHost->GetTextureHost()->AddFlag(UseOpaqueSurface);
   }
-  mImageHost->AddTextureHost(aTextureInfo, aTextureHost);
 }
 
+/*
 void
 CanvasLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
                                   const SharedImage& aFront,
@@ -63,7 +59,7 @@ CanvasLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
 
   *aNewBack = mImageHost->UpdateImage(aTextureInfo, aFront);
 }
-
+*/
 void
 CanvasLayerComposite::Destroy()
 {

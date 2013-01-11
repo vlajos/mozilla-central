@@ -41,7 +41,7 @@ struct EffectMask : public Effect
     , mMaskTransform(aMaskTransform)
   {}
 
-  RefPtr<TextureSource> mMaskTexture;
+  TextureSource* mMaskTexture;
   bool mIs3D;
   gfx::IntSize mSize;
   gfx::Matrix4x4 mMaskTransform;
@@ -67,7 +67,7 @@ struct EffectBGRX : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureSource> mBGRXTexture;
+  TextureSource* mBGRXTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -84,7 +84,7 @@ struct EffectRGBX : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureSource> mRGBXTexture;
+  TextureSource* mRGBXTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -101,7 +101,7 @@ struct EffectBGRA : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureSource> mBGRATexture;
+  TextureSource* mBGRATexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -118,7 +118,7 @@ struct EffectRGB : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureSource> mRGBTexture;
+  TextureSource* mRGBTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -135,7 +135,7 @@ struct EffectRGBA : public Effect
     , mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureSource> mRGBATexture;
+  TextureSource* mRGBATexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
@@ -153,7 +153,7 @@ struct EffectRGBAExternal : public Effect
     , mFilter(aFilter), mFlipped(aFlipped)
   {}
 
-  RefPtr<TextureSource> mRGBATexture;
+  TextureSource* mRGBATexture;
   gfx::Matrix4x4 mTextureTransform;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
@@ -168,9 +168,9 @@ struct EffectYCbCr : public Effect
     , mFilter(aFilter)
   {}
 
-  RefPtr<TextureSource> mY;
-  RefPtr<TextureSource> mCb;
-  RefPtr<TextureSource> mCr;
+  TextureSource* mY;
+  TextureSource* mCb;
+  TextureSource* mCr;
   mozilla::gfx::Filter mFilter;
 };
 
@@ -180,8 +180,8 @@ struct EffectComponentAlpha : public Effect
     : Effect(EFFECT_COMPONENT_ALPHA), mOnWhite(aOnWhite), mOnBlack(aOnBlack)
   {}
 
-  RefPtr<TextureSource> mOnWhite;
-  RefPtr<TextureSource> mOnBlack;
+  TextureSource* mOnWhite;
+  TextureSource* mOnBlack;
 };
 
 struct EffectSolidColor : public Effect

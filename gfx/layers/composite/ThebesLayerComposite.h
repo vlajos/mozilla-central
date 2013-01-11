@@ -56,12 +56,12 @@ public:
                            CompositingRenderTarget* aPreviousTarget = nullptr);
   virtual void CleanupResources();
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
+  virtual void SetBufferHost(BufferHost* aHost) MOZ_OVERRIDE;
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
-private:
   void EnsureBuffer(BufferType aHostType);
+private:
 
   nsRefPtr<AContentHost> mBuffer;
   nsIntRegion mValidRegionForNextBackBuffer;

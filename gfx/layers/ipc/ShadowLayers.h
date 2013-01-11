@@ -583,13 +583,7 @@ public:
     mShadowTransform = aMatrix;
   }
 
-  /**
-   * Add aTextureHost to a layer. This call should be passed directtly to
-   * the layer's buffer host, aTextureInfo can be used however the
-   * buffer host/client want to.
-   */
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo,
-                              TextureHost* aTextureHost) {}
+  virtual void SetBufferHost(BufferHost* aHost) {}
 
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }

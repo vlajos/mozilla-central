@@ -17,6 +17,7 @@ TextureHost::TextureHost(Buffering aBuffering)
   , mAsyncContainerID(0)
   , mAsyncTextureVersion(0)
   , mCompositorID(0)
+
 {
   if (aBuffering != Buffering::NONE) {
     mBuffer = new SharedImage;
@@ -52,6 +53,11 @@ void TextureHost::Update(const SharedImage& aImage,
   }
 }
 
+void TextureHost::Update(gfxASurface* aSurface, nsIntRegion& aRegion) {
+  UpdateRegionImpl(aSurface, aRegion);
+  MOZ_ASSERT(!IsBuffered(), "Buffered TextureHosts are not meant to do thebes updates");
+}
+
 bool TextureHost::UpdateAsyncTexture()
 {
   if (!IsAsync()) {
@@ -68,11 +74,6 @@ bool TextureHost::UpdateAsyncTexture()
     mAsyncTextureVersion = imgVersion;
   }
   return true;
-}
-
-void TextureHost::Update(gfxASurface* aSurface, nsIntRegion& aRegion) {
-  UpdateRegionImpl(aSurface, aRegion);
-  MOZ_ASSERT(!IsBuffered(), "Buffered TextureHosts are not meant to do thebes updates");
 }
 
 

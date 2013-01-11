@@ -50,12 +50,12 @@ public:
     NS_ERROR("Should never be called");
   }
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
-
+  virtual void SetBufferHost(BufferHost* aHost) MOZ_OVERRIDE;
+/*
   virtual void SwapTexture(const TextureInfo& aTextureInfo,
                            const SharedImage& aFront,
                            SharedImage* aNewBack);
-
+*/
   virtual void Disconnect()
   {
     Destroy();

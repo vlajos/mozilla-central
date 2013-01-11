@@ -33,8 +33,8 @@ public:
 
   gfx::IntSize GetSize() const MOZ_OVERRIDE { return mSize; }
 
-  gl::BindableTexture* GetTexture() const MOZ_OVERRIDE {
-    return mTexture.get();
+  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
+    mTexture->BindTexture(aTextureUnit);
   }
 
   bool IsValid() const MOZ_OVERRIDE {

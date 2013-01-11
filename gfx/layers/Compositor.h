@@ -44,6 +44,7 @@ class ShadowLayerForwarder;
 class ShadowableLayer;
 class PTextureChild;
 class TextureSourceOGL;
+class TextureParent;
 class Matrix4x4;
 
 typedef uint32_t TextureFlags;
@@ -55,7 +56,7 @@ const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 
 // a texture or part of texture used for compositing
-class TextureSource : public RefCounted<TextureSource>
+class TextureSource
 {
 public:
   virtual gfx::IntSize GetSize() const = 0;
@@ -105,25 +106,13 @@ public:
    */
   void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
 
-  /**
-   * TODO[nical] I am not extremely happy with exposing this.
-   * Please avoid using it.
-   */
-  virtual TemporaryRef<TextureSource> GetPrimaryTextureSource() = 0;
+  virtual TextureSource* GetPrimaryTextureSource() = 0;
 
   /**
    * Lock the texture host for compositing, returns an effect that should
    * be used to composite this texture.
    */
   virtual Effect* Lock(const gfx::Filter& aFilter) { return nullptr; }
-
-  /**
-   * Adds a mask effect using this texture as the mask, if possible.
-   * \return true if the effect was added, false otherwise.
-   */
-  virtual bool AddMaskEffect(EffectChain& aEffects,
-                             const gfx::Matrix4x4& aTransform,
-                             bool aIs3D = false) = 0;
 
   // Unlock the texture host after compositing
   virtual void Unlock() {}
@@ -152,6 +141,16 @@ public:
 #endif
 
   virtual LayerRenderState GetRenderState() = 0;
+
+  void SetTextureParent(TextureParent* aParent) {
+    mTextureParent = aParent;
+  }
+
+  TextureParent* GetTextureParent() const {
+    return mTextureParent;
+  }
+
+  // ImageBridge
 
   /**
    * \return true if this TextureHost uses ImageBridge
@@ -207,11 +206,13 @@ protected:
   TextureFlags mFlags;
   Buffering mBuffering;
   SharedImage* mBuffer;
+
   // ImageBridge
   uint64_t mAsyncContainerID;
   uint32_t mAsyncTextureVersion;
   uint32_t mCompositorID;
 
+  TextureParent* mTextureParent;
   ISurfaceDeAllocator* mDeAllocator;
 };
 
@@ -219,7 +220,7 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class CompositingRenderTarget : public TextureSource
+class CompositingRenderTarget : public TextureSource, public RefCounted<CompositingRenderTarget>
 {
 public:
   virtual ~CompositingRenderTarget() {}

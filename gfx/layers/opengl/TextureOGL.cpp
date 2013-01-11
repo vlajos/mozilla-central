@@ -65,12 +65,6 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
-TemporaryRef<TextureSource> TextureHostOGL::GetPrimaryTextureSource()
-{
-  RefPtr<TextureSource> result = new SimpleTextureSourceOGL(this, 0);
-  return result.forget();
-}
-
 /*
 uint32_t deserializeSurfaceDescriptor(const SurfaceDescriptor& surface,
                                       GLContext* aGL,
@@ -118,6 +112,11 @@ void TextureHostOGL::UpdateImpl(const SharedImage& aImage,
   }
 }
 */
+
+void TextureImageAsTextureHostOGL::BindTexture(GLenum aTextureUnit) {
+  mTexture->BindTexture(aTextureUnit);
+}
+
 void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
@@ -180,17 +179,13 @@ TextureImageAsTextureHostOGL::Lock(const gfx::Filter& aFilter)
 
   switch (mTexture->GetShaderProgramType()) {
   case gl::RGBXLayerProgramType :
-    return new EffectRGBX(new SimpleTextureSourceOGL(this),
-                          true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
   case gl::BGRXLayerProgramType :
-    return new EffectBGRX(new SimpleTextureSourceOGL(this),
-                          true, aFilter, mFlags & NeedsYFlip);
+    return new EffectBGRX(this, true, aFilter, mFlags & NeedsYFlip);
   case gl::BGRALayerProgramType :
-    return new EffectBGRA(new SimpleTextureSourceOGL(this),
-                          true, aFilter, mFlags & NeedsYFlip);
+    return new EffectBGRA(this, true, aFilter, mFlags & NeedsYFlip);
   case gl::RGBALayerProgramType :
-    return new EffectRGBA(new SimpleTextureSourceOGL(this),
-                          true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
   }
   NS_RUNTIMEABORT("Shader type not yet supported");
   return nullptr;
@@ -202,19 +197,6 @@ TextureImageAsTextureHostOGL::Abort()
   if (mTexture->InUpdate()) {
     mTexture->EndUpdate();
   }
-}
-
-bool
-TextureHostOGL::AddMaskEffect(EffectChain& aEffects,
-                       const gfx::Matrix4x4& aTransform,
-                       bool aIs3D)
-{
-  EffectMask* effect = new EffectMask(new SimpleTextureSourceOGL(this),
-                                      GetSize(),
-                                      aTransform);
-  effect->mIs3D = aIs3D;
-  aEffects.mEffects[EFFECT_MASK] = effect;
-  return true;
 }
 
 void
@@ -255,24 +237,24 @@ TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
     NS_ERROR("Failed to get shared handle details");
     return nullptr;
   }
- 
+
   MakeTextureIfNeeded(mGL, mTextureHandle);
- 
+
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
   mGL->fBindTexture(handleDetails.mTarget, mTextureHandle);
   if (!mGL->AttachSharedHandle(mShareType, mSharedHandle)) {
     NS_ERROR("Failed to bind shared texture handle");
     return nullptr;
   }
- 
+
   if (mFlags & UseOpaqueSurface) {
-    return new EffectRGBX(new SimpleTextureSourceOGL(this), true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerProgramType) {
-    return new EffectRGBA(new SimpleTextureSourceOGL(this), true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerExternalProgramType) {
     gfx::Matrix4x4 textureTransform;
     ToMatrix4x4(handleDetails.mTextureTransform, textureTransform);
-    return new EffectRGBAExternal(new SimpleTextureSourceOGL(this), textureTransform, true, aFilter, mFlags & NeedsYFlip);
+    return new EffectRGBAExternal(this, textureTransform, true, aFilter, mFlags & NeedsYFlip);
   } else {
     NS_RUNTIMEABORT("Shader type not yet supported");
     return nullptr;
@@ -301,20 +283,20 @@ YCbCrTextureHostOGL::UpdateImpl(const SharedImage& aImage,
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
   gfx::IntSize CbCrSize = gfx::IntSize(gfxCbCrSize.width, gfxCbCrSize.height);
 
-  if (!mYTexture || mYTexture->GetSize() != gfxSize) {
-    mYTexture = mGL->CreateTextureImage(gfxSize,
+  if (!mYTexture.mTexImage || mYTexture.mTexImage->GetSize() != gfxSize) {
+    mYTexture.mTexImage = mGL->CreateTextureImage(gfxSize,
                                         gfxASurface::CONTENT_ALPHA,
                                         WrapMode(mGL, mFlags), // TODO check the flags
                                         FlagsToGLFlags(mFlags)).get();
   }
-  if (!mCbTexture || mCbTexture->GetSize() != gfxCbCrSize) {
-    mCbTexture = mGL->CreateTextureImage(gfxCbCrSize,
+  if (!mCbTexture.mTexImage || mCbTexture.mTexImage->GetSize() != gfxCbCrSize) {
+    mCbTexture.mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
                                          gfxASurface::CONTENT_ALPHA,
                                          WrapMode(mGL, mFlags), // TODO check the flags
                                          FlagsToGLFlags(mFlags)).get();
   }
-  if (!mCrTexture || mCrTexture->GetSize() != gfxSize) {
-    mCrTexture = mGL->CreateTextureImage(gfxCbCrSize,
+  if (!mCrTexture.mTexImage || mCrTexture.mTexImage->GetSize() != gfxSize) {
+    mCrTexture.mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
                                          gfxASurface::CONTENT_ALPHA,
                                          WrapMode(mGL, mFlags), // TODO check the flags
                                          FlagsToGLFlags(mFlags)).get();
@@ -333,9 +315,9 @@ YCbCrTextureHostOGL::UpdateImpl(const SharedImage& aImage,
   nsIntRegion yRegion(nsIntRect(0, 0, gfxSize.width, gfxSize.height));
   nsIntRegion cbCrRegion(nsIntRect(0, 0, gfxCbCrSize.width, gfxCbCrSize.height));
   
-  mYTexture->DirectUpdate(&tempY, yRegion);
-  mCbTexture->DirectUpdate(&tempCb, cbCrRegion);
-  mCrTexture->DirectUpdate(&tempCr, cbCrRegion);
+  mYTexture.mTexImage->DirectUpdate(&tempY, yRegion);
+  mCbTexture.mTexImage->DirectUpdate(&tempCb, cbCrRegion);
+  mCrTexture.mTexImage->DirectUpdate(&tempCr, cbCrRegion);
 
   if (aIsInitialised) {
     *aIsInitialised = true;
@@ -345,11 +327,10 @@ YCbCrTextureHostOGL::UpdateImpl(const SharedImage& aImage,
 Effect*
 YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
 {
-  EffectYCbCr* effect = new EffectYCbCr(new SimpleTextureSourceOGL(this, 0),
-                                        new SimpleTextureSourceOGL(this, 1),
-                                        new SimpleTextureSourceOGL(this, 2),
-                                        aFilter);
-  return effect;
+  return new EffectYCbCr(&mYTexture,
+                         &mCbTexture,
+                         &mCrTexture,
+                         aFilter);
 }
 
 

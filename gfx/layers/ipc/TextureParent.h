@@ -13,6 +13,7 @@ namespace mozilla {
 namespace layers {
 
 class TextureHost;
+class BufferHost;
 class TextureInfo;
 
 class TextureParent : public PTextureParent
@@ -21,7 +22,7 @@ public:
     TextureParent(const TextureInfo& aInfo);
     virtual ~TextureParent();
 
-    void SetTextureHost(TextureHost* aTexture);
+    void SetTextureHost(TextureHost* aHost);
     TextureHost* GetTextureHost() const;
 
     const TextureInfo& GetTextureInfo() const {

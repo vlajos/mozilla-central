@@ -21,7 +21,7 @@ public:
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
 
-  virtual TemporaryRef<TextureHost> GetTextureHost() { return nullptr; }
+  TextureHost* GetTextureHost() MOZ_OVERRIDE { return nullptr; }
 
 protected:
   ImageHost(Compositor* aCompositor)
@@ -46,10 +46,9 @@ public:
   virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
                                   const SharedImage& aImage);
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo,
-                              TextureHost* aTextureHost);
+  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
 
-  virtual TemporaryRef<TextureHost> GetTextureHost() { return mTextureHost; }
+  TextureHost* GetTextureHost() MOZ_OVERRIDE { return mTextureHost; }
 
   virtual void Composite(EffectChain& aEffectChain,
                          float aOpacity,
@@ -69,9 +68,6 @@ public:
     return mTextureHost->GetRenderState();
   }
 
-  virtual bool AddMaskEffect(EffectChain& aEffects,
-                             const gfx::Matrix4x4& aTransform,
-                             bool is3D) MOZ_OVERRIDE;
 protected:
   RefPtr<TextureHost> mTextureHost;
   BufferType mType;
@@ -98,21 +94,13 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr);
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
+  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
+  TextureHost* GetTextureHost() MOZ_OVERRIDE { return mTextureHost; }
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
   {
     return LayerRenderState();
   }
-
-  virtual bool AddMaskEffect(EffectChain& aEffects,
-                           const gfx::Matrix4x4& aTransform,
-                           bool aIs3D = false)
-  {
-    return false;
-    NS_WARNING("Trying to use YCbCrImageHost as mask");
-  }
-
 
 protected:
   RefPtr<TextureHost> mTextureHost;
@@ -141,7 +129,7 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr);
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
+  virtual void AddTextureHost(TextureHost* aTextureHost);
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
   {
@@ -160,16 +148,11 @@ public:
     return LayerRenderState();
   }
 
-  bool AddMaskEffect(EffectChain& aEffects,
-                     const gfx::Matrix4x4& aTransform,
-                     bool aIs3D = false) MOZ_OVERRIDE {
-    return mImageHost->AddMaskEffect(aEffects, aTransform, aIs3D);
-  }
 protected:
   void EnsureImageHost(BufferType aType);
 
-  uint32_t mImageVersion;
   RefPtr<ImageHost> mImageHost;
+  uint32_t mImageVersion;
   uint64_t mImageContainerID;
 };
 

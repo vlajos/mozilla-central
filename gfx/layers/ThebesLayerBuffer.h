@@ -56,6 +56,7 @@ public:
     , mBufferRotation(0,0)
     , mBufferSizePolicy(aBufferSizePolicy)
   {
+    mBufferRect.SetEmpty();
     MOZ_COUNT_CTOR(ThebesLayerBuffer);
   }
   virtual ~ThebesLayerBuffer()
@@ -244,13 +245,13 @@ private:
    */
   bool HaveBuffer();
 
-  nsRefPtr<gfxASurface> mBuffer;
   /**
    * This member is only set transiently.  It's used to map mBuffer
    * when we're using surfaces that require explicit map/unmap.
    */
   AutoOpenSurface* mBufferProvider;
 
+  nsRefPtr<gfxASurface> mBuffer;
   /** The area of the ThebesLayer that is covered by the buffer as a whole */
   nsIntRect             mBufferRect;
   /**

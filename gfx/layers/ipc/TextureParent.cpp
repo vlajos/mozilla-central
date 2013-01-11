@@ -5,6 +5,7 @@
 
 #include "mozilla/layers/TextureParent.h"
 #include "mozilla/layers/Compositor.h"
+#include "BufferHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 namespace mozilla {
@@ -20,14 +21,14 @@ TextureParent::~TextureParent()
     mTextureHost = nullptr;
 }
 
-void TextureParent::SetTextureHost(TextureHost* aTexture)
+void TextureParent::SetTextureHost(TextureHost* aHost)
 {
-    mTextureHost = aTexture;
+    mTextureHost = aHost;
 }
 
 TextureHost* TextureParent::GetTextureHost() const
 {
-    return mTextureHost.get();
+    return mTextureHost;
 }
 
 

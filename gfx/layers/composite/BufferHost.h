@@ -14,6 +14,8 @@ namespace layers {
 class BufferHost : public RefCounted<BufferHost>
 {
 public:
+  BufferHost() {}
+
   virtual ~BufferHost() {}
 
   virtual BufferType GetType() = 0;
@@ -27,8 +29,14 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr) = 0;
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo,
-                              TextureHost* aTextureHost) = 0;
+  virtual void AddTextureHost(TextureHost* aTextureHost) = 0;
+
+  void Update(const SharedImage& aImage,
+              SharedImage* aResult = nullptr,
+              bool* aIsInitialised = nullptr,
+              bool* aNeedsReset = nullptr);
+
+  virtual TextureHost* GetTextureHost() = 0;
 
   virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
 
@@ -38,9 +46,9 @@ public:
    * Adds a mask effect using this texture as the mask, if possible.
    * \return true if the effect was added, false otherwise.
    */
-  virtual bool AddMaskEffect(EffectChain& aEffects,
-                             const gfx::Matrix4x4& aTransform,
-                             bool aIs3D = false) = 0;
+  bool AddMaskEffect(EffectChain& aEffects,
+                     const gfx::Matrix4x4& aTransform,
+                     bool aIs3D = false);
 };
 
 } // namespace

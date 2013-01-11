@@ -222,7 +222,7 @@ TiledThebesLayerOGL::RenderTile(const TiledTexture& aTile,
   //effectChain.mEffects[EFFECT_MASK] = mManager->MakeMaskEffect(mMaskLayer);
   RefPtr<Effect> effect;
   //TODO[nrc] should use a texture host
-  RefPtr<TextureSource> texture; //= new TextureOGL(gl(), aTile.mTextureHandle,
+  TextureSource* texture; //= new TextureOGL(gl(), aTile.mTextureHandle,
                                   //            gfx::IntSize(aTextureBounds.width, aTextureBounds.height));
 
   // TODO commented that to get it to build, not sure it makes sense to change

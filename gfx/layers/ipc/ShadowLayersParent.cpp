@@ -21,6 +21,7 @@
 #include "TiledLayerBuffer.h"
 #include "gfxPlatform.h" 
 #include "mozilla/layers/TextureParent.h"
+#include "BufferHost.h"
 
 typedef std::vector<mozilla::layers::EditReply> EditReplyVector;
 
@@ -459,16 +460,24 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
       Layer* layer = layerParent->AsLayer();
       MOZ_ASSERT(layer);
+
       Compositor* compositor
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+      const TextureInfo& info = textureParent->GetTextureInfo();
+      RefPtr<BufferHost> bufferHost
+        = compositor->CreateBufferHost(textureParent->GetTextureInfo().imageType);
+      RefPtr<TextureHost> textureHost
+        = compositor->CreateTextureHost(info.imageType,
+                                        info.memoryType,
+                                        info.textureFlags);
 
-      TextureInfo info = textureParent->GetTextureInfo();
-      RefPtr<TextureHost> textureHost = compositor->CreateTextureHost(info.imageType,
-                                                                      info.memoryType,
-                                                                      info.textureFlags);
       textureHost->SetCompositorID(compositor->GetCompositorID());
       textureParent->SetTextureHost(textureHost.get());
-      layer->AsShadowLayer()->AddTextureHost(textureParent->GetTextureInfo(), textureHost.get());
+      textureHost->SetTextureParent(textureParent);
+      bufferHost->AddTextureHost(textureHost);
+
+      // TODO[nical] in the future, we'll want to set the TextureSource rather than the BufferHost
+      layer->AsShadowLayer()->SetBufferHost(bufferHost.get());
       layer->AsShadowLayer()->SetAllocator(this);
       break;
     }
@@ -489,10 +498,10 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       ShadowLayer* shadowLayer = layer->AsShadowLayer();
 
       RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
-      TextureHost* texture = AsTextureHost(op);
+      TextureHost* host = AsTextureHost(op);
       shadowLayer->SetAllocator(this);
       SharedImage newBack;
-      texture->Update(op.image(), &newBack);
+      host->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
  
       RenderTraceInvalidateEnd(layer, "FF00FF");

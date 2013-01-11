@@ -41,13 +41,10 @@ ThebesLayerComposite::~ThebesLayerComposite()
 {}
 
 void
-ThebesLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
+ThebesLayerComposite::SetBufferHost(BufferHost* aHost)
 {
-  EnsureBuffer(aTextureInfo.imageType);
-
-  mBuffer->AddTextureHost(aTextureInfo, aTextureHost);
+  mBuffer= static_cast<ContentHost*>(aHost);
 }
-
 
 void
 ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
@@ -61,7 +58,8 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
   }
 }
 
-// TODO[nical] remove swap at the layer level
+// TODO[nical] remove swap at the layer level and move it to 
+// BufferHost
 // This will probably go away with buffer rotation when we
 // will use tiling instead.
 void

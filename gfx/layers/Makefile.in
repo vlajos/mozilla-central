@@ -72,6 +72,7 @@ CPPSRCS = \
         BasicLayersImpl.cpp \
         BasicThebesLayer.cpp \
         BasicTiledThebesLayer.cpp \
+        BufferHost.cpp \
         ImageContainer.cpp \
         Layers.cpp \
         RenderTrace.cpp \

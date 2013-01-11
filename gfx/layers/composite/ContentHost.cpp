@@ -25,17 +25,17 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
   if (!mTextureHost || !mInitialised)
     return;
+  // TODO: if this is main-thread code, we don't need to ensure
+  // For non-async BufferHost UpdateAsyncTexture does nothing.
   mTextureHost->UpdateAsyncTexture();
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
-      // TODO: if this is main-thread code, we don't need to ensure
-      // For non-async TextureHost UpdateAsyncTexture does nothing.
       mTextureHostOnWhite->UpdateAsyncTexture();
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
-        RefPtr<TextureSource> sourceOnBlack = mTextureHost->GetPrimaryTextureSource();
-        RefPtr<TextureSource> sourceOnWhite = mTextureHostOnWhite->GetPrimaryTextureSource();
+        TextureSource* sourceOnBlack = mTextureHost->GetPrimaryTextureSource();
+        TextureSource* sourceOnWhite = mTextureHostOnWhite->GetPrimaryTextureSource();
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
-          new EffectComponentAlpha(sourceOnBlack.get(), sourceOnWhite.get());
+          new EffectComponentAlpha(sourceOnBlack, sourceOnWhite);
       } else {
         return;
       }
@@ -155,11 +155,16 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
 }
 
-bool ContentHost::AddMaskEffect(EffectChain& aEffects,
-                                const gfx::Matrix4x4& aTransform,
-                                bool aIs3D)
+void 
+ContentHost::AddTextureHost(TextureHost* aTextureHost)
 {
-  return mTextureHost->AddMaskEffect(aEffects, aTransform, aIs3D);
+  mTextureHost = aTextureHost;
+}
+
+TextureHost*
+ContentHost::GetTextureHost()
+{
+  return mTextureHost.get();
 }
 
 void
@@ -204,6 +209,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   aUpdatedRegionBack->SetEmpty();
 }
 
+/*
 void
 ContentHostTexture::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
@@ -212,6 +218,7 @@ ContentHostTexture::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost*
                "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }
+*/
 
 void
 ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,

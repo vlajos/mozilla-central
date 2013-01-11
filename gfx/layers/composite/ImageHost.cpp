@@ -13,6 +13,11 @@
 namespace mozilla {
 namespace layers {
 
+void
+ImageHostSingle::AddTextureHost(TextureHost* aHost) {
+  mTextureHost = aHost;
+}
+
 SharedImage
 ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
                              const SharedImage& aImage)
@@ -38,12 +43,6 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     }
   }
   return result;
-}
-
-bool
-ImageHostSingle::AddMaskEffect(EffectChain& aEffects, const gfx::Matrix4x4& aTransform, bool is3D)
-{
-  return mTextureHost->AddMaskEffect(aEffects, aTransform, is3D);
 }
 
 void
@@ -87,6 +86,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   mTextureHost->Unlock();
 }
 
+/*
 void
 ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
@@ -99,7 +99,7 @@ ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aT
                "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }
-
+*/
 SharedImage
 YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
                             const SharedImage& aImage)
@@ -123,6 +123,10 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
                           const gfx::Rect& aClipRect,
                           const nsIntRegion* aVisibleRegion)
 {
+  if (!mTextureHost) {
+    NS_WARNING("YCbCrImageHost::Composite without TextureHost");
+    return;
+  }
   mTextureHost->UpdateAsyncTexture();
   if (Effect* effect = mTextureHost->Lock(aFilter)) {
     NS_ASSERTION(effect->mType == EFFECT_YCBCR, "expected YCbCr effect");
@@ -139,10 +143,8 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
 }
 
 void
-YCbCrImageHost::AddTextureHost(const TextureInfo& aTextureInfo,
-                               TextureHost* aTextureHost)
+YCbCrImageHost::AddTextureHost(TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YCBCR, "BufferType mismatch.");
   mTextureHost = aTextureHost;
 }
 
@@ -161,7 +163,7 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id.imageType,
                                                                      id.memoryType,
                                                                      id.textureFlags);
-    mImageHost->AddTextureHost(id, textureHost);
+    mImageHost->AddTextureHost(textureHost);
   }
 }
 
@@ -225,9 +227,8 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
 }
 
 void
-ImageHostBridge::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
+ImageHostBridge::AddTextureHost(TextureHost* aTextureHost)
 {
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_BRIDGE, "BufferType mismatch.");
   // nothing to do
 }
 

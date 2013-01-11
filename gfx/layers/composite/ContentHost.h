@@ -140,14 +140,13 @@ public:
   }
 #endif
 
+  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
+  TextureHost* GetTextureHost() MOZ_OVERRIDE;
+
 protected:
   virtual nsIntPoint GetOriginOffset() {
     return mBufferRect.TopLeft() - mBufferRotation;
   }
-
-  virtual bool AddMaskEffect(EffectChain& aEffects,
-                           const gfx::Matrix4x4& aTransform,
-                           bool aIs3D = false) MOZ_OVERRIDE;
 
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
@@ -197,8 +196,6 @@ public:
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
-
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 };
 
 }

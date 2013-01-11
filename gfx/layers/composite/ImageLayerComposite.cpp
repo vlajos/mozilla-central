@@ -15,6 +15,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
+#include "BufferHost.h"
 
 using namespace mozilla::gfx;
 
@@ -33,27 +34,11 @@ ImageLayerComposite::~ImageLayerComposite()
 {}
 
 void
-ImageLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
+ImageLayerComposite::SetBufferHost(BufferHost* aHost)
 {
-  EnsureImageHost(aTextureInfo.imageType);
-
-  mImageHost->AddTextureHost(aTextureInfo, aTextureHost);
+  mImageHost = static_cast<ImageHost*>(aHost);
 }
-/*
-void
-ImageLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
-                                 const SharedImage& aFront,
-                                 SharedImage* aNewBack)
-{
-  if (mDestroyed ||
-      !mImageHost) {
-    *aNewBack = aFront;
-    return;
-  }
 
-  *aNewBack = mImageHost->UpdateImage(aTextureInfo, aFront);
-}
-*/
 void
 ImageLayerComposite::EnsureImageHost(BufferType aHostType)
 {

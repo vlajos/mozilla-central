@@ -238,11 +238,12 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   bool canReuseBuffer;
   nsIntRect destBufferRect;
 
+  // TODO Assuming this is really bad.
   nsRefPtr<TextureImage> texImage = mTextureHost
-                                    ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHost.get())->GetTexture())
+                                    ? static_cast<TextureImageAsTextureHostOGL*>(mTextureHost.get())->GetTextureImage()
                                     : nullptr;
   nsRefPtr<TextureImage> texImageOnWhite = mTextureHostOnWhite 
-                                           ? static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHostOnWhite.get())->GetTexture())
+                                           ? static_cast<TextureImageAsTextureHostOGL*>(mTextureHostOnWhite.get())->GetTextureImage()
                                            : nullptr;
   while (true) {
     mode = mLayer->GetSurfaceMode();
@@ -476,7 +477,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         dstRectDrawBottomLeft.MoveBy(-destBufferRect.TopLeft());
 
         TextureImage* texImageSource
-          = static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHost.get())->GetTexture());
+          = static_cast<TextureImageAsTextureHostOGL*>(mTextureHost.get())->GetTextureImage();
         
         destBuffer->Resize(destBufferRect.Size());
 
@@ -502,7 +503,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
           TextureImage* texImageSourceOnWhite 
-              = static_cast<TextureImage*>(static_cast<TextureHostOGL*>(mTextureHostOnWhite.get())->GetTexture());
+            = static_cast<TextureImageAsTextureHostOGL*>(mTextureHostOnWhite.get())->GetTextureImage();
         
           gl()->BlitTextureImage(texImageSourceOnWhite, srcRect,
                                  destBufferOnWhite, dstRect);

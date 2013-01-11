@@ -40,7 +40,7 @@ public:
 
   virtual void Disconnect();
 
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
+  virtual void SetBufferHost(BufferHost* aHost) MOZ_OVERRIDE;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect);
 
