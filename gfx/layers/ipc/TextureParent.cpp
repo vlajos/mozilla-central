@@ -5,7 +5,7 @@
 
 #include "mozilla/layers/TextureParent.h"
 #include "mozilla/layers/Compositor.h"
-#include "BufferHost.h"
+#include "CompositableHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 
 namespace mozilla {

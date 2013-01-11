@@ -37,7 +37,7 @@ public:
                            CompositingRenderTarget* aPreviousTarget = nullptr);
   virtual void CleanupResources() {};
 
-  BufferHost* GetBufferHost() MOZ_OVERRIDE { return nullptr; }
+  CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 };

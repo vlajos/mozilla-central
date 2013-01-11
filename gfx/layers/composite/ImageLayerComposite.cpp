@@ -15,7 +15,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
-#include "BufferHost.h"
+#include "CompositableHost.h"
 
 using namespace mozilla::gfx;
 
@@ -34,7 +34,7 @@ ImageLayerComposite::~ImageLayerComposite()
 {}
 
 void
-ImageLayerComposite::SetBufferHost(BufferHost* aHost)
+ImageLayerComposite::SetCompositableHost(CompositableHost* aHost)
 {
   mImageHost = static_cast<ImageHost*>(aHost);
 }
@@ -44,7 +44,7 @@ ImageLayerComposite::EnsureImageHost(BufferType aHostType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aHostType) {
-    RefPtr<BufferHost> bufferHost = mCompositor->CreateBufferHost(aHostType);
+    RefPtr<CompositableHost> bufferHost = mCompositor->CreateCompositableHost(aHostType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
   }
 }
@@ -109,8 +109,8 @@ ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                         clipRect);
 }
 
-BufferHost*
-ImageLayerComposite::GetBufferHost() {
+CompositableHost*
+ImageLayerComposite::GetCompositableHost() {
   return mImageHost.get();
 }
 

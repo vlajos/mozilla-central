@@ -50,7 +50,7 @@ struct TextureFactoryIdentifier
 /**
  * Identifies a texture client/host pair and their type. Sent with updates
  * from a drawing layers to a compositing layer, it should be passed directly
- * to the BufferHost. How the identifier is used depends on the buffer
+ * to the CompositableHost. How the identifier is used depends on the buffer
  * client/host pair.
  */
 struct TextureInfo

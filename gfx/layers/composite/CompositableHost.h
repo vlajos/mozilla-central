@@ -11,12 +11,12 @@
 namespace mozilla {
 namespace layers {
 
-class BufferHost : public RefCounted<BufferHost>
+class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
-  BufferHost() {}
+  CompositableHost() {}
 
-  virtual ~BufferHost() {}
+  virtual ~CompositableHost() {}
 
   virtual BufferType GetType() = 0;
 

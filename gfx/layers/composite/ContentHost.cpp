@@ -26,7 +26,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   if (!mTextureHost || !mInitialised)
     return;
   // TODO: if this is main-thread code, we don't need to ensure
-  // For non-async BufferHost UpdateAsyncTexture does nothing.
+  // For non-async CompositableHost UpdateAsyncTexture does nothing.
   mTextureHost->UpdateAsyncTexture();
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {

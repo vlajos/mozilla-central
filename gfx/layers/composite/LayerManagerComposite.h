@@ -252,7 +252,7 @@ public:
                            const nsIntRect& aClipRect,
                            CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
-  virtual BufferHost* GetBufferHost() = 0;
+  virtual CompositableHost* GetCompositableHost() = 0;
 
   virtual void CleanupResources() = 0;
 

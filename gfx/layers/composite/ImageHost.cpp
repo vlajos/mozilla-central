@@ -153,7 +153,7 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aType) {
-    RefPtr<BufferHost> bufferHost = mCompositor->CreateBufferHost(aType);
+    RefPtr<CompositableHost> bufferHost = mCompositor->CreateCompositableHost(aType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
 
     TextureInfo id;

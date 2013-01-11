@@ -6,14 +6,14 @@
 #ifndef MOZILLA_GFX_IMAGEHOST_H
 #define MOZILLA_GFX_IMAGEHOST_H
 
-#include "BufferHost.h"
+#include "CompositableHost.h"
 #include "mozilla/layers/ImageContainerParent.h"
 
 namespace mozilla {
 namespace layers {
 
 // abstract
-class ImageHost : public BufferHost
+class ImageHost : public CompositableHost
 {
 public:
   virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,

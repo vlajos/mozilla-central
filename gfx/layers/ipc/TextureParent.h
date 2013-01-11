@@ -13,7 +13,7 @@ namespace mozilla {
 namespace layers {
 
 class TextureHost;
-class BufferHost;
+class CompositableHost;
 class TextureInfo;
 
 class TextureParent : public PTextureParent

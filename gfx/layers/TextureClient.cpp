@@ -210,13 +210,13 @@ CompositingFactory::TypeForImage(Image* aImage) {
 
 /* static */ TemporaryRef<ImageClient>
 CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
-                                      BufferType aBufferHostType,
+                                      BufferType aCompositableHostType,
                                       ShadowLayerForwarder* aLayerForwarder,
                                       ShadowableLayer* aLayer,
                                       TextureFlags aFlags)
 {
   RefPtr<ImageClient> result = nullptr;
-  switch (aBufferHostType) {
+  switch (aCompositableHostType) {
   case BUFFER_SHARED:
     if (aParentBackend == LAYERS_OPENGL) {
       result = new ImageClientShared(aLayerForwarder, aLayer, aFlags);
@@ -244,15 +244,15 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
 
 /* static */ TemporaryRef<CanvasClient>
 CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
-                                       BufferType aBufferHostType,
+                                       BufferType aCompositableHostType,
                                        ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer,
                                        TextureFlags aFlags)
 {
-  if (aBufferHostType == BUFFER_DIRECT) {
+  if (aCompositableHostType == BUFFER_DIRECT) {
     return new CanvasClient2D(aLayerForwarder, aLayer, aFlags);
   }
-  if (aBufferHostType == BUFFER_SHARED) {
+  if (aCompositableHostType == BUFFER_SHARED) {
     if (aParentBackend == LAYERS_OPENGL) {
       return new CanvasClientWebGL(aLayerForwarder, aLayer, aFlags);
     }
@@ -263,7 +263,7 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
 
 /* static */ TemporaryRef<ContentClient>
 CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
-                                        BufferType aBufferHostType,
+                                        BufferType aCompositableHostType,
                                         ShadowLayerForwarder* aLayerForwarder,
                                         ShadowableLayer* aLayer,
                                         TextureFlags aFlags)
@@ -271,10 +271,10 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
   if (aParentBackend != LAYERS_OPENGL) {
     return nullptr;
   }
-  if (aBufferHostType == BUFFER_CONTENT) {
+  if (aCompositableHostType == BUFFER_CONTENT) {
     return new ContentClientTexture(aLayerForwarder, aLayer, aFlags);
   }
-  if (aBufferHostType == BUFFER_CONTENT_DIRECT) {
+  if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
       return new ContentClientDirect(aLayerForwarder, aLayer, aFlags);
     }
@@ -286,7 +286,7 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
 /* static */ TemporaryRef<TextureClient>
 CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
                                         TextureHostType aTextureHostType,
-                                        BufferType aBufferHostType,
+                                        BufferType aCompositableHostType,
                                         ShadowLayerForwarder* aLayerForwarder,
                                         bool aStrict /* = false */)
 {
@@ -294,21 +294,21 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
   switch (aTextureHostType) {
   case TEXTURE_SHARED_BUFFERED:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientSharedGL(aLayerForwarder, aBufferHostType);
+      result = new TextureClientSharedGL(aLayerForwarder, aCompositableHostType);
     }
     break;
   case TEXTURE_SHARED:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientShared(aLayerForwarder, aBufferHostType);
+      result = new TextureClientShared(aLayerForwarder, aCompositableHostType);
     }
     break;
   case TEXTURE_SHMEM:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientShmem(aLayerForwarder, aBufferHostType);
+      result = new TextureClientShmem(aLayerForwarder, aCompositableHostType);
     }
     break;
   case TEXTURE_BRIDGE:
-    result = new TextureClientBridge(aLayerForwarder, aBufferHostType);
+    result = new TextureClientBridge(aLayerForwarder, aCompositableHostType);
     break;
   default:
     return result.forget();

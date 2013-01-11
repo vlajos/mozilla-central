@@ -33,7 +33,7 @@ struct EffectChain;
 class SharedImage;
 class Image;
 class ISurfaceDeAllocator;
-class BufferHost;
+class CompositableHost;
 class TextureHost;
 class TextureInfo;
 class TextureClient;
@@ -125,7 +125,7 @@ public:
 
   // TODO[nical] these probably doesn't belong here
   // nrc: do we not need them in order to composite a texture?
-  // Or should we pass them in from the BufferHost? Or store in a TextureSource or something?
+  // Or should we pass them in from the CompositableHost? Or store in a TextureSource or something?
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
@@ -279,8 +279,8 @@ public:
   /**
    * Create a new buffer host of a kind specified by aType
    */
-  virtual TemporaryRef<BufferHost> 
-    CreateBufferHost(BufferType aType) = 0;
+  virtual TemporaryRef<CompositableHost>
+    CreateCompositableHost(BufferType aType) = 0;
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId

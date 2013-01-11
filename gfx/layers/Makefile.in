@@ -35,7 +35,7 @@ EXPORTS = \
         BasicLayersImpl.h \
         BasicTiledThebesLayer.h \
         BasicThebesLayer.h \
-        BufferHost.h \
+        CompositableHost.h \
         LayerManagerComposite.h \
         Composer2D.h \
         GonkIOSurfaceImage.h \
@@ -72,7 +72,7 @@ CPPSRCS = \
         BasicLayersImpl.cpp \
         BasicThebesLayer.cpp \
         BasicTiledThebesLayer.cpp \
-        BufferHost.cpp \
+        CompositableHost.cpp \
         ImageContainer.cpp \
         Layers.cpp \
         RenderTrace.cpp \

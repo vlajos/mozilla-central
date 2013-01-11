@@ -583,7 +583,7 @@ public:
     mShadowTransform = aMatrix;
   }
 
-  virtual void SetBufferHost(BufferHost* aHost) {}
+  virtual void SetCompositableHost(CompositableHost* aHost) {}
 
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }

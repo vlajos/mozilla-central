@@ -50,7 +50,7 @@ public:
     NS_ERROR("Should never be called");
   }
 
-  virtual void SetBufferHost(BufferHost* aHost) MOZ_OVERRIDE;
+  virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 /*
   virtual void SwapTexture(const TextureInfo& aTextureInfo,
                            const SharedImage& aFront,
@@ -70,7 +70,7 @@ public:
 
   virtual void CleanupResources();
 
-  BufferHost* GetBufferHost() MOZ_OVERRIDE;
+  CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 

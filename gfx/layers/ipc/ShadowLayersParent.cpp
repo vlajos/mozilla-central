@@ -21,7 +21,7 @@
 #include "TiledLayerBuffer.h"
 #include "gfxPlatform.h" 
 #include "mozilla/layers/TextureParent.h"
-#include "BufferHost.h"
+#include "CompositableHost.h"
 
 typedef std::vector<mozilla::layers::EditReply> EditReplyVector;
 
@@ -464,8 +464,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       Compositor* compositor
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       const TextureInfo& info = textureParent->GetTextureInfo();
-      RefPtr<BufferHost> bufferHost
-        = compositor->CreateBufferHost(textureParent->GetTextureInfo().imageType);
+      RefPtr<CompositableHost> bufferHost
+        = compositor->CreateCompositableHost(textureParent->GetTextureInfo().imageType);
       RefPtr<TextureHost> textureHost
         = compositor->CreateTextureHost(info.imageType,
                                         info.memoryType,
@@ -476,8 +476,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       textureHost->SetTextureParent(textureParent);
       bufferHost->AddTextureHost(textureHost);
 
-      // TODO[nical] in the future, we'll want to set the TextureSource rather than the BufferHost
-      layer->AsShadowLayer()->SetBufferHost(bufferHost.get());
+      // TODO[nical] in the future, we'll want to set the TextureSource rather than the CompositableHost
+      layer->AsShadowLayer()->SetCompositableHost(bufferHost.get());
       layer->AsShadowLayer()->SetAllocator(this);
       break;
     }

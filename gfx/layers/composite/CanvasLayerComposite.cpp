@@ -33,12 +33,12 @@ CanvasLayerComposite::EnsureImageHost(BufferType aHostType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aHostType) {
-    RefPtr<BufferHost> bufferHost = mCompositor->CreateBufferHost(aHostType);
+    RefPtr<CompositableHost> bufferHost = mCompositor->CreateCompositableHost(aHostType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
   }
 }
 
-void CanvasLayerComposite::SetBufferHost(BufferHost* aHost) {
+void CanvasLayerComposite::SetCompositableHost(CompositableHost* aHost) {
   mImageHost = static_cast<ImageHost*>(aHost);
   if (CanUseOpaqueSurface()) {
     mImageHost->GetTextureHost()->AddFlag(UseOpaqueSurface);
@@ -127,8 +127,8 @@ CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aC
                         clipRect);
 }
 
-BufferHost*
-CanvasLayerComposite::GetBufferHost() {
+CompositableHost*
+CanvasLayerComposite::GetCompositableHost() {
   return mImageHost.get();
 }
 

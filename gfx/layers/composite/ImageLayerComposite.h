@@ -40,7 +40,7 @@ public:
 
   virtual void Disconnect();
 
-  virtual void SetBufferHost(BufferHost* aHost) MOZ_OVERRIDE;
+  virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect);
 
@@ -55,7 +55,7 @@ public:
 
   virtual void CleanupResources();
 
-  BufferHost* GetBufferHost() MOZ_OVERRIDE;
+  CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 

@@ -14,7 +14,7 @@
 #include "ImageLayerComposite.h"
 #include "ColorLayerComposite.h"
 #include "CanvasLayerComposite.h"
-#include "BufferHost.h"
+#include "CompositableHost.h"
 #include "mozilla/gfx/Matrix.h"
 //TODO[nrc] tiled thebes layers
 //#include "TiledThebesLayerComposite.h"
@@ -344,7 +344,7 @@ LayerManagerComposite::AddMaskEffect(Layer* aMaskLayer, EffectChain& aEffects, b
   LayerComposite* maskLayerComposite = static_cast<LayerComposite*>(aMaskLayer->ImplData());
   gfx::Matrix4x4 transform;
   ToMatrix4x4(aMaskLayer->GetEffectiveTransform(), transform);
-  return maskLayerComposite->GetBufferHost()->AddMaskEffect(aEffects, transform, aIs3D);
+  return maskLayerComposite->GetCompositableHost()->AddMaskEffect(aEffects, transform, aIs3D);
 }
 
 TemporaryRef<DrawTarget>

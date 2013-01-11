@@ -3,14 +3,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "BufferHost.h"
+#include "CompositableHost.h"
 #include "mozilla/layers/ImageContainerParent.h"
 #include "Effects.h"
 
 namespace mozilla {
 namespace layers {
 
-void BufferHost::Update(const SharedImage& aImage,
+void CompositableHost::Update(const SharedImage& aImage,
                         SharedImage* aResult,
                         bool* aIsInitialised,
                         bool* aNeedsReset) {
@@ -22,7 +22,7 @@ void BufferHost::Update(const SharedImage& aImage,
   GetTextureHost()->Update(aImage, aResult, aIsInitialised, aNeedsReset);
 }
 
-bool BufferHost::AddMaskEffect(EffectChain& aEffects,
+bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
                                const gfx::Matrix4x4& aTransform,
                                bool aIs3D)
 {

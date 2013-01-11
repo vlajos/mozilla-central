@@ -41,7 +41,7 @@ ThebesLayerComposite::~ThebesLayerComposite()
 {}
 
 void
-ThebesLayerComposite::SetBufferHost(BufferHost* aHost)
+ThebesLayerComposite::SetCompositableHost(CompositableHost* aHost)
 {
   mBuffer= static_cast<ContentHost*>(aHost);
 }
@@ -51,7 +51,7 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
 {
   if (!mBuffer ||
       mBuffer->GetType() != aHostType) {
-    RefPtr<BufferHost> bufferHost = mCompositor->CreateBufferHost(aHostType);
+    RefPtr<CompositableHost> bufferHost = mCompositor->CreateCompositableHost(aHostType);
     NS_ASSERTION(bufferHost->GetType() == BUFFER_CONTENT ||
                  bufferHost->GetType() == BUFFER_CONTENT_DIRECT, "bad buffer type");
     mBuffer = static_cast<AContentHost*>(bufferHost.get());
@@ -59,7 +59,7 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
 }
 
 // TODO[nical] remove swap at the layer level and move it to 
-// BufferHost
+// CompositableHost
 // This will probably go away with buffer rotation when we
 // will use tiling instead.
 void
@@ -169,8 +169,8 @@ ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                      &GetEffectiveVisibleRegion());
 }
 
-BufferHost*
-ThebesLayerComposite::GetBufferHost() {
+CompositableHost*
+ThebesLayerComposite::GetCompositableHost() {
   return mBuffer.get();
 }
 

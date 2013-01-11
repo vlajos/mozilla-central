@@ -682,10 +682,10 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
   }
 }
 
-TemporaryRef<BufferHost> 
-CompositorOGL::CreateBufferHost(BufferType aType)
+TemporaryRef<CompositableHost>
+CompositorOGL::CreateCompositableHost(BufferType aType)
 {
-  RefPtr<BufferHost> result;
+  RefPtr<CompositableHost> result;
   switch (aType) {
   case BUFFER_YCBCR:
     result = new YCbCrImageHost(this);

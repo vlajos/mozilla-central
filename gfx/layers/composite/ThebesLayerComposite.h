@@ -46,7 +46,7 @@ public:
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
-  BufferHost* GetBufferHost() MOZ_OVERRIDE;
+  CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
   // LayerComposite impl
   void Destroy();
   Layer* GetLayer();
@@ -56,7 +56,7 @@ public:
                            CompositingRenderTarget* aPreviousTarget = nullptr);
   virtual void CleanupResources();
 
-  virtual void SetBufferHost(BufferHost* aHost) MOZ_OVERRIDE;
+  virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 

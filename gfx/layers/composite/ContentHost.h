@@ -7,7 +7,7 @@
 #define GFX_CONTENTHOST_H
 
 #include "ThebesLayerBuffer.h"
-#include "BufferHost.h"
+#include "CompositableHost.h"
 
 namespace mozilla {
 namespace layers {
@@ -54,7 +54,7 @@ protected:
   RefPtr<TextureHost> mTextureHostOnWhite;
 };
 
-class AContentHost : public BufferHost
+class AContentHost : public CompositableHost
 {
 public:
   /**
