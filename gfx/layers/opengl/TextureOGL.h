@@ -52,16 +52,18 @@ public:
   virtual GLenum GetWrapMode() const = 0;
 };
 
-class TextureImageAsTextureHostOGL : public TextureHostOGL
+class TextureImageAsTextureHostOGL : public TextureHost
                                    , public TextureSourceOGL
                                    , public TileIterator
 {
 public:
-  TextureImageAsTextureHostOGL(gl::GLContext* aGL, TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
-                        gl::TextureImage* aTexImage = nullptr)
-  : mGL(aGL), mTexture(aTexImage)
+  TextureImageAsTextureHostOGL(gl::GLContext* aGL,
+                               gl::TextureImage* aTexImage = nullptr,
+                               TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
+                               ISurfaceDeAllocator* aDeallocator = nullptr)
+  : TextureHost(aBuffering, aDeallocator), mGL(aGL), mTexture(aTexImage)
   {
-    SetBuffering(aBuffering);
+    //SetBuffering(aBuffering);
   }
 
   // TextureHost
@@ -75,9 +77,13 @@ public:
     return !!mTexture;
   }
 
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE {
+    return LayerRenderState(); // TODO
+  }
+
   virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
-  TextureSource* GetPrimaryTextureSource() MOZ_OVERRIDE {
+  TextureSource* AsTextureSource() MOZ_OVERRIDE {
     return this;
   }
 
@@ -103,7 +109,7 @@ public:
   void Abort() MOZ_OVERRIDE;
 
   // TileIterator, TODO[nical] this belongs to TextureSource
-  virtual TileIterator* GetAsTileIterator() MOZ_OVERRIDE { return this; }
+  virtual TileIterator* AsTileIterator() MOZ_OVERRIDE { return this; }
   void SetFilter(const gfx::Filter& aFilter) { mTexture->SetFilter(gfx::ThebesFilter(aFilter)); }
   virtual void BeginTileIteration() { mTexture->BeginTileIteration(); }
   virtual nsIntRect GetTileRect() { return mTexture->GetTileRect(); }
@@ -261,7 +267,7 @@ public:
     return mTextureHandle;
   }
 
-  TextureSource* GetPrimaryTextureSource() MOZ_OVERRIDE {
+  TextureSource* AsTextureSource() MOZ_OVERRIDE {
     return this;
   }
 
@@ -300,10 +306,11 @@ public:
   }
 
   TextureHostOGLShared(GLContext* aGL,
-                       TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE)
+                       TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
+                       ISurfaceDeAllocator* aDeallocator = nullptr)
   : mGL(aGL)
   {
-    SetBuffering(aBuffering);
+    SetBuffering(aBuffering, aDeallocator);
   }
 
 protected:
@@ -316,7 +323,7 @@ protected:
   gl::TextureImage::TextureShareType mShareType;
 };
 
-class YCbCrTextureHostOGL : public TextureHostOGL
+class YCbCrTextureHostOGL : public TextureHostOGL, public TextureSource
 {
 public:
   YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {}
@@ -331,16 +338,15 @@ public:
 
   Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
-  gfx::IntSize GetSize() const MOZ_OVERRIDE {
+  gfx::IntSize GetSize() const {  // TODO[nical] remove ?
     if (!mYTexture.mTexImage) {
       NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
       return gfx::IntSize(0,0);
     }
-    nsIntSize s = mYTexture.mTexImage->GetSize();
-    return gfx::IntSize(s.width, s.height);
+    return mYTexture.GetSize();
   }
 
-  TextureSource* GetPrimaryTextureSource() MOZ_OVERRIDE {
+  TextureSource* AsTextureSource() MOZ_OVERRIDE {
     NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
     return nullptr;
   }
@@ -362,6 +368,17 @@ public:
     }
 
   };
+
+  // TextureSource implementation
+
+  TextureSource* GetSubSource(int index) MOZ_OVERRIDE {
+    switch (index) {
+      case 0 : return &mYTexture;
+      case 1 : return &mCbTexture;
+      case 2 : return &mCrTexture;
+    }
+    return nullptr;
+  }
 
 private:
   Channel mYTexture;

@@ -11,9 +11,10 @@
 namespace mozilla {
 namespace layers {
 
-TextureHost::TextureHost(Buffering aBuffering)
+TextureHost::TextureHost(Buffering aBuffering, ISurfaceDeAllocator* aDeallocator)
   : mFlags(NoFlags)
   , mBuffering(aBuffering)
+  , mDeAllocator(aDeallocator)
   , mAsyncContainerID(0)
   , mAsyncTextureVersion(0)
   , mCompositorID(0)
@@ -70,7 +71,7 @@ bool TextureHost::UpdateAsyncTexture()
     if (!img) {
       return false;
     }
-    Update(*img, img, nullptr, nullptr);
+    Update(*img, img);
     mAsyncTextureVersion = imgVersion;
   }
   return true;

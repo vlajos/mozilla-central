@@ -45,7 +45,8 @@ public:
   virtual TemporaryRef<TextureHost>
   CreateTextureHost(BufferType aImageType,
                     TextureHostType aMemoryType,
-                    uint32_t aTextureFlags) MOZ_OVERRIDE;
+                    uint32_t aTextureFlags,
+                    ISurfaceDeAllocator* aDeAllocator) MOZ_OVERRIDE;
   
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {

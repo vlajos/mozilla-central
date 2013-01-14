@@ -14,7 +14,7 @@ using namespace mozilla::gl;
 
 namespace mozilla {
 namespace layers {
- 
+
 static uint32_t
 DataOffset(uint32_t aStride, uint32_t aPixelSize, const nsIntPoint &aPoint)
 {
@@ -22,18 +22,18 @@ DataOffset(uint32_t aStride, uint32_t aPixelSize, const nsIntPoint &aPoint)
   data += aPoint.x * aPixelSize;
   return data;
 }
- 
+
 static void
 MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
 {
   if (aTexture != 0)
     return;
- 
+
   gl->fGenTextures(1, &aTexture);
- 
+
   gl->fActiveTexture(LOCAL_GL_TEXTURE0);
   gl->fBindTexture(LOCAL_GL_TEXTURE_2D, aTexture);
- 
+
   gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_LINEAR);
   gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MAG_FILTER, LOCAL_GL_LINEAR);
   gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
@@ -43,7 +43,7 @@ MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
 static gl::TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
 {
   uint32_t result = TextureImage::NoFlags;
-   
+
   if (aFlags & UseNearestFilter)
     result |= TextureImage::UseNearestFilter;
   if (aFlags & NeedsYFlip)
@@ -53,7 +53,7 @@ static gl::TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
  
   return static_cast<gl::TextureImage::Flags>(result);
 }
- 
+
 GLenum
 WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
 {
@@ -64,54 +64,6 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   }
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
-
-/*
-uint32_t deserializeSurfaceDescriptor(const SurfaceDescriptor& surface,
-                                      GLContext* aGL,
-                                      uint32_t currenttextureType,
-                                      nsTArray<RefPtr<gl::BindableTexture> >& outTextures)
-{
-  AutoOpenSurface surf(OPEN_READ_ONLY, surface);
-  nsIntSize size = surf.Size();
-  if (outTextures.size() != 1) {
-    outTextures.resize(1);
-    outTextures[0] = nullptr;
-  }
-
-  if (!outTextures[0] ||
-      outTextures[0]->GetSize() != size ||
-      outTextures[0]->GetContentType() != surf.ContentType()) {
-    outTextures[0] = aGL->CreateTextureImage(size,
-                                             surf.ContentType(),
-                                             WrapMode(aGL, mFlags & AllowRepeat),
-                                             FlagsToGLFlags(mFlags)).get();
-  }
-  // XXX this is always just ridiculously slow
-  nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
-  outTextures[0]->DirectUpdate(surf.Get(), updateRegion);
-
-  return 1;
-}
-*/
-/*
-void TextureHostOGL::UpdateImpl(const SharedImage& aImage,
-                                bool* aIsInitialised,
-                                bool* aNeedsReset)
-{
-  switch (aImage.type()) {
-    case SharedImage::TSurfaceDescriptor:
-      mTextureType = deserializeSurfaceDescriptor(aImage.get_SurfaceDescriptor(),
-                                                  mGL,
-                                                  mTextures);
-      *aIsInitialised = true;
-      break;
-    default:
-      NS_WARNING("unsupported SharedImage type");
-      // what shall we do here ?
-    break;
-  }
-}
-*/
 
 void TextureImageAsTextureHostOGL::BindTexture(GLenum aTextureUnit) {
   mTexture->BindTexture(aTextureUnit);
@@ -135,7 +87,7 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
                                        FlagsToGLFlags(mFlags)).get(); // TODO[nical] eeek!
     mSize = gfx::IntSize(size.width, size.height);
   }
- 
+
   // XXX this is always just ridiculously slow
   nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
   mTexture->DirectUpdate(surf.Get(), updateRegion);
@@ -159,7 +111,6 @@ TextureImageAsTextureHostOGL::UpdateRegionImpl(gfxASurface* aSurface,
                                         FlagsToGLFlags(mFlags)).get();
     mSize = gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
   }
- 
   mTexture->DirectUpdate(aSurface, aRegion);
 }
 
@@ -260,7 +211,7 @@ TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
     return nullptr;
   }
 }
- 
+
 void
 TextureHostOGLShared::Unlock()
 {
@@ -327,10 +278,7 @@ YCbCrTextureHostOGL::UpdateImpl(const SharedImage& aImage,
 Effect*
 YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
 {
-  return new EffectYCbCr(&mYTexture,
-                         &mCbTexture,
-                         &mCrTexture,
-                         aFilter);
+  return new EffectYCbCr(this, aFilter);
 }
 
 

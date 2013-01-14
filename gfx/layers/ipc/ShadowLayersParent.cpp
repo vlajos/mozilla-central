@@ -469,7 +469,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RefPtr<TextureHost> textureHost
         = compositor->CreateTextureHost(info.imageType,
                                         info.memoryType,
-                                        info.textureFlags);
+                                        info.textureFlags,
+                                        this);
 
       textureHost->SetCompositorID(compositor->GetCompositorID());
       textureParent->SetTextureHost(textureHost.get());

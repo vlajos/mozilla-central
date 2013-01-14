@@ -35,7 +35,8 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     id.textureFlags = mTextureHost->GetFlags();
     mTextureHost = mCompositor->CreateTextureHost(id.imageType,
                                                   id.memoryType,
-                                                  id.textureFlags);
+                                                  id.textureFlags,
+                                                  nullptr); // TODO[nical] needs a ISurface DeAllocator
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;
@@ -65,7 +66,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  TileIterator* it = mTextureHost->GetAsTileIterator();
+  TileIterator* it = mTextureHost->AsTextureSource()->AsTileIterator();
   if (it) {
     it->BeginTileIteration();
     do {
@@ -77,8 +78,8 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     } while (it->NextTile());
   } else {
     gfx::Rect rect(0, 0,
-                   mTextureHost->GetSize().width,
-                   mTextureHost->GetSize().height);
+                   mTextureHost->AsTextureSource()->GetSize().width,
+                   mTextureHost->AsTextureSource()->GetSize().height);
     mCompositor->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
                           aOpacity, aTransform, aOffset);
   }
@@ -162,7 +163,8 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     id.textureFlags = NoFlags;
     RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id.imageType,
                                                                      id.memoryType,
-                                                                     id.textureFlags);
+                                                                     id.textureFlags,
+                                                                     nullptr); // TODO[nical] needs a ISurfaceDeAllocator
     mImageHost->AddTextureHost(textureHost);
   }
 }

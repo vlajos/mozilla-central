@@ -55,15 +55,6 @@ const TextureFlags ForceSingleTile    = 0x4;
 const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 
-// a texture or part of texture used for compositing
-class TextureSource
-{
-public:
-  virtual gfx::IntSize GetSize() const = 0;
-  virtual ~TextureSource() {};
-  virtual TextureSourceOGL* AsSourceOGL() { return nullptr; }
-};
-
 /**
  * A view on a texture host where the texture host is internally represented as tiles
  * (contrast with a tiled buffer, where each texture is a tile). For iteration by
@@ -78,17 +69,50 @@ public:
   virtual bool NextTile() = 0;
 };
 
-// Interface, used only on the compositor process
+/**
+ * TextureSource is the interface for texture objects that can be composited
+ * by a given compositor backend. Since the drawing APIs are different
+ * between backends, the TextureSource interface is split into different
+ * interfaces (TextureSourceOGL, etc.), and TextureSource mostly provide
+ * access to these interfaces.
+ */
+class TextureSource
+{
+public:
+  virtual ~TextureSource() {};
+  virtual gfx::IntSize GetSize() const = 0;
+  virtual TextureSourceOGL* AsSourceOGL() { return nullptr; }
+  virtual TextureSource* GetSubSource(int index) { return nullptr; }
+  virtual TileIterator* AsTileIterator() { return nullptr; }
+};
+
+/**
+ * Interface
+ * TextureHost is a thin abstraction over texture data that need to be shared
+ * or transfered from the content process to the compositor process.
+ * TextureHost only knows how to deserialize generic image data (SharedImage)
+ * and provide access to one or more TextureSource objects (these provide the
+ * necessary APIs for compositor backends to composite the image).
+ *
+ * Used only on the compositor process.
+ */
 class TextureHost : public RefCounted<TextureHost>
 {
 public:
   enum Buffering { NONE, BUFFERED };
 
-  TextureHost(Buffering aBuffering = Buffering::NONE);
+  TextureHost(Buffering aBuffering = Buffering::NONE,
+              ISurfaceDeAllocator* aDeAllocator = nullptr);
   virtual ~TextureHost();
 
-  bool IsBuffered() const { return mBuffering == Buffering::BUFFERED; }
-  SharedImage* GetBuffer() const { return mBuffer; }
+  /**
+   * In most case there is one TextureSource per TextureHost, and CompositableHost
+   * sometimes need to get a TextureSource from a TextureHost (for example to create
+   * a mask effect). This is one of the sketchy pieces of the compositing architecture
+   * that I hope to fix asap, maybe by enforcing one TextureSource per TextureHost and
+   * replacing this by GetAsTextureSource().
+   */
+  virtual TextureSource* AsTextureSource() = 0;
 
   /**
    * Update the texture host from a SharedImage, aResult may contain the old
@@ -106,15 +130,15 @@ public:
    */
   void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
 
-  virtual TextureSource* GetPrimaryTextureSource() = 0;
-
   /**
    * Lock the texture host for compositing, returns an effect that should
    * be used to composite this texture.
    */
   virtual Effect* Lock(const gfx::Filter& aFilter) { return nullptr; }
 
-  // Unlock the texture host after compositing
+  /**
+   * Unlock the texture host after compositing
+   */
   virtual void Unlock() {}
 
   /**
@@ -123,24 +147,25 @@ public:
    */
   virtual void Abort() {}
 
-  // TODO[nical] these probably doesn't belong here
+  // TODO[nical] these probably don't belong here (not sure)
   // nrc: do we not need them in order to composite a texture?
   // Or should we pass them in from the CompositableHost? Or store in a TextureSource or something?
+  // nical: looks like something that would fit better in CompositableHost or in TextureSource
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
-  virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
-
-  virtual TileIterator* GetAsTileIterator() { return nullptr; }
-
-  virtual gfx::IntSize GetSize() const = 0;
+  void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {
+    mDeAllocator = aDeAllocator;
+  }
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
 
   virtual LayerRenderState GetRenderState() = 0;
+
+  // IPC
 
   void SetTextureParent(TextureParent* aParent) {
     mTextureParent = aParent;
@@ -179,12 +204,19 @@ public:
   bool UpdateAsyncTexture();
 
 protected:
+
+  // buffering
+
   void SetBuffering(Buffering aBuffering,
                     ISurfaceDeAllocator* aDeAllocator = nullptr) {
     MOZ_ASSERT (aBuffering == Buffering::NONE || aDeAllocator);
     mBuffering = aBuffering;
     mDeAllocator = aDeAllocator;
   }
+
+  bool IsBuffered() const { return mBuffering == Buffering::BUFFERED; }
+  SharedImage* GetBuffer() const { return mBuffer; }
+
 
   /**
    * Should be implemented by the backend-specific TextureHost classes 
@@ -237,7 +269,9 @@ enum SurfaceInitMode
   INIT_MODE_COPY
 };
 
-
+/**
+ * Common interface for compositor backends.
+ */
 class Compositor : public RefCounted<Compositor>
 {
 public:
@@ -275,7 +309,8 @@ public:
   virtual TemporaryRef<TextureHost>
     CreateTextureHost(BufferType aImageType,
                       TextureHostType aMemoryType,
-                      uint32_t aTextureFlags) = 0;
+                      uint32_t aTextureFlags,
+                      ISurfaceDeAllocator* aDeAllocator) = 0;
   /**
    * Create a new buffer host of a kind specified by aType
    */

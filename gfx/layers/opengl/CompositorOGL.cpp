@@ -725,7 +725,8 @@ CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 TemporaryRef<TextureHost>
 CompositorOGL::CreateTextureHost(BufferType aImageType,
                                  TextureHostType aMemoryType,
-                                 uint32_t aTextureFlags)
+                                 uint32_t aTextureFlags,
+                                 ISurfaceDeAllocator* aDeAllocator)
 {
   RefPtr<TextureHost> result = nullptr;
   switch (aMemoryType) {
@@ -733,7 +734,7 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
     result = new TextureHostOGLShared(mGLContext);
     break;
   case TEXTURE_SHARED_BUFFERED:
-    result = new TextureHostOGLShared(mGLContext, TextureHost::Buffering::BUFFERED);
+    result = new TextureHostOGLShared(mGLContext, TextureHost::Buffering::BUFFERED, aDeAllocator);
     break;
   case TEXTURE_SHMEM_YCBCR:
     result = new YCbCrTextureHostOGL(mGLContext);
@@ -744,19 +745,19 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
       result = new YCbCrTextureHostOGL(mGLContext);
     } else if (aImageType == BUFFER_CONTENT_DIRECT) {
       //TODO[nrc] should probably use the below path with fallback, but check
-      result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
+      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::BUFFERED, aDeAllocator);
     } else if (aImageType == BUFFER_DIRECT) {
       if (ShadowLayerManager::SupportsDirectTexturing()) {
-        result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::BUFFERED);
+        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::BUFFERED, aDeAllocator);
       } else {
-        result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
+        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::NONE);
       }
 #ifdef MOZ_WIDGET_GONK
     } else if (aImageType == BUFFER_DIRECT_EXTERNAL) {
       result = new DirectExternalTextureHost(mGLContext);
 #endif
     } else {
-      result = new TextureImageAsTextureHostOGL(mGLContext, TextureHost::Buffering::NONE);
+      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::NONE);
     }
     break;
   case TEXTURE_UNKNOWN:
@@ -1330,9 +1331,11 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   } else if (aEffectChain.mEffects[EFFECT_YCBCR]) {
     EffectYCbCr* effectYCbCr =
       static_cast<EffectYCbCr*>(aEffectChain.mEffects[EFFECT_YCBCR].get());
-    TextureSourceOGL* sourceY =  effectYCbCr->mY->AsSourceOGL();
-    TextureSourceOGL* sourceCb = effectYCbCr->mCb->AsSourceOGL();
-    TextureSourceOGL* sourceCr = effectYCbCr->mCr->AsSourceOGL();
+    TextureSource* sourceYCbCr = effectYCbCr->mYCbCrTexture;
+    const int Y = 0, Cb = 1, Cr = 2;
+    TextureSourceOGL* sourceY =  sourceYCbCr->GetSubSource(Y)->AsSourceOGL();
+    TextureSourceOGL* sourceCb = sourceYCbCr->GetSubSource(Cb)->AsSourceOGL();
+    TextureSourceOGL* sourceCr = sourceYCbCr->GetSubSource(Cr)->AsSourceOGL();
 
     if (!sourceY && !sourceCb && !sourceCr) {
       NS_WARNING("Invalid layer texture.");

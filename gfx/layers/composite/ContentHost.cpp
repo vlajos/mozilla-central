@@ -32,8 +32,8 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     if (mTextureHostOnWhite) {
       mTextureHostOnWhite->UpdateAsyncTexture();
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
-        TextureSource* sourceOnBlack = mTextureHost->GetPrimaryTextureSource();
-        TextureSource* sourceOnWhite = mTextureHostOnWhite->GetPrimaryTextureSource();
+        TextureSource* sourceOnBlack = mTextureHost->AsTextureSource();
+        TextureSource* sourceOnWhite = mTextureHostOnWhite->AsTextureSource();
         aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
           new EffectComponentAlpha(sourceOnBlack, sourceOnWhite);
       } else {
@@ -63,7 +63,9 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   region.MoveBy(-origin);           // translate into TexImage space, buffer origin might not be at texture (0,0)
 
   // Figure out the intersecting draw region
-  gfx::IntSize texSize = mTextureHost->GetSize();
+  TextureSource* source = mTextureHost->AsTextureSource();
+  MOZ_ASSERT(source);
+  gfx::IntSize texSize = source->GetSize();
   nsIntRect textureRect = nsIntRect(0, 0, texSize.width, texSize.height);
   textureRect.MoveBy(region.GetBounds().TopLeft());
   nsIntRegion subregion;
@@ -85,12 +87,13 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     regionRects.Or(regionRects, regionRect);
   }
 
-  TileIterator* tileIter = mTextureHost->GetAsTileIterator();
+  // TODO[nical] we should check that it!=nullptr
+  TileIterator* tileIter = mTextureHost->AsTextureSource()->AsTileIterator();
   TileIterator* iterOnWhite = nullptr;
   tileIter->BeginTileIteration();
 
   if (mTextureHostOnWhite) {
-    iterOnWhite = mTextureHostOnWhite->GetAsTileIterator();
+    iterOnWhite = mTextureHostOnWhite->AsTextureSource()->AsTileIterator();
     NS_ASSERTION(tileIter->GetTileCount() == iterOnWhite->GetTileCount(),
                  "Tile count mismatch on component alpha texture");
     iterOnWhite->BeginTileIteration();

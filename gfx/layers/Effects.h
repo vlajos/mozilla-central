@@ -162,15 +162,12 @@ struct EffectRGBAExternal : public Effect
 
 struct EffectYCbCr : public Effect
 {
-  EffectYCbCr(TextureSource *aY, TextureSource *aCb, TextureSource *aCr,
-              mozilla::gfx::Filter aFilter)
-    : Effect(EFFECT_YCBCR), mY(aY), mCb(aCb), mCr(aCr)
+  EffectYCbCr(TextureSource *aSource, mozilla::gfx::Filter aFilter)
+    : Effect(EFFECT_YCBCR), mYCbCrTexture(aSource)
     , mFilter(aFilter)
   {}
 
-  TextureSource* mY;
-  TextureSource* mCb;
-  TextureSource* mCr;
+  TextureSource* mYCbCrTexture;
   mozilla::gfx::Filter mFilter;
 };
 
