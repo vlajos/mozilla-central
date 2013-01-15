@@ -99,9 +99,7 @@ public:
 class TextureHost : public RefCounted<TextureHost>
 {
 public:
-  enum Buffering { NONE, BUFFERED };
-
-  TextureHost(Buffering aBuffering = Buffering::NONE,
+  TextureHost(BufferMode aBufferMode = BUFFER_NONE,
               ISurfaceDeallocator* aDeAllocator = nullptr);
   virtual ~TextureHost();
 
@@ -118,7 +116,7 @@ public:
    * Update the texture host from a SurfaceDescriptor, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The
    * texture client should know what to expect
-   * The buffering logic is implemented here rather than in the specialized classes
+   * The BufferMode logic is implemented here rather than in the specialized classes
    */
   void Update(const SurfaceDescriptor& aImage,
               SurfaceDescriptor* aResult = nullptr,
@@ -205,16 +203,16 @@ public:
 
 protected:
 
-  // buffering
+  // BufferMode
 
-  void SetBuffering(Buffering aBuffering,
+  void SetBufferMode(BufferMode aBufferMode,
                     ISurfaceDeallocator* aDeAllocator = nullptr) {
-    MOZ_ASSERT (aBuffering == Buffering::NONE || aDeAllocator);
-    mBuffering = aBuffering;
+    MOZ_ASSERT (aBufferMode == BUFFER_NONE || aDeAllocator);
+    mBufferMode = aBufferMode;
     mDeAllocator = aDeAllocator;
   }
 
-  bool IsBuffered() const { return mBuffering == Buffering::BUFFERED; }
+  bool IsBuffered() const { return mBufferMode == BUFFER_BUFFERED; }
   SurfaceDescriptor* GetBuffer() const { return mBuffer; }
 
 
@@ -236,7 +234,7 @@ protected:
 
   // Texture info
   TextureFlags mFlags;
-  Buffering mBuffering;
+  BufferMode mBufferMode;
   SurfaceDescriptor* mBuffer;
 
   // ImageBridge

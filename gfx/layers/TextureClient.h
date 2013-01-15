@@ -24,6 +24,7 @@ namespace layers {
 class TextureChild;
 class ContentClient;
 
+// this will repalce TextureClient
 class AwesomeTextureClient {
 public:
   virtual ~AwesomeTextureClient() {

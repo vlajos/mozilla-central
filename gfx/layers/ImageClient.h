@@ -7,7 +7,7 @@
 #define MOZILLA_GFX_IMAGECLIENT_H
 
 #include "mozilla/layers/LayersSurfaces.h"
-#include "BufferClient.h"
+#include "CompositableClient.h"
 #include "TextureClient.h"
 
 namespace mozilla {
@@ -17,7 +17,7 @@ class ImageContainer;
 class ImageLayer;
 
 // abstract. Used for image and canvas layers
-class ImageClient : public BufferClient
+class ImageClient : public CompositableClient
 {
 public:
   ImageClient()

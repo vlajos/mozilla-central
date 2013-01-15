@@ -7,7 +7,7 @@
 #define MOZILLA_GFX_CANVASCLIENT_H
 
 #include "TextureClient.h"
-#include "BufferClient.h"
+#include "CompositableClient.h"
 
 namespace mozilla {
 
@@ -15,7 +15,7 @@ namespace layers {
 
 class BasicCanvasLayer;
 
-class CanvasClient : public BufferClient
+class CanvasClient : public CompositableClient
 {
 public:
   virtual ~CanvasClient() {}

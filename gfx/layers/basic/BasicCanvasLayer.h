@@ -148,7 +148,7 @@ private:
     return static_cast<BasicShadowLayerManager*>(mManager);
   }
 
-  BufferType GetBufferClientType()
+  BufferType GetCompositableClientType()
   {
     if (mGLContext) {
       return BUFFER_SHARED;

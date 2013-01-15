@@ -142,7 +142,7 @@ EXPORTS_gfxipc = ShadowLayerUtils.h
 EXPORTS_mozilla/layers =\
         AsyncPanZoomController.h \
         Axis.h \
-        BufferClient.h \
+        CompositableClient.h \
         Compositor.h \
         CompositorOGL.h \
         ContentHost.h \
@@ -176,7 +176,7 @@ EXPORTS_mozilla/layers =\
 CPPSRCS += \
         AsyncPanZoomController.cpp \
         Axis.cpp \
-        BufferClient.cpp \
+        CompositableClient.cpp \
         CanvasClient.cpp \
         Compositor.cpp \
         CompositorOGL.cpp \

@@ -152,8 +152,8 @@ protected:
   void EnsureImageHost(BufferType aType);
 
   RefPtr<ImageHost> mImageHost;
-  uint32_t mImageVersion;
   uint64_t mImageContainerID;
+  uint32_t mImageVersion;
 };
 
 }

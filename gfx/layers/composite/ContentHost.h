@@ -23,9 +23,9 @@ public:
   typedef ThebesLayerBuffer::PaintState PaintState;
 
   CompositingThebesLayerBuffer(Compositor* aCompositor)
-    : mCompositor(aCompositor)
-    , mPaintWillResample(false)
+    : mPaintWillResample(false)
     , mInitialised(true)
+    , mCompositor(aCompositor)
   {}
   virtual ~CompositingThebesLayerBuffer() {}
 

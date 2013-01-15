@@ -7,7 +7,7 @@
 #define MOZILLA_GFX_CONTENTCLIENT_H
 
 #include "mozilla/layers/LayersSurfaces.h"
-#include "BufferClient.h"
+#include "CompositableClient.h"
 #include "TextureClient.h"
 #include "ThebesLayerBuffer.h"
 #include "ipc/AutoOpenSurface.h"
@@ -19,7 +19,7 @@ namespace layers {
 
 class BasicLayerManager;
 
-class ContentClient : public BufferClient
+class ContentClient : public CompositableClient
                     , protected ThebesLayerBuffer
 {
 public:

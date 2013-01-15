@@ -734,7 +734,7 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
     result = new TextureHostOGLShared(mGLContext);
     break;
   case TEXTURE_SHARED_BUFFERED:
-    result = new TextureHostOGLShared(mGLContext, TextureHost::Buffering::BUFFERED, aDeAllocator);
+    result = new TextureHostOGLShared(mGLContext, BUFFER_BUFFERED, aDeAllocator);
     break;
   case TEXTURE_SHMEM_YCBCR:
     result = new YCbCrTextureHostOGL(mGLContext);
@@ -745,19 +745,19 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
       result = new YCbCrTextureHostOGL(mGLContext);
     } else if (aImageType == BUFFER_CONTENT_DIRECT) {
       //TODO[nrc] should probably use the below path with fallback, but check
-      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::BUFFERED, aDeAllocator);
+      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_BUFFERED, aDeAllocator);
     } else if (aImageType == BUFFER_DIRECT) {
       if (ShadowLayerManager::SupportsDirectTexturing()) {
-        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::BUFFERED, aDeAllocator);
+        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_BUFFERED, aDeAllocator);
       } else {
-        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::NONE);
+        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
       }
 #ifdef MOZ_WIDGET_GONK
     } else if (aImageType == BUFFER_DIRECT_EXTERNAL) {
       result = new DirectExternalTextureHost(mGLContext);
 #endif
     } else {
-      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, TextureHost::Buffering::NONE);
+      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
     }
     break;
   case TEXTURE_UNKNOWN:

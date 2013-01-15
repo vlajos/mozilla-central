@@ -15,11 +15,11 @@ class PLayerChild;
 class PLayersChild;
 class TextureBufferChild;
 
-class BufferClient : public RefCounted<BufferClient>
+class CompositableClient : public RefCounted<CompositableClient>
 {
 public:
-  BufferClient();
-  virtual ~BufferClient();
+  CompositableClient();
+  virtual ~CompositableClient();
 
   void Initialize(PLayerChild* aLayer,
                   PLayersChild* aShadowManager);

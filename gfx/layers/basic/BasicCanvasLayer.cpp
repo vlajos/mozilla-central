@@ -241,7 +241,7 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     if (mNeedsYFlip) {
       flags |= NeedsYFlip;
     }
-    mCanvasClient = BasicManager()->CreateCanvasClientFor(GetBufferClientType(), this, flags);
+    mCanvasClient = BasicManager()->CreateCanvasClientFor(GetCompositableClientType(), this, flags);
 
     if (!mCanvasClient) {
       return;

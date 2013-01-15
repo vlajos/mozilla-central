@@ -17,11 +17,12 @@
 namespace mozilla {
 namespace layers {
 
+// we actually don't need this class
 class TextureHostOGL : public TextureHost
 {
 public:
-  TextureHostOGL(TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE)
-  : TextureHost(aBuffering)
+  TextureHostOGL(BufferMode aBufferMode = BUFFER_NONE)
+  : TextureHost(aBufferMode)
   {}
 
   // TODO[nical] does not belong here
@@ -39,6 +40,8 @@ protected:
 
 /**
  * Interface.
+ * TextureSourceOGL provides the necessary API for CompositorOGL to composite
+ * a TextureSource.
  */
 class TextureSourceOGL : public TextureSource
 {
@@ -59,29 +62,30 @@ class TextureImageAsTextureHostOGL : public TextureHost
 public:
   TextureImageAsTextureHostOGL(gl::GLContext* aGL,
                                gl::TextureImage* aTexImage = nullptr,
-                               TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
+                               BufferMode aBufferMode = BUFFER_NONE,
                                ISurfaceDeallocator* aDeallocator = nullptr)
-  : TextureHost(aBuffering, aDeallocator), mGL(aGL), mTexture(aTexImage)
+  : TextureHost(aBufferMode, aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
-    //SetBuffering(aBuffering);
   }
 
   // TextureHost
 
-  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr);
-  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
+  void UpdateImpl(const SurfaceDescriptor& aImage,
+                  bool* aIsInitialised = nullptr,
+                  bool* aNeedsReset = nullptr);
+  void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
 
-  virtual bool IsValid() const MOZ_OVERRIDE {
+  bool IsValid() const MOZ_OVERRIDE {
     return !!mTexture;
   }
 
-  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE {
+  LayerRenderState GetRenderState() MOZ_OVERRIDE {
     return LayerRenderState(); // TODO
   }
 
-  virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+  Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+
+  void Abort() MOZ_OVERRIDE;
 
   TextureSource* AsTextureSource() MOZ_OVERRIDE {
     return this;
@@ -106,15 +110,31 @@ public:
     mTexture = aImage;
   }
 
-  void Abort() MOZ_OVERRIDE;
+  // TileIterator
 
-  // TileIterator, TODO[nical] this belongs to TextureSource
-  virtual TileIterator* AsTileIterator() MOZ_OVERRIDE { return this; }
-  void SetFilter(const gfx::Filter& aFilter) { mTexture->SetFilter(gfx::ThebesFilter(aFilter)); }
-  virtual void BeginTileIteration() { mTexture->BeginTileIteration(); }
-  virtual nsIntRect GetTileRect() { return mTexture->GetTileRect(); }
-  virtual size_t GetTileCount() { return mTexture->GetTileCount(); }
-  virtual bool NextTile() { return mTexture->NextTile(); }
+  TileIterator* AsTileIterator() MOZ_OVERRIDE {
+    return this;
+  }
+  
+  void SetFilter(const gfx::Filter& aFilter) MOZ_OVERRIDE{
+    mTexture->SetFilter(gfx::ThebesFilter(aFilter));
+  }
+
+  void BeginTileIteration() MOZ_OVERRIDE {
+    mTexture->BeginTileIteration();
+  }
+
+  nsIntRect GetTileRect() MOZ_OVERRIDE {
+    return mTexture->GetTileRect();
+  }
+  
+  size_t GetTileCount() MOZ_OVERRIDE {
+    return mTexture->GetTileCount();
+  }
+
+  bool NextTile() MOZ_OVERRIDE {
+    return mTexture->NextTile();
+  }
 
 protected:
   RefPtr<gl::TextureImage> mTexture;
@@ -122,6 +142,7 @@ protected:
   gfx::IntSize mSize;
 };
 
+// TODO[nical] this is rubish and no used (my bad)
 class SharedTextureWrapper : public gl::BindableTexture
 {
 public:
@@ -170,19 +191,13 @@ public:
     return mSharedTexture->mTextureHandle;
   }
 
-  // override from TextureHost
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
 
   virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE;
-/*
-  gfx::IntSize GetSize() const MOZ_OVERRIDE {
-    NS_RUNTIMEABORT("not implemented");
-    return gfx::IntSize(0,0);
-  }
-*/
+
   GLenum GetWrapMode() const {
     return mSharedTexture->mWrapMode;
   }
@@ -197,53 +212,6 @@ protected:
   RefPtr<SharedTextureWrapper> mSharedTexture;
 };
 
-// TODO[nical] rewrite the TextureHost classes so that we don't do something
-// stupid like this.
-template<typename T>
-struct TextureProxyHack : public gl::BindableTexture
-{
-  typedef gfxASurface::gfxContentType ContentType;
-
-  TextureProxyHack(const T* aHost) : mHost(const_cast<T*>(aHost)) {}
-
-  virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
-    return mHost->BindTexture(aTextureUnit);
-  }
-
-  virtual void ReleaseTexture() MOZ_OVERRIDE {
-    return mHost->ReleaseTexture();
-  }
-
-  virtual GLuint GetTextureID() MOZ_OVERRIDE {
-    return mHost->GetTextureID();
-  }
-
-  RefPtr<T> mHost;
-};
-
-/*
-// a TextureImageAsTextureHost for use with main thread composition
-// i.e., where we draw to it directly, and do not have a texture client
-class TextureImageHost : public TextureImageAsTextureHost
-{
-public:
-  CLASS_NAME(TextureImageHost);
-  TextureImageHost(GLContext* aGL, TextureImage* aTexImage);
- 
-  TextureImage* GetTextureImage() { return mTexImage; }
-  void SetTextureImage(TextureImage* aTexImage)
-  {
-    mTexImage = aTexImage;
-    mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
-  }
-
-  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr) {}
-  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
-};
-
-*/
 
 // TODO[nical] this class is not usable yet
 class TextureHostOGLShared : public TextureHostOGL
@@ -306,11 +274,11 @@ public:
   }
 
   TextureHostOGLShared(GLContext* aGL,
-                       TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
+                       BufferMode aBufferMode = BUFFER_NONE,
                        ISurfaceDeallocator* aDeallocator = nullptr)
   : mGL(aGL)
   {
-    SetBuffering(aBuffering, aDeallocator);
+    SetBufferMode(aBufferMode, aDeallocator);
   }
 
 protected:
@@ -338,13 +306,6 @@ public:
 
   Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
-  gfx::IntSize GetSize() const {  // TODO[nical] remove ?
-    if (!mYTexture.mTexImage) {
-      NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
-      return gfx::IntSize(0,0);
-    }
-    return mYTexture.GetSize();
-  }
 
   TextureSource* AsTextureSource() MOZ_OVERRIDE {
     NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
@@ -378,6 +339,14 @@ public:
       case 2 : return &mCrTexture;
     }
     return nullptr;
+  }
+
+  gfx::IntSize GetSize() const {
+    if (!mYTexture.mTexImage) {
+      NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
+      return gfx::IntSize(0,0);
+    }
+    return mYTexture.GetSize();
   }
 
 private:

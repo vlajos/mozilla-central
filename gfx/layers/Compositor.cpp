@@ -11,16 +11,16 @@
 namespace mozilla {
 namespace layers {
 
-TextureHost::TextureHost(Buffering aBuffering, ISurfaceDeallocator* aDeallocator)
+TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocator)
   : mFlags(NoFlags)
-  , mBuffering(aBuffering)
+  , mBufferMode(aBufferMode)
   , mDeAllocator(aDeallocator)
   , mAsyncContainerID(0)
   , mAsyncTextureVersion(0)
   , mCompositorID(0)
 
 {
-  if (aBuffering != Buffering::NONE) {
+  if (aBufferMode != BUFFER_NONE) {
     mBuffer = new SurfaceDescriptor;
   }
 }
