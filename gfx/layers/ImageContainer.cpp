@@ -209,7 +209,7 @@ uint64_t ImageContainer::GetAsyncContainerID() const
   if (IsAsync()) {
     return mImageContainerChild->GetID();
   } else {
-    return 0; // zero is always an invalid SharedImageID
+    return 0; // zero is always an invalid SurfaceDescriptorID
   }
 }
 

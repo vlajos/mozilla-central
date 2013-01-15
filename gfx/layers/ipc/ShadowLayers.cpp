@@ -273,13 +273,11 @@ ShadowLayerForwarder::AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID)
 
 void
 ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
-                                    const SharedImage& aImage)
+                                    const SurfaceDescriptor& aImage)
 {
   printf("ShadowLayerForwarder::UpdateTexture %p : %i\n", aTexture, aImage.type());
-  if (aImage.type() == SharedImage::TSurfaceDescriptor) {
-    if (aImage.get_SurfaceDescriptor().type() == SurfaceDescriptor::T__None) {
-      printf("STOP\n");
-    } 
+  if (aImage.type() == SurfaceDescriptor::T__None) {
+    printf("[debug] STOP\n");
   }
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture, aImage));
 }
@@ -789,16 +787,6 @@ AutoOpenSurface::GetAsImage()
     mSurfaceAsImage = Get()->GetAsImageSurface();
   }
   return mSurfaceAsImage.get();
-}
-
-void ISurfaceDeAllocator::DestroySharedSurface(const SharedImage* aImage)
-{
-  if (aImage->type() == SharedImage::TSurfaceDescriptor) {
-    SurfaceDescriptor dsc = aImage->get_SurfaceDescriptor();
-    DestroySharedSurface(&dsc);
-  } else {
-    NS_RUNTIMEABORT("TODO[nical] not implemented");
-  }
 }
 
 } // namespace layers

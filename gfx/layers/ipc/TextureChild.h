@@ -7,13 +7,14 @@
 #define MOZILLA_LAYERS_TEXTURECHILD_H
 
 #include "mozilla/layers/PTextureChild.h"
+#include "mozilla/layers/SurfaceDeallocatorIPC.h"
 
 namespace mozilla {
 namespace layers {
 
 class TextureClient;
 
-class TextureChild : public PTextureChild
+class TextureChild : public PTextureChild, public SurfaceDeallocator<TextureChild>
 {
 public:
     TextureChild()

@@ -188,7 +188,7 @@ ThebesLayerComposite::CleanupResources()
 }
 
 void
-ThebesLayerComposite::SetAllocator(ISurfaceDeAllocator* aAllocator)
+ThebesLayerComposite::SetAllocator(ISurfaceDeallocator* aAllocator)
 {
   mBuffer->SetDeAllocator(aAllocator);
 }

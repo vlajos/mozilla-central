@@ -16,10 +16,10 @@ ImageContainerParent::ImageContainerParent(uint32_t aHandle)
   MOZ_COUNT_CTOR(ImageContainerParent);
 }
 
-bool ImageContainerParent::RecvPublishImage(const SharedImage& aImage)
+bool ImageContainerParent::RecvPublishImage(const SurfaceDescriptor& aImage)
 {
-  SharedImage *copy = new SharedImage(aImage);
-  SharedImage *prevImage = SwapSharedImage(mID, copy);
+  SurfaceDescriptor *copy = new SurfaceDescriptor(aImage);
+  SurfaceDescriptor *prevImage = SwapSurfaceDescriptor(mID, copy);
 
   uint32_t compositorID = GetCompositorIDForImage(mID);
   CompositorParent* compositor = CompositorParent::GetCompositor(compositorID);
@@ -37,9 +37,9 @@ bool ImageContainerParent::RecvPublishImage(const SharedImage& aImage)
 
 bool ImageContainerParent::RecvFlush()
 {
-  SharedImage *img = RemoveSharedImage(mID);
+  SurfaceDescriptor *img = RemoveSurfaceDescriptor(mID);
   if (img) {
-    DeallocSharedImageData(this, *img);
+    DeallocSurfaceDescriptorData(this, *img);
     delete img;
   }
   return true;
@@ -59,9 +59,9 @@ bool ImageContainerParent::RecvStop()
 bool ImageContainerParent::Recv__delete__()
 {
   NS_ABORT_IF_FALSE(mStop, "Should be in a stopped state when __delete__");
-  SharedImage* removed = RemoveSharedImage(mID);
+  SurfaceDescriptor* removed = RemoveSurfaceDescriptor(mID);
   if (removed) {
-    DeallocSharedImageData(this, *removed);
+    DeallocSurfaceDescriptorData(this, *removed);
     delete removed;
   }
 
@@ -75,80 +75,80 @@ ImageContainerParent::~ImageContainerParent()
   // we need to cleanup the global table here and not worry about
   // deallocating the shmem in the scenario since the emergency 
   // shutdown procedure takes care of that. 
-  // On regular shutdown, Recv__delete__ also calls RemoveSharedImage
+  // On regular shutdown, Recv__delete__ also calls RemoveSurfaceDescriptor
   // but it is not a problem because it is safe to call twice.
-  SharedImage* removed = RemoveSharedImage(mID);
+  SurfaceDescriptor* removed = RemoveSurfaceDescriptor(mID);
   if (removed) {
     delete removed;
   }
 }
 
 struct ImageIDPair {
-  ImageIDPair(SharedImage* aImage, uint32_t aID)
+  ImageIDPair(SurfaceDescriptor* aImage, uint32_t aID)
   : image(aImage), id(aID), compositorID(0), version(1) {}
-  SharedImage*  image;
+  SurfaceDescriptor*  image;
   uint64_t      id;
   uint64_t      compositorID;
   uint32_t      version;
 };
 
-typedef nsTArray<ImageIDPair> SharedImageMap;
-SharedImageMap *sSharedImageMap = nullptr;
+typedef nsTArray<ImageIDPair> SurfaceDescriptorMap;
+SurfaceDescriptorMap *sSurfaceDescriptorMap = nullptr;
 
-static const int SHAREDIMAGEMAP_INVALID_INDEX = -1;
+static const int SURFACEDESCRIPTORMAP_INVALID_INDEX = -1;
 
 static int IndexOf(uint64_t aID)
 {
-  for (unsigned int i = 0; i < sSharedImageMap->Length(); ++i) {
-    if ((*sSharedImageMap)[i].id == aID) {
+  for (unsigned int i = 0; i < sSurfaceDescriptorMap->Length(); ++i) {
+    if ((*sSurfaceDescriptorMap)[i].id == aID) {
       return i;
     }
   }
-  return SHAREDIMAGEMAP_INVALID_INDEX;
+  return SURFACEDESCRIPTORMAP_INVALID_INDEX;
 }
 
 bool ImageContainerParent::IsExistingID(uint64_t aID)
 {
-  return IndexOf(aID) != SHAREDIMAGEMAP_INVALID_INDEX;
+  return IndexOf(aID) != SURFACEDESCRIPTORMAP_INVALID_INDEX;
 }
 
-SharedImage* ImageContainerParent::SwapSharedImage(uint64_t aID, 
-                                                   SharedImage* aImage)
+SurfaceDescriptor* ImageContainerParent::SwapSurfaceDescriptor(uint64_t aID, 
+                                                   SurfaceDescriptor* aImage)
 {
   int idx = IndexOf(aID);
-  if (idx == SHAREDIMAGEMAP_INVALID_INDEX) {
-    sSharedImageMap->AppendElement(ImageIDPair(aImage,aID));
+  if (idx == SURFACEDESCRIPTORMAP_INVALID_INDEX) {
+    sSurfaceDescriptorMap->AppendElement(ImageIDPair(aImage,aID));
     return nullptr;
   }
-  SharedImage *prev = (*sSharedImageMap)[idx].image;
-  (*sSharedImageMap)[idx].image = aImage;
-  (*sSharedImageMap)[idx].version++;
+  SurfaceDescriptor *prev = (*sSurfaceDescriptorMap)[idx].image;
+  (*sSurfaceDescriptorMap)[idx].image = aImage;
+  (*sSurfaceDescriptorMap)[idx].version++;
   return prev;
 }
 
-uint32_t ImageContainerParent::GetSharedImageVersion(uint64_t aID)
+uint32_t ImageContainerParent::GetSurfaceDescriptorVersion(uint64_t aID)
 {
   int idx = IndexOf(aID);
-  if (idx == SHAREDIMAGEMAP_INVALID_INDEX) return 0;
-  return (*sSharedImageMap)[idx].version;
+  if (idx == SURFACEDESCRIPTORMAP_INVALID_INDEX) return 0;
+  return (*sSurfaceDescriptorMap)[idx].version;
 }
 
-SharedImage* ImageContainerParent::RemoveSharedImage(uint64_t aID) 
+SurfaceDescriptor* ImageContainerParent::RemoveSurfaceDescriptor(uint64_t aID) 
 {
   int idx = IndexOf(aID);
-  if (idx != SHAREDIMAGEMAP_INVALID_INDEX) {
-    SharedImage* img = (*sSharedImageMap)[idx].image;
-    sSharedImageMap->RemoveElementAt(idx);
+  if (idx != SURFACEDESCRIPTORMAP_INVALID_INDEX) {
+    SurfaceDescriptor* img = (*sSurfaceDescriptorMap)[idx].image;
+    sSurfaceDescriptorMap->RemoveElementAt(idx);
     return img;
   }
   return nullptr;
 }
 
-SharedImage* ImageContainerParent::GetSharedImage(uint64_t aID)
+SurfaceDescriptor* ImageContainerParent::GetSurfaceDescriptor(uint64_t aID)
 {
   int idx = IndexOf(aID);
-  if (idx != SHAREDIMAGEMAP_INVALID_INDEX) {
-    return (*sSharedImageMap)[idx].image;
+  if (idx != SURFACEDESCRIPTORMAP_INVALID_INDEX) {
+    return (*sSurfaceDescriptorMap)[idx].image;
   }
   return nullptr;
 }
@@ -156,35 +156,35 @@ SharedImage* ImageContainerParent::GetSharedImage(uint64_t aID)
 bool ImageContainerParent::SetCompositorIDForImage(uint64_t aImageID, uint64_t aCompositorID)
 {
   int idx = IndexOf(aImageID);
-  if (idx == SHAREDIMAGEMAP_INVALID_INDEX) {
+  if (idx == SURFACEDESCRIPTORMAP_INVALID_INDEX) {
     return false;
   }
-  (*sSharedImageMap)[idx].compositorID = aCompositorID;
+  (*sSurfaceDescriptorMap)[idx].compositorID = aCompositorID;
   return true;
 }
 
 uint64_t ImageContainerParent::GetCompositorIDForImage(uint64_t aImageID)
 {
   int idx = IndexOf(aImageID);
-  if (idx != SHAREDIMAGEMAP_INVALID_INDEX) {
-    return (*sSharedImageMap)[idx].compositorID;
+  if (idx != SURFACEDESCRIPTORMAP_INVALID_INDEX) {
+    return (*sSurfaceDescriptorMap)[idx].compositorID;
   }
   return 0;
 }
 
-void ImageContainerParent::CreateSharedImageMap()
+void ImageContainerParent::CreateSurfaceDescriptorMap()
 {
-  if (sSharedImageMap == nullptr) {
-    sSharedImageMap = new SharedImageMap;
+  if (sSurfaceDescriptorMap == nullptr) {
+    sSurfaceDescriptorMap = new SurfaceDescriptorMap;
   }
 }
-void ImageContainerParent::DestroySharedImageMap()
+void ImageContainerParent::DestroySurfaceDescriptorMap()
 {
-  if (sSharedImageMap != nullptr) {
-    NS_ABORT_IF_FALSE(sSharedImageMap->Length() == 0,
+  if (sSurfaceDescriptorMap != nullptr) {
+    NS_ABORT_IF_FALSE(sSurfaceDescriptorMap->Length() == 0,
                       "The global shared image map should be empty!");
-    delete sSharedImageMap;
-    sSharedImageMap = nullptr;
+    delete sSurfaceDescriptorMap;
+    sSurfaceDescriptorMap = nullptr;
   }
 }
 

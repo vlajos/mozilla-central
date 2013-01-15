@@ -69,13 +69,11 @@ void TextureImageAsTextureHostOGL::BindTexture(GLenum aTextureUnit) {
   mTexture->BindTexture(aTextureUnit);
 }
 
-void TextureImageAsTextureHostOGL::UpdateImpl(const SharedImage& aImage,
+void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)
 {
-  SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
- 
-  AutoOpenSurface surf(OPEN_READ_ONLY, surface);
+  AutoOpenSurface surf(OPEN_READ_ONLY, aImage);
   nsIntSize size = surf.Size();
 
   if (!mTexture ||
@@ -151,15 +149,14 @@ TextureImageAsTextureHostOGL::Abort()
 }
 
 void
-TextureHostOGLShared::UpdateImpl(const SharedImage& aImage,
+TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
                              bool* aIsInitialised,
                              bool* aNeedsReset)
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSharedTextureDescriptor,
               "Invalid descriptor");
 
-  SurfaceDescriptor surface = aImage.get_SurfaceDescriptor();
-  SharedTextureDescriptor texture = surface.get_SharedTextureDescriptor();
+  SharedTextureDescriptor texture = aImage.get_SharedTextureDescriptor();
 
   SharedTextureHandle newHandle = texture.handle();
   nsIntSize size = texture.size();
@@ -220,11 +217,11 @@ TextureHostOGLShared::Unlock()
 }
 
 void
-YCbCrTextureHostOGL::UpdateImpl(const SharedImage& aImage,
+YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                          bool* aIsInitialised,
                          bool* aNeedsReset)
 {
-  NS_ASSERTION(aImage.type() == SharedImage::TYCbCrImage, "SharedImage mismatch");
+  NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");
 
   ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
                              aImage.get_YCbCrImage().offset());

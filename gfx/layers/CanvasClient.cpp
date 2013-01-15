@@ -18,14 +18,9 @@ namespace layers {
 
 void
 CanvasClient::SetBuffer(const TextureIdentifier& aTextureIdentifier,
-                        const SharedImage& aBuffer)
+                        const SurfaceDescriptor& aBuffer)
 {
-  if (aBuffer.type() != SharedImage::TSurfaceDescriptor) {
-    mTextureClient->SetDescriptor(SurfaceDescriptor());
-    return;
-  }
-
-  mTextureClient->SetDescriptor(aBuffer.get_SurfaceDescriptor());
+  mTextureClient->SetDescriptor(aBuffer);
 }
 
 CanvasClient2D::CanvasClient2D(ShadowLayerForwarder* aLayerForwarder,

@@ -60,7 +60,7 @@ public:
   TextureImageAsTextureHostOGL(gl::GLContext* aGL,
                                gl::TextureImage* aTexImage = nullptr,
                                TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
-                               ISurfaceDeAllocator* aDeallocator = nullptr)
+                               ISurfaceDeallocator* aDeallocator = nullptr)
   : TextureHost(aBuffering, aDeallocator), mGL(aGL), mTexture(aTexImage)
   {
     //SetBuffering(aBuffering);
@@ -68,7 +68,7 @@ public:
 
   // TextureHost
 
-  virtual void UpdateImpl(const SharedImage& aImage,
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised = nullptr,
                           bool* aNeedsReset = nullptr);
   virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
@@ -171,7 +171,7 @@ public:
   }
 
   // override from TextureHost
-  virtual void UpdateImpl(const SharedImage& aImage,
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
 
@@ -237,7 +237,7 @@ public:
     mSize = gfx::IntSize(mTexImage->mSize.width, mTexImage->mSize.height);
   }
 
-  virtual void UpdateImpl(const SharedImage& aImage,
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr) {}
   virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {}
@@ -274,7 +274,7 @@ public:
   bool IsValid() const { return mTextureHandle != 0; }
 
   // override from TextureHost
-  virtual void UpdateImpl(const SharedImage& aImage,
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                       bool* aIsInitialised = nullptr,
                       bool* aNeedsReset = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
@@ -307,7 +307,7 @@ public:
 
   TextureHostOGLShared(GLContext* aGL,
                        TextureHost::Buffering aBuffering = TextureHost::Buffering::NONE,
-                       ISurfaceDeAllocator* aDeallocator = nullptr)
+                       ISurfaceDeallocator* aDeallocator = nullptr)
   : mGL(aGL)
   {
     SetBuffering(aBuffering, aDeallocator);
@@ -328,7 +328,7 @@ class YCbCrTextureHostOGL : public TextureHostOGL, public TextureSource
 public:
   YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {}
 
-  virtual void UpdateImpl(const SharedImage& aImage,
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised = nullptr,
                           bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
 

@@ -26,7 +26,7 @@ public:
   ThebesLayerComposite(LayerManagerComposite *aManager);
   virtual ~ThebesLayerComposite();
 
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
+  virtual void SetAllocator(ISurfaceDeallocator* aAllocator);
                            
   virtual void DestroyFrontBuffer();
 

@@ -20,7 +20,7 @@ namespace layers {
 
 class ImageContainerChild;
 class ImageBridgeParent;
-class SharedImage;
+class SurfaceDescriptor;
 class Image;
 
 /**

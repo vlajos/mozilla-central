@@ -56,23 +56,19 @@ struct SurfaceDescriptorGralloc {
   bool external;
 };
 
-union SurfaceDescriptor {
-  Shmem;
-  SurfaceDescriptorD3D10;
-  SurfaceDescriptorGralloc;
-  SurfaceDescriptorX11;
-  SharedTextureDescriptor;
-};
-
 struct YCbCrImage {
   Shmem data;
   size_t offset;
   nsIntRect picture;
 };
 
-union SharedImage {
-  SurfaceDescriptor;
+union SurfaceDescriptor {
+  Shmem;
+  SurfaceDescriptorD3D10;
+  SurfaceDescriptorGralloc;
+  SurfaceDescriptorX11;
   YCbCrImage;
+  SharedTextureDescriptor;
   null_t;
 };
 

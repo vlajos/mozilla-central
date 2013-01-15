@@ -10,8 +10,8 @@
 namespace mozilla {
 namespace layers {
 
-void CompositableHost::Update(const SharedImage& aImage,
-                        SharedImage* aResult,
+void CompositableHost::Update(const SurfaceDescriptor& aImage,
+                        SurfaceDescriptor* aResult,
                         bool* aIsInitialised,
                         bool* aNeedsReset) {
   if (!GetTextureHost()) {

@@ -131,7 +131,7 @@ public:
   }
 /*
   virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
-                             const SharedImage& aBuffer)
+                             const SurfaceDescriptor& aBuffer)
   {
     mCanvasClient->SetBuffer(aTextureIdentifier, aBuffer);
   }

@@ -23,7 +23,7 @@ public:
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer) = 0;
 
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
-                         const SharedImage& aBuffer);
+                         const SurfaceDescriptor& aBuffer);
   virtual void Updated(ShadowableLayer* aLayer)
   {
     mTextureClient->Updated(aLayer);

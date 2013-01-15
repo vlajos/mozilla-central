@@ -726,7 +726,7 @@ TemporaryRef<TextureHost>
 CompositorOGL::CreateTextureHost(BufferType aImageType,
                                  TextureHostType aMemoryType,
                                  uint32_t aTextureFlags,
-                                 ISurfaceDeAllocator* aDeAllocator)
+                                 ISurfaceDeallocator* aDeAllocator)
 {
   RefPtr<TextureHost> result = nullptr;
   switch (aMemoryType) {

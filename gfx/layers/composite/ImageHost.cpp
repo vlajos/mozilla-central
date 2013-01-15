@@ -18,15 +18,15 @@ ImageHostSingle::AddTextureHost(TextureHost* aHost) {
   mTextureHost = aHost;
 }
 
-SharedImage
+SurfaceDescriptor
 ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
-                             const SharedImage& aImage)
+                             const SurfaceDescriptor& aImage)
 {
   if (!mTextureHost) {
     return null_t();
   }
 
-  SharedImage result;
+  SurfaceDescriptor result;
   bool success;
   mTextureHost->Update(aImage, &result, &success);
   if (!success) {
@@ -40,7 +40,7 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;
-      NS_ASSERTION(result.type() == SharedImage::Tnull_t, "fail should give null result");
+      NS_ASSERTION(result.type() == SurfaceDescriptor::Tnull_t, "fail should give null result");
     }
   }
   return result;
@@ -101,16 +101,16 @@ ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aT
   mTextureHost = aTextureHost;
 }
 */
-SharedImage
+SurfaceDescriptor
 YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
-                            const SharedImage& aImage)
+                            const SurfaceDescriptor& aImage)
 {
   NS_ASSERTION(aTextureInfo.imageType == BUFFER_YCBCR, "BufferType mismatch.");
   NS_ASSERTION(aTextureInfo.memoryType == TEXTURE_SHMEM, "BufferType mismatch.");
 
   mPictureRect = aImage.get_YCbCrImage().picture();
 
-  SharedImage result;
+  SurfaceDescriptor result;
   mTextureHost->Update(aImage, &result);
   return result;
 }
@@ -164,30 +164,30 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id.imageType,
                                                                      id.memoryType,
                                                                      id.textureFlags,
-                                                                     nullptr); // TODO[nical] needs a ISurfaceDeAllocator
+                                                                     nullptr); // TODO[nical] needs a ISurfaceDeallocator
     mImageHost->AddTextureHost(textureHost);
   }
 }
 
-SharedImage
+SurfaceDescriptor
 ImageHostBridge::UpdateImage(const TextureInfo& aTextureInfo,
-                             const SharedImage& aImage)
+                             const SurfaceDescriptor& aImage)
 {
   // The image data will be queried at render time
   return aImage;
 }
 
 BufferType
-BufferTypeForImageBridgeType(SharedImage::Type aType)
+BufferTypeForImageBridgeType(SurfaceDescriptor::Type aType)
 {
   switch (aType) {
-  case SharedImage::TYCbCrImage:
+  case SurfaceDescriptor::TYCbCrImage:
     return BUFFER_YCBCR;
-  case SharedImage::TSurfaceDescriptor:
+  case SurfaceDescriptor::Tnull_t:
+    return BUFFER_UNKNOWN;
+  default:
     return BUFFER_DIRECT_EXTERNAL;
   }
-
-  return BUFFER_UNKNOWN;
 }
 
 void
@@ -201,11 +201,11 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
 {
   ImageContainerParent::SetCompositorIDForImage(mImageContainerID,
                                                 mCompositor->GetCompositorID());
-  uint32_t imgVersion = ImageContainerParent::GetSharedImageVersion(mImageContainerID);
-  SharedImage* img;
+  uint32_t imgVersion = ImageContainerParent::GetSurfaceDescriptorVersion(mImageContainerID);
+  SurfaceDescriptor* img;
   if ((!mImageHost ||
        imgVersion != mImageVersion) &&
-      (img = ImageContainerParent::GetSharedImage(mImageContainerID))) {
+      (img = ImageContainerParent::GetSurfaceDescriptor(mImageContainerID))) {
     EnsureImageHost(BufferTypeForImageBridgeType(img->type()));
     if (mImageHost) {
       TextureInfo textureId;

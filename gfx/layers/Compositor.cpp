@@ -5,13 +5,13 @@
 
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/LayersSurfaces.h"
-#include "mozilla/layers/ShadowLayers.h" // for ISurfaceDeAllocator
+#include "mozilla/layers/ISurfaceDeallocator.h"
 #include "mozilla/layers/ImageContainerParent.h"
 
 namespace mozilla {
 namespace layers {
 
-TextureHost::TextureHost(Buffering aBuffering, ISurfaceDeAllocator* aDeallocator)
+TextureHost::TextureHost(Buffering aBuffering, ISurfaceDeallocator* aDeallocator)
   : mFlags(NoFlags)
   , mBuffering(aBuffering)
   , mDeAllocator(aDeallocator)
@@ -21,7 +21,7 @@ TextureHost::TextureHost(Buffering aBuffering, ISurfaceDeAllocator* aDeallocator
 
 {
   if (aBuffering != Buffering::NONE) {
-    mBuffer = new SharedImage;
+    mBuffer = new SurfaceDescriptor;
   }
 }
 
@@ -34,8 +34,8 @@ TextureHost::~TextureHost()
   }
 }
 
-void TextureHost::Update(const SharedImage& aImage,
-                         SharedImage* aResult,
+void TextureHost::Update(const SurfaceDescriptor& aImage,
+                         SurfaceDescriptor* aResult,
                          bool* aIsInitialised,
                          bool* aNeedsReset)
 {
@@ -65,9 +65,9 @@ bool TextureHost::UpdateAsyncTexture()
     return true;
   }
   ImageContainerParent::SetCompositorIDForImage(mAsyncContainerID, mCompositorID);
-  uint32_t imgVersion = ImageContainerParent::GetSharedImageVersion(mAsyncContainerID);
+  uint32_t imgVersion = ImageContainerParent::GetSurfaceDescriptorVersion(mAsyncContainerID);
   if (imgVersion != mAsyncTextureVersion) {
-    SharedImage* img = ImageContainerParent::GetSharedImage(mAsyncContainerID);
+    SurfaceDescriptor* img = ImageContainerParent::GetSurfaceDescriptor(mAsyncContainerID);
     if (!img) {
       return false;
     }

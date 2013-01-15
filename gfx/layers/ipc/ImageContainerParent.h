@@ -14,11 +14,11 @@ namespace layers {
 class ImageBridgeParent;
 
 /**
- * Handles reception of SharedImages on the compositor side.
+ * Handles reception of SurfaceDescriptors on the compositor side.
  *
- * Received SharedImages are stored in a global map that can be accessed
+ * Received SurfaceDescriptors are stored in a global map that can be accessed
  * from the compositor thread only.
- * This way, ShadowImageLayers can access SharedImages using the image's ID
+ * This way, ShadowImageLayers can access SurfaceDescriptors using the image's ID
  * without holding a reference to the ImageContainerParent.
  * The ID is passed to the ShadowImageLayer through a regular PCompositor 
  * transaction.
@@ -33,7 +33,7 @@ public:
   ~ImageContainerParent();
 
   // Overriden from PImageContainerParent (see ImageContainer.ipdl)
-  bool RecvPublishImage(const SharedImage& aImage) MOZ_OVERRIDE;
+  bool RecvPublishImage(const SurfaceDescriptor& aImage) MOZ_OVERRIDE;
   // Overriden from PImageContainerParent (see DoStop)
   bool RecvStop() MOZ_OVERRIDE;
   // Overriden from PImageContainerParent (see ImageContainer.ipdl)
@@ -50,18 +50,18 @@ public:
    */
   void DoStop();
 
-  static SharedImage* GetSharedImage(uint64_t aID);
+  static SurfaceDescriptor* GetSurfaceDescriptor(uint64_t aID);
   /**
-   * Every time a SharedImage is swaped, a version counter associated with the 
+   * Every time a SurfaceDescriptor is swaped, a version counter associated with the 
    * iamge's ID is incremented. This allows ImageLayers to compare the current 
    * image with the one that has been displayed last (in particular on OGL 
    * backend we can avoid uploading the same texture twice if composition 
    * happens more frequently than ImageBridge transfers);
    */
-  static uint32_t GetSharedImageVersion(uint64_t aID);
+  static uint32_t GetSurfaceDescriptorVersion(uint64_t aID);
 
   /**
-   * Returns true if this ID exists in the global SharedImage table.
+   * Returns true if this ID exists in the global SurfaceDescriptor table.
    *
    * Should be called from the Compositor thread
    */
@@ -87,12 +87,12 @@ public:
   /**
    * Must be called before the first use of ImageBridge and Compositor.
    */
-  static void CreateSharedImageMap();
+  static void CreateSurfaceDescriptorMap();
 
   /**
    * Must be called after the last use of ImageBridge and Compositor.
    */
-  static void DestroySharedImageMap();
+  static void DestroySurfaceDescriptorMap();
 
 protected:
   virtual PGrallocBufferParent*
@@ -105,24 +105,24 @@ protected:
   { return false; }
 
   /**
-   * Sets the image associated with t aID in the global SharedImage table and 
+   * Sets the image associated with t aID in the global SurfaceDescriptor table and 
    * returns the previous image that was associated with aID.
    *
-   * If the global SharedImage table does not yet have an entry for aID, it 
+   * If the global SurfaceDescriptor table does not yet have an entry for aID, it 
    * creates one and returns nullptr since there was no previous image for aID.
    * Must be called from the Compositor thread.
    */
-  static SharedImage* SwapSharedImage(uint64_t aID, SharedImage* aImage);
+  static SurfaceDescriptor* SwapSurfaceDescriptor(uint64_t aID, SurfaceDescriptor* aImage);
 
   /**
-   * Removes an entry from the global SharedImage table and returns the 
-   * SharedImage that was stored in the table for aID or nullptr if there
+   * Removes an entry from the global SurfaceDescriptor table and returns the 
+   * SurfaceDescriptor that was stored in the table for aID or nullptr if there
    * was no entry for aID.
    * 
    * It is safe to call this function on an ID that does not exist in the table.
    * Must be called from the Compositor thread. 
    */
-  static SharedImage* RemoveSharedImage(uint64_t aID);
+  static SurfaceDescriptor* RemoveSurfaceDescriptor(uint64_t aID);
 
 private:
   uint64_t mID;

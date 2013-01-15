@@ -286,11 +286,11 @@ ShadowCanvasLayerD3D9::Init(bool needYFlip)
 }
 
 void
-ShadowCanvasLayerD3D9::Swap(const SharedImage& aNewFront,
+ShadowCanvasLayerD3D9::Swap(const SurfaceDescriptor& aNewFront,
                             bool needYFlip,
-                            SharedImage* aNewBack)
+                            SurfaceDescriptor* aNewBack)
 {
-  NS_ASSERTION(aNewFront.type() == SharedImage::TSurfaceDescriptor, 
+  NS_ASSERTION(aNewFront.type() == SurfaceDescriptor::TSurfaceDescriptor, 
     "ShadowCanvasLayerD3D9::Swap expected CanvasSurface surface");
 
   AutoOpenSurface surf(OPEN_READ_ONLY, aNewFront);

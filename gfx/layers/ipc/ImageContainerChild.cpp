@@ -67,7 +67,7 @@ void ImageContainerChild::SetIdleNow()
   if (mStop) return;
 
   SendFlush();
-  ClearSharedImagePool();
+  ClearSurfaceDescriptorPool();
   mImageQueue.Clear();
 }
 
@@ -100,33 +100,33 @@ void ImageContainerChild::StopChild()
   DispatchDestroy();
 }
 
-bool ImageContainerChild::RecvReturnImage(const SharedImage& aImage)
+bool ImageContainerChild::RecvReturnImage(const SurfaceDescriptor& aImage)
 {
-  SharedImage* img = new SharedImage(aImage);
+  SurfaceDescriptor* img = new SurfaceDescriptor(aImage);
   // Remove oldest image from the queue.
   if (mImageQueue.Length() > 0) {
     mImageQueue.RemoveElementAt(0);
   }
-  if (!AddSharedImageToPool(img) || mStop) {
-    DestroySharedImage(*img);
+  if (!AddSurfaceDescriptorToPool(img) || mStop) {
+    DestroySurfaceDescriptor(*img);
     delete img;
   }
   return true;
 }
 
-void ImageContainerChild::DestroySharedImage(const SharedImage& aImage)
+void ImageContainerChild::DestroySurfaceDescriptor(const SurfaceDescriptor& aImage)
 {
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");
 
   --mActiveImageCount;
-  DeallocSharedImageData(this, aImage);
+  DeallocSurfaceDescriptorData(this, aImage);
 }
 
-bool ImageContainerChild::CopyDataIntoSharedImage(Image* src, SharedImage* dest)
+bool ImageContainerChild::CopyDataIntoSurfaceDescriptor(Image* src, SurfaceDescriptor* dest)
 {
   if ((src->GetFormat() == PLANAR_YCBCR) && 
-      (dest->type() == SharedImage::TYCbCrImage)) {
+      (dest->type() == SurfaceDescriptor::TYCbCrImage)) {
     PlanarYCbCrImage *planarYCbCrImage = static_cast<PlanarYCbCrImage*>(src);
     const PlanarYCbCrImage::Data *data =planarYCbCrImage->GetData();
     NS_ASSERTION(data, "Must be able to retrieve yuv data from image!");
@@ -145,7 +145,7 @@ bool ImageContainerChild::CopyDataIntoSharedImage(Image* src, SharedImage* dest)
   return false; // TODO: support more image formats
 }
 
-SharedImage* ImageContainerChild::AllocateSharedImageFor(Image* image)
+SurfaceDescriptor* ImageContainerChild::AllocateSurfaceDescriptorFor(Image* image)
 {
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");
@@ -194,68 +194,68 @@ SharedImage* ImageContainerChild::AllocateSharedImageFor(Image* image)
     }
 
     ++mActiveImageCount;
-    return new SharedImage(YCbCrImage(shmem, 0, data->GetPictureRect()));
+    return new SurfaceDescriptor(YCbCrImage(shmem, 0, data->GetPictureRect()));
   } else {
     NS_RUNTIMEABORT("TODO: Only YCbCrImage is supported here right now.");
   }
   return nullptr;
 }
 
-void ImageContainerChild::RecycleSharedImageNow(SharedImage* aImage)
+void ImageContainerChild::RecycleSurfaceDescriptorNow(SurfaceDescriptor* aImage)
 {
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),"Must be in the ImageBridgeChild Thread.");
 
-  if (mStop || !AddSharedImageToPool(aImage)) {
-    DestroySharedImage(*aImage);
+  if (mStop || !AddSurfaceDescriptorToPool(aImage)) {
+    DestroySurfaceDescriptor(*aImage);
     delete aImage;
   }
 }
 
-void ImageContainerChild::RecycleSharedImage(SharedImage* aImage)
+void ImageContainerChild::RecycleSurfaceDescriptor(SurfaceDescriptor* aImage)
 {
   if (!aImage) {
     return;
   }
   if (InImageBridgeChildThread()) {
-    RecycleSharedImageNow(aImage);
+    RecycleSurfaceDescriptorNow(aImage);
     return;
   }
   GetMessageLoop()->PostTask(FROM_HERE,
                              NewRunnableMethod(this,
-                                               &ImageContainerChild::RecycleSharedImageNow,
+                                               &ImageContainerChild::RecycleSurfaceDescriptorNow,
                                                aImage));
 }
 
-bool ImageContainerChild::AddSharedImageToPool(SharedImage* img)
+bool ImageContainerChild::AddSurfaceDescriptorToPool(SurfaceDescriptor* img)
 {
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(), 
-                    "AddSharedImageToPool must be called in the ImageBridgeChild thread");
+                    "AddSurfaceDescriptorToPool must be called in the ImageBridgeChild thread");
   if (mStop) {
     return false;
   }
 
-  if (mSharedImagePool.Length() >= POOL_MAX_SHARED_IMAGES) {
+  if (mSurfaceDescriptorPool.Length() >= POOL_MAX_SHARED_IMAGES) {
     return false;
   }
-  if (img->type() == SharedImage::TYCbCrImage) {
-    mSharedImagePool.AppendElement(img);
+  if (img->type() == SurfaceDescriptor::TYCbCrImage) {
+    mSurfaceDescriptorPool.AppendElement(img);
     return true;
   }
   return false; // TODO accept more image formats in the pool
 }
 
 static bool
-SharedImageCompatibleWith(SharedImage* aSharedImage, Image* aImage)
+SurfaceDescriptorCompatibleWith(SurfaceDescriptor* aSurfaceDescriptor, Image* aImage)
 {
   // TODO accept more image formats
   switch (aImage->GetFormat()) {
   case PLANAR_YCBCR: {
-    if (aSharedImage->type() != SharedImage::TYCbCrImage) {
+    if (aSurfaceDescriptor->type() != SurfaceDescriptor::TYCbCrImage) {
       return false;
     }
     const PlanarYCbCrImage::Data* data =
       static_cast<PlanarYCbCrImage*>(aImage)->GetData();
-    const YCbCrImage& yuv = aSharedImage->get_YCbCrImage();
+    const YCbCrImage& yuv = aSurfaceDescriptor->get_YCbCrImage();
 
     ShmemYCbCrImage shmImg(yuv.data(),yuv.offset());
 
@@ -273,32 +273,32 @@ SharedImageCompatibleWith(SharedImage* aSharedImage, Image* aImage)
   }
 }
 
-SharedImage*
-ImageContainerChild::GetSharedImageFor(Image* aImage)
+SurfaceDescriptor*
+ImageContainerChild::GetSurfaceDescriptorFor(Image* aImage)
 {
-  while (mSharedImagePool.Length() > 0) {
+  while (mSurfaceDescriptorPool.Length() > 0) {
     // i.e., img = mPool.pop()
-    nsAutoPtr<SharedImage> img(mSharedImagePool.LastElement());
-    mSharedImagePool.RemoveElementAt(mSharedImagePool.Length() - 1);
+    nsAutoPtr<SurfaceDescriptor> img(mSurfaceDescriptorPool.LastElement());
+    mSurfaceDescriptorPool.RemoveElementAt(mSurfaceDescriptorPool.Length() - 1);
 
-    if (SharedImageCompatibleWith(img, aImage)) {
+    if (SurfaceDescriptorCompatibleWith(img, aImage)) {
       return img.forget();
     }
     // The cached image is stale, throw it out.
-    DeallocSharedImageData(this, *img);
+    DeallocSurfaceDescriptorData(this, *img);
   }
 
   return nullptr;
 }
 
-void ImageContainerChild::ClearSharedImagePool()
+void ImageContainerChild::ClearSurfaceDescriptorPool()
 {
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");
-  for(unsigned int i = 0; i < mSharedImagePool.Length(); ++i) {
-    DeallocSharedImageData(this, *mSharedImagePool[i]);
+  for(unsigned int i = 0; i < mSurfaceDescriptorPool.Length(); ++i) {
+    DeallocSurfaceDescriptorData(this, *mSurfaceDescriptorPool[i]);
   }
-  mSharedImagePool.Clear();
+  mSurfaceDescriptorPool.Clear();
 }
 
 void ImageContainerChild::SendImageNow(Image* aImage)
@@ -316,18 +316,18 @@ void ImageContainerChild::SendImageNow(Image* aImage)
 
   bool needsCopy = false;
   // If the image can be converted to a shared image, no need to do a copy.
-  SharedImage* img = AsSharedImage(aImage);
+  SurfaceDescriptor* img = AsSurfaceDescriptor(aImage);
   if (!img) {
     needsCopy = true;
     // Try to get a compatible shared image from the pool
-    img = GetSharedImageFor(aImage);
+    img = GetSurfaceDescriptorFor(aImage);
     if (!img && mActiveImageCount < (int)MAX_ACTIVE_SHARED_IMAGES) {
       // If no shared image available, allocate a new one
-      img = AllocateSharedImageFor(aImage);
+      img = AllocateSurfaceDescriptorFor(aImage);
     }
   }
 
-  if (img && (!needsCopy || CopyDataIntoSharedImage(aImage, img))) {
+  if (img && (!needsCopy || CopyDataIntoSurfaceDescriptor(aImage, img))) {
     // Keep a reference to the image we sent to compositor to maintain a
     // correct reference count.
     aImage->MarkSent();
@@ -359,7 +359,7 @@ public:
 };
 
 /*
-SharedImage* ImageContainerChild::AllocateSharedImageFor(Image* aImage)
+SurfaceDescriptor* ImageContainerChild::AllocateSurfaceDescriptorFor(Image* aImage)
 {
   if (mStop) {
     return nullptr;
@@ -372,11 +372,11 @@ SharedImage* ImageContainerChild::AllocateSharedImageFor(Image* aImage)
 
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");
-  SharedImage *img = GetSharedImageFor(aImage);
+  SurfaceDescriptor *img = GetSurfaceDescriptorFor(aImage);
   if (img) {
-    CopyDataIntoSharedImage(aImage, img);  
+    CopyDataIntoSurfaceDescriptor(aImage, img);  
   } else {
-    img = CreateSharedImageFromData(aImage);
+    img = CreateSurfaceDescriptorFromData(aImage);
   }
   // Keep a reference to the image we sent to compositor to maintain a
   // correct reference count.
@@ -412,7 +412,7 @@ void ImageContainerChild::DestroyNow()
   NS_ABORT_IF_FALSE(mDispatchedDestroy,
                     "Incorrect state in the destruction sequence.");
 
-  ClearSharedImagePool();
+  ClearSurfaceDescriptorPool();
   mImageQueue.Clear();
 
   // will decrease the refcount and, in most cases, delete the ImageContainerChild
@@ -515,7 +515,7 @@ public:
 
   ~SharedPlanarYCbCrImage() {
     if (mAllocated) {
-      mImageContainerChild->RecycleSharedImage(ToSharedImage());
+      mImageContainerChild->RecycleSurfaceDescriptor(ToSurfaceDescriptor());
     }
   }
 
@@ -614,9 +614,9 @@ public:
     return mAllocated;
   }
 
-  SharedImage* ToSharedImage() {
+  SurfaceDescriptor* ToSurfaceDescriptor() {
     if (mAllocated) {
-      return new SharedImage(YCbCrImage(mShmem, 0, mData.GetPictureRect()));
+      return new SurfaceDescriptor(YCbCrImage(mShmem, 0, mData.GetPictureRect()));
     }
     return nullptr;
   }
@@ -652,16 +652,16 @@ already_AddRefed<Image> ImageContainerChild::CreateImage(const uint32_t *aFormat
 #endif
 }
 
-SharedImage* ImageContainerChild::AsSharedImage(Image* aImage)
+SurfaceDescriptor* ImageContainerChild::AsSurfaceDescriptor(Image* aImage)
 {
 #ifdef MOZ_WIDGET_GONK
   if (aImage->GetFormat() == GONK_IO_SURFACE) {
     GonkIOSurfaceImage* gonkImage = static_cast<GonkIOSurfaceImage*>(aImage);
-    SharedImage* result = new SharedImage(gonkImage->GetSurfaceDescriptor());
+    SurfaceDescriptor* result = new SurfaceDescriptor(gonkImage->GetSurfaceDescriptor());
     return result;
   } else if (aImage->GetFormat() == GRALLOC_PLANAR_YCBCR) {
     GrallocPlanarYCbCrImage* GrallocImage = static_cast<GrallocPlanarYCbCrImage*>(aImage);
-    SharedImage* result = new SharedImage(GrallocImage->GetSurfaceDescriptor());
+    SurfaceDescriptor* result = new SurfaceDescriptor(GrallocImage->GetSurfaceDescriptor());
     return result;
   }
 #endif
@@ -669,7 +669,7 @@ SharedImage* ImageContainerChild::AsSharedImage(Image* aImage)
     SharedPlanarYCbCrImage* sharedYCbCr
       = static_cast<PlanarYCbCrImage*>(aImage)->AsSharedPlanarYCbCrImage();
     if (sharedYCbCr) {
-      return sharedYCbCr->ToSharedImage();
+      return sharedYCbCr->ToSurfaceDescriptor();
     }
   }
   return nullptr;

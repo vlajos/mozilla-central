@@ -188,13 +188,13 @@ public:
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
-  virtual void SetBackBuffer(const SharedImage& aBuffer)
+  virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
   {
     // only called for ImageBridge and then there is nothing to do
   }
 
   virtual void SetBackBuffer(const TextureInfo& aTextureInfo,
-                             const SharedImage& aBuffer)
+                             const SurfaceDescriptor& aBuffer)
   {
     mImageClient->SetBuffer(aTextureInfo, aBuffer);
   }

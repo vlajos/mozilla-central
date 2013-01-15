@@ -198,7 +198,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   // boundaries, so assert here that this is the case
   NS_ASSERTION(((destBounds.x % size.width) + destBounds.width <= size.width) &&
                ((destBounds.y % size.height) + destBounds.height <= size.height),
-               "Updated region lies across rotation boundaries!");
+               "updated region lies across rotation boundaries!");
 
   mTextureHost->Update(updated, destRegion);
   mInitialised = true;
@@ -248,14 +248,10 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   }
 
   bool needsReset;
-  SharedImage newFrontBuffer;
+  SurfaceDescriptor newFrontBuffer;
   mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
   //TODO[nrc] if !mInitialised should we fallback to a different texturehost?
-  if (newFrontBuffer.type() == SharedImage::TSurfaceDescriptor) {
-    *aNewFront = ThebesBuffer(newFrontBuffer.get_SurfaceDescriptor(), mBufferRect, mBufferRotation);
-  } else {
-    *aNewFront = null_t();
-  }
+  *aNewFront = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.

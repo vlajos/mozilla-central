@@ -24,7 +24,7 @@ class Layer;
 class ShadowLayerManager;
 
 class ShadowLayersParent : public PLayersParent,
-                           public ISurfaceDeAllocator
+                           public ISurfaceDeallocator
 {
   typedef mozilla::layout::RenderFrameParent RenderFrameParent;
   typedef InfallibleTArray<Edit> EditArray;

@@ -157,6 +157,8 @@ EXPORTS_mozilla/layers =\
         ImageContainerChild.h \
         ImageContainerParent.h \
         ImageHost.h \
+        ISurfaceDeallocator.h \
+        SurfaceDeallocatorIPC.h \
         ShadowLayers.h \
         ShadowLayersChild.h \
         ShadowLayersParent.h \

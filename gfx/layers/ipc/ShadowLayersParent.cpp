@@ -441,11 +441,11 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       canvas->SetAllocator(this);
       TextureHost* textureHost = AsTextureHost(op);
 
-      SharedImage newBack;
+      SurfaceDescriptor newBack;
       bool success;
       textureHost->Update(op.newFrontBuffer(), &newBack, &success);
       if (!success) {
-        NS_ASSERTION(newBack.type() == SharedImage::Tnull_t, "fail should give null result");
+        NS_ASSERTION(newBack.type() == SurfaceDescriptor::Tnull_t, "fail should give null result");
       }
 
       canvas->Updated();
@@ -501,7 +501,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
       TextureHost* host = AsTextureHost(op);
       shadowLayer->SetAllocator(this);
-      SharedImage newBack;
+      SurfaceDescriptor newBack;
       host->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
  

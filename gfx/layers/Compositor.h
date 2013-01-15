@@ -30,9 +30,9 @@ namespace layers {
 class Compositor;
 struct Effect;
 struct EffectChain;
-class SharedImage;
+class SurfaceDescriptor;
 class Image;
-class ISurfaceDeAllocator;
+class ISurfaceDeallocator;
 class CompositableHost;
 class TextureHost;
 class TextureInfo;
@@ -90,7 +90,7 @@ public:
  * Interface
  * TextureHost is a thin abstraction over texture data that need to be shared
  * or transfered from the content process to the compositor process.
- * TextureHost only knows how to deserialize generic image data (SharedImage)
+ * TextureHost only knows how to deserialize generic image data (SurfaceDescriptor)
  * and provide access to one or more TextureSource objects (these provide the
  * necessary APIs for compositor backends to composite the image).
  *
@@ -102,7 +102,7 @@ public:
   enum Buffering { NONE, BUFFERED };
 
   TextureHost(Buffering aBuffering = Buffering::NONE,
-              ISurfaceDeAllocator* aDeAllocator = nullptr);
+              ISurfaceDeallocator* aDeAllocator = nullptr);
   virtual ~TextureHost();
 
   /**
@@ -115,13 +115,13 @@ public:
   virtual TextureSource* AsTextureSource() = 0;
 
   /**
-   * Update the texture host from a SharedImage, aResult may contain the old
+   * Update the texture host from a SurfaceDescriptor, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The
    * texture client should know what to expect
    * The buffering logic is implemented here rather than in the specialized classes
    */
-  void Update(const SharedImage& aImage,
-              SharedImage* aResult = nullptr,
+  void Update(const SurfaceDescriptor& aImage,
+              SurfaceDescriptor* aResult = nullptr,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr);
 
@@ -155,7 +155,7 @@ public:
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
-  void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {
+  void SetDeAllocator(ISurfaceDeallocator* aDeAllocator) {
     mDeAllocator = aDeAllocator;
   }
 
@@ -193,7 +193,7 @@ public:
   }
 
   /**
-   * If this TextureHost uses ImageBridge, try to fetch the SharedImage in
+   * If this TextureHost uses ImageBridge, try to fetch the SurfaceDescriptor in
    * the ImageBridge global map and call Update on it.
    * If it does not use ImageBridge, do nothing and return true.
    * Return false if using ImageBridge and failed to fetch the texture.
@@ -208,20 +208,20 @@ protected:
   // buffering
 
   void SetBuffering(Buffering aBuffering,
-                    ISurfaceDeAllocator* aDeAllocator = nullptr) {
+                    ISurfaceDeallocator* aDeAllocator = nullptr) {
     MOZ_ASSERT (aBuffering == Buffering::NONE || aDeAllocator);
     mBuffering = aBuffering;
     mDeAllocator = aDeAllocator;
   }
 
   bool IsBuffered() const { return mBuffering == Buffering::BUFFERED; }
-  SharedImage* GetBuffer() const { return mBuffer; }
+  SurfaceDescriptor* GetBuffer() const { return mBuffer; }
 
 
   /**
    * Should be implemented by the backend-specific TextureHost classes 
    */
-  virtual void UpdateImpl(const SharedImage& aImage,
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised,
                           bool* aNeedsReset)
   {
@@ -237,7 +237,7 @@ protected:
   // Texture info
   TextureFlags mFlags;
   Buffering mBuffering;
-  SharedImage* mBuffer;
+  SurfaceDescriptor* mBuffer;
 
   // ImageBridge
   uint64_t mAsyncContainerID;
@@ -245,7 +245,7 @@ protected:
   uint32_t mCompositorID;
 
   TextureParent* mTextureParent;
-  ISurfaceDeAllocator* mDeAllocator;
+  ISurfaceDeallocator* mDeAllocator;
 };
 
 /**
@@ -310,7 +310,7 @@ public:
     CreateTextureHost(BufferType aImageType,
                       TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
-                      ISurfaceDeAllocator* aDeAllocator) = 0;
+                      ISurfaceDeallocator* aDeAllocator) = 0;
   /**
    * Create a new buffer host of a kind specified by aType
    */

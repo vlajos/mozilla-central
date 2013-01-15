@@ -16,8 +16,8 @@ namespace layers {
 class ImageHost : public CompositableHost
 {
 public:
-  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
-                                  const SharedImage& aImage) = 0;
+  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
+                                        const SurfaceDescriptor& aImage) = 0;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
 
@@ -43,8 +43,8 @@ public:
 
   virtual BufferType GetType() { return mType; }
 
-  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
-                                  const SharedImage& aImage);
+  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
+                                        const SurfaceDescriptor& aImage);
 
   void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
 
@@ -58,7 +58,7 @@ public:
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr);
 
-  virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator)
+  virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
@@ -83,8 +83,8 @@ public:
 
   virtual BufferType GetType() { return BUFFER_YCBCR; }
 
-  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
-                                  const SharedImage& aImage);
+  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
+                                        const SurfaceDescriptor& aImage);
 
   virtual void Composite(EffectChain& aEffectChain,
                          float aOpacity,
@@ -118,8 +118,8 @@ public:
 
   virtual BufferType GetType() { return BUFFER_BRIDGE; }
 
-  virtual SharedImage UpdateImage(const TextureInfo& aTextureInfo,
-                                  const SharedImage& aImage);
+  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
+                                        const SurfaceDescriptor& aImage);
 
   virtual void Composite(EffectChain& aEffectChain,
                          float aOpacity,
@@ -141,9 +141,9 @@ public:
     // to retain that information in case we fall back on GL, so that we
     // can upload / attach buffers properly.
 
-    SharedImage* img = ImageContainerParent::GetSharedImage(mImageContainerID);
-    if (img && img->type() == SharedImage::TSurfaceDescriptor) {
-      return LayerRenderState(&img->get_SurfaceDescriptor());
+    SurfaceDescriptor* img = ImageContainerParent::GetSurfaceDescriptor(mImageContainerID);
+    if (img) {
+      return LayerRenderState(img);
     }
     return LayerRenderState();
   }

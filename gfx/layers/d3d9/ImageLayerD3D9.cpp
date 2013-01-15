@@ -545,10 +545,10 @@ ShadowImageLayerD3D9::~ShadowImageLayerD3D9()
 {}
 
 void
-ShadowImageLayerD3D9::Swap(const SharedImage& aNewFront,
-                           SharedImage* aNewBack)
+ShadowImageLayerD3D9::Swap(const SurfaceDescriptor& aNewFront,
+                           SurfaceDescriptor* aNewBack)
 {
-  if (aNewFront.type() == SharedImage::TSurfaceDescriptor) {
+  if (aNewFront.type() == SurfaceDescriptor::TSurfaceDescriptor) {
     if (!mBuffer) {
       mBuffer = new ShadowBufferD3D9(this);
     }

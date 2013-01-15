@@ -37,6 +37,7 @@
 #define DEFAULT_CANVAS_HEIGHT 150
 
 using namespace mozilla;
+using namespace mozilla::gfx;
 using namespace mozilla::dom;
 using namespace mozilla::layers;
 

@@ -38,14 +38,14 @@ public:
   // This isn't meaningful for shadow canvas.
   virtual void Updated(const nsIntRect&) {}
 
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator);
+  virtual void SetAllocator(ISurfaceDeallocator* aAllocator);
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   // ShadowCanvasLayer impl
-  virtual void Swap(const SharedImage& aNewFront,
+  virtual void Swap(const SurfaceDescriptor& aNewFront,
                     bool needYFlip,
-                    SharedImage* aNewBack)
+                    SurfaceDescriptor* aNewBack)
   {
     NS_ERROR("Should never be called");
   }
@@ -53,8 +53,8 @@ public:
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 /*
   virtual void SwapTexture(const TextureInfo& aTextureInfo,
-                           const SharedImage& aFront,
-                           SharedImage* aNewBack);
+                           const SurfaceDescriptor& aFront,
+                           SurfaceDescriptor* aNewBack);
 */
   virtual void Disconnect()
   {

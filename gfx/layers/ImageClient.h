@@ -36,7 +36,7 @@ public:
    * aBuffer. Intended to be used with a buffer from the compositor
    */
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SharedImage& aBuffer) = 0;
+                         const SurfaceDescriptor& aBuffer) = 0;
 
   /**
    * Notify the compositor that this image client has been updated
@@ -56,7 +56,7 @@ public:
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SharedImage& aBuffer);
+                         const SurfaceDescriptor& aBuffer);
 
   virtual void Updated(ShadowableLayer* aLayer);
 private:
@@ -73,7 +73,7 @@ public:
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
 
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SharedImage& aBuffer) {}
+                         const SurfaceDescriptor& aBuffer) {}
 
   virtual void Updated(ShadowableLayer* aLayer);
 private:
@@ -90,7 +90,7 @@ public:
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SharedImage& aBuffer) {}
+                         const SurfaceDescriptor& aBuffer) {}
   virtual void Updated(ShadowableLayer* aLayer);
 
 private:

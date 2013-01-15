@@ -76,16 +76,9 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 
 void
 ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
-                              const SharedImage& aBuffer)
+                              const SurfaceDescriptor& aBuffer)
 {
-  SharedImage::Type type = aBuffer.type();
-
-  if (type != SharedImage::TSurfaceDescriptor) {
-    mTextureClient->SetDescriptor(SurfaceDescriptor());
-    return;
-  }
-
-  mTextureClient->SetDescriptor(aBuffer.get_SurfaceDescriptor());
+  mTextureClient->SetDescriptor(aBuffer);
 }
 
 void

@@ -15,6 +15,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/ipc/SharedMemory.h"
 #include "mozilla/WidgetUtils.h"
+#include "mozilla/layers/ISurfaceDeallocator.h"
 
 class gfxSharedImageSurface;
 
@@ -44,7 +45,7 @@ class SurfaceDescriptor;
 class ThebesBuffer;
 class TiledLayerComposer;
 class Transaction;
-class SharedImage;
+class SurfaceDescriptor;
 class CanvasSurface;
 class BasicTiledLayerBuffer;
 class TextureClientShmem;
@@ -222,7 +223,7 @@ public:
    * and aIdentifier has been updated to aImage.
    */
   void UpdateTexture(PTextureChild* aTexture,
-                     const SharedImage& aImage);
+                     const SurfaceDescriptor& aImage);
 
   /**
    * Communicate to the compositor that aRegion in the texture identified by aLayer
@@ -511,20 +512,6 @@ protected:
 };
 
 /**
- * SurfaceDeallocator interface
- */
-class ISurfaceDeAllocator
-{
-public:
-  ISurfaceDeAllocator() {}
-  void DestroySharedSurface(const SharedImage* aImage);
-  virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) = 0;
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
-protected:
-  ~ISurfaceDeAllocator() {}
-};
-
-/**
  * A ShadowLayer is the representation of a child-context's Layer in a
  * parent context.  They can be transformed, clipped,
  * etc. independently of their origin Layers.
@@ -545,7 +532,7 @@ public:
   // XXX this is only used by non-Compositor ShadowLayers, Compositor ShadowLayers
   // should override it and pass aAllocator to their image host
   // remove when we move to Compositor everywhere
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator)
+  virtual void SetAllocator(ISurfaceDeallocator* aAllocator)
   {
     NS_ASSERTION(!mAllocator || mAllocator == aAllocator, "Stomping allocator?");
     mAllocator = aAllocator;
@@ -600,7 +587,7 @@ protected:
     , mUseShadowClipRect(false)
   {}
 
-  ISurfaceDeAllocator* mAllocator;
+  ISurfaceDeallocator* mAllocator;
   nsIntRegion mShadowVisibleRegion;
   gfx3DMatrix mShadowTransform;
   nsIntRect mShadowClipRect;
@@ -695,8 +682,8 @@ public:
    * out the old front surface (the new back surface for the remote
    * layer).
    */
-  virtual void Swap(const SharedImage& aNewFront, bool needYFlip,
-                    SharedImage* aNewBack) = 0;
+  virtual void Swap(const SurfaceDescriptor& aNewFront, bool needYFlip,
+                    SurfaceDescriptor* aNewBack) = 0;
 
   virtual ShadowLayer* AsShadowLayer() { return this; }
 

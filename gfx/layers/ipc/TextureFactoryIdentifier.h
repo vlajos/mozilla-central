@@ -18,14 +18,6 @@ enum BufferType
   BUFFER_DIRECT
 };
 
-enum TextureFormat
-{
-  TEXTUREFORMAT_BGRX32,
-  TEXTUREFORMAT_BGRA32,
-  TEXTUREFORMAT_BGR16,
-  TEXTUREFORMAT_Y8
-};
-
 enum TextureHostType
 {
   TEXTURE_UNKNOWN,

@@ -14,35 +14,14 @@ namespace mozilla {
 namespace layers {
 
 template<typename Deallocator>
-void DeallocSharedImageData(Deallocator* protocol, const SharedImage& aImage)
+void DeallocSurfaceDescriptorData(Deallocator* protocol, const SurfaceDescriptor& aImage)
 {
-  if (aImage.type() == SharedImage::TYCbCrImage) {
+  if (aImage.type() == SurfaceDescriptor::TYCbCrImage) {
     protocol->DeallocShmem(aImage.get_YCbCrImage().data());
-  } else if (aImage.type() == SharedImage::TSurfaceDescriptor &&
-             aImage.get_SurfaceDescriptor().type() == SurfaceDescriptor::TShmem) {
-    protocol->DeallocShmem(aImage.get_SurfaceDescriptor().get_Shmem());
+  } else if (aImage.type() == SurfaceDescriptor::TShmem) {
+    protocol->DeallocShmem(aImage.get_Shmem());
   }
 }
-
-template<typename Allocator>
-bool AllocateSharedBuffer(Allocator* protocol,
-                          const gfxIntSize& aSize,
-                          gfxASurface::gfxContentType aContent,
-                          gfxSharedImageSurface** aBuffer)
-{
-  ipc::SharedMemory::SharedMemoryType shmemType = OptimalShmemType();
-  gfxASurface::gfxImageFormat format = gfxPlatform::GetPlatform()->OptimalFormatForContent(aContent);
-
-  nsRefPtr<gfxSharedImageSurface> back =
-    gfxSharedImageSurface::CreateUnsafe(protocol, aSize, format, shmemType);
-  if (!back)
-    return false;
-
-  *aBuffer = nullptr;
-  back.swap(*aBuffer);
-  return true;
-}
-
 
 } // namespace
 } // namespace

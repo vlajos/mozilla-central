@@ -24,6 +24,48 @@ namespace layers {
 class TextureChild;
 class ContentClient;
 
+class AwesomeTextureClient {
+public:
+  virtual ~AwesomeTextureClient() {
+    MOZ_ASSERT(!IsLocked());
+  }
+
+  virtual SurfaceDescriptor* Lock() {
+    return &mData;
+  }
+
+  virtual void Unlock() {};
+
+  virtual bool IsLocked() {
+    return false;
+  };
+
+  void AddToTransaction(ShadowLayerForwarder* aFwd);
+
+  virtual void Set(const SurfaceDescriptor& aImage) {
+    if (mData.type() != SurfaceDescriptor::T__None) {
+      ReleaseResources();
+    }
+    mData = aImage;
+  }
+
+  virtual bool Allocate(SurfaceDescriptor::Type aType, gfx::IntSize aSize);
+
+  virtual void ReleaseResources();
+
+  void SetTextureChild(TextureChild* aChild) {
+    mTextureChild = aChild;
+  }
+  TextureChild* GetTextureChild() const {
+    return mTextureChild;
+  }
+
+protected:
+  SurfaceDescriptor mData;
+  //TextureInfo mTextureInfo;
+  TextureChild* mTextureChild;
+};
+
 /* This class allows texture clients to draw into textures through Azure or
  * thebes and applies locking semantics to allow GPU or CPU level
  * synchronization.

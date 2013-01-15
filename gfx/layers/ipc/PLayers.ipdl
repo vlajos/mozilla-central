@@ -243,13 +243,13 @@ struct OpPaintTiledLayerBuffer {
 
 struct OpPaintCanvas {
   PTexture texture;
-  SharedImage newFrontBuffer;
+  SurfaceDescriptor newFrontBuffer;
   bool needYFlip;
 };
 
 struct OpPaintTexture {
   PTexture texture;
-  SharedImage image;
+  SurfaceDescriptor image;
 };
 
 struct OpPaintTextureRegion {
@@ -296,7 +296,7 @@ union Edit {
 // Replies to operations
 // struct OpBufferSwap   { PLayer layer; SurfaceDescriptor newBackBuffer; };
 
-struct OpImageSwap { PLayer layer; SharedImage newBackImage; };
+struct OpImageSwap { PLayer layer; SurfaceDescriptor newBackImage; };
 
 struct OpThebesBufferSwap {
   PTexture texture;
@@ -314,7 +314,7 @@ struct OpThebesBufferSwap {
 
 struct OpTextureSwap {
   PTexture texture;
-  SharedImage image;
+  SurfaceDescriptor image;
 };
 
 // Unit of a "changeset reply".  This is a weird abstraction, probably
@@ -328,7 +328,7 @@ union EditReply {
 
 struct OpTextureReply {
   PTexture texture;
-  SharedImage image;
+  SurfaceDescriptor image;
 };
 
 sync protocol PLayers {

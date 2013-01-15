@@ -1230,13 +1230,7 @@ BasicShadowLayerManager::ForwardTransaction()
 
         TextureClient* texClient = static_cast<TextureChild*>(textureChild)->GetTextureClient();
 
-        SharedImage::Type type = ots.image().type();
-        if (type != SharedImage::TSurfaceDescriptor) {
-          texClient->SetDescriptor(SurfaceDescriptor());
-          return;
-        }
-
-        texClient->SetDescriptor(ots.image().get_SurfaceDescriptor());
+        texClient->SetDescriptor(ots.image());
         break;
       }
 

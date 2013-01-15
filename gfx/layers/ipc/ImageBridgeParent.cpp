@@ -21,12 +21,12 @@ namespace layers {
 ImageBridgeParent::ImageBridgeParent(MessageLoop* aLoop)
 : mMessageLoop(aLoop)
 {
-  ImageContainerParent::CreateSharedImageMap();
+  ImageContainerParent::CreateSurfaceDescriptorMap();
 }
 
 ImageBridgeParent::~ImageBridgeParent()
 {
-  ImageContainerParent::DestroySharedImageMap();
+  ImageContainerParent::DestroySurfaceDescriptorMap();
 }
 
 static void

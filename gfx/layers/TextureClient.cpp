@@ -28,11 +28,15 @@ TextureClient::TextureClient(ShadowLayerForwarder* aLayerForwarder,
 TextureClient::~TextureClient()
 {}
 
+void AwesomeTextureClient::ReleaseResources() {
+  mTextureChild->DestroySharedSurface(&mData);
+}
+
 void
 TextureClient::Updated(ShadowableLayer* aLayer)
 {
   if (mDescriptor.type() != SurfaceDescriptor::T__None) {
-    mLayerForwarder->UpdateTexture(mTextureChild, SharedImage(mDescriptor));
+    mLayerForwarder->UpdateTexture(mTextureChild, SurfaceDescriptor(mDescriptor));
   }
 }
 

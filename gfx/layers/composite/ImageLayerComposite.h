@@ -27,13 +27,13 @@ public:
   ImageLayerComposite(LayerManagerComposite* aManager);
   virtual ~ImageLayerComposite();
 
-  virtual void SetAllocator(ISurfaceDeAllocator* aAllocator) {}
+  virtual void SetAllocator(ISurfaceDeallocator* aAllocator) {}
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   // ShadowImageLayer impl
-  virtual void Swap(const SharedImage& aFront,
-                    SharedImage* aNewBack)
+  virtual void Swap(const SurfaceDescriptor& aFront,
+                    SurfaceDescriptor* aNewBack)
   {
     NS_ERROR("Not implemented");
   }

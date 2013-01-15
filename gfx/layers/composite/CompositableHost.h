@@ -31,14 +31,14 @@ public:
 
   virtual void AddTextureHost(TextureHost* aTextureHost) = 0;
 
-  void Update(const SharedImage& aImage,
-              SharedImage* aResult = nullptr,
+  void Update(const SurfaceDescriptor& aImage,
+              SurfaceDescriptor* aResult = nullptr,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr);
 
   virtual TextureHost* GetTextureHost() = 0;
 
-  virtual void SetDeAllocator(ISurfaceDeAllocator* aDeAllocator) {}
+  virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator) {}
 
   virtual LayerRenderState GetRenderState() = 0;
 

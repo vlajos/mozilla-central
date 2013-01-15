@@ -48,8 +48,8 @@ void CanvasLayerComposite::SetCompositableHost(CompositableHost* aHost) {
 /*
 void
 CanvasLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
-                                  const SharedImage& aFront,
-                                  SharedImage* aNewBack)
+                                  const SurfaceDescriptor& aFront,
+                                  SurfaceDescriptor* aNewBack)
 {
   if (mDestroyed ||
       !mImageHost) {
@@ -140,7 +140,7 @@ CanvasLayerComposite::CleanupResources()
 }
 
 void
-CanvasLayerComposite::SetAllocator(ISurfaceDeAllocator* aAllocator)
+CanvasLayerComposite::SetAllocator(ISurfaceDeallocator* aAllocator)
 {
   mImageHost->SetDeAllocator(aAllocator);
 }

@@ -335,13 +335,13 @@ public:
     mShadow = aShadow;
   }
 /*
-  virtual void SetBackBuffer(const SharedImage& aBuffer)
+  virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
   {
     NS_RUNTIMEABORT("if this default impl is called, |aBuffer| leaks");
   }
 */
   virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
-                             const SharedImage& aBuffer)
+                             const SurfaceDescriptor& aBuffer)
   {
     NS_RUNTIMEABORT("if this default impl is called, |aBuffer| leaks");
   }

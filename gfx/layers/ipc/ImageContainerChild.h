@@ -66,7 +66,7 @@ public:
    * store them in a pool to reuse them without reallocating shared memory when 
    * possible, or deallocate them if it can't keep them.
    */
-  bool RecvReturnImage(const SharedImage& aImage) MOZ_OVERRIDE;
+  bool RecvReturnImage(const SurfaceDescriptor& aImage) MOZ_OVERRIDE;
 
   /**
    * Puts the ImageContainerChild in a state where it can't send images anymore, to
@@ -124,7 +124,7 @@ public:
    * is dispatched and the recycling/deallocation happens asynchronously on
    * the ImageBridgeChild thread.
    */
-  void RecycleSharedImage(SharedImage* aImage);
+  void RecycleSurfaceDescriptor(SurfaceDescriptor* aImage);
 
   /**
    * Creates a YCbCrImage using shared memory to store its data.
@@ -178,24 +178,24 @@ protected:
   }
 
   /**
-   * Must be called on the ImageBirdgeChild thread. (See RecycleSharedImage)
+   * Must be called on the ImageBirdgeChild thread. (See RecycleSurfaceDescriptor)
    */
-  void RecycleSharedImageNow(SharedImage* aImage);
+  void RecycleSurfaceDescriptorNow(SurfaceDescriptor* aImage);
 
   /**
    * Deallocates a shared image's shared memory.
-   * It is the caller's responsibility to delete the SharedImage itself.
+   * It is the caller's responsibility to delete the SurfaceDescriptor itself.
    */
-  void DestroySharedImage(const SharedImage& aSurface);
+  void DestroySurfaceDescriptor(const SurfaceDescriptor& aSurface);
 
   /**
-   * Each ImageContainerChild keeps a pool of SharedImages to avoid 
+   * Each ImageContainerChild keeps a pool of SurfaceDescriptors to avoid 
    * deallocationg/reallocating too often.
    * This method is typically called when the a shared image is received from
    * the compositor.
    * 
    */
-  bool AddSharedImageToPool(SharedImage* img);
+  bool AddSurfaceDescriptorToPool(SurfaceDescriptor* img);
 
   /**
    * Must be called on the ImageBridgeChild's thread.
@@ -212,42 +212,42 @@ protected:
 
 
   /**
-   * Returns a SharedImage if the image passed in parameter can be shared
+   * Returns a SurfaceDescriptor if the image passed in parameter can be shared
    * directly without a copy, returns nullptr otherwise.
    */
-  SharedImage* AsSharedImage(Image* aImage);
+  SurfaceDescriptor* AsSurfaceDescriptor(Image* aImage);
 
   /**
    * Removes a shared image from the pool and returns it.
    * Returns nullptr if the pool is empty.
    * The returned image does not contain the image data, a copy still needs to
-   * be done afterward (see CopyDataIntoSharedImage).
+   * be done afterward (see CopyDataIntoSurfaceDescriptor).
    */
-  SharedImage* GetSharedImageFor(Image* aImage);
+  SurfaceDescriptor* GetSurfaceDescriptorFor(Image* aImage);
 
   /**
-   * Allocates a SharedImage.
+   * Allocates a SurfaceDescriptor.
    * Returns nullptr in case of failure.
    * The returned image does not contain the image data, a copy still needs to
-   * be done afterward (see CopyDataIntoSharedImage).
+   * be done afterward (see CopyDataIntoSurfaceDescriptor).
    * Must be called on the ImageBridgeChild thread.
    */
-  SharedImage* AllocateSharedImageFor(Image* aImage);
+  SurfaceDescriptor* AllocateSurfaceDescriptorFor(Image* aImage);
 
   /**
-   * Called by ImageToSharedImage.
+   * Called by ImageToSurfaceDescriptor.
    */
-  bool CopyDataIntoSharedImage(Image* src, SharedImage* dest);
+  bool CopyDataIntoSurfaceDescriptor(Image* src, SurfaceDescriptor* dest);
 
 
   /**
    * Deallocates all the shared images from the pool and clears the pool.
    */
-  void ClearSharedImagePool();
+  void ClearSurfaceDescriptorPool();
 
 private:
   uint64_t mImageContainerID;
-  nsTArray<SharedImage*> mSharedImagePool;
+  nsTArray<SurfaceDescriptor*> mSurfaceDescriptorPool;
 
   /**
    * Save a reference to the outgoing images and remove the reference
