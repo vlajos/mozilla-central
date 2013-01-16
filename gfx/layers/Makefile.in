@@ -28,7 +28,6 @@ ifdef MOZ_DEBUG
 DEFINES += -DD3D_DEBUG_INFO
 endif
 
-#TODO[nrc] shouldn't need to export ContentHost.h, CompositorOGL.h, ReusableTileStoreComposite
 EXPORTS = \
         BasicCanvasLayer.h \
         BasicImplData.h \
@@ -41,8 +40,6 @@ EXPORTS = \
         Composer2D.h \
         GonkIOSurfaceImage.h \
         FrameMetrics.h \
-        ContentHost.h \
-        CompositorOGL.h \
         CompositorChild.h \
         CompositorParent.h \
         ImageContainer.h \
@@ -159,7 +156,6 @@ EXPORTS_mozilla/layers =\
         ImageContainerParent.h \
         ImageHost.h \
         ISurfaceDeallocator.h \
-        ReusableTileStoreComposite.h \
         SurfaceDeallocatorIPC.h \
         ShadowLayers.h \
         ShadowLayersChild.h \
