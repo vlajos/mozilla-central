@@ -14,7 +14,6 @@
 #include "ImageLayerOGL.h"
 #include "ColorLayerOGL.h"
 #include "CanvasLayerOGL.h"
-#include "TiledThebesLayerOGL.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Preferences.h"
 #include "TexturePoolOGL.h"
