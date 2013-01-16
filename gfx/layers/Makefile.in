@@ -49,7 +49,6 @@ EXPORTS = \
         ImageLayers.h \
         ImageLayerOGL.h \
         ImageHost.h \
-        ReusableTileStoreOGL.h \
         LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
@@ -160,6 +159,7 @@ EXPORTS_mozilla/layers =\
         ImageContainerParent.h \
         ImageHost.h \
         ISurfaceDeallocator.h \
+        ReusableTileStoreOGL.h \
         SurfaceDeallocatorIPC.h \
         ShadowLayers.h \
         ShadowLayersChild.h \

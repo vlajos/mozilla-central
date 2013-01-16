@@ -548,17 +548,11 @@ void
 ShadowImageLayerD3D9::Swap(const SurfaceDescriptor& aNewFront,
                            SurfaceDescriptor* aNewBack)
 {
-  if (aNewFront.type() == SurfaceDescriptor::TSurfaceDescriptor) {
-    if (!mBuffer) {
-      mBuffer = new ShadowBufferD3D9(this);
-    }
-    AutoOpenSurface surf(OPEN_READ_ONLY, aNewFront.get_SurfaceDescriptor());
-    mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
-  } else {
-    // YUVImage has been replaced by YCbCrImage
-    // which does the same job but better.
-    NS_RUNTIMEABORT("unimplemented");
+  if (!mBuffer) {
+    mBuffer = new ShadowBufferD3D9(this);
   }
+  AutoOpenSurface surf(OPEN_READ_ONLY, aNewFront);
+  mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
   
   *aNewBack = aNewFront;
 }
