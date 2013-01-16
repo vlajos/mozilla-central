@@ -12,12 +12,10 @@
 #include "gfx2DGlue.h"
 #include "mozilla/layers/Effects.h"
 
-#define CLASS_NAME(name) virtual char* ClassName() const { return #name ;}
-
 namespace mozilla {
 namespace layers {
 
-// we actually don't need this class
+// we actually don't need this class anymore
 class TextureHostOGL : public TextureHost
 {
 public:
@@ -25,17 +23,12 @@ public:
   : TextureHost(aBufferMode)
   {}
 
-  // TODO[nical] does not belong here
-  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
-
   //TODO[nrc] each TextureHost should implment tis properly
   virtual LayerRenderState GetRenderState()
   {
     NS_WARNING("TextureHost::GetRenderState should be overriden");
     return LayerRenderState();
   }
-
-protected:
 };
 
 /**
@@ -66,6 +59,11 @@ public:
                                ISurfaceDeallocator* aDeallocator = nullptr)
   : TextureHost(aBufferMode, aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
+    MOZ_COUNT_CTOR(TextureImageAsTextureHostOGL);
+  }
+
+  ~TextureImageAsTextureHostOGL() {
+    MOZ_COUNT_DTOR(TextureImageAsTextureHostOGL);
   }
 
   // TextureHost
@@ -115,10 +113,6 @@ public:
   TileIterator* AsTileIterator() MOZ_OVERRIDE {
     return this;
   }
-  
-  void SetFilter(const gfx::Filter& aFilter) MOZ_OVERRIDE{
-    mTexture->SetFilter(gfx::ThebesFilter(aFilter));
-  }
 
   void BeginTileIteration() MOZ_OVERRIDE {
     mTexture->BeginTileIteration();
@@ -142,29 +136,83 @@ protected:
   gfx::IntSize mSize;
 };
 
-// TODO[nical] this is rubish and no used (my bad)
-class SharedTextureWrapper : public gl::BindableTexture
+
+
+class YCbCrTextureHostOGL : public TextureHostOGL, public TextureSource
 {
 public:
-  //virtual nsIntSize GetSize() const = 0;
+  YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {
+    MOZ_COUNT_CTOR(YCbCrTextureHostOGL);
+  }
 
-  virtual void BindTexture(GLenum aTextureUnit) = 0;
-  virtual void ReleaseTexture() {}
+  ~YCbCrTextureHostOGL() {
+    MOZ_COUNT_DTOR(YCbCrTextureHostOGL);
+  }
 
-  virtual GLuint GetTextureID() = 0; // TODO[nical] const
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
+                          bool* aIsInitialised = nullptr,
+                          bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
 
-  virtual ContentType GetContentType() const = 0;
+  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {
+    NS_RUNTIMEABORT("should not be called");
+  }
 
-  virtual bool InUpdate() const = 0;
+  Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
-  virtual void EndUpdate() = 0;
+  TextureSource* AsTextureSource() MOZ_OVERRIDE {
+    NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
+    return nullptr;
+  }
 
+  struct Channel : public TextureSourceOGL {
+    RefPtr<gl::TextureImage> mTexImage;
+
+    void BindTexture(GLenum aUnit) MOZ_OVERRIDE {
+      mTexImage->BindTexture(aUnit);
+    }
+    virtual bool IsValid() const MOZ_OVERRIDE {
+      return !!mTexImage;
+    }
+    virtual gfx::IntSize GetSize() const MOZ_OVERRIDE {
+      return gfx::IntSize(mTexImage->GetSize().width, mTexImage->GetSize().height);
+    }
+    virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
+      return mTexImage->GetWrapMode();
+    }
+
+  };
+
+  // TextureSource implementation
+
+  TextureSource* GetSubSource(int index) MOZ_OVERRIDE {
+    switch (index) {
+      case 0 : return &mYTexture;
+      case 1 : return &mCbTexture;
+      case 2 : return &mCrTexture;
+    }
+    return nullptr;
+  }
+
+  gfx::IntSize GetSize() const {
+    if (!mYTexture.mTexImage) {
+      NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
+      return gfx::IntSize(0,0);
+    }
+    return mYTexture.GetSize();
+  }
+
+private:
+  Channel mYTexture;
+  Channel mCbTexture;
+  Channel mCrTexture;
   gl::GLContext* mGL;
-  GLuint mTextureHandle;
-  GLenum mWrapMode;
-  gl::SharedTextureHandle mSharedHandle;
-  gl::TextureImage::TextureShareType mShareType;
 };
+
+
+
+// TODO ----- code below this line needs to be (re)implemented/fixed -----
+
+
 
 
 // TODO[nical] this class isn't implemented/usable
@@ -175,20 +223,20 @@ public:
   {
     // TODO[nical]
     //mSharedTexture = new SharedTextureWrapper;
-    mSharedTexture->mGL = aGL;
+    mGL = aGL;
   }
 
   virtual ~SharedTextureAsTextureHostOGL() {
-    mSharedTexture->mGL->MakeCurrent();
-    mSharedTexture->mGL->ReleaseSharedHandle(mSharedTexture->mShareType,
-                                             mSharedTexture->mSharedHandle);
-    if (mSharedTexture->mTextureHandle) {
-      mSharedTexture->mGL->fDeleteTextures(1, &mSharedTexture->mTextureHandle);
+    mGL->MakeCurrent();
+    mGL->ReleaseSharedHandle(mShareType,
+                                             mSharedHandle);
+    if (mTextureHandle) {
+      mGL->fDeleteTextures(1, &mTextureHandle);
     }
   }
 
   virtual GLuint GetTextureHandle() {
-    return mSharedTexture->mTextureHandle;
+    return mTextureHandle;
   }
 
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
@@ -199,17 +247,22 @@ public:
   virtual void Unlock() MOZ_OVERRIDE;
 
   GLenum GetWrapMode() const {
-    return mSharedTexture->mWrapMode;
+    return mWrapMode;
   }
   void SetWrapMode(GLenum aMode) {
-    mSharedTexture->mWrapMode = aMode;
+    mWrapMode = aMode;
   }
 
 protected:
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
 
-  RefPtr<SharedTextureWrapper> mSharedTexture;
+  gl::GLContext* mGL;
+  GLuint mTextureHandle;
+  GLenum mWrapMode;
+  gl::SharedTextureHandle mSharedHandle;
+  gl::TextureImage::TextureShareType mShareType;
+
 };
 
 
@@ -289,71 +342,6 @@ protected:
   GLenum mWrapMode;
   gl::SharedTextureHandle mSharedHandle;
   gl::TextureImage::TextureShareType mShareType;
-};
-
-class YCbCrTextureHostOGL : public TextureHostOGL, public TextureSource
-{
-public:
-  YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {}
-
-  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
-
-  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {
-    NS_RUNTIMEABORT("should not be called");
-  }
-
-  Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
-
-
-  TextureSource* AsTextureSource() MOZ_OVERRIDE {
-    NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
-    return nullptr;
-  }
-
-  struct Channel : public TextureSourceOGL {
-    RefPtr<gl::TextureImage> mTexImage;
-
-    void BindTexture(GLenum aUnit) MOZ_OVERRIDE {
-      mTexImage->BindTexture(aUnit);
-    }
-    virtual bool IsValid() const MOZ_OVERRIDE {
-      return !!mTexImage;
-    }
-    virtual gfx::IntSize GetSize() const MOZ_OVERRIDE {
-      return gfx::IntSize(mTexImage->GetSize().width, mTexImage->GetSize().height);
-    }
-    virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
-      return mTexImage->GetWrapMode();
-    }
-
-  };
-
-  // TextureSource implementation
-
-  TextureSource* GetSubSource(int index) MOZ_OVERRIDE {
-    switch (index) {
-      case 0 : return &mYTexture;
-      case 1 : return &mCbTexture;
-      case 2 : return &mCrTexture;
-    }
-    return nullptr;
-  }
-
-  gfx::IntSize GetSize() const {
-    if (!mYTexture.mTexImage) {
-      NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
-      return gfx::IntSize(0,0);
-    }
-    return mYTexture.GetSize();
-  }
-
-private:
-  Channel mYTexture;
-  Channel mCbTexture;
-  Channel mCrTexture;
-  gl::GLContext* mGL;
 };
 
 } // namespace

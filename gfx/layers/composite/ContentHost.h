@@ -172,8 +172,6 @@ public:
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
-
-  virtual void AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost);
 };
 
 // We're using resources owned by our texture as the front buffer.

@@ -255,14 +255,6 @@ public:
   virtual already_AddRefed<ColorLayer> CreateColorLayer();
   virtual already_AddRefed<RefLayer> CreateRefLayer();
 
-/*
-  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
-  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
-  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer();
-  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer();
-  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer();
-  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer();
-*/
   ShadowableLayer* Hold(Layer* aLayer);
 
   bool HasShadowManager() const { return ShadowLayerForwarder::HasShadowManager(); }
@@ -333,17 +325,6 @@ public:
   {
     NS_ABORT_IF_FALSE(!mShadow, "can't have two shadows (yet)");
     mShadow = aShadow;
-  }
-/*
-  virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
-  {
-    NS_RUNTIMEABORT("if this default impl is called, |aBuffer| leaks");
-  }
-*/
-  virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
-                             const SurfaceDescriptor& aBuffer)
-  {
-    NS_RUNTIMEABORT("if this default impl is called, |aBuffer| leaks");
   }
 
   virtual void Disconnect()

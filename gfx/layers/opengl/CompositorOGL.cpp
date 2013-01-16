@@ -24,6 +24,11 @@
 
 #include "sampler.h"
 
+#if MOZ_ANDROID_OMTC
+#include "TexturePoolOGL.h"
+#endif
+
+
 namespace mozilla {
 namespace layers {
 

@@ -31,6 +31,12 @@ ShadowLayerParent::Bind(Layer* layer)
   mLayer = layer;
 }
 
+bool
+ShadowLayerParent::DeallocPTexture(PTextureParent* tc) {
+  delete tc;
+  return true;
+}
+
 void
 ShadowLayerParent::Destroy()
 {

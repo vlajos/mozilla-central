@@ -15,14 +15,6 @@ using namespace mozilla::gl;
 namespace mozilla {
 namespace layers {
 
-static uint32_t
-DataOffset(uint32_t aStride, uint32_t aPixelSize, const nsIntPoint &aPoint)
-{
-  unsigned int data = aPoint.y * aStride;
-  data += aPoint.x * aPixelSize;
-  return data;
-}
-
 static void
 MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
 {
@@ -227,9 +219,7 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                              aImage.get_YCbCrImage().offset());
 
   gfxIntSize gfxSize = shmemImage.GetYSize();
-  gfx::IntSize size = gfx::IntSize(gfxSize.width, gfxSize.height);
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
-  gfx::IntSize CbCrSize = gfx::IntSize(gfxCbCrSize.width, gfxCbCrSize.height);
 
   if (!mYTexture.mTexImage || mYTexture.mTexImage->GetSize() != gfxSize) {
     mYTexture.mTexImage = mGL->CreateTextureImage(gfxSize,

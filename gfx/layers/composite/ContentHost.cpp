@@ -260,15 +260,5 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   *aUpdatedRegionBack = aUpdated;
 }
 
-void
-ContentHostDirect::AddTextureHost(const TextureInfo& aTextureInfo,
-                                  TextureHost* aTextureHost)
-{
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_CONTENT_DIRECT &&
-               aTextureInfo.memoryType == TEXTURE_SHMEM,
-               "BufferType mismatch.");
-  mTextureHost = aTextureHost;
-}
-
-}
-}
+} // namespace
+} // namespace
