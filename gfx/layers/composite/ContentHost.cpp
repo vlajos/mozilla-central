@@ -87,25 +87,31 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     regionRects.Or(regionRects, regionRect);
   }
 
-  // TODO[nical] we should check that it!=nullptr
-  TileIterator* tileIter = mTextureHost->AsTextureSource()->AsTileIterator();
+  TileIterator* tileIter = source->AsTileIterator();
   TileIterator* iterOnWhite = nullptr;
-  tileIter->BeginTileIteration();
+  if (tileIter) {
+    tileIter->BeginTileIteration();
+  }
 
   if (mTextureHostOnWhite) {
     iterOnWhite = mTextureHostOnWhite->AsTextureSource()->AsTileIterator();
-    NS_ASSERTION(tileIter->GetTileCount() == iterOnWhite->GetTileCount(),
+    NS_ASSERTION((!tileIter) || tileIter->GetTileCount() == iterOnWhite->GetTileCount(),
                  "Tile count mismatch on component alpha texture");
-    iterOnWhite->BeginTileIteration();
+    if (iterOnWhite) {
+      iterOnWhite->BeginTileIteration();
+    }
   }
 
-  bool usingTiles = (tileIter->GetTileCount() > 1);
+  bool usingTiles = (tileIter && tileIter->GetTileCount() > 1);
   do {
     if (iterOnWhite) {
       NS_ASSERTION(iterOnWhite->GetTileRect() == tileIter->GetTileRect(), "component alpha textures should be the same size.");
     }
 
-    nsIntRect tileRect = tileIter->GetTileRect();
+    nsIntRect texRect = tileIter ? tileIter->GetTileRect()
+                                 : nsIntRect(0, 0,
+                                             texSize.width,
+                                             texSize.height);
 
     // Draw texture. If we're using tiles, we do repeating manually, as texture
     // repeat would cause each individual tile to repeat instead of the
@@ -113,7 +119,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     // 2 for each axis that has texture repeat.
     for (int y = 0; y < (usingTiles ? 2 : 1); y++) {
       for (int x = 0; x < (usingTiles ? 2 : 1); x++) {
-        nsIntRect currentTileRect(tileRect);
+        nsIntRect currentTileRect(texRect);
         currentTileRect.MoveBy(x * texSize.width, y * texSize.height);
 
         nsIntRegionRectIterator screenIter(screenRects);
@@ -144,8 +150,8 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
                            tileScreenRect.width, tileScreenRect.height);
             gfx::Rect sourceRect(tileRegionRect.x, tileRegionRect.y,
                                  tileRegionRect.width, tileRegionRect.height);
-            gfx::Rect textureRect(tileRect.x, tileRect.y,
-                                  tileRect.width, tileRect.height);
+            gfx::Rect textureRect(texRect.x, texRect.y,
+                                  texRect.width, texRect.height);
             mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
                                   aOpacity, aTransform, aOffset);
         }
@@ -154,7 +160,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
     if (iterOnWhite)
         iterOnWhite->NextTile();
-  } while (tileIter->NextTile());
+  } while (usingTiles && tileIter->NextTile());
 
 }
 

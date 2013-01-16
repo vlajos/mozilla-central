@@ -24,11 +24,16 @@ namespace layers {
 class TextureChild;
 class ContentClient;
 
-// this will repalce TextureClient
+// this may repalce TextureClient (or get removed)
 class AwesomeTextureClient {
 public:
+  AwesomeTextureClient() {
+    MOZ_COUNT_CTOR(AwesomeTextureClient);
+  }
+
   virtual ~AwesomeTextureClient() {
     MOZ_ASSERT(!IsLocked());
+    MOZ_COUNT_DTOR(AwesomeTextureClient);
   }
 
   virtual SurfaceDescriptor* Lock() {
@@ -104,6 +109,7 @@ public:
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual SharedTextureHandle LockHandle(GLContext* aGL, TextureImage::TextureShareType aFlags) { return 0; }
+  virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
 
   /**
    * This unlocks the current DrawableTexture and allows the host to composite
