@@ -28,6 +28,7 @@ ifdef MOZ_DEBUG
 DEFINES += -DD3D_DEBUG_INFO
 endif
 
+#TODO[nrc] shouldn't need to export ContentHost.h, CompositorOGL.h
 EXPORTS = \
         BasicCanvasLayer.h \
         BasicImplData.h \
@@ -40,12 +41,15 @@ EXPORTS = \
         Composer2D.h \
         GonkIOSurfaceImage.h \
         FrameMetrics.h \
+        ContentHost.h \
+        CompositorOGL.h \
         CompositorChild.h \
         CompositorParent.h \
         ImageContainer.h \
         ImageLayers.h \
         ImageLayerOGL.h \
         ImageHost.h \
+        ReusableTileStoreOGL.h \
         LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
@@ -84,8 +88,6 @@ CPPSRCS = \
         ImageLayerOGL.cpp \
         LayerManagerOGL.cpp \
         ThebesLayerOGL.cpp \
-        TiledThebesLayerOGL.cpp \
-        ReusableTileStoreOGL.cpp \
         LayerManagerOGLProgram.cpp \
         CanvasLayerComposite.cpp \
         ColorLayerComposite.cpp \
@@ -190,6 +192,7 @@ CPPSRCS += \
         ImageBridgeParent.cpp \
         ImageContainerChild.cpp \
         ImageContainerParent.cpp \
+        ReusableTileStoreOGL.cpp \
         ShadowLayers.cpp \
         ShadowLayerChild.cpp \
         ShadowLayersChild.cpp \

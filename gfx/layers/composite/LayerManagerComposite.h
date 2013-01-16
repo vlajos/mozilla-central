@@ -195,6 +195,10 @@ public:
     CreateDrawTarget(const mozilla::gfx::IntSize &aSize,
                      mozilla::gfx::SurfaceFormat aFormat);
 
+  nsIntSize* GetWidgetSize() {
+    return mCompositor->GetWidgetSize();
+  }
+
 private:
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;

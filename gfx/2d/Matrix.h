@@ -203,6 +203,23 @@ public:
 
     return Matrix(_11, _12, _21, _22, _41, _42);
   }
+
+  // Apply a scale to this matrix. This scale will be applied -before- the
+  // existing transformation of the matrix.
+  Matrix4x4 &Scale(Float aX, Float aY, Float aZ)
+  {
+    _11 *= aX;
+    _12 *= aX;
+    _13 *= aX;
+    _21 *= aY;
+    _22 *= aY;
+    _23 *= aY;
+    _31 *= aZ;
+    _32 *= aZ;
+    _33 *= aZ;
+
+    return *this;
+  }
 };
 
 }

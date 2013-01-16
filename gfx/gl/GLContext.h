@@ -3355,6 +3355,20 @@ public:
     nsTArray<NamedResource> mTrackedBuffers;
 #endif
 
+public:
+    enum MemoryUse {
+        // when memory being allocated is reported to a memory reporter
+        MemoryAllocated,
+        // when memory being freed is reported to a memory reporter
+        MemoryFreed
+    };
+
+    // When memory is used/freed for tile textures, call this method
+    // to update the value reported by the memory reporter.
+    static void UpdateTextureMemoryUsage(MemoryUse action,
+                                         GLenum format,
+                                         GLenum type,
+                                         uint16_t tileSize);
 };
 
 inline bool
@@ -3548,6 +3562,8 @@ protected:
         mGL->BindUserFBO(mOldState);
     }
 };
+
+uint32_t GetBitsPerTexel(GLenum format, GLenum type);
 
 } /* namespace gl */
 } /* namespace mozilla */

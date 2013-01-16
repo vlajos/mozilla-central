@@ -1,3 +1,7 @@
+/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+* This Source Code Form is subject to the terms of the Mozilla Public
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef MOZILLA_LAYERS_TEXTUREFACTORYIDENTIFIER_H
 #define MOZILLA_LAYERS_TEXTUREFACTORYIDENTIFIER_H
@@ -15,6 +19,7 @@ enum BufferType
   BUFFER_BRIDGE,
   BUFFER_CONTENT,
   BUFFER_CONTENT_DIRECT,
+  BUFFER_TILED,
   BUFFER_DIRECT
 };
 
@@ -25,6 +30,7 @@ enum TextureHostType
   TEXTURE_SHMEM_YCBCR, // TODO[nical]
   TEXTURE_SHARED,
   TEXTURE_SHARED_BUFFERED, // webgl
+  TEXTURE_TILED, //TODO[nrc] we should be able to use different texture for tiles and this is stupid anyway
   TEXTURE_BRIDGE
 };
 

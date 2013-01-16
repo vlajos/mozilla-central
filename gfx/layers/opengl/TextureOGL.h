@@ -11,6 +11,8 @@
 #include "GLContext.h"
 #include "gfx2DGlue.h"
 #include "mozilla/layers/Effects.h"
+#include "gfxReusableSurfaceWrapper.h"
+#include "TiledLayerBuffer.h" // for TILEDLAYERBUFFER_TILE_SIZE
 
 namespace mozilla {
 namespace layers {
@@ -31,6 +33,9 @@ public:
   }
 };
 
+// Not sure if this is true any more !!!TODO[nrc]TODO[nical] everytime we create an effect we do |new SimpleTextureSourceOGL|
+// does that leak? In any case it is horribly inefficent, we should cache the texture source
+// or preferably just make most hosts also sources.
 /**
  * Interface.
  * TextureSourceOGL provides the necessary API for CompositorOGL to composite
@@ -343,6 +348,46 @@ protected:
   gl::SharedTextureHandle mSharedHandle;
   gl::TextureImage::TextureShareType mShareType;
 };
+
+//TODO[nrc] can we merge with other host/source
+class TiledTextureHost : public TextureHostOGL
+                       , public TextureSourceOGL
+{
+public:
+  TiledTextureHost(gl::GLContext* aGL) 
+    : mTextureHandle(0)
+    , mGL(aGL)
+  {}
+  ~TiledTextureHost();
+
+  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags);
+  virtual Effect* Lock(const gfx::Filter& aFilter);
+  virtual void Unlock() {}
+
+  // TODO[nrc] Texture source stuff
+  virtual TextureSource* AsTextureSource() { return this; }
+  virtual bool IsValid() const { return true; }
+  virtual void BindTexture(GLenum aTextureUnit) {}
+  virtual gfx::IntSize GetSize() const { return gfx::IntSize(0, 0); }
+  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
+
+protected:
+  virtual uint32_t GetIdentifier() const {
+    return mTextureHandle;
+  }
+
+private:
+  GLenum GetTileType()
+  {
+    // Deduce the type that was assigned in GetFormatAndTileForImageFormat
+    return mFormat == LOCAL_GL_RGB ? LOCAL_GL_UNSIGNED_SHORT_5_6_5 : LOCAL_GL_UNSIGNED_BYTE;
+  }
+
+  GLuint mTextureHandle;
+  GLenum mFormat;
+  gl::GLContext* mGL;
+};
+
 
 } // namespace
 } // namespace

@@ -12,6 +12,7 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/PLayer.h"
 #include "mozilla/layers/Effects.h"
+#include "nsIWidget.h"
 
 #include "gfxUtils.h"
 
@@ -698,6 +699,9 @@ CompositorOGL::CreateCompositableHost(BufferType aType)
 #ifdef MOZ_WIDGET_GONK
   case BUFFER_DIRECT_EXTERNAL:
 #endif
+  case BUFFER_TILED:
+    result = new TiledContentHost(this);
+    return result.forget();
   case BUFFER_SHARED:
   case BUFFER_TEXTURE:
   case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
@@ -765,6 +769,9 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
       result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
     }
     break;
+  case TEXTURE_TILED:
+    result = new TiledTextureHost(mGLContext);
+    break;
   case TEXTURE_UNKNOWN:
   default:
     NS_WARNING("Unknown texture type");
@@ -773,7 +780,7 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
 
   NS_ASSERTION(result, "Result should have been created.");
  
-  result->SetFlags(aTextureFlags );
+  result->SetFlags(aTextureFlags);
   return result.forget();
 }
 

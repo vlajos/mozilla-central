@@ -19,6 +19,7 @@ class gfxContext;
 class gfxASurface;
 class gfxImageSurface;
 class nsIWidget;
+class gfxReusableSurfaceWrapper;
 
 namespace mozilla {
 namespace gfx {
@@ -54,6 +55,8 @@ const TextureFlags NeedsYFlip         = 0x2;
 const TextureFlags ForceSingleTile    = 0x4;
 const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
+const TextureFlags NewTile            = 0x20;
+
 
 /**
  * A view on a texture host where the texture host is internally represented as tiles
@@ -129,6 +132,12 @@ public:
   void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
 
   /**
+   * Update for tiled texture hosts could probably have a better signature, but we
+   * will replace it with PTexture stuff anyway, so nm.
+   */
+  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags) {}
+
+  /**
    * Lock the texture host for compositing, returns an effect that should
    * be used to composite this texture.
    */
@@ -160,6 +169,14 @@ public:
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
+
+  bool operator== (const TextureHost& o) const {
+    return GetIdentifier() == o.GetIdentifier();
+  }
+  bool operator!= (const TextureHost& o) const {
+    return GetIdentifier() != o.GetIdentifier();
+  }
+
 
   virtual LayerRenderState GetRenderState() = 0;
 
@@ -231,12 +248,19 @@ protected:
     NS_RUNTIMEABORT("Should not be reached");
   };
 
+  // An internal identifier for this texture host. Two texture hosts
+  // should be considered equal iff their identifiers match. Should
+  // not be exposed publicly.
+  virtual uint32_t GetIdentifier() const {
+    return reinterpret_cast<uint32_t>(this);
+  }
 
   // Texture info
   TextureFlags mFlags;
   BufferMode mBufferMode;
   SurfaceDescriptor* mBuffer;
 
+  //TODO[nrc] do we have to have these for all TextureHosts?
   // ImageBridge
   uint64_t mAsyncContainerID;
   uint32_t mAsyncTextureVersion;
@@ -427,6 +451,9 @@ public:
   // I expect we will want to move mWidget into this class and implement this
   // method properly.
   virtual nsIWidget* GetWidget() const { return nullptr; }
+  virtual nsIntSize* GetWidgetSize() {
+    return nullptr;
+  }
 
 protected:
   uint32_t mCompositorID;

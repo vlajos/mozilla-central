@@ -36,7 +36,7 @@ public:
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr);
 
-  virtual TextureHost* GetTextureHost() = 0;
+  virtual TextureHost* GetTextureHost() { return nullptr; }
 
   virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator) {}
 

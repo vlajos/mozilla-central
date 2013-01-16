@@ -391,7 +391,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       ShadowLayerParent* shadow = AsShadowLayer(op);
 
       ShadowThebesLayer* shadowLayer = static_cast<ShadowThebesLayer*>(shadow->AsLayer());
-      TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
+      TiledLayerComposer* tileComposer = shadowLayer->GetTiledLayerComposer();
 
       NS_ASSERTION(tileComposer, "shadowLayer is not a tile composer");
 

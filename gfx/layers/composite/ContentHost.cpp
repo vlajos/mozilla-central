@@ -8,6 +8,8 @@
 #include "mozilla/layers/ContentHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
+#include "mozilla/layers/ReusableTileStoreOGL.h"
+#include "gfxPlatform.h"
 
 namespace mozilla {
 namespace layers {
@@ -184,7 +186,8 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  const nsIntRegion& aOldValidRegionBack,
                                  OptionalThebesBuffer* aNewBackResult,
                                  nsIntRegion* aNewValidRegionFront,
-                                 nsIntRegion* aUpdatedRegionBack)
+                                 nsIntRegion* aUpdatedRegionBack,
+                                 TiledLayerProperties* aLayerProperties)
 {
   AutoOpenSurface surface(OPEN_READ_ONLY, aNewFront.buffer());
   gfxASurface* updated = surface.Get();
@@ -218,6 +221,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   aUpdatedRegionBack->SetEmpty();
 }
 
+//TODO[nrc] has this gone?
 /*
 void
 ContentHostTexture::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
@@ -237,7 +241,8 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
                                 const nsIntRegion& aOldValidRegionBack,
                                 OptionalThebesBuffer* aNewBackResult,
                                 nsIntRegion* aNewValidRegionFront,
-                                nsIntRegion* aUpdatedRegionBack)
+                                nsIntRegion* aUpdatedRegionBack,
+                                TiledLayerProperties* aLayerProperties)
 {
   printf("xxx ContentHostDirect::UpdateThebes\n");
   mBufferRect = aNewBack.rect();
@@ -255,16 +260,342 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
 
   bool needsReset;
   SurfaceDescriptor newFrontBuffer;
-  mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
+  mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
+                       &mInitialised, &needsReset);
+  
   //TODO[nrc] if !mInitialised should we fallback to a different texturehost?
+  if (!mInitialised) {
+    // try falling back to a (hopefully) more reliable texture host
+    mTextureHost = nullptr; //TODO[nrc] hmm, which texture host? Probably basic shmem thing, waiting for nical to finish refactoring texture hosts
+    mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
+                         &mInitialised, &needsReset);
+  }
+
   *aNewFront = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.
-  aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
+  aNewValidRegionFront->Sub(needsReset ? nsIntRegion()
+                                       : aOldValidRegionFront, 
+                            aUpdated);
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 }
+
+void
+TiledLayerBufferComposite::Upload(const BasicTiledLayerBuffer* aMainMemoryTiledBuffer,
+                                  const nsIntRegion& aNewValidRegion,
+                                  const nsIntRegion& aInvalidateRegion,
+                                  const gfxSize& aResolution)
+{
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
+  printf_stderr("Upload %i, %i, %i, %i\n", aInvalidateRegion.GetBounds().x, aInvalidateRegion.GetBounds().y, aInvalidateRegion.GetBounds().width, aInvalidateRegion.GetBounds().height);
+  long start = PR_IntervalNow();
+#endif
+
+  mFrameResolution = aResolution;
+  mMainMemoryTiledBuffer = aMainMemoryTiledBuffer;
+  Update(aNewValidRegion, aInvalidateRegion);
+  mMainMemoryTiledBuffer = nullptr;
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
+  if (PR_IntervalNow() - start > 10) {
+    printf_stderr("Time to upload %i\n", PR_IntervalNow() - start);
+  }
+#endif
+}
+
+TiledTexture
+TiledLayerBufferComposite::ValidateTile(TiledTexture aTile,
+                                        const nsIntPoint& aTileOrigin,
+                                        const nsIntRegion& aDirtyRect)
+{
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
+  printf_stderr("Upload tile %i, %i\n", aTileOrigin.x, aTileOrigin.y);
+  long start = PR_IntervalNow();
+#endif
+
+  aTile.Validate(mMainMemoryTiledBuffer->GetTile(aTileOrigin).mSurface, mCompositor);
+
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
+  if (PR_IntervalNow() - start > 1) {
+    printf_stderr("Tile Time to upload %i\n", PR_IntervalNow() - start);
+  }
+#endif
+  return aTile;
+}
+
+TiledContentHost::~TiledContentHost()
+{
+  mMainMemoryTiledBuffer.ReadUnlock();
+  mLowPrecisionMainMemoryTiledBuffer.ReadUnlock();
+  if (mReusableTileStore)
+    delete mReusableTileStore;
+}
+
+void
+TiledContentHost::MemoryPressure()
+{
+  if (mReusableTileStore) {
+    delete mReusableTileStore;
+    mReusableTileStore = new ReusableTileStoreComposite(1);
+  }
+}
+
+void
+TiledContentHost::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuffer)
+{
+  if (mTiledBuffer->IsLowPrecision()) {
+    mLowPrecisionMainMemoryTiledBuffer.ReadUnlock();
+    mLowPrecisionMainMemoryTiledBuffer = *mTiledBuffer;
+    mLowPrecisionRegionToUpload.Or(mLowPrecisionRegionToUpload,
+                                   mLowPrecisionMainMemoryTiledBuffer.GetPaintedRegion());
+    mLowPrecisionMainMemoryTiledBuffer.ClearPaintedRegion();
+    mPendingLowPrecisionUpload = true;
+  } else {
+    mMainMemoryTiledBuffer.ReadUnlock();
+    mMainMemoryTiledBuffer = *mTiledBuffer;
+    mRegionToUpload.Or(mRegionToUpload, mMainMemoryTiledBuffer.GetPaintedRegion());
+    mMainMemoryTiledBuffer.ClearPaintedRegion();
+    mPendingUpload = true;
+  }
+
+  // TODO: Remove me once Bug 747811 lands.
+  delete mTiledBuffer;
+}
+
+void
+TiledContentHost::ProcessLowPrecisionUploadQueue()
+{
+  if (!mPendingLowPrecisionUpload)
+    return;
+
+  mLowPrecisionRegionToUpload.And(mLowPrecisionRegionToUpload,
+                                  mLowPrecisionMainMemoryTiledBuffer.GetValidRegion());
+  mLowPrecisionVideoMemoryTiledBuffer.SetResolution(
+    mLowPrecisionMainMemoryTiledBuffer.GetResolution());
+  // XXX It's assumed that the video memory tiled buffer has an up-to-date
+  //     frame resolution. As it's always updated first when zooming, this
+  //     should always be true.
+  mLowPrecisionVideoMemoryTiledBuffer.Upload(&mLowPrecisionMainMemoryTiledBuffer,
+                                 mLowPrecisionMainMemoryTiledBuffer.GetValidRegion(),
+                                 mLowPrecisionRegionToUpload,
+                                 mVideoMemoryTiledBuffer.GetFrameResolution());
+  nsIntRegion validRegion = mLowPrecisionVideoMemoryTiledBuffer.GetValidRegion();
+
+  mLowPrecisionMainMemoryTiledBuffer.ReadUnlock();
+
+  mLowPrecisionMainMemoryTiledBuffer = BasicTiledLayerBuffer();
+  mLowPrecisionRegionToUpload = nsIntRegion();
+  mPendingLowPrecisionUpload = false;
+}
+
+void
+TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion)
+{
+  if (!mPendingUpload)
+    return;
+
+  if (mReusableTileStore) {
+    mReusableTileStore->HarvestTiles(mLayerProperties.mVisibleRegion,
+                                     mLayerProperties.mDisplayPort,
+                                     &mVideoMemoryTiledBuffer,
+                                     mVideoMemoryTiledBuffer.GetValidRegion(),
+                                     mMainMemoryTiledBuffer.GetValidRegion(),
+                                     mVideoMemoryTiledBuffer.GetFrameResolution(),
+                                     mLayerProperties.mEffectiveResolution);
+  }
+
+  // If we coalesce uploads while the layers' valid region is changing we will
+  // end up trying to upload area outside of the valid region. (bug 756555)
+  mRegionToUpload.And(mRegionToUpload, mMainMemoryTiledBuffer.GetValidRegion());
+
+  mVideoMemoryTiledBuffer.Upload(&mMainMemoryTiledBuffer,
+                                 mMainMemoryTiledBuffer.GetValidRegion(),
+                                 mRegionToUpload, mLayerProperties.mEffectiveResolution);
+
+  *aNewValidRegion = mVideoMemoryTiledBuffer.GetValidRegion();
+
+  mMainMemoryTiledBuffer.ReadUnlock();
+  // Release all the tiles by replacing the tile buffer with an empty
+  // tiled buffer. This will prevent us from doing a double unlock when
+  // calling  ~TiledThebesLayerComposite.
+  // FIXME: This wont be needed when we do progressive upload and lock
+  // tile by tile.
+  mMainMemoryTiledBuffer = BasicTiledLayerBuffer();
+  mRegionToUpload = nsIntRegion();
+  mPendingUpload = false;
+}
+
+void
+TiledContentHost::EnsureTileStore()
+{
+  // We should only be retaining old tiles if we're not fixed position.
+  // Fixed position layers don't/shouldn't move on the screen, so retaining
+  // tiles is not useful and often results in rendering artifacts.
+  if (mReusableTileStore && !mLayerProperties.mRetainTiles) {
+    delete mReusableTileStore;
+    mReusableTileStore = nullptr;
+  } else if (gfxPlatform::UseReusableTileStore() &&
+             !mReusableTileStore && mLayerProperties.mRetainTiles) {
+    // XXX Add a pref for reusable tile store size
+    mReusableTileStore = new ReusableTileStoreComposite(1);
+  }
+}
+
+void
+TiledContentHost::UpdateThebes(const ThebesBuffer& aNewBack,
+                               const nsIntRegion& aUpdated,
+                               OptionalThebesBuffer* aNewFront,
+                               const nsIntRegion& aOldValidRegionFront,
+                               const nsIntRegion& aOldValidRegionBack,
+                               OptionalThebesBuffer* aNewBackResult,
+                               nsIntRegion* aNewValidRegionFront,
+                               nsIntRegion* aUpdatedRegionBack,
+                               TiledLayerProperties* aLayerProperties)
+{
+  MOZ_ASSERT(aLayerProperties, "aLayerProperties required for TiledContentHost");
+  mLayerProperties = *aLayerProperties;
+
+  EnsureTileStore();
+
+  ProcessUploadQueue(aNewValidRegionFront);
+  ProcessLowPrecisionUploadQueue();
+
+  mValidRegion = aOldValidRegionBack;
+}
+
+void
+TiledContentHost::Composite(EffectChain& aEffectChain,
+                            float aOpacity,
+                            const gfx::Matrix4x4& aTransform,
+                            const gfx::Point& aOffset,
+                            const gfx::Filter& aFilter,
+                            const gfx::Rect& aClipRect,
+                            const nsIntRegion* aVisibleRegion /* = nullptr */)
+{
+  // Render old tiles to fill in gaps we haven't had the time to render yet.
+  if (mReusableTileStore) {
+    mReusableTileStore->DrawTiles(this,
+                                  mVideoMemoryTiledBuffer.GetValidRegion(),
+                                  mVideoMemoryTiledBuffer.GetFrameResolution(),
+                                  aTransform, aOffset, aEffectChain, aOpacity, aFilter, aClipRect, mLayerProperties.mCompositionBounds);
+  }
+
+  // Render valid tiles.
+  nsIntRect visibleRect = aVisibleRegion->GetBounds();
+
+  RenderLayerBuffer(mLowPrecisionVideoMemoryTiledBuffer,
+                    mLowPrecisionVideoMemoryTiledBuffer.GetValidRegion(), aEffectChain, aOpacity,
+                    aOffset, aFilter, aClipRect, mValidRegion, visibleRect, aTransform);
+  RenderLayerBuffer(mVideoMemoryTiledBuffer, mValidRegion, aEffectChain, aOpacity, aOffset, aFilter, aClipRect, nsIntRegion(), visibleRect, aTransform);
+}
+
+
+void
+TiledContentHost::RenderTile(const TiledTexture& aTile,
+                             EffectChain& aEffectChain,
+                             float aOpacity,
+                             const gfx::Matrix4x4& aTransform,
+                             const gfx::Point& aOffset,
+                             const gfx::Filter& aFilter,
+                             const gfx::Rect& aClipRect,
+                             const nsIntRegion& aScreenRegion,
+                             const nsIntPoint& aTextureOffset,
+                             const nsIntSize& aTextureBounds)
+{
+  MOZ_ASSERT(aTile.mTextureHost, "Trying to render a placeholder tile?");
+
+  if (Effect* effect = aTile.mTextureHost->Lock(aFilter)) {
+    aEffectChain.mEffects[effect->mType] = effect;
+  } else {
+    return;
+  }
+
+  nsIntRegionRectIterator it(aScreenRegion);
+  for (const nsIntRect* rect = it.Next(); rect != nullptr; rect = it.Next()) {
+    gfx::Rect textureRect(rect->x - aTextureOffset.x, rect->y - aTextureOffset.y,
+                          rect->width, rect->height);
+    gfx::Rect sourceRect(0, 0, rect->width, rect->height);
+    gfx::Rect boundsRect(0, 0, aTextureBounds.width, aTextureBounds.height);
+    mCompositor->DrawQuad(textureRect, &sourceRect, &boundsRect,
+                          &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+  }
+
+  aTile.mTextureHost->Unlock();
+}
+
+void
+TiledContentHost::RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
+                                    const nsIntRegion& aValidRegion,
+                                    EffectChain& aEffectChain,
+                                    float aOpacity,
+                                    const gfx::Point& aOffset,
+                                    const gfx::Filter& aFilter,
+                                    const gfx::Rect& aClipRect,
+                                    const nsIntRegion& aMaskRegion,
+                                    nsIntRect& visibleRect,
+                                    gfx::Matrix4x4 aTransform)
+{
+  float resolution = aLayerBuffer.GetResolution();
+  gfxSize layerScale(1, 1);
+  // We assume that the current frame resolution is the one used in our primary
+  // layer buffer. Compensate for a changing frame resolution.
+  if (aLayerBuffer.GetFrameResolution() != mVideoMemoryTiledBuffer.GetFrameResolution()) {
+    const gfxSize& layerResolution = aLayerBuffer.GetFrameResolution();
+    const gfxSize& localResolution = mVideoMemoryTiledBuffer.GetFrameResolution();
+    layerScale.width = layerResolution.width / localResolution.width;
+    layerScale.height = layerResolution.height / localResolution.height;
+    visibleRect.ScaleRoundOut(layerScale.width, layerScale.height);
+  }
+  aTransform.Scale(1/(resolution * layerScale.width),
+                  1/(resolution * layerScale.height), 1);
+
+  uint32_t rowCount = 0;
+  uint32_t tileX = 0;
+  for (int32_t x = visibleRect.x; x < visibleRect.x + visibleRect.width;) {
+    rowCount++;
+    int32_t tileStartX = aLayerBuffer.GetTileStart(x);
+    int32_t w = aLayerBuffer.GetScaledTileLength() - tileStartX;
+    if (x + w > visibleRect.x + visibleRect.width)
+      w = visibleRect.x + visibleRect.width - x;
+    int tileY = 0;
+    for (int32_t y = visibleRect.y; y < visibleRect.y + visibleRect.height;) {
+      int32_t tileStartY = aLayerBuffer.GetTileStart(y);
+      int32_t h = aLayerBuffer.GetScaledTileLength() - tileStartY;
+      if (y + h > visibleRect.y + visibleRect.height)
+        h = visibleRect.y + visibleRect.height - y;
+
+      TiledTexture tileTexture = aLayerBuffer.
+        GetTile(nsIntPoint(aLayerBuffer.RoundDownToTileEdge(x),
+                           aLayerBuffer.RoundDownToTileEdge(y)));
+      if (tileTexture != aLayerBuffer.GetPlaceholderTile()) {
+        nsIntRegion tileDrawRegion;
+        tileDrawRegion.And(aValidRegion,
+                           nsIntRect(x * layerScale.width,
+                                     y * layerScale.height,
+                                     w * layerScale.width,
+                                     h * layerScale.height));
+        tileDrawRegion.Sub(tileDrawRegion, aMaskRegion);
+
+        if (!tileDrawRegion.IsEmpty()) {
+          tileDrawRegion.ScaleRoundOut(resolution / layerScale.width,
+                                       resolution / layerScale.height);
+
+          nsIntPoint tileOffset((x - tileStartX) * resolution,
+                                (y - tileStartY) * resolution);
+          uint32_t tileSize = aLayerBuffer.GetTileLength();
+          RenderTile(tileTexture, aEffectChain, aOpacity, aTransform, aOffset, aFilter, aClipRect, tileDrawRegion,
+                     tileOffset, nsIntSize(tileSize, tileSize));
+        }
+      }
+      tileY++;
+      y += h;
+    }
+    tileX++;
+    x += w;
+  }
+}
+
 
 } // namespace
 } // namespace

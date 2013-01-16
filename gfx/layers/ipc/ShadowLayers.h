@@ -578,7 +578,7 @@ public:
   const nsIntRegion& GetShadowVisibleRegion() { return mShadowVisibleRegion; }
   const gfx3DMatrix& GetShadowTransform() { return mShadowTransform; }
 
-  virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
+  virtual TiledLayerComposer* GetTiledLayerComposer() { return NULL; }
 
 protected:
   ShadowLayer()

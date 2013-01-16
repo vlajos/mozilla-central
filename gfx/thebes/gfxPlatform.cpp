@@ -1247,6 +1247,56 @@ gfxPlatform::UseProgressiveTilePainting()
 }
 
 bool
+gfxPlatform::UseLowPrecisionBuffer()
+{
+    static bool sUseLowPrecisionBuffer;
+    static bool sUseLowPrecisionBufferPrefCached = false;
+
+    if (!sUseLowPrecisionBufferPrefCached) {
+        sUseLowPrecisionBufferPrefCached = true;
+        mozilla::Preferences::AddBoolVarCache(&sUseLowPrecisionBuffer,
+                                              "layers.low-precision-buffer",
+                                              false);
+    }
+
+    return sUseLowPrecisionBuffer;
+}
+
+float
+gfxPlatform::GetLowPrecisionResolution()
+{
+    static float sLowPrecisionResolution;
+    static bool sLowPrecisionResolutionPrefCached = false;
+
+    if (!sLowPrecisionResolutionPrefCached) {
+        int32_t lowPrecisionResolution = 250;
+        sLowPrecisionResolutionPrefCached = true;
+        mozilla::Preferences::AddIntVarCache(&lowPrecisionResolution,
+                                             "layers.low-precision-resolution",
+                                             250);
+        sLowPrecisionResolution = lowPrecisionResolution / 1000.f;
+    }
+
+    return sLowPrecisionResolution;
+}
+
+bool
+gfxPlatform::UseReusableTileStore()
+{
+    static bool sUseReusableTileStore;
+    static bool sUseReusableTileStorePrefCached = false;
+
+    if (!sUseReusableTileStorePrefCached) {
+        sUseReusableTileStorePrefCached = true;
+        mozilla::Preferences::AddBoolVarCache(&sUseReusableTileStore,
+                                              "layers.reuse-invalid-tiles",
+                                              false);
+    }
+
+    return sUseReusableTileStore;
+}
+
+bool
 gfxPlatform::OffMainThreadCompositingEnabled()
 {
   return XRE_GetProcessType() == GeckoProcessType_Default ?

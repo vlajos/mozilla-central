@@ -268,6 +268,79 @@ YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
   return new EffectYCbCr(this, aFilter);
 }
 
+TiledTextureHost::~TiledTextureHost()
+{
+  mGL->MakeCurrent();
+  mGL->fDeleteTextures(1, &mTextureHandle);
+
+  gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mFormat,
+                                          GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
+}
+
+static void
+GetFormatAndTileForImageFormat(gfxASurface::gfxImageFormat aFormat,
+                               GLenum& aOutFormat,
+                               GLenum& aOutType)
+{
+  if (aFormat == gfxASurface::ImageFormatRGB16_565) {
+    aOutFormat = LOCAL_GL_RGB;
+    aOutType = LOCAL_GL_UNSIGNED_SHORT_5_6_5;
+  } else {
+    aOutFormat = LOCAL_GL_RGBA;
+    aOutType = LOCAL_GL_UNSIGNED_BYTE;
+  }
+}
+
+void
+TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags)
+{
+  mGL->MakeCurrent();
+  if (aFlags & NewTile) {
+    SetFlags(aFlags);
+    mGL->fGenTextures(1, &mTextureHandle);
+    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
+    mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_LINEAR);
+    mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MAG_FILTER, LOCAL_GL_LINEAR);
+    mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
+    mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
+  } else {
+    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
+    // We're re-using a texture, but the format may change. Update the memory
+    // reporter with a free and alloc (below) using the old and new formats.
+    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mFormat,
+                                            GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
+  }
+
+  GLenum type;
+  GetFormatAndTileForImageFormat(aReusableSurface->Format(), mFormat, type);
+
+  const unsigned char* buf = aReusableSurface->GetReadOnlyData();
+  mGL->fTexImage2D(LOCAL_GL_TEXTURE_2D, 0, mFormat,
+                   TILEDLAYERBUFFER_TILE_SIZE, TILEDLAYERBUFFER_TILE_SIZE, 0,
+                   mFormat, type, buf);
+
+  gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryAllocated, mFormat,
+                                          type, TILEDLAYERBUFFER_TILE_SIZE);
+}
+
+Effect*
+TiledTextureHost::Lock(const gfx::Filter& aFilter)
+{
+  if (!mTextureHandle) {
+    NS_WARNING("TiledTextureHost not ready to be composited");
+    return nullptr;
+  }
+
+  //TODO[nrc] would be nice if we didn't need to do this
+  mGL->MakeCurrent();
+  mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
+
+  if (mFormat == LOCAL_GL_RGB) {
+    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
+  }
+  return new EffectBGRA(this, true, aFilter, mFlags & NeedsYFlip);
+}
+
 
 } // namespace
 } // namespace

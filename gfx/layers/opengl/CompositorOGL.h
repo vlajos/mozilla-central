@@ -154,6 +154,9 @@ public:
   virtual void Resume();
 
   virtual nsIWidget* GetWidget() const MOZ_OVERRIDE { return mWidget; }
+  virtual nsIntSize* GetWidgetSize() {
+    return &mWidgetSize;
+  }
 
 private:
   /** 

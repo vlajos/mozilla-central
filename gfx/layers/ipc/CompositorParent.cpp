@@ -217,7 +217,7 @@ DispatchMemoryPressureToLayers(Layer* aLayer)
 {
   ShadowLayer* shadowLayer = aLayer->AsShadowLayer();
   if (shadowLayer) {
-    TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
+    TiledLayerComposer* tileComposer = shadowLayer->GetTiledLayerComposer();
     if (tileComposer) {
       tileComposer->MemoryPressure();
     }

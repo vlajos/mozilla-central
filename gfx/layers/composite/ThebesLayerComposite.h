@@ -48,8 +48,9 @@ public:
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
   // LayerComposite impl
-  void Destroy();
-  Layer* GetLayer();
+  virtual void Destroy();
+  virtual Layer* GetLayer();
+  virtual TiledLayerComposer* GetTiledLayerComposer();
   virtual bool IsEmpty();
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,
@@ -58,13 +59,19 @@ public:
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 
-  virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
+  //TODO[nrc] why did I remove this method?
+  //virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
   void EnsureBuffer(BufferType aHostType);
+
 private:
+  gfxRect GetDisplayPort();
+  gfxSize GetEffectiveResolution();
+  gfxRect GetCompositionBounds();
 
   nsRefPtr<AContentHost> mBuffer;
   nsIntRegion mValidRegionForNextBackBuffer;
+  bool mRequiresTiledProperties;
 };
 
 } /* layers */

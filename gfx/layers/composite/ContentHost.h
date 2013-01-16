@@ -8,13 +8,27 @@
 
 #include "ThebesLayerBuffer.h"
 #include "CompositableHost.h"
+#include "BasicTiledThebesLayer.h" // for BasicTiledLayerBuffer
 
 namespace mozilla {
 namespace layers {
 
+// Some properties of a Layer required for tiling
+struct TiledLayerProperties
+{
+  nsIntRegion mVisibleRegion;
+  gfxRect mDisplayPort;
+  gfxSize mEffectiveResolution;
+  gfxRect mCompositionBounds;
+  bool mRetainTiles;
+};
+
 class ThebesBuffer;
 class OptionalThebesBuffer;
 
+// Base class for Thebes layer buffers, used by main thread and off-main thread
+// compositing. This is the only place we use *Hosts/*Clients for main thread
+// compositing.
 class CompositingThebesLayerBuffer
 {
   NS_INLINE_DECL_REFCOUNTING(CompositingThebesLayerBuffer)
@@ -54,6 +68,7 @@ protected:
   RefPtr<TextureHost> mTextureHostOnWhite;
 };
 
+// Base class for OMTC Thebes buffers
 class AContentHost : public CompositableHost
 {
 public:
@@ -74,7 +89,12 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack) = 0;
+                            nsIntRegion* aUpdatedRegionBack,
+                            TiledLayerProperties* aLayerProperties = nullptr) = 0;
+
+  // Subclasses should implement this method if they support being used as a tiled buffer
+  virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
+
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
@@ -171,7 +191,8 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack);
+                            nsIntRegion* aUpdatedRegionBack,
+                            TiledLayerProperties* aLayerProperties = nullptr);
 };
 
 // We're using resources owned by our texture as the front buffer.
@@ -193,7 +214,201 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack);
+                            nsIntRegion* aUpdatedRegionBack,
+                            TiledLayerProperties* aLayerProperties = nullptr);
+};
+
+class TiledTexture {
+public:
+  // Constructs a placeholder TiledTexture. See the comments above
+  // TiledLayerBuffer for more information on what this is used for;
+  // essentially, this is a sentinel used to represent an invalid or blank
+  // tile.
+  TiledTexture()
+    : mTextureHost(nullptr)
+  {}
+
+  // Constructs a TiledTexture from a TextureHost.
+  TiledTexture(TextureHost* aTextureHost)
+    : mTextureHost(aTextureHost)
+  {}
+
+  TiledTexture(const TiledTexture& o) {
+    mTextureHost = o.mTextureHost;
+  }
+  TiledTexture& operator=(const TiledTexture& o) {
+    if (this == &o) return *this;
+    mTextureHost = o.mTextureHost;
+    return *this;
+  }
+
+  void Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* aCompositor) {
+    TextureFlags flags = 0;
+    if (!mTextureHost) {
+      // convert placeholder tile to a real tile
+      mTextureHost = aCompositor->CreateTextureHost(BUFFER_TILED, TEXTURE_TILED, 0, nullptr);
+      flags |= NewTile;
+    }
+
+    mTextureHost->Update(aReusableSurface, flags);
+  }
+
+  bool operator== (const TiledTexture& o) const {
+    if (!mTextureHost || !o.mTextureHost) {
+      return mTextureHost == o.mTextureHost;
+    }
+    return *mTextureHost == *o.mTextureHost;
+  }
+  bool operator!= (const TiledTexture& o) const {
+    if (!mTextureHost || !o.mTextureHost) {
+      return mTextureHost != o.mTextureHost;
+    }
+    return *mTextureHost != *o.mTextureHost;
+  }
+
+  RefPtr<TextureHost> mTextureHost;
+};
+
+class TiledLayerBufferComposite
+  : public TiledLayerBuffer<TiledLayerBufferComposite, TiledTexture>
+{
+  friend class TiledLayerBuffer<TiledLayerBufferComposite, TiledTexture>;
+
+public:
+  TiledLayerBufferComposite(Compositor* aCompositor)
+    : mCompositor(aCompositor)
+  {}
+
+  void Upload(const BasicTiledLayerBuffer* aMainMemoryTiledBuffer,
+              const nsIntRegion& aNewValidRegion,
+              const nsIntRegion& aInvalidateRegion,
+              const gfxSize& aResolution);
+
+  TiledTexture GetPlaceholderTile() const { return TiledTexture(); }
+
+  // Stores the absolute resolution of the containing frame, calculated
+  // by the sum of the resolutions of all parent layers' FrameMetrics.
+  const gfxSize& GetFrameResolution() { return mFrameResolution; }
+
+protected:
+  TiledTexture ValidateTile(TiledTexture aTile,
+                            const nsIntPoint& aTileRect,
+                            const nsIntRegion& dirtyRect);
+
+  // do nothing, the desctructor in the texture host takes care of releasing resources
+  void ReleaseTile(TiledTexture aTile) {}
+
+  void SwapTiles(TiledTexture& aTileA, TiledTexture& aTileB) {
+    std::swap(aTileA, aTileB);
+  }
+
+private:
+  Compositor* mCompositor;
+  const BasicTiledLayerBuffer* mMainMemoryTiledBuffer;
+  gfxSize mFrameResolution;
+};
+
+
+
+
+
+class TiledThebesLayerComposite;
+class ReusableTileStoreComposite;
+
+class TiledContentHost : public AContentHost,
+                         public TiledLayerComposer
+{
+public:
+  TiledContentHost(Compositor* aCompositor)
+    : mCompositor(aCompositor)
+    , mVideoMemoryTiledBuffer(aCompositor)
+    , mLowPrecisionVideoMemoryTiledBuffer(aCompositor)
+    , mReusableTileStore(nullptr)
+    , mPendingUpload(false)
+    , mPendingLowPrecisionUpload(false)
+  {}
+  ~TiledContentHost();
+
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
+  {
+    return LayerRenderState();
+  }
+
+
+  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+                            const nsIntRegion& aUpdated,
+                            OptionalThebesBuffer* aNewFront,
+                            const nsIntRegion& aOldValidRegionFront,
+                            const nsIntRegion& aOldValidRegionBack,
+                            OptionalThebesBuffer* aNewBackResult,
+                            nsIntRegion* aNewValidRegionFront,
+                            nsIntRegion* aUpdatedRegionBack,
+                            TiledLayerProperties* aLayerProperties = nullptr);
+
+  const nsIntRegion& GetValidLowPrecisionRegion() const
+  {
+    return mLowPrecisionVideoMemoryTiledBuffer.GetValidRegion();
+  }
+
+  void MemoryPressure();
+  void PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuffer);
+
+  // Renders a single given tile.
+  void RenderTile(const TiledTexture& aTile,
+                  EffectChain& aEffectChain,
+                  float aOpacity,
+                  const gfx::Matrix4x4& aTransform,
+                  const gfx::Point& aOffset,
+                  const gfx::Filter& aFilter,
+                  const gfx::Rect& aClipRect,
+                  const nsIntRegion& aScreenRegion,
+                  const nsIntPoint& aTextureOffset,
+                  const nsIntSize& aTextureBounds);
+
+  void Composite(EffectChain& aEffectChain,
+                 float aOpacity,
+                 const gfx::Matrix4x4& aTransform,
+                 const gfx::Point& aOffset,
+                 const gfx::Filter& aFilter,
+                 const gfx::Rect& aClipRect,
+                 const nsIntRegion* aVisibleRegion = nullptr);
+
+  virtual BufferType GetType() { return BUFFER_TILED; }
+
+  virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
+
+  virtual void AddTextureHost(TextureHost* aTextureHost) { NS_WARNING("Does nothing"); }
+
+private:
+  void ProcessUploadQueue(nsIntRegion* aNewValidRegion);
+  void ProcessLowPrecisionUploadQueue();
+
+  void RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
+                         const nsIntRegion& aValidRegion,
+                         EffectChain& aEffectChain,
+                         float aOpacity,
+                         const gfx::Point& aOffset,
+                         const gfx::Filter& aFilter,
+                         const gfx::Rect& aClipRect,
+                         const nsIntRegion& aMaskRegion,
+                         nsIntRect& visibleRect,
+                         gfx::Matrix4x4 aTransform);
+
+  void EnsureTileStore();
+
+  RefPtr<Compositor> mCompositor;
+
+  nsIntRegion                  mValidRegion;
+  nsIntRegion                  mRegionToUpload;
+  nsIntRegion                  mLowPrecisionRegionToUpload;
+  BasicTiledLayerBuffer        mMainMemoryTiledBuffer;
+  BasicTiledLayerBuffer        mLowPrecisionMainMemoryTiledBuffer;
+  TiledLayerBufferComposite    mVideoMemoryTiledBuffer;
+  TiledLayerBufferComposite    mLowPrecisionVideoMemoryTiledBuffer;
+  ReusableTileStoreComposite*  mReusableTileStore;
+  TiledLayerProperties         mLayerProperties;
+  bool                         mPendingUpload : 1;
+  bool                         mPendingLowPrecisionUpload : 1;
 };
 
 }
