@@ -13,6 +13,9 @@
 #include "ipc/AutoOpenSurface.h"
 #include "ipc/ShadowLayerChild.h"
 #include "mozilla/Attributes.h"
+#include "gfxReusableSurfaceWrapper.h"
+#include "TiledLayerBuffer.h"
+#include "gfxPlatform.h"
 
 namespace mozilla {
 namespace layers {
@@ -208,6 +211,232 @@ public:
 protected:
   nsIntRect mBackBufferRect;
   nsIntPoint mBackBufferRectRotation;
+};
+
+
+
+
+
+
+
+
+
+/**
+ * Represent a single tile in tiled buffer. It's backed
+ * by a gfxReusableSurfaceWrapper that implements a
+ * copy-on-write mechanism while locked. The tile should be
+ * locked before being sent to the compositor and unlocked
+ * as soon as it is uploaded to prevent a copy.
+ * Ideal place to store per tile debug information.
+ */
+struct BasicTiledLayerTile {
+  nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
+#ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
+  TimeStamp        mLastUpdate;
+#endif
+
+  // Placeholder
+  BasicTiledLayerTile()
+    : mSurface(NULL)
+  {}
+  explicit BasicTiledLayerTile(gfxImageSurface* aSurface)
+    : mSurface(new gfxReusableSurfaceWrapper(aSurface))
+  {
+  }
+  BasicTiledLayerTile(const BasicTiledLayerTile& o) {
+    mSurface = o.mSurface;
+#ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
+    mLastUpdate = o.mLastUpdate;
+#endif
+  }
+  BasicTiledLayerTile& operator=(const BasicTiledLayerTile& o) {
+    if (this == &o) return *this;
+    mSurface = o.mSurface;
+#ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
+    mLastUpdate = o.mLastUpdate;
+#endif
+    return *this;
+  }
+  bool operator== (const BasicTiledLayerTile& o) const {
+    return mSurface == o.mSurface;
+  }
+  bool operator!= (const BasicTiledLayerTile& o) const {
+    return mSurface != o.mSurface;
+  }
+  void ReadUnlock() {
+    mSurface->ReadUnlock();
+  }
+  void ReadLock() {
+    mSurface->ReadLock();
+  }
+};
+
+/**
+ * This struct stores all the data necessary to perform a paint so that it
+ * doesn't need to be recalculated on every repeated transaction.
+ */
+struct BasicTiledLayerPaintData {
+  gfx::Point mScrollOffset;
+  gfx::Point mLastScrollOffset;
+  gfx3DMatrix mTransformScreenToLayer;
+  nsIntRect mLayerCriticalDisplayPort;
+  gfxSize mResolution;
+  nsIntRect mCompositionBounds;
+  uint16_t mLowPrecisionPaintCount;
+  bool mPaintFinished : 1;
+};
+
+class BasicTiledThebesLayer;
+
+/**
+ * Provide an instance of TiledLayerBuffer backed by image surfaces.
+ * This buffer provides an implementation to ValidateTile using a
+ * thebes callback and can support painting using a single paint buffer
+ * which is much faster then painting directly into the tiles.
+ */
+
+class BasicTiledLayerBuffer : public TiledLayerBuffer<BasicTiledLayerBuffer, TextureClientTile>
+                            , CompositableClient
+{
+  friend class TiledLayerBuffer<BasicTiledLayerBuffer, TextureClientTile>;
+
+public:
+  BasicTiledLayerBuffer()
+    : mLastPaintOpaque(false)
+    {}
+
+  void PaintThebes(BasicTiledThebesLayer* aLayer,
+                   const nsIntRegion& aNewValidRegion,
+                   const nsIntRegion& aPaintRegion,
+                   LayerManager::DrawThebesLayerCallback aCallback,
+                   void* aCallbackData);
+
+  void ReadUnlock() {
+    for (size_t i = 0; i < mRetainedTiles.Length(); i++) {
+      if (mRetainedTiles[i].IsPlaceholderTile()) continue;
+      mRetainedTiles[i].ReadUnlock();
+    }
+  }
+
+  void ReadLock() {
+    for (size_t i = 0; i < mRetainedTiles.Length(); i++) {
+      if (mRetainedTiles[i].IsPlaceholderTile()) continue;
+      mRetainedTiles[i].ReadLock();
+    }
+  }
+
+  const gfxSize& GetFrameResolution() { return mFrameResolution; }
+  void SetFrameResolution(const gfxSize& aResolution) { mFrameResolution = aResolution; }
+
+  bool HasFormatChanged(BasicTiledThebesLayer* aThebesLayer) const;
+
+  //TODO[nrc] signature
+  void LockCopyAndWrite(ShadowableLayer* aLayer, ShadowLayerForwarder* aLayerForwarder)
+  {
+    ReadLock();
+    // Create a heap copy owned and released by the compositor. This is needed
+    // since we're sending this over an async message and content needs to be
+    // be able to modify the tiled buffer in the next transaction.
+    // TODO: Remove me once Bug 747811 lands.
+    BasicTiledLayerBuffer *heapCopy = new BasicTiledLayerBuffer(*this);
+    aLayerForwarder->PaintedTiledLayerBuffer(aLayer, heapCopy);
+    ClearPaintedRegion();    
+  }
+
+  /**
+   * Performs a progressive update of a given tiled buffer.
+   * See ComputeProgressiveUpdateRegion above for parameter documentation.
+   */
+  bool ProgressiveUpdate(nsIntRegion& aValidRegion,
+                         nsIntRegion& aInvalidRegion,
+                         const nsIntRegion& aOldValidRegion,
+                         BasicTiledLayerPaintData* aPaintData,
+                         LayerManager::DrawThebesLayerCallback aCallback,
+                         void* aCallbackData,
+                         BasicShadowLayerManager* aManager);
+
+protected:
+  //TODO[nrc] use refs, not returns
+  TextureClientTile ValidateTile(TextureClientTile aTile,
+                                 const nsIntPoint& aTileRect,
+                                 const nsIntRegion& dirtyRect);
+
+  // If this returns true, we perform the paint operation into a single large
+  // buffer and copy it out to the tiles instead of calling PaintThebes() on
+  // each tile individually. Somewhat surprisingly, this turns out to be faster
+  // on Android.
+  bool UseSinglePaintBuffer() { return true; }
+
+  void ReleaseTile(TextureClientTile aTile) { /* No-op. */ }
+
+  //TODO[nrc]?
+  void SwapTiles(TextureClientTile& aTileA, TextureClientTile& aTileB) {
+    std::swap(aTileA, aTileB);
+  }
+
+  //TODO[nrc] I don't really want to use these as value objects, maybe I break some semantics somewhere
+  TextureClientTile GetPlaceholderTile() const { return TextureClientTile(); }
+private:
+  gfxASurface::gfxContentType GetContentType() const;
+  BasicTiledThebesLayer* mThebesLayer;
+  LayerManager::DrawThebesLayerCallback mCallback;
+  void* mCallbackData;
+  gfxSize mFrameResolution;
+  bool mLastPaintOpaque;
+
+  // The buffer we use when UseSinglePaintBuffer() above is true.
+  nsRefPtr<gfxImageSurface>     mSinglePaintBuffer;
+  nsIntPoint                    mSinglePaintBufferOffset;
+
+  BasicTiledLayerTile ValidateTileInternal(TextureClientTile aTile,
+                                           const nsIntPoint& aTileOrigin,
+                                           const nsIntRect& aDirtyRect);
+
+  /**
+   * Calculates the region to update in a single progressive update transaction.
+   * This employs some heuristics to update the most 'sensible' region to
+   * update at this point in time, and how large an update should be performed
+   * at once to maintain visual coherency.
+   *
+   * aInvalidRegion is the current invalid region.
+   * aOldValidRegion is the valid region of mTiledBuffer at the beginning of the
+   * current transaction.
+   * aRegionToPaint will be filled with the region to update. This may be empty,
+   * which indicates that there is no more work to do.
+   * aTransform is the transform required to convert from screen-space to
+   * layer-space.
+   * aScrollOffset is the current scroll offset of the primary scrollable layer.
+   * aResolution is the render resolution of the layer.
+   * aIsRepeated should be true if this function has already been called during
+   * this transaction.
+   *
+   * Returns true if it should be called again, false otherwise. In the case
+   * that aRegionToPaint is empty, this will return aIsRepeated for convenience.
+   */
+  bool ComputeProgressiveUpdateRegion(const nsIntRegion& aInvalidRegion,
+                                      const nsIntRegion& aOldValidRegion,
+                                      nsIntRegion& aRegionToPaint,
+                                      BasicTiledLayerPaintData* aPaintData,
+                                      bool aIsRepeated,
+                                      BasicShadowLayerManager* aManager);
+};
+
+class BasicShadowLayerManager;
+
+//TODO[nrc] remove - CreateCompositableClient
+class ContentClientTiled : public ContentClient
+{
+public:
+  ContentClientTiled(ShadowLayerForwarder* aLayerForwarder,
+                      ShadowableLayer* aLayer,
+                      TextureFlags aFlags)
+  {
+  }
+
+private:
+
+
+
 };
 
 }

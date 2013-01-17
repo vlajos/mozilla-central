@@ -289,10 +289,10 @@ BasicShadowableThebesLayer::PaintBuffer(gfxContext* aContext,
   }
 
   ContentClientRemote* contentClientRemote = static_cast<ContentClientRemote*>(mContentClient.get());
- // Hold(this) ensures this layer is kept alive through the current transaction
- // The ContentClient assumes this layer is kept alive (e.g., in CreateBuffer),
- // so deleting this Hold for whatever reason will break things.
- contentClientRemote->Updated(BasicManager()->Hold(this),
+  // Hold(this) ensures this layer is kept alive through the current transaction
+  // The ContentClient assumes this layer is kept alive (e.g., in CreateBuffer),
+  // so deleting this Hold for whatever reason will break things.
+  contentClientRemote->Updated(BasicManager()->Hold(this),
                               aRegionToDraw,
                               mVisibleRegion,
                               aDidSelfCopy);

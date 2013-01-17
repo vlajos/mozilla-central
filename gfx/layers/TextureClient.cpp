@@ -284,6 +284,10 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
     }
     return new ContentClientTexture(aLayerForwarder, aLayer, aFlags);
   }
+  //TODO[nrc]
+  if (aCompositableHostType == BUFFER_TILED) {
+    return new ContentClientTiled(aLayerForwarder, aLayer, aFlags);
+  }
   return nullptr;
 }
 
