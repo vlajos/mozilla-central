@@ -3210,7 +3210,7 @@ bool
 nsWindow::UseOffMainThreadCompositing()
 {
   // OMTC doesn't work on Windows right now.
-  return false;
+  return true;
 }
 
 LayerManager*
@@ -3263,7 +3263,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
     else if (prefs.mAccelerateByDefault)
       mUseLayersAcceleration = true;
 
-    if (mUseLayersAcceleration) {
+    if (false && mUseLayersAcceleration) {
       if (aPersistence == LAYER_MANAGER_PERSISTENT && !sAllowD3D9) {
         MOZ_ASSERT(!mLayerManager || !mLayerManager->IsInTransaction());
 
@@ -7190,20 +7190,26 @@ bool nsWindow::AutoErase(HDC dc)
 void
 nsWindow::AllowD3D9Callback(nsWindow *aWindow)
 {
+  // XXX - Bas - Disabled for now.
+#if 0
   if (aWindow->mLayerManager) {
     aWindow->mLayerManager->Destroy();
     aWindow->mLayerManager = NULL;
   }
+#endif
 }
 
 void
 nsWindow::AllowD3D9WithReinitializeCallback(nsWindow *aWindow)
 {
+  // XXX - Bas - Disabled for now.
+#if 0
   if (aWindow->mLayerManager) {
     aWindow->mLayerManager->Destroy();
     aWindow->mLayerManager = NULL;
     (void) aWindow->GetLayerManager();
   }
+#endif
 }
 
 void

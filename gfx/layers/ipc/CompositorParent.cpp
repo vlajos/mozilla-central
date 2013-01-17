@@ -32,6 +32,8 @@
 #include "nsAnimationManager.h"
 #include "TiledLayerBuffer.h"
 
+#include "mozilla/layers/CompositorD3D11.h"
+
 using namespace base;
 using namespace mozilla::ipc;
 using namespace std;
@@ -1030,6 +1032,19 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
     }
     *aTextureFactoryIdentifier = layerManager->GetTextureFactoryIdentifier();
     return new ShadowLayersParent(slm, this, 0); */
+  } else if (aBackendHint == mozilla::layers::LAYERS_D3D11) {
+    mLayerManager =
+      new LayerManagerComposite(new CompositorD3D11(mWidget));
+    mWidget = nullptr;
+    mLayerManager->SetCompositorID(mCompositorID);  
+    
+    if (!mLayerManager->Initialize()) {
+      NS_ERROR("Failed to init Compositor");
+      return NULL;
+    }
+
+    *aTextureFactoryIdentifier = mLayerManager->GetTextureFactoryIdentifier();
+    return new ShadowLayersParent(mLayerManager, this, 0);
   } else {
     NS_ERROR("Unsupported backend selected for Async Compositor");
     return NULL;

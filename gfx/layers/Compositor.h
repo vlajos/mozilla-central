@@ -79,7 +79,7 @@ public:
  * interfaces (TextureSourceOGL, etc.), and TextureSource mostly provide
  * access to these interfaces.
  */
-class TextureSource
+class TextureSource : public RefCounted<TextureSource>
 {
 public:
   virtual ~TextureSource() {};
@@ -274,7 +274,7 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class CompositingRenderTarget : public TextureSource, public RefCounted<CompositingRenderTarget>
+class CompositingRenderTarget : public TextureSource
 {
 public:
   virtual ~CompositingRenderTarget() {}

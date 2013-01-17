@@ -13,6 +13,7 @@ VPATH       = \
   $(srcdir)/opengl \
   $(srcdir)/d3d9 \
   $(srcdir)/d3d10 \
+  $(srcdir)/d3d11 \
   $(srcdir)/ipc \
   $(NULL)
 
@@ -131,6 +132,8 @@ CPPSRCS += \
         ReadbackManagerD3D10.cpp \
         ShadowLayerUtilsD3D10.cpp \
         ThebesLayerD3D10.cpp \
+        CompositorD3D11.cpp \
+        TextureD3D11.cpp \
         $(NULL)
 endif
 endif
@@ -209,7 +212,11 @@ CPPSRCS += ShadowLayerUtilsX11.cpp
 endif #}
 
 ifdef MOZ_ENABLE_D3D10_LAYER
-EXPORTS_mozilla/layers += ShadowLayerUtilsD3D10.h
+EXPORTS_mozilla/layers += \
+                       ShadowLayerUtilsD3D10.h \
+                       CompositorD3D11.h \
+                       TextureD3D11.h \
+                       $(NULL)
 DEFINES	+= -DMOZ_ENABLE_D3D10_LAYER
 endif
 

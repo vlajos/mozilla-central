@@ -41,12 +41,9 @@ public:
  * TextureSourceOGL provides the necessary API for CompositorOGL to composite
  * a TextureSource.
  */
-class TextureSourceOGL : public TextureSource
+class TextureSourceOGL
 {
 public:
-  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
-    return this;
-  }
   virtual bool IsValid() const = 0;
   virtual void BindTexture(GLenum aTextureUnit) = 0;
   virtual gfx::IntSize GetSize() const = 0;
@@ -54,6 +51,7 @@ public:
 };
 
 class TextureImageAsTextureHostOGL : public TextureHost
+                                   , public TextureSource
                                    , public TextureSourceOGL
                                    , public TileIterator
 {
@@ -65,6 +63,10 @@ public:
   : TextureHost(aBufferMode, aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
     MOZ_COUNT_CTOR(TextureImageAsTextureHostOGL);
+  }
+
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+    return this;
   }
 
   ~TextureImageAsTextureHostOGL() {
@@ -169,7 +171,11 @@ public:
     return nullptr;
   }
 
-  struct Channel : public TextureSourceOGL {
+  struct Channel : public TextureSourceOGL
+                 , public TextureSource {
+    TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+      return this;
+    }
     RefPtr<gl::TextureImage> mTexImage;
 
     void BindTexture(GLenum aUnit) MOZ_OVERRIDE {
@@ -274,8 +280,13 @@ protected:
 // TODO[nical] this class is not usable yet
 class TextureHostOGLShared : public TextureHostOGL
                            , public TextureSourceOGL
+                           , public TextureSource
 {
 public:
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+    return this;
+  }
+
   typedef gfxASurface::gfxContentType ContentType;
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;

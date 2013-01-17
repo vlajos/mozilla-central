@@ -272,7 +272,7 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
                                         ShadowableLayer* aLayer,
                                         TextureFlags aFlags)
 {
-  if (aParentBackend != LAYERS_OPENGL) {
+  if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
     return nullptr;
   }
   if (aCompositableHostType == BUFFER_CONTENT) {
@@ -307,7 +307,7 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
     }
     break;
   case TEXTURE_SHMEM:
-    if (aParentBackend == LAYERS_OPENGL) {
+    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
       result = new TextureClientShmem(aLayerForwarder, aCompositableHostType);
     }
     break;

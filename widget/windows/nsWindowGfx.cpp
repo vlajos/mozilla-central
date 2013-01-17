@@ -401,7 +401,7 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
 #endif
 #ifdef CAIRO_HAS_D2D_SURFACE
           if (result) {
-            if (mD2DWindowSurface) {
+            if (mD2DWindowSurface && !UseOffMainThreadCompositing()) {
               mD2DWindowSurface->Present();
             }
           }

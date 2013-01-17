@@ -839,8 +839,8 @@ void nsBaseWidget::CreateCompositor()
   mCompositorChild->Open(parentChannel, childMessageLoop, childSide);
   TextureFactoryIdentifier textureFactoryIdentifier;
   PLayersChild* shadowManager;
-  mozilla::layers::LayersBackend backendHint =
-    mUseLayersAcceleration ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
+  mozilla::layers::LayersBackend backendHint = mozilla::layers::LAYERS_D3D11;
+    //mUseLayersAcceleration ? mozilla::layers::LAYERS_D3D11 : mozilla::layers::LAYERS_BASIC;
   shadowManager = mCompositorChild->SendPLayersConstructor(
     backendHint, 0, &textureFactoryIdentifier);
 
@@ -1143,11 +1143,13 @@ nsBaseWidget::SetLayersAcceleration(bool aEnabled)
   if (usedAcceleration == mUseLayersAcceleration) {
     return NS_OK;
   }
-
+// XXX - Bas - Disabled for now.
+#if 0
   if (mLayerManager) {
     mLayerManager->Destroy();
   }
   mLayerManager = NULL;
+#endif
   return NS_OK;
 }
 
