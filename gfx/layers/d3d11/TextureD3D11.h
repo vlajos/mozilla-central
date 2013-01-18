@@ -41,7 +41,8 @@ private:
 };
 
 class TextureSourceD3D11 : public TextureSource,
-                           public TextureSourceD3D11Base
+                           public TextureSourceD3D11Base,
+                           public RefCounted<TextureSourceD3D11>
 {
 public:
   TextureSourceD3D11(ID3D11Texture2D *aTexture)

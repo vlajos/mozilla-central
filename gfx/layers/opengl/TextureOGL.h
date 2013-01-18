@@ -362,6 +362,7 @@ protected:
 
 //TODO[nrc] can we merge with other host/source
 class TiledTextureHost : public TextureHostOGL
+                       , public TextureSource
                        , public TextureSourceOGL
 {
 public:
@@ -383,8 +384,8 @@ public:
   virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
 
 protected:
-  virtual uint32_t GetIdentifier() const {
-    return mTextureHandle;
+  virtual uint64_t GetIdentifier() const MOZ_OVERRIDE {
+    return static_cast<uint64_t>(mTextureHandle);
   }
 
 private:

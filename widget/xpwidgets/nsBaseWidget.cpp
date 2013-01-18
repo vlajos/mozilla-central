@@ -839,8 +839,13 @@ void nsBaseWidget::CreateCompositor()
   mCompositorChild->Open(parentChannel, childMessageLoop, childSide);
   TextureFactoryIdentifier textureFactoryIdentifier;
   PLayersChild* shadowManager;
+#ifdef MOZ_ENABLE_D3D10_LAYER
   mozilla::layers::LayersBackend backendHint = mozilla::layers::LAYERS_D3D11;
-    //mUseLayersAcceleration ? mozilla::layers::LAYERS_D3D11 : mozilla::layers::LAYERS_BASIC;
+  //mUseLayersAcceleration ? mozilla::layers::LAYERS_D3D11 : mozilla::layers::LAYERS_BASIC;
+#else
+  mozilla::layers::LayersBackend backendHint =
+    mUseLayersAcceleration ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
+#endif
   shadowManager = mCompositorChild->SendPLayersConstructor(
     backendHint, 0, &textureFactoryIdentifier);
 

@@ -79,7 +79,7 @@ public:
  * interfaces (TextureSourceOGL, etc.), and TextureSource mostly provide
  * access to these interfaces.
  */
-class TextureSource : public RefCounted<TextureSource>
+class TextureSource
 {
 public:
   virtual ~TextureSource() {};
@@ -251,8 +251,8 @@ protected:
   // An internal identifier for this texture host. Two texture hosts
   // should be considered equal iff their identifiers match. Should
   // not be exposed publicly.
-  virtual uint32_t GetIdentifier() const {
-    return reinterpret_cast<uint32_t>(this);
+  virtual uint64_t GetIdentifier() const {
+    return reinterpret_cast<uint64_t>(this);
   }
 
   // Texture info
@@ -274,7 +274,8 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class CompositingRenderTarget : public TextureSource
+class CompositingRenderTarget : public TextureSource,
+                                public RefCounted<CompositingRenderTarget>
 {
 public:
   virtual ~CompositingRenderTarget() {}
