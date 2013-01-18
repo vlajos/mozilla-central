@@ -145,6 +145,7 @@ EXPORTS_mozilla/layers =\
         Axis.h \
         CompositableClient.h \
         Compositor.h \
+		ReusableTileStoreComposite.h \
         CompositorOGL.h \
         ContentHost.h \
         CompositorCocoaWidgetHelper.h \

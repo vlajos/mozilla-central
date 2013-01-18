@@ -362,6 +362,7 @@ protected:
 
 //TODO[nrc] can we merge with other host/source
 class TiledTextureHost : public TextureHostOGL
+                       , public TextureSource
                        , public TextureSourceOGL
 {
 public:
@@ -370,6 +371,10 @@ public:
     , mGL(aGL)
   {}
   ~TiledTextureHost();
+
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+    return this;
+  }
 
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags);
   virtual Effect* Lock(const gfx::Filter& aFilter);

@@ -8,7 +8,7 @@
 #include "mozilla/layers/ContentHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
-#include "mozilla/layers/ReusableTileStoreOGL.h"
+#include "mozilla/layers/ReusableTileStoreComposite.h"
 #include "gfxPlatform.h"
 
 namespace mozilla {
