@@ -372,6 +372,10 @@ public:
   {}
   ~TiledTextureHost();
 
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+    return this;
+  }
+
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags);
   virtual Effect* Lock(const gfx::Filter& aFilter);
   virtual void Unlock() {}
