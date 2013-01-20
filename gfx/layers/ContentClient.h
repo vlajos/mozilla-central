@@ -425,24 +425,6 @@ private:
                                       BasicShadowLayerManager* aManager);
 };
 
-class BasicShadowLayerManager;
-
-//TODO[nrc] remove - CreateCompositableClient
-class ContentClientTiled : public ContentClient
-{
-public:
-  ContentClientTiled(ShadowLayerForwarder* aLayerForwarder,
-                      ShadowableLayer* aLayer,
-                      TextureFlags aFlags)
-  {
-  }
-
-private:
-
-
-
-};
-
 }
 }
 

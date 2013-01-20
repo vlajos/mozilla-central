@@ -362,9 +362,8 @@ protected:
 
 //TODO[nrc] can we merge with other host/source
 class TiledTextureHost : public TextureHostOGL
-//TODO[nrc] oh god, what is happening here?
-                       //, public TextureSource
-                       //, public TextureSourceOGL
+                       , public TextureSource
+                       , public TextureSourceOGL
 {
 public:
   TiledTextureHost(gl::GLContext* aGL) 
@@ -373,20 +372,20 @@ public:
   {}
   ~TiledTextureHost();
 
-  //TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
-  //  return this;
-  //}
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+    return this;
+  }
 
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags);
   virtual Effect* Lock(const gfx::Filter& aFilter);
   virtual void Unlock() {}
 
   // TODO[nrc] Texture source stuff
-  virtual TextureSource* AsTextureSource() { return nullptr; } //this; }
-  /*virtual bool IsValid() const { return true; }
+  virtual TextureSource* AsTextureSource() { return this; }
+  virtual bool IsValid() const { return true; }
   virtual void BindTexture(GLenum aTextureUnit) {}
   virtual gfx::IntSize GetSize() const { return gfx::IntSize(0, 0); }
-  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }*/
+  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
 
 protected:
   virtual uint64_t GetIdentifier() const MOZ_OVERRIDE {

@@ -286,7 +286,7 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
   }
   //TODO[nrc]
   if (aCompositableHostType == BUFFER_TILED) {
-    return new ContentClientTiled(aLayerForwarder, aLayer, aFlags);
+    return nullptr; //new ContentClientTiled(aLayerForwarder, aLayer, aFlags);
   }
   return nullptr;
 }
