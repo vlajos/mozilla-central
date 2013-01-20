@@ -132,8 +132,8 @@ CPPSRCS += \
         ReadbackManagerD3D10.cpp \
         ShadowLayerUtilsD3D10.cpp \
         ThebesLayerD3D10.cpp \
-        CompositorD3D11.cpp \
-        TextureD3D11.cpp \
+#        CompositorD3D11.cpp \
+#        TextureD3D11.cpp \
         $(NULL)
 endif
 endif

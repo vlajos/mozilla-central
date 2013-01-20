@@ -16,6 +16,8 @@
 #include "gfxReusableSurfaceWrapper.h"
 #include "TiledLayerBuffer.h"
 #include "gfxPlatform.h"
+//TODO[nrc] can I remove this?
+#include "BasicLayers.h"
 
 namespace mozilla {
 namespace layers {
@@ -283,6 +285,7 @@ struct BasicTiledLayerPaintData {
   gfxSize mResolution;
   nsIntRect mCompositionBounds;
   uint16_t mLowPrecisionPaintCount;
+  bool mFirstPaint : 1;
   bool mPaintFinished : 1;
 };
 
@@ -353,6 +356,7 @@ public:
                          BasicTiledLayerPaintData* aPaintData,
                          LayerManager::DrawThebesLayerCallback aCallback,
                          void* aCallbackData,
+                         //TODO[nrc] does it need to be so specific?
                          BasicShadowLayerManager* aManager);
 
 protected:
@@ -388,9 +392,9 @@ private:
   nsRefPtr<gfxImageSurface>     mSinglePaintBuffer;
   nsIntPoint                    mSinglePaintBufferOffset;
 
-  BasicTiledLayerTile ValidateTileInternal(TextureClientTile aTile,
-                                           const nsIntPoint& aTileOrigin,
-                                           const nsIntRect& aDirtyRect);
+  TextureClientTile ValidateTileInternal(TextureClientTile aTile,
+                                         const nsIntPoint& aTileOrigin,
+                                         const nsIntRect& aDirtyRect);
 
   /**
    * Calculates the region to update in a single progressive update transaction.

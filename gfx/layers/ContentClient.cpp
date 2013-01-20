@@ -440,9 +440,9 @@ BasicTiledLayerBuffer::ValidateTileInternal(TextureClientTile aTile,
                                             const nsIntPoint& aTileOrigin,
                                             const nsIntRect& aDirtyRect)
 {
-  aTile.EnsureTextureClient(gfx::Size(GetTileLength(), GetTileLength()), GetContentType());
+  aTile.EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
 
-  gfxImageSurface* writableSurface = aTile.LockSurface();
+  gfxASurface* writableSurface = aTile.LockSurface();
   // Bug 742100, this gfxContext really should live on the stack.
   nsRefPtr<gfxContext> ctxt = new gfxContext(writableSurface);
 
@@ -526,12 +526,12 @@ RoundedTransformViewportBounds(const gfx::Rect& aViewport,
 }
 
 bool
-ContentClientTiled::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvalidRegion,
-                                                   const nsIntRegion& aOldValidRegion,
-                                                   nsIntRegion& aRegionToPaint,
-                                                   BasicTiledLayerPaintData* aPaintData,
-                                                   bool aIsRepeated,
-                                                   BasicShadowLayerManager* aManager)
+BasicTiledLayerBuffer::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvalidRegion,
+                                                      const nsIntRegion& aOldValidRegion,
+                                                      nsIntRegion& aRegionToPaint,
+                                                      BasicTiledLayerPaintData* aPaintData,
+                                                      bool aIsRepeated,
+                                                      BasicShadowLayerManager* aManager)
 {
   aRegionToPaint = aInvalidRegion;
 
@@ -583,7 +583,7 @@ ContentClientTiled::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvalidRe
 
   // Paint area that's visible and overlaps previously valid content to avoid
   // visible glitches in animated elements, such as gifs.
-  bool paintInSingleTransaction = paintVisible && (drawingStale || mFirstPaint);
+  bool paintInSingleTransaction = paintVisible && (drawingStale || aPaintData->mFirstPaint);
 
   // The following code decides what order to draw tiles in, based on the
   // current scroll direction of the primary scrollable layer.
@@ -652,13 +652,13 @@ ContentClientTiled::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvalidRe
 }
 
 bool
-ContentClientTiled::ProgressiveUpdate(nsIntRegion& aValidRegion,
-                                      nsIntRegion& aInvalidRegion,
-                                      const nsIntRegion& aOldValidRegion,
-                                      BasicTiledLayerPaintData* aPaintData,
-                                      LayerManager::DrawThebesLayerCallback aCallback,
-                                      void* aCallbackData,
-                                      BasicShadowLayerManager* aManager)
+BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
+                                         nsIntRegion& aInvalidRegion,
+                                         const nsIntRegion& aOldValidRegion,
+                                         BasicTiledLayerPaintData* aPaintData,
+                                         LayerManager::DrawThebesLayerCallback aCallback,
+                                         void* aCallbackData,
+                                         BasicShadowLayerManager* aManager)
 {
   bool repeat = false;
   do {
@@ -692,7 +692,7 @@ ContentClientTiled::ProgressiveUpdate(nsIntRegion& aValidRegion,
     validOrStale.Or(aValidRegion, aOldValidRegion);
 
     // Paint the computed region and subtract it from the invalid region.
-    PaintThebes(static_cast<BasicTiledThebesLayer*>(mLayer), validOrStale, regionToPaint, aCallback, aCallbackData);
+    PaintThebes(mThebesLayer, validOrStale, regionToPaint, aCallback, aCallbackData);
     aInvalidRegion.Sub(aInvalidRegion, regionToPaint);
   } while (repeat);
 

@@ -226,6 +226,8 @@ protected:
   friend class CompositingFactory;
 };
 
+class TiledLayerBufferComposite;
+
 //TODO[nrc] rename or use a different client
 class TextureClientTile : public TextureClient
 {
@@ -277,6 +279,7 @@ private:
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
 
   friend class CompositingFactory;
+  friend class TiledLayerBufferComposite;
 };
 
 }

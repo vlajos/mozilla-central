@@ -382,7 +382,7 @@ public:
   virtual void Unlock() {}
 
   // TODO[nrc] Texture source stuff
-  //virtual TextureSource* AsTextureSource() { return this; }
+  virtual TextureSource* AsTextureSource() { return nullptr; } //this; }
   /*virtual bool IsValid() const { return true; }
   virtual void BindTexture(GLenum aTextureUnit) {}
   virtual gfx::IntSize GetSize() const { return gfx::IntSize(0, 0); }

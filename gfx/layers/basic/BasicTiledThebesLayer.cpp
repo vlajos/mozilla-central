@@ -16,11 +16,11 @@ namespace layers {
 
 BasicTiledThebesLayer::BasicTiledThebesLayer(BasicShadowLayerManager* const aManager)
   : ThebesLayer(aManager, static_cast<BasicImplData*>(this))
-  , mFirstPaint(true)
 {
   MOZ_COUNT_CTOR(BasicTiledThebesLayer);
   mLowPrecisionTiledBuffer.SetResolution(gfxPlatform::GetLowPrecisionResolution());
   mPaintData.mLastScrollOffset = gfx::Point(0, 0);
+  mPaintData.mFirstPaint = true;
 }
 
 BasicTiledThebesLayer::~BasicTiledThebesLayer()
@@ -232,7 +232,7 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
     }
 
     if (updatedBuffer) {
-      mFirstPaint = false;
+      mPaintData.mFirstPaint = false;
       mTiledBuffer.LockCopyAndWrite(BasicManager()->Hold(this), BasicManager());
 
       // If there are low precision updates, mark the paint as unfinished and

@@ -90,7 +90,6 @@ private:
   BasicTiledLayerBuffer mTiledBuffer;
   BasicTiledLayerBuffer mLowPrecisionTiledBuffer;
   BasicTiledLayerPaintData mPaintData;
-  bool mFirstPaint;
 };
 
 } // layers
