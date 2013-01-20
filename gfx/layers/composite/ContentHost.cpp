@@ -314,7 +314,7 @@ TiledLayerBufferComposite::ValidateTile(TiledTexture aTile,
   long start = PR_IntervalNow();
 #endif
 
-  //TODO[nrc] don't I need to lock this tile or something
+  //TODO[nrc] don't I need to lock this tile or something (probably locked by the caller)
   aTile.Validate(mMainMemoryTiledBuffer->GetTile(aTileOrigin).mSurface, mCompositor);
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
