@@ -307,7 +307,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
         MOZ_LAYERS_LOG(("[ParentSide]   color layer"));
 
         static_cast<ColorLayer*>(layer)->SetColor(
-          specific.get_ColorLayerAttributes().color().value());
+          specific.get_ColorLayerAttributes().layerColor().value());
         break;
 
       case Specific::TCanvasLayerAttributes:

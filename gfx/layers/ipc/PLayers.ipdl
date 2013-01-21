@@ -85,7 +85,7 @@ union TimingFunction {
   StepFunction;
 };
 
-struct Color { gfxRGBA value; };
+struct LayerColor { gfxRGBA value; };
 struct Perspective { float value; };
 struct RotationX { float radians; };
 struct RotationY { float radians; };
@@ -193,7 +193,7 @@ struct ContainerLayerAttributes {
   float preXScale;
   float preYScale;
 };
-struct ColorLayerAttributes     { Color color; };
+struct ColorLayerAttributes     { LayerColor color; };
 struct CanvasLayerAttributes    { GraphicsFilterType filter; };
 struct RefLayerAttributes       { int64_t id; };
 struct ImageLayerAttributes     { GraphicsFilterType filter; };
