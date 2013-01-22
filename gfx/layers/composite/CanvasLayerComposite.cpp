@@ -33,7 +33,7 @@ CanvasLayerComposite::EnsureImageHost(BufferType aHostType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aHostType) {
-    RefPtr<CompositableHost> bufferHost = mCompositor->CreateCompositableHost(aHostType);
+    RefPtr<CompositableHost> bufferHost = mCompositeManager->CreateCompositableHost(aHostType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
   }
 }

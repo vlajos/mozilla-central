@@ -56,9 +56,6 @@ public:
     return result;
   }
 
-  virtual TemporaryRef<CompositableHost>
-    CreateCompositableHost(BufferType aType) MOZ_OVERRIDE;
-
   virtual void FallbackTextureInfo(TextureInfo& aId) MOZ_OVERRIDE;
 
   virtual TemporaryRef<CompositingRenderTarget> 

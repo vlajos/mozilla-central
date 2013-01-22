@@ -303,28 +303,6 @@ CompositorD3D11::CreateTextureHost(BufferType aImageType,
   return new TextureHostD3D11(BUFFER_NONE, aDeAllocator, mDevice);
 }
 
-TemporaryRef<CompositableHost>
-CompositorD3D11::CreateCompositableHost(BufferType aType)
-{
-  switch (aType) {
-  case BUFFER_YCBCR:
-    return new YCbCrImageHost(this);
-  case BUFFER_SHARED:
-  case BUFFER_TEXTURE:
-  case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
-    return new ImageHostSingle(this, aType);
-  case BUFFER_BRIDGE:
-    return new ImageHostBridge(this);
-  case BUFFER_CONTENT:
-    return new ContentHostTexture(this);
-  case BUFFER_CONTENT_DIRECT:
-    return new ContentHostDirect(this);
-  default:
-    NS_ERROR("Unknown BufferType");
-    return nullptr;
-  }
-}
-
 TemporaryRef<CompositingRenderTarget>
 CompositorD3D11::CreateRenderTarget(const gfx::IntRect &aRect,
                                     SurfaceInitMode aInit)
@@ -409,7 +387,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   } else if (aEffectChain.mEffects[EFFECT_RGB]) {
     EffectRGB *rgbEffect = static_cast<EffectRGB*>(aEffectChain.mEffects[EFFECT_RGB].get());
 
-    TextureSourceD3D11 *source = static_cast<TextureSourceD3D11*>(rgbEffect->mRGBTexture);
+    TextureSourceD3D11 *source = rgbEffect->mRGBTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -424,7 +402,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   } else if (aEffectChain.mEffects[EFFECT_RGBA]) {
     EffectRGBA *rgbEffect = static_cast<EffectRGBA*>(aEffectChain.mEffects[EFFECT_RGBA].get());
 
-    TextureSourceD3D11 *source = static_cast<TextureSourceD3D11*>(rgbEffect->mRGBATexture);
+    TextureSourceD3D11 *source = rgbEffect->mRGBATexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -532,6 +510,17 @@ CompositorD3D11::RestoreViewport()
   mContext->RSSetViewports(1, &viewport);
 
   return oldViewport;
+}
+
+nsIntSize*
+CompositorD3D11::GetWidgetSize()
+{
+  nsIntRect rect;
+  mWidget->GetClientBounds(rect);
+
+  mSize = rect.Size();
+
+  return &mSize;
 }
 
 void

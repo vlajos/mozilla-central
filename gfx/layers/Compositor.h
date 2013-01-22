@@ -45,6 +45,7 @@ class ShadowLayerForwarder;
 class ShadowableLayer;
 class PTextureChild;
 class TextureSourceOGL;
+class TextureSourceD3D11;
 class TextureParent;
 class Matrix4x4;
 
@@ -59,9 +60,11 @@ const TextureFlags NewTile            = 0x20;
 
 
 /**
- * A view on a texture host where the texture host is internally represented as tiles
+ * A view on a TextureHost where the texture is internally represented as tiles
  * (contrast with a tiled buffer, where each texture is a tile). For iteration by
  * the texture's buffer host.
+ * This is only useful when the underlying surface is too big to fit in one
+ * device texture, which forces us to split it in smaller parts.
  */
 class TileIterator
 {
@@ -78,28 +81,75 @@ public:
  * between backends, the TextureSource interface is split into different
  * interfaces (TextureSourceOGL, etc.), and TextureSource mostly provide
  * access to these interfaces.
+ *
+ * This class is used on the compositor side.
  */
-class TextureSource
+class TextureSource : public RefCounted<TextureSource>
 {
 public:
   virtual ~TextureSource() {};
+
   virtual gfx::IntSize GetSize() const = 0;
+  /**
+   * Cast to an TextureSource for the OpenGL backend.
+   */
   virtual TextureSourceOGL* AsSourceOGL() { return nullptr; }
+  /**
+   * Cast to an TextureSource for the D3D11 backend.
+   */
+  virtual TextureSourceD3D11* AsSourceD3D11() { return nullptr; }
+  /**
+   * In some rare cases we currently need to consider a group of textures as one
+   * TextureSource, that can be split in sub-TextureSources. 
+   */
   virtual TextureSource* GetSubSource(int index) { return nullptr; }
+  /**
+   * Overload this if the TextureSource supports big textures that don't fit in
+   * one device texture and must be tiled internally.
+   */
   virtual TileIterator* AsTileIterator() { return nullptr; }
 };
 
 /**
  * Interface
+ *
  * TextureHost is a thin abstraction over texture data that need to be shared
  * or transfered from the content process to the compositor process.
- * TextureHost only knows how to deserialize generic image data (SurfaceDescriptor)
- * and provide access to one or more TextureSource objects (these provide the
- * necessary APIs for compositor backends to composite the image).
+ * TextureHost only knows how to deserialize or synchronize generic image data
+ * (SurfaceDescriptor) and provide access to one or more TextureSource objects
+ * (these provide the necessary APIs for compositor backends to composite the
+ * image).
  *
- * Used only on the compositor process.
+ * A TextureHost should mostly correspond to one or several SurfaceDescriptor
+ * types. This means that for YCbCr planes, even though they are represented as
+ * 3 textures internally, use 1 TextureHost and not 3, because the 3 planes
+ * arrive in the same IPC message.
+ *
+ * The Lock/Unlock mecanism here mirrors Lock/Unlock in TextureClient. These two
+ * methods don't always have to use blocking locks, unless a resource is shared
+ * between the two sides (like shared texture handles). For instance, in some cases
+ * the data received in Update(...) is a copy in shared memory of the data owned 
+ * by the content process, in which case no blocking lock is required.
+ *
+ * All TextureHosts should provide access to at least one TextureSource
+ * (see AsTextureSource()).
+ *
+ * The TextureHost class handles buffering and the necessary code for async
+ * texture updates, and the internals of this should not be exposed to the
+ * the different implementations of TextureHost (other than selecting the
+ * right strategy at construction time).
+ *
+ * TextureHosts can be changed at any time, for example if we receive a
+ * SurfaceDescriptor type that was not expected. This should be an incentive
+ * to keep the ownership model simple (especially on the OpenGL case, where
+ * we have additionnal constraints).
+ *
+ * The class TextureImageAsTextureHostOGL is a good example of a TextureHost
+ * implementation.
+ *
+ * This class is used only on the compositor side.
  */
-class TextureHost : public RefCounted<TextureHost>
+class TextureHost : public TextureSource
 {
 public:
   TextureHost(BufferMode aBufferMode = BUFFER_NONE,
@@ -274,8 +324,7 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class CompositingRenderTarget : public TextureSource,
-                                public RefCounted<CompositingRenderTarget>
+class CompositingRenderTarget : public TextureSource
 {
 public:
   virtual ~CompositingRenderTarget() {}
@@ -334,11 +383,6 @@ public:
                       TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
                       ISurfaceDeallocator* aDeAllocator) = 0;
-  /**
-   * Create a new buffer host of a kind specified by aType
-   */
-  virtual TemporaryRef<CompositableHost>
-    CreateCompositableHost(BufferType aType) = 0;
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId

@@ -31,9 +31,9 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
   mTextureHost->Update(aImage, &result, &success);
   if (!success) {
     TextureInfo id = aTextureInfo;
-    mCompositor->FallbackTextureInfo(id);
+    compositor()->FallbackTextureInfo(id);
     id.textureFlags = mTextureHost->GetFlags();
-    mTextureHost = mCompositor->CreateTextureHost(id.imageType,
+    mTextureHost = compositor()->CreateTextureHost(id.imageType,
                                                   id.memoryType,
                                                   id.textureFlags,
                                                   nullptr); // TODO[nical] needs a ISurface DeAllocator
@@ -73,14 +73,14 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
       nsIntRect tileRect = it->GetTileRect();
       gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
       gfx::Rect sourceRect(0, 0, tileRect.width, tileRect.height);
-      mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
+      compositor()->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
                             aOpacity, aTransform, aOffset);
     } while (it->NextTile());
   } else {
     gfx::Rect rect(0, 0,
                    mTextureHost->AsTextureSource()->GetSize().width,
                    mTextureHost->AsTextureSource()->GetSize().height);
-    mCompositor->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
+    compositor()->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
                           aOpacity, aTransform, aOffset);
   }
 
@@ -138,7 +138,7 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
 
   gfx::Rect rect(0, 0, mPictureRect.width, mPictureRect.height);
   gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y, mPictureRect.width, mPictureRect.height);
-  mCompositor->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+  compositor()->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
 
   mTextureHost->Unlock();
 }
@@ -154,17 +154,17 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aType) {
-    RefPtr<CompositableHost> bufferHost = mCompositor->CreateCompositableHost(aType);
+    RefPtr<CompositableHost> bufferHost = mManager->CreateCompositableHost(aType);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
 
     TextureInfo id;
     id.imageType = mImageHost->GetType();
     id.memoryType = TEXTURE_SHMEM;
     id.textureFlags = NoFlags;
-    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id.imageType,
-                                                                     id.memoryType,
-                                                                     id.textureFlags,
-                                                                     nullptr); // TODO[nical] needs a ISurfaceDeallocator
+    RefPtr<TextureHost> textureHost = mManager->GetCompositor()->CreateTextureHost(id.imageType,
+                                                                                   id.memoryType,
+                                                                                   id.textureFlags,
+                                                                                   nullptr); // TODO[nical] needs a ISurfaceDeallocator
     mImageHost->AddTextureHost(textureHost);
   }
 }
@@ -200,7 +200,7 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
                            const nsIntRegion* aVisibleRegion /* = nullptr */)
 {
   ImageContainerParent::SetCompositorIDForImage(mImageContainerID,
-                                                mCompositor->GetCompositorID());
+                                                compositor()->GetCompositorID());
   uint32_t imgVersion = ImageContainerParent::GetSurfaceDescriptorVersion(mImageContainerID);
   SurfaceDescriptor* img;
   if ((!mImageHost ||

@@ -230,7 +230,7 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
     break;
     // fall through to BUFFER_TEXTURE
   case BUFFER_TEXTURE:
-    if (aParentBackend == LAYERS_OPENGL) {
+    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
       result = new ImageClientTexture(aLayerForwarder, aLayer, aFlags);
     }
     break;

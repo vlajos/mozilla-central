@@ -12,11 +12,10 @@
 namespace mozilla {
 namespace layers {
 
-class TextureSourceD3D11Base
+class TextureSourceD3D11
 {
 public:
-  TextureSourceD3D11Base(ID3D11Texture2D *aTexture)
-    : mTexture(aTexture)
+  TextureSourceD3D11()
   { }
 
   ID3D11Texture2D *GetD3D11Texture() { return mTexture; }
@@ -27,10 +26,12 @@ protected:
 };
 
 class CompositingRenderTargetD3D11 : public CompositingRenderTarget,
-                                     public TextureSourceD3D11Base
+                                     public TextureSourceD3D11
 {
 public:
   CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture);
+
+  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
 
   virtual gfx::IntSize GetSize() const;
 
@@ -40,19 +41,8 @@ private:
   RefPtr<ID3D11RenderTargetView> mRTView;
 };
 
-class TextureSourceD3D11 : public TextureSource,
-                           public TextureSourceD3D11Base,
-                           public RefCounted<TextureSourceD3D11>
-{
-public:
-  TextureSourceD3D11(ID3D11Texture2D *aTexture)
-    : TextureSourceD3D11Base(aTexture)
-  { }
-
-  virtual gfx::IntSize GetSize() const;
-};                         
-
 class TextureHostD3D11 : public TextureHost
+                       , public TextureSourceD3D11
 {
 public:
   TextureHostD3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
@@ -64,6 +54,8 @@ public:
   }
 
   virtual TextureSource *AsTextureSource();
+
+  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
 
   virtual gfx::IntSize GetSize() const;
 
@@ -77,8 +69,6 @@ protected:
 
   virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
 private:
-  RefPtr<ID3D11Texture2D> mTexture;
-  RefPtr<TextureSourceD3D11> mTextureSource;
   RefPtr<ID3D11Device> mDevice;
   bool mHasAlpha;
 };

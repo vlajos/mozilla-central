@@ -61,9 +61,6 @@ public:
                       uint32_t aTextureFlags,
                       ISurfaceDeallocator* aDeAllocator);
 
-  virtual TemporaryRef<CompositableHost>
-    CreateCompositableHost(BufferType aType);
-
   virtual TemporaryRef<CompositingRenderTarget>
     CreateRenderTarget(const gfx::IntRect &aRect,
                        SurfaceInitMode aInit);
@@ -122,6 +119,7 @@ public:
   virtual void NotifyShadowTreeTransaction() { }
 
   virtual nsIWidget* GetWidget() const { return mWidget; }
+  virtual nsIntSize* GetWidgetSize();
 
 private:
   void VerifyBufferSize();
@@ -139,6 +137,8 @@ private:
   nsRefPtr<gfxContext> mTarget;
 
   nsIWidget *mWidget;
+  // XXX - Bas - wth?
+  nsIntSize mSize;
 
   HWND mHwnd;
 

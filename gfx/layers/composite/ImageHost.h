@@ -8,6 +8,7 @@
 
 #include "CompositableHost.h"
 #include "mozilla/layers/ImageContainerParent.h"
+#include "LayerManagerComposite.h"
 
 namespace mozilla {
 namespace layers {
@@ -24,19 +25,21 @@ public:
   TextureHost* GetTextureHost() MOZ_OVERRIDE { return nullptr; }
 
 protected:
-  ImageHost(Compositor* aCompositor)
-    : mCompositor(aCompositor)
+  ImageHost(LayerManagerComposite* aManager)
+    : mManager(aManager)
   {
   }
 
-  RefPtr<Compositor> mCompositor;
+  Compositor *compositor() const { return mManager->GetCompositor(); }
+
+  RefPtr<LayerManagerComposite> mManager;
 };
 
 class ImageHostSingle : public ImageHost
 {
 public:
-  ImageHostSingle(Compositor* aCompositor, BufferType aType)
-    : ImageHost(aCompositor)
+  ImageHostSingle(LayerManagerComposite* aManager, BufferType aType)
+    : ImageHost(aManager)
     , mTextureHost(nullptr)
     , mType(aType)
   {}
@@ -77,8 +80,8 @@ protected:
 class YCbCrImageHost : public ImageHost
 {
 public:
-  YCbCrImageHost(Compositor* aCompositor)
-    : ImageHost(aCompositor)
+  YCbCrImageHost(LayerManagerComposite* aManager)
+    : ImageHost(aManager)
   {}
 
   virtual BufferType GetType() { return BUFFER_YCBCR; }
@@ -110,8 +113,8 @@ protected:
 class ImageHostBridge : public ImageHost
 {
 public:
-  ImageHostBridge(Compositor* aCompositor)
-    : ImageHost(aCompositor)
+  ImageHostBridge(LayerManagerComposite* aManager)
+    : ImageHost(aManager)
     , mImageContainerID(0)
     , mImageVersion(0)
   {}
@@ -136,7 +139,7 @@ public:
     // Update the associated compositor ID in case Composer2D succeeds,
     // because we won't enter RenderLayer() if so ...
     ImageContainerParent::SetCompositorIDForImage(
-      mImageContainerID, mCompositor->GetCompositorID());
+      mImageContainerID, compositor()->GetCompositorID());
     // ... but do *not* try to update the local image version.  We need
     // to retain that information in case we fall back on GL, so that we
     // can upload / attach buffers properly.
