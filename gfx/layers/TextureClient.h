@@ -25,7 +25,7 @@ namespace layers {
 class TextureChild;
 class ContentClient;
 
-// this may repalce TextureClient (or get removed)
+//TODO[nical] this may repalce TextureClient (or get removed)
 class AwesomeTextureClient {
 public:
   AwesomeTextureClient() {
@@ -143,6 +143,8 @@ protected:
   TextureClient(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
 
   ShadowLayerForwarder* mLayerForwarder;
+  //TODO[nrc] should this maybe be in implementations, not this interface
+  //see also LockSurfaceDescriptor
   SurfaceDescriptor mDescriptor;
   TextureInfo mTextureInfo;
   PTextureChild* mTextureChild;
@@ -222,14 +224,17 @@ protected:
   friend class CompositingFactory;
 };
 
-struct BasicTiledLayerTile;
-
 class TextureClientTile : public TextureClient
 {
 public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   virtual gfxImageSurface* LockImageSurface();
+
+  gfxReusableSurfaceWrapper* GetReusableSurfaceWrapper()
+  {
+    return mSurface;
+  }
 
 private:
   TextureClientTile(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
@@ -240,7 +245,6 @@ private:
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
 
   friend class CompositingFactory;
-  friend struct BasicTiledLayerTile;
 };
 
 }

@@ -222,7 +222,6 @@ protected:
  * Ideal place to store per tile debug information.
  */
 struct BasicTiledLayerTile {
-  //TODO[nrc] can we use a regular TextureClient?
   RefPtr<TextureClientTile> mTextureClient;
 #ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
   TimeStamp        mLastUpdate;
@@ -264,7 +263,7 @@ struct BasicTiledLayerTile {
   }
 
   gfxReusableSurfaceWrapper* GetSurface() {
-    return mTextureClient->mSurface;
+    return mTextureClient->GetReusableSurfaceWrapper();
   }
 };
 

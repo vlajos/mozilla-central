@@ -42,7 +42,7 @@ public:
   virtual bool IsValid() const = 0;
   virtual void BindTexture(GLenum aTextureUnit) = 0;
   virtual gfx::IntSize GetSize() const = 0;
-  virtual GLenum GetWrapMode() const = 0;
+  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
 };
 
 // we actually don't need this class anymore
@@ -115,8 +115,9 @@ public:
   }
 
   // textureSource
-
-  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE;
+  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
+    mTexture->BindTexture(aTextureUnit);
+  }
 
   gfx::IntSize GetSize() const MOZ_OVERRIDE {
     return mSize;
@@ -389,7 +390,6 @@ protected:
   gl::TextureImage::TextureShareType mShareType;
 };
 
-//TODO[nrc] can we merge with other host/source
 class TiledTextureHost : public TextureHostOGL
 {
 public:
@@ -399,16 +399,22 @@ public:
   {}
   ~TiledTextureHost();
 
-  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags);
-  virtual Effect* Lock(const gfx::Filter& aFilter);
-  virtual void Unlock() {}
+  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags) MOZ_OVERRIDE;
+  virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+  virtual void Unlock() MOZ_OVERRIDE {}
 
-  // TODO[nrc] Texture source stuff
-  virtual TextureSource* AsTextureSource() { return this; }
-  virtual bool IsValid() const { return true; }
-  virtual void BindTexture(GLenum aTextureUnit) {}
-  virtual gfx::IntSize GetSize() const { return gfx::IntSize(0, 0); }
-  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
+  virtual TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
+  virtual bool IsValid() const MOZ_OVERRIDE { return true; }
+  virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE
+  {
+    mGL->fActiveTexture(aTextureUnit);
+    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
+  }
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
+  {
+    NS_RUNTIMEABORT("No size for a tiled texture host");
+    return gfx::IntSize();
+  }
 
 protected:
   virtual uint64_t GetIdentifier() const MOZ_OVERRIDE {

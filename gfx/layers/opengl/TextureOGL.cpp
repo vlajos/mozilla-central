@@ -57,10 +57,6 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
-void TextureImageAsTextureHostOGL::BindTexture(GLenum aTextureUnit) {
-  mTexture->BindTexture(aTextureUnit);
-}
-
 void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                        bool* aIsInitialised,
                                        bool* aNeedsReset)

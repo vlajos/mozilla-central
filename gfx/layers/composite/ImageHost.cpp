@@ -81,7 +81,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                    mTextureHost->AsTextureSource()->GetSize().width,
                    mTextureHost->AsTextureSource()->GetSize().height);
     compositor()->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
-                          aOpacity, aTransform, aOffset);
+                           aOpacity, aTransform, aOffset);
   }
 
   mTextureHost->Unlock();

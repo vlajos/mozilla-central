@@ -452,8 +452,8 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
                                             const nsIntRect& aDirtyRect)
 {
   if (aTile.IsPlaceholderTile()) {
-    //TODO[nrc] change once we use a regular texture client
-    RefPtr<TextureClient> textureClient = mManager->CreateTextureClientFor(TEXTURE_TILED, BUFFER_TILED, mThebesLayer, true);
+    RefPtr<TextureClient> textureClient =
+      mManager->CreateTextureClientFor(TEXTURE_TILED, BUFFER_TILED, mThebesLayer, true);
     aTile.mTextureClient = static_cast<TextureClientTile*>(textureClient.get());
   }
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
