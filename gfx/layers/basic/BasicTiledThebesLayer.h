@@ -13,13 +13,20 @@
 namespace mozilla {
 namespace layers {
 
-
+class BasicTiledLayerBuffer;
 
 /**
  * An implementation of ThebesLayer that ONLY supports remote
  * composition that is backed by tiles. This thebes layer implementation
  * is better suited to mobile hardware to work around slow implementation
  * of glTexImage2D (for OGL compositors), and restrait memory bandwidth.
+ *
+ * Tiled Thebes layers use a fairly different protocol compared with other
+ * layers. A copy of the tiled buffer is made and sent to the compositing
+ * thread via the layers protocol. Tiles are uploaded by the buffers
+ * asynchonously without using IPC, that means they are not safe for cross-
+ * process use (bug 747811). Each tile has a TextureHost/Client pair but
+ * they communicate directly rather than using the Texture protocol.
  */
 class BasicTiledThebesLayer : public ThebesLayer,
                               public BasicImplData,
@@ -48,7 +55,6 @@ public:
     BasicShadowableLayer::Disconnect();
   }
 
-  //TODO[nrc]
   virtual void PaintThebes(gfxContext* aContext,
                            Layer* aMaskLayer,
                            LayerManager::DrawThebesLayerCallback aCallback,

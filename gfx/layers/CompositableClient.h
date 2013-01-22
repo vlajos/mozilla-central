@@ -21,6 +21,7 @@ public:
   CompositableClient();
   virtual ~CompositableClient();
 
+  //TODO[nrc] does anyone ever call this?
   void Initialize(PLayerChild* aLayer,
                   PLayersChild* aShadowManager);
 private:

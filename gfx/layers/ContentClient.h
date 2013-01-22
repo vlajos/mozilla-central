@@ -8,16 +8,14 @@
 
 #include "mozilla/layers/LayersSurfaces.h"
 #include "CompositableClient.h"
+#include "gfxReusableSurfaceWrapper.h"
 #include "TextureClient.h"
 #include "ThebesLayerBuffer.h"
 #include "ipc/AutoOpenSurface.h"
 #include "ipc/ShadowLayerChild.h"
 #include "mozilla/Attributes.h"
-#include "gfxReusableSurfaceWrapper.h"
 #include "TiledLayerBuffer.h"
 #include "gfxPlatform.h"
-//TODO[nrc] can I remove this?
-#include "BasicLayers.h"
 
 namespace mozilla {
 namespace layers {
@@ -215,14 +213,6 @@ protected:
   nsIntPoint mBackBufferRectRotation;
 };
 
-
-
-
-
-
-
-
-
 /**
  * Represent a single tile in tiled buffer. It's backed
  * by a gfxReusableSurfaceWrapper that implements a
@@ -232,44 +222,49 @@ protected:
  * Ideal place to store per tile debug information.
  */
 struct BasicTiledLayerTile {
-  nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
+  //TODO[nrc] can we use a regular TextureClient?
+  RefPtr<TextureClientTile> mTextureClient;
 #ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
   TimeStamp        mLastUpdate;
 #endif
 
   // Placeholder
   BasicTiledLayerTile()
-    : mSurface(NULL)
+    : mTextureClient(nullptr)
   {}
-  explicit BasicTiledLayerTile(gfxImageSurface* aSurface)
-    : mSurface(new gfxReusableSurfaceWrapper(aSurface))
-  {
-  }
+
   BasicTiledLayerTile(const BasicTiledLayerTile& o) {
-    mSurface = o.mSurface;
+    mTextureClient = o.mTextureClient;
 #ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
     mLastUpdate = o.mLastUpdate;
 #endif
   }
   BasicTiledLayerTile& operator=(const BasicTiledLayerTile& o) {
     if (this == &o) return *this;
-    mSurface = o.mSurface;
+    mTextureClient = o.mTextureClient;
 #ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
     mLastUpdate = o.mLastUpdate;
 #endif
     return *this;
   }
   bool operator== (const BasicTiledLayerTile& o) const {
-    return mSurface == o.mSurface;
+    return mTextureClient == o.mTextureClient;
   }
   bool operator!= (const BasicTiledLayerTile& o) const {
-    return mSurface != o.mSurface;
+    return mTextureClient != o.mTextureClient;
   }
+
+  bool IsPlaceholderTile() { return mTextureClient == nullptr; }
+
   void ReadUnlock() {
-    mSurface->ReadUnlock();
+    GetSurface()->ReadUnlock();
   }
   void ReadLock() {
-    mSurface->ReadLock();
+    GetSurface()->ReadLock();
+  }
+
+  gfxReusableSurfaceWrapper* GetSurface() {
+    return mTextureClient->mSurface;
   }
 };
 
@@ -290,6 +285,7 @@ struct BasicTiledLayerPaintData {
 };
 
 class BasicTiledThebesLayer;
+class BasicShadowLayerManager;
 
 /**
  * Provide an instance of TiledLayerBuffer backed by image surfaces.
@@ -298,18 +294,23 @@ class BasicTiledThebesLayer;
  * which is much faster then painting directly into the tiles.
  */
 
-class BasicTiledLayerBuffer : public TiledLayerBuffer<BasicTiledLayerBuffer, TextureClientTile>
-                            , CompositableClient
+class BasicTiledLayerBuffer : public TiledLayerBuffer<BasicTiledLayerBuffer, BasicTiledLayerTile>
 {
-  friend class TiledLayerBuffer<BasicTiledLayerBuffer, TextureClientTile>;
+  friend class TiledLayerBuffer<BasicTiledLayerBuffer, BasicTiledLayerTile>;
 
 public:
-  BasicTiledLayerBuffer()
-    : mLastPaintOpaque(false)
+  BasicTiledLayerBuffer(BasicTiledThebesLayer* aThebesLayer, BasicShadowLayerManager* aManager)
+    : mThebesLayer(aThebesLayer)
+    , mManager(aManager)
+    , mLastPaintOpaque(false)
+    {}
+ BasicTiledLayerBuffer()
+    : mThebesLayer(nullptr)
+    , mManager(nullptr)
+    , mLastPaintOpaque(false)
     {}
 
-  void PaintThebes(BasicTiledThebesLayer* aLayer,
-                   const nsIntRegion& aNewValidRegion,
+  void PaintThebes(const nsIntRegion& aNewValidRegion,
                    const nsIntRegion& aPaintRegion,
                    LayerManager::DrawThebesLayerCallback aCallback,
                    void* aCallbackData);
@@ -331,20 +332,9 @@ public:
   const gfxSize& GetFrameResolution() { return mFrameResolution; }
   void SetFrameResolution(const gfxSize& aResolution) { mFrameResolution = aResolution; }
 
-  bool HasFormatChanged(BasicTiledThebesLayer* aThebesLayer) const;
+  bool HasFormatChanged() const;
 
-  //TODO[nrc] signature
-  void LockCopyAndWrite(ShadowableLayer* aLayer, ShadowLayerForwarder* aLayerForwarder)
-  {
-    ReadLock();
-    // Create a heap copy owned and released by the compositor. This is needed
-    // since we're sending this over an async message and content needs to be
-    // be able to modify the tiled buffer in the next transaction.
-    // TODO: Remove me once Bug 747811 lands.
-    BasicTiledLayerBuffer *heapCopy = new BasicTiledLayerBuffer(*this);
-    aLayerForwarder->PaintedTiledLayerBuffer(aLayer, heapCopy);
-    ClearPaintedRegion();    
-  }
+  void LockCopyAndWrite();
 
   /**
    * Performs a progressive update of a given tiled buffer.
@@ -355,15 +345,12 @@ public:
                          const nsIntRegion& aOldValidRegion,
                          BasicTiledLayerPaintData* aPaintData,
                          LayerManager::DrawThebesLayerCallback aCallback,
-                         void* aCallbackData,
-                         //TODO[nrc] does it need to be so specific?
-                         BasicShadowLayerManager* aManager);
+                         void* aCallbackData);
 
 protected:
-  //TODO[nrc] use refs, not returns
-  TextureClientTile ValidateTile(TextureClientTile aTile,
-                                 const nsIntPoint& aTileRect,
-                                 const nsIntRegion& dirtyRect);
+  BasicTiledLayerTile ValidateTile(BasicTiledLayerTile aTile,
+                                   const nsIntPoint& aTileRect,
+                                   const nsIntRegion& dirtyRect);
 
   // If this returns true, we perform the paint operation into a single large
   // buffer and copy it out to the tiles instead of calling PaintThebes() on
@@ -371,18 +358,17 @@ protected:
   // on Android.
   bool UseSinglePaintBuffer() { return true; }
 
-  void ReleaseTile(TextureClientTile aTile) { /* No-op. */ }
+  void ReleaseTile(BasicTiledLayerTile aTile) { /* No-op. */ }
 
-  //TODO[nrc]?
-  void SwapTiles(TextureClientTile& aTileA, TextureClientTile& aTileB) {
+  void SwapTiles(BasicTiledLayerTile& aTileA, BasicTiledLayerTile& aTileB) {
     std::swap(aTileA, aTileB);
   }
 
-  //TODO[nrc] I don't really want to use these as value objects, maybe I break some semantics somewhere
-  TextureClientTile GetPlaceholderTile() const { return TextureClientTile(); }
+  BasicTiledLayerTile GetPlaceholderTile() const { return BasicTiledLayerTile(); }
 private:
   gfxASurface::gfxContentType GetContentType() const;
   BasicTiledThebesLayer* mThebesLayer;
+  BasicShadowLayerManager* mManager;
   LayerManager::DrawThebesLayerCallback mCallback;
   void* mCallbackData;
   gfxSize mFrameResolution;
@@ -392,7 +378,7 @@ private:
   nsRefPtr<gfxImageSurface>     mSinglePaintBuffer;
   nsIntPoint                    mSinglePaintBufferOffset;
 
-  TextureClientTile ValidateTileInternal(TextureClientTile aTile,
+  BasicTiledLayerTile ValidateTileInternal(BasicTiledLayerTile aTile,
                                          const nsIntPoint& aTileOrigin,
                                          const nsIntRect& aDirtyRect);
 
@@ -421,8 +407,7 @@ private:
                                       const nsIntRegion& aOldValidRegion,
                                       nsIntRegion& aRegionToPaint,
                                       BasicTiledLayerPaintData* aPaintData,
-                                      bool aIsRepeated,
-                                      BasicShadowLayerManager* aManager);
+                                      bool aIsRepeated);
 };
 
 }

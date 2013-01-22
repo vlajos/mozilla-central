@@ -333,9 +333,9 @@ ContentClientTexture::SyncFrontBufferToBackBuffer()
 }
 
 bool
-BasicTiledLayerBuffer::HasFormatChanged(BasicTiledThebesLayer* aThebesLayer) const
+BasicTiledLayerBuffer::HasFormatChanged() const
 {
-  return aThebesLayer->CanUseOpaqueSurface() != mLastPaintOpaque;
+  return mThebesLayer->CanUseOpaqueSurface() != mLastPaintOpaque;
 }
 
 
@@ -350,13 +350,24 @@ BasicTiledLayerBuffer::GetContentType() const
 }
 
 void
-BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
-                                   const nsIntRegion& aNewValidRegion,
+BasicTiledLayerBuffer::LockCopyAndWrite()
+{
+  ReadLock();
+  // Create a heap copy owned and released by the compositor. This is needed
+  // since we're sending this over an async message and content needs to be
+  // be able to modify the tiled buffer in the next transaction.
+  // TODO: Remove me once Bug 747811 lands.
+  BasicTiledLayerBuffer *heapCopy = new BasicTiledLayerBuffer(*this);
+  mManager->PaintedTiledLayerBuffer(mManager->Hold(mThebesLayer), heapCopy);
+  ClearPaintedRegion();    
+}
+
+void
+BasicTiledLayerBuffer::PaintThebes(const nsIntRegion& aNewValidRegion,
                                    const nsIntRegion& aPaintRegion,
                                    LayerManager::DrawThebesLayerCallback aCallback,
                                    void* aCallbackData)
 {
-  mThebesLayer = aLayer;
   mCallback = aCallback;
   mCallbackData = aCallbackData;
 
@@ -385,7 +396,7 @@ BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
       mSinglePaintBuffer = new gfxImageSurface(
         gfxIntSize(ceilf(bounds.width * mResolution),
                    ceilf(bounds.height * mResolution)),
-        gfxPlatform::GetPlatform()->OptimalFormatForContent(GetContentType()), !aLayer->CanUseOpaqueSurface());
+        gfxPlatform::GetPlatform()->OptimalFormatForContent(GetContentType()), !mThebesLayer->CanUseOpaqueSurface());
       mSinglePaintBufferOffset = nsIntPoint(bounds.x, bounds.y);
     }
     nsRefPtr<gfxContext> ctxt = new gfxContext(mSinglePaintBuffer);
@@ -435,14 +446,20 @@ BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
   mSinglePaintBuffer = nullptr;
 }
 
-TextureClientTile
-BasicTiledLayerBuffer::ValidateTileInternal(TextureClientTile aTile,
+BasicTiledLayerTile
+BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
                                             const nsIntPoint& aTileOrigin,
                                             const nsIntRect& aDirtyRect)
 {
-  aTile.EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
+  if (aTile.IsPlaceholderTile()) {
+    //TODO[nrc] change once we use a regular texture client
+    RefPtr<TextureClient> textureClient = mManager->CreateTextureClientFor(TEXTURE_TILED, BUFFER_TILED, mThebesLayer, true);
+    aTile.mTextureClient = static_cast<TextureClientTile*>(textureClient.get());
+  }
+  aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
 
-  gfxASurface* writableSurface = aTile.LockSurface();
+
+  gfxASurface* writableSurface = aTile.mTextureClient->LockSurface();
   // Bug 742100, this gfxContext really should live on the stack.
   nsRefPtr<gfxContext> ctxt = new gfxContext(writableSurface);
 
@@ -479,8 +496,8 @@ BasicTiledLayerBuffer::ValidateTileInternal(TextureClientTile aTile,
   return aTile;
 }
 
-TextureClientTile
-BasicTiledLayerBuffer::ValidateTile(TextureClientTile aTile,
+BasicTiledLayerTile
+BasicTiledLayerBuffer::ValidateTile(BasicTiledLayerTile aTile,
                                     const nsIntPoint& aTileOrigin,
                                     const nsIntRegion& aDirtyRegion)
 {
@@ -530,8 +547,7 @@ BasicTiledLayerBuffer::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvali
                                                       const nsIntRegion& aOldValidRegion,
                                                       nsIntRegion& aRegionToPaint,
                                                       BasicTiledLayerPaintData* aPaintData,
-                                                      bool aIsRepeated,
-                                                      BasicShadowLayerManager* aManager)
+                                                      bool aIsRepeated)
 {
   aRegionToPaint = aInvalidRegion;
 
@@ -549,7 +565,7 @@ BasicTiledLayerBuffer::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvali
   // caused by there being an incoming, more relevant paint.
   gfx::Rect viewport;
   float scaleX, scaleY;
-  if (aManager->ProgressiveUpdateCallback(!staleRegion.Contains(aInvalidRegion),
+  if (mManager->ProgressiveUpdateCallback(!staleRegion.Contains(aInvalidRegion),
                                           viewport,
                                           scaleX, scaleY, !drawingLowPrecision)) {
     SAMPLE_MARKER("Abort painting");
@@ -640,7 +656,7 @@ BasicTiledLayerBuffer::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvali
       return true;
     }
 
-    aManager->SetRepeatTransaction();
+    mManager->SetRepeatTransaction();
     return false;
   }
 
@@ -657,8 +673,7 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
                                          const nsIntRegion& aOldValidRegion,
                                          BasicTiledLayerPaintData* aPaintData,
                                          LayerManager::DrawThebesLayerCallback aCallback,
-                                         void* aCallbackData,
-                                         BasicShadowLayerManager* aManager)
+                                         void* aCallbackData)
 {
   bool repeat = false;
   do {
@@ -669,8 +684,7 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
                                             aOldValidRegion,
                                             regionToPaint,
                                             aPaintData,
-                                            repeat,
-                                            aManager);
+                                            repeat);
 
     // There's no further work to be done, return if nothing has been
     // drawn, or give what has been drawn to the shadow layer to upload.
@@ -692,7 +706,7 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
     validOrStale.Or(aValidRegion, aOldValidRegion);
 
     // Paint the computed region and subtract it from the invalid region.
-    PaintThebes(mThebesLayer, validOrStale, regionToPaint, aCallback, aCallbackData);
+    PaintThebes(validOrStale, regionToPaint, aCallback, aCallbackData);
     aInvalidRegion.Sub(aInvalidRegion, regionToPaint);
   } while (repeat);
 

@@ -16,6 +16,8 @@ namespace layers {
 
 BasicTiledThebesLayer::BasicTiledThebesLayer(BasicShadowLayerManager* const aManager)
   : ThebesLayer(aManager, static_cast<BasicImplData*>(this))
+  , mTiledBuffer(this, aManager)
+  , mLowPrecisionTiledBuffer(this, aManager)
 {
   MOZ_COUNT_CTOR(BasicTiledThebesLayer);
   mLowPrecisionTiledBuffer.SetResolution(gfxPlatform::GetLowPrecisionResolution());
@@ -125,16 +127,7 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
     return;
   }
 
-  /*if (!mContentClient) {
-    //TODO[nrc]
-    RefPtr<ContentClient> client = BasicManager()->CreateContentClientFor(BUFFER_TILED, this, NoFlags);
-    mContentClient = static_cast<ContentClientTiled*>(client.get());
-    if (!mContentClient) {
-      return;
-    }
-  }*/
-
-  if (mTiledBuffer.HasFormatChanged(this)) {
+  if (mTiledBuffer.HasFormatChanged()) {
     mValidRegion = nsIntRegion();
   }
 
@@ -159,9 +152,9 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
 
     NS_ASSERTION(!BasicManager()->IsRepeatTransaction(), "Didn't paint our mask layer");
 
-    mTiledBuffer.PaintThebes(this, mValidRegion, invalidRegion, aCallback, aCallbackData);
+    mTiledBuffer.PaintThebes(mValidRegion, invalidRegion, aCallback, aCallbackData);
 
-    mTiledBuffer.LockCopyAndWrite(BasicManager()->Hold(this), BasicManager());
+    mTiledBuffer.LockCopyAndWrite();
 
     return;
   }
@@ -220,7 +213,7 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
       updatedBuffer =
         mTiledBuffer.ProgressiveUpdate(mValidRegion, invalidRegion,
                                        oldValidRegion, &mPaintData, aCallback,
-                                       aCallbackData, BasicManager());
+                                       aCallbackData);
     } else {
       updatedBuffer = true;
       mValidRegion = mVisibleRegion;
@@ -228,12 +221,12 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
         mValidRegion.And(mValidRegion, mPaintData.mLayerCriticalDisplayPort);
       }
       mTiledBuffer.SetFrameResolution(mPaintData.mResolution);
-      mTiledBuffer.PaintThebes(this, mValidRegion, invalidRegion, aCallback, aCallbackData);
+      mTiledBuffer.PaintThebes(mValidRegion, invalidRegion, aCallback, aCallbackData);
     }
 
     if (updatedBuffer) {
       mPaintData.mFirstPaint = false;
-      mTiledBuffer.LockCopyAndWrite(BasicManager()->Hold(this), BasicManager());
+      mTiledBuffer.LockCopyAndWrite();
 
       // If there are low precision updates, mark the paint as unfinished and
       // request a repeat transaction.
@@ -260,7 +253,7 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
 
     // If the frame resolution or format have changed, invalidate the buffer
     if (mLowPrecisionTiledBuffer.GetFrameResolution() != mPaintData.mResolution ||
-        mLowPrecisionTiledBuffer.HasFormatChanged(this)) {
+        mLowPrecisionTiledBuffer.HasFormatChanged()) {
       if (!mLowPrecisionValidRegion.IsEmpty()) {
         updatedLowPrecision = true;
       }
@@ -284,13 +277,13 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
       updatedLowPrecision =
         mLowPrecisionTiledBuffer.ProgressiveUpdate(mLowPrecisionValidRegion,
                                                    lowPrecisionInvalidRegion, oldValidRegion,
-                                                   &mPaintData, aCallback, aCallbackData, BasicManager());
+                                                   &mPaintData, aCallback, aCallbackData);
     }
   } else if (!mLowPrecisionValidRegion.IsEmpty()) {
     // Clear the low precision tiled buffer
     updatedLowPrecision = true;
     mLowPrecisionValidRegion.SetEmpty();
-    mLowPrecisionTiledBuffer.PaintThebes(this, mLowPrecisionValidRegion,
+    mLowPrecisionTiledBuffer.PaintThebes(mLowPrecisionValidRegion,
                                          mLowPrecisionValidRegion, aCallback,
                                          aCallbackData);
   }
@@ -299,7 +292,7 @@ BasicTiledThebesLayer::PaintThebes(gfxContext* aContext,
   // precision buffer, so that the shadow buffer's valid region can be updated
   // and the associated resources can be freed.
   if (updatedLowPrecision) {
-    mLowPrecisionTiledBuffer.LockCopyAndWrite(BasicManager()->Hold(this), BasicManager());
+    mLowPrecisionTiledBuffer.LockCopyAndWrite();
   }
 
   EndPaint(false);

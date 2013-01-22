@@ -11,6 +11,8 @@
 #include "SharedTextureImage.h"
 #include "GLContext.h"
 #include "mozilla/layers/TextureChild.h"
+#include "gfxReusableSurfaceWrapper.h"
+#include "gfxPlatform.h"
 
 using namespace mozilla::gl;
 
@@ -284,9 +286,8 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
     }
     return new ContentClientTexture(aLayerForwarder, aLayer, aFlags);
   }
-  //TODO[nrc]
   if (aCompositableHostType == BUFFER_TILED) {
-    return nullptr; //new ContentClientTiled(aLayerForwarder, aLayer, aFlags);
+    NS_RUNTIMEABORT("No CompositableClient for tiled layers");
   }
   return nullptr;
 }
@@ -325,6 +326,28 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
   NS_ASSERTION(result, "Failed to create ImageClient");
 
   return result.forget();
+}
+
+void
+TextureClientTile::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
+{
+  if (!mSurface || mSurface->Format() != gfxPlatform::GetPlatform()->OptimalFormatForContent(aType)) {
+    gfxImageSurface* tmpTile = new gfxImageSurface(gfxIntSize(aSize.width, aSize.height),
+                                                   gfxPlatform::GetPlatform()->OptimalFormatForContent(aType),
+                                                   aType != gfxASurface::CONTENT_COLOR);
+    mSurface = new gfxReusableSurfaceWrapper(tmpTile);
+  }
+}
+
+gfxImageSurface*
+TextureClientTile::LockImageSurface()
+{
+  // Use the gfxReusableSurfaceWrapper, which will reuse the surface
+  // if the compositor no longer has a read lock, otherwise the surface
+  // will be copied into a new writable surface.
+  gfxImageSurface* writableSurface = nullptr;
+  mSurface = mSurface->GetWritable(&writableSurface);
+  return writableSurface;
 }
 
 }

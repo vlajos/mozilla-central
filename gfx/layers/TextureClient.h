@@ -12,11 +12,7 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "GLContext.h"
-
- //TODO[nrc] remove some of these?
 #include "gfxReusableSurfaceWrapper.h"
-#include "gfxPlatform.h"
-
 
 namespace mozilla {
 
@@ -226,50 +222,15 @@ protected:
   friend class CompositingFactory;
 };
 
-class TiledLayerBufferComposite;
+struct BasicTiledLayerTile;
 
-//TODO[nrc] rename or use a different client
 class TextureClientTile : public TextureClient
 {
 public:
-  //TODO[nrc] remove used in GetPlaceHolderTile, but we don't want that 
-  TextureClientTile()
-  : TextureClient(nullptr, BUFFER_TILED) {}
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
-  bool IsPlaceholderTile() { return mSurface == nullptr; }
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
-  {
-    if (IsPlaceholderTile() || mSurface->Format() != gfxPlatform::GetPlatform()->OptimalFormatForContent(aType)) {
-      gfxImageSurface* tmpTile = new gfxImageSurface(gfxIntSize(aSize.width, aSize.height),
-                                                     gfxPlatform::GetPlatform()->OptimalFormatForContent(aType),
-                                                     aType != gfxASurface::CONTENT_COLOR);
-      mSurface = new gfxReusableSurfaceWrapper(tmpTile);
-    }
+  virtual gfxImageSurface* LockImageSurface();
 
-  }
-  virtual gfxImageSurface* LockImageSurface()
-  {
-    // Use the gfxReusableSurfaceWrapper, which will reuse the surface
-    // if the compositor no longer has a read lock, otherwise the surface
-    // will be copied into a new writable surface.
-    gfxImageSurface* writableSurface = nullptr;
-    mSurface = mSurface->GetWritable(&writableSurface);
-    return writableSurface;
-  }
-  void ReadUnlock() {
-    mSurface->ReadUnlock();
-  }
-  void ReadLock() {
-    mSurface->ReadLock();
-  }
-
-  //TODO[nrc] value object thing :-(
-  bool operator== (const TextureClientTile& o) const {
-    return mSurface == o.mSurface;
-  }
-  bool operator!= (const TextureClientTile& o) const {
-    return mSurface != o.mSurface;
-  }
 private:
   TextureClientTile(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
     : TextureClient(aLayerForwarder, aBufferType)
@@ -279,7 +240,7 @@ private:
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
 
   friend class CompositingFactory;
-  friend class TiledLayerBufferComposite;
+  friend struct BasicTiledLayerTile;
 };
 
 }
