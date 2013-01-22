@@ -17,6 +17,20 @@
 namespace mozilla {
 namespace layers {
 
+/*
+ * TextureHost implementations for the OpenGL backend.
+ * Note that it is important to careful about the ownership model with
+ * the OpenGL backend, due to some widget limitation on Linux: before
+ * the nsBaseWidget associated to our OpenGL context has been completely 
+ * deleted, every resource belonging to the OpenGL context MUST have been
+ * released. At the moment the teardown sequence happens in the middle of 
+ * the nsBaseWidget's destructor, meaning that a givent moment we must be
+ * able to easily find and release all the GL resources.
+ * The point is: be careful about the ownership model and lemit the number 
+ * of objects sharing references to GL resources to make the tear down 
+ * sequence as simple as possible. 
+ */
+
 // we actually don't need this class anymore
 class TextureHostOGL : public TextureHost
 {
@@ -33,9 +47,6 @@ public:
   }
 };
 
-// Not sure if this is true any more !!!TODO[nrc]TODO[nical] everytime we create an effect we do |new SimpleTextureSourceOGL|
-// does that leak? In any case it is horribly inefficent, we should cache the texture source
-// or preferably just make most hosts also sources.
 /**
  * Interface.
  * TextureSourceOGL provides the necessary API for CompositorOGL to composite
@@ -50,6 +61,9 @@ public:
   virtual GLenum GetWrapMode() const = 0;
 };
 
+/**
+ * TextureHost implementation using a TextureImage as the underlying texture.
+ */
 class TextureImageAsTextureHostOGL : public TextureHost
                                    , public TextureSource
                                    , public TextureSourceOGL
@@ -144,7 +158,17 @@ protected:
 };
 
 
-
+/**
+ * TextureHost implementation for YCbCr images in the OpenGL backend.
+ *
+ * This TextureHost is a little bit particular in that it implements
+ * the TextureSource interface, as it is required that a TextureHost
+ * provides access to a TextureSource, but does not implement the
+ * TextureHostOGL interface. Instead it contains 3 channels (one per
+ * plane) that implement the TextureSourceOGL interface, and 
+ * YCbCrTextureHostOGL's TextureSource implementation provide access
+ * to these channels with the GetSubSource method.
+ */
 class YCbCrTextureHostOGL : public TextureHostOGL, public TextureSource
 {
 public:
