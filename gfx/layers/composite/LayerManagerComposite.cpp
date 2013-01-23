@@ -16,8 +16,6 @@
 #include "CanvasLayerComposite.h"
 #include "CompositableHost.h"
 #include "mozilla/gfx/Matrix.h"
-//TODO[nrc] tiled thebes layers
-//#include "TiledThebesLayerComposite.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/layers/ImageHost.h"
