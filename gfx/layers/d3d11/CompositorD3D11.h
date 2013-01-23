@@ -61,9 +61,6 @@ public:
                       uint32_t aTextureFlags,
                       ISurfaceDeallocator* aDeAllocator);
 
-  virtual TemporaryRef<CompositableHost>
-    CreateCompositableHost(BufferType aType);
-
   virtual TemporaryRef<CompositingRenderTarget>
     CreateRenderTarget(const gfx::IntRect &aRect,
                        SurfaceInitMode aInit);

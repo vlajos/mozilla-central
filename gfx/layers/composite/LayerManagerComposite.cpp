@@ -20,6 +20,8 @@
 //#include "TiledThebesLayerComposite.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/layers/ImageHost.h"
+#include "mozilla/layers/ContentHost.h"
 
 #include "gfxContext.h"
 #include "gfxUtils.h"
@@ -367,6 +369,39 @@ LayerManagerComposite::CreateDrawTarget(const IntSize &aSize,
   return LayerManager::CreateDrawTarget(aSize, aFormat);
 }
 
+TemporaryRef<CompositableHost>
+LayerManagerComposite::CreateCompositableHost(BufferType aType)
+{
+  RefPtr<CompositableHost> result;
+  switch (aType) {
+  case BUFFER_YCBCR:
+    result = new YCbCrImageHost(this);
+    return result;
+#ifdef MOZ_WIDGET_GONK
+  case BUFFER_DIRECT_EXTERNAL:
+#endif
+  case BUFFER_TILED:
+    result = new TiledContentHost(mCompositor);
+    return result;
+  case BUFFER_SHARED:
+  case BUFFER_TEXTURE:
+  case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
+    result = new ImageHostSingle(this, aType);
+    return result;
+  case BUFFER_BRIDGE:
+    result = new ImageHostBridge(this);
+    return result;
+  case BUFFER_CONTENT:
+    result = new ContentHostTexture(mCompositor);
+    return result;
+  case BUFFER_CONTENT_DIRECT:
+    result = new ContentHostDirect(mCompositor);
+    return result;
+  default:
+    NS_ERROR("Unknown BufferType");
+    return nullptr;
+  }
+}
 
 } /* layers */
 } /* mozilla */

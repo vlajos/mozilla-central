@@ -383,11 +383,6 @@ public:
                       TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
                       ISurfaceDeallocator* aDeAllocator) = 0;
-  /**
-   * Create a new buffer host of a kind specified by aType
-   */
-  virtual TemporaryRef<CompositableHost>
-    CreateCompositableHost(BufferType aType) = 0;
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId

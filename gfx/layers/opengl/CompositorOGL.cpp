@@ -688,40 +688,6 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
   }
 }
 
-TemporaryRef<CompositableHost>
-CompositorOGL::CreateCompositableHost(BufferType aType)
-{
-  RefPtr<CompositableHost> result;
-  switch (aType) {
-  case BUFFER_YCBCR:
-    result = new YCbCrImageHost(this);
-    return result.forget();
-#ifdef MOZ_WIDGET_GONK
-  case BUFFER_DIRECT_EXTERNAL:
-#endif
-  case BUFFER_TILED:
-    result = new TiledContentHost(this);
-    return result.forget();
-  case BUFFER_SHARED:
-  case BUFFER_TEXTURE:
-  case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
-    result = new ImageHostSingle(this, aType);
-    return result.forget();
-  case BUFFER_BRIDGE:
-    result = new ImageHostBridge(this);
-    return result.forget();
-  case BUFFER_CONTENT:
-    result = new ContentHostTexture(this);
-    return result.forget();
-  case BUFFER_CONTENT_DIRECT:
-    result = new ContentHostDirect(this);
-    return result.forget();
-  default:
-    NS_ERROR("Unknown BufferType");
-    return nullptr;
-  }
-}
-
 void
 CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {

@@ -199,6 +199,8 @@ public:
     return mCompositor->GetWidgetSize();
   }
 
+  TemporaryRef<CompositableHost> CreateCompositableHost(BufferType aType);
+
 private:
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;
