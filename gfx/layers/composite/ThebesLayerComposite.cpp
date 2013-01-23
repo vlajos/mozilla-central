@@ -24,6 +24,7 @@
 namespace mozilla {
 namespace layers {
 
+//TODO[nrc] we miss the EnsureBuffer call by using the non-inherited version!
 /*void
 TiledThebesLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
@@ -67,10 +68,6 @@ ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
   }
 }
 
-// TODO[nical] remove swap at the layer level and move it to 
-// CompositableHost
-// This will probably go away with buffer rotation when we
-// will use tiling instead.
 void
 ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
                                   const nsIntRegion& aUpdatedRegion,
@@ -89,6 +86,8 @@ ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
 
   TiledLayerProperties tiledLayerProps;
   if (mRequiresTiledProperties) {
+    // calculating these things can be a little expensive, so don't
+    // do them if we don't have to
     tiledLayerProps.mVisibleRegion = GetEffectiveVisibleRegion();
     tiledLayerProps.mDisplayPort = GetDisplayPort();
     tiledLayerProps.mEffectiveResolution = GetEffectiveResolution();
@@ -104,7 +103,8 @@ ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
                         aReadOnlyFront,
                         aNewBackValidRegion,
                         aFrontUpdatedRegion,
-                        mRequiresTiledProperties ? &tiledLayerProps : nullptr);
+                        mRequiresTiledProperties ? &tiledLayerProps
+                                                 : nullptr);
 
   // Save the current valid region of our front buffer, because if
   // we're double buffering, it's going to be the valid region for the

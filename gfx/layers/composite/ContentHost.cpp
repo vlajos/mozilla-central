@@ -25,10 +25,10 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 {
   NS_ASSERTION(aVisibleRegion, "Requires a visible region");
 
-  if (!mTextureHost || !mInitialised)
+  if (!mTextureHost || !mInitialised) {
     return;
-  // TODO[nical]: if this is main-thread code, we don't need to ensure
-  // For non-async CompositableHost UpdateAsyncTexture does nothing.
+  }
+
   mTextureHost->UpdateAsyncTexture();
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
