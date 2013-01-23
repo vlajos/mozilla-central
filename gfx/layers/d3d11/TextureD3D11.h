@@ -69,7 +69,6 @@ protected:
 
   virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
 private:
-  RefPtr<ID3D11Texture2D> mTexture;
   RefPtr<ID3D11Device> mDevice;
   bool mHasAlpha;
 };
