@@ -147,9 +147,6 @@ public:
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
   {
     LayerRenderState result = mTextureHost->GetRenderState();
-    if (!result) {
-      return LayerRenderState();
-    }
 
     result.mFlags = (mBufferRotation != nsIntPoint()) ?
                     LAYER_RENDER_STATE_BUFFER_ROTATION : 0;
