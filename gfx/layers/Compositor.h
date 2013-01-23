@@ -45,6 +45,7 @@ class ShadowLayerForwarder;
 class ShadowableLayer;
 class PTextureChild;
 class TextureSourceOGL;
+class TextureSourceD3D11;
 class TextureParent;
 class Matrix4x4;
 
@@ -83,7 +84,7 @@ public:
  *
  * This class is used on the compositor side.
  */
-class TextureSource
+class TextureSource : public RefCounted<TextureSource>
 {
 public:
   virtual ~TextureSource() {};
@@ -93,6 +94,10 @@ public:
    * Cast to an TextureSource for the OpenGL backend.
    */
   virtual TextureSourceOGL* AsSourceOGL() { return nullptr; }
+  /**
+   * Cast to an TextureSource for the D3D11 backend.
+   */
+  virtual TextureSourceD3D11* AsSourceD3D11() { return nullptr; }
   /**
    * In some rare cases we currently need to consider a group of textures as one
    * TextureSource, that can be split in sub-TextureSources. 
@@ -144,7 +149,7 @@ public:
  *
  * This class is used only on the compositor side.
  */
-class TextureHost : public RefCounted<TextureHost>
+class TextureHost : public TextureSource
 {
 public:
   TextureHost(BufferMode aBufferMode = BUFFER_NONE,
@@ -319,8 +324,7 @@ protected:
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
  */
-class CompositingRenderTarget : public TextureSource,
-                                public RefCounted<CompositingRenderTarget>
+class CompositingRenderTarget : public TextureSource
 {
 public:
   virtual ~CompositingRenderTarget() {}

@@ -8,6 +8,7 @@
 #include "gfxContext.h"
 #include "gfxImageSurface.h"
 #include "Effects.h"
+#include "ipc/AutoOpenSurface.h"
 
 namespace mozilla {
 
@@ -16,16 +17,18 @@ using namespace gfx;
 namespace layers {
 
 IntSize
-TextureSourceD3D11Base::GetSize() const
+TextureSourceD3D11::GetSize() const
 {
   D3D11_TEXTURE2D_DESC desc;
   mTexture->GetDesc(&desc);
 
   return IntSize(desc.Width, desc.Height);
 }
+
 CompositingRenderTargetD3D11::CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture)
-  : TextureSourceD3D11Base(aTexture)
 {
+  mTexture = aTexture;
+
   RefPtr<ID3D11Device> device;
   mTexture->GetDevice(byRef(device));
 
@@ -39,34 +42,28 @@ CompositingRenderTargetD3D11::CompositingRenderTargetD3D11(ID3D11Texture2D *aTex
 IntSize
 CompositingRenderTargetD3D11::GetSize() const
 {
-  return TextureSourceD3D11Base::GetSize();
-}
-
-IntSize
-TextureSourceD3D11::GetSize() const
-{
-  return TextureSourceD3D11Base::GetSize();
+  return TextureSourceD3D11::GetSize();
 }
 
 IntSize
 TextureHostD3D11::GetSize() const
 {
-  return mTextureSource->GetSize();
+  return TextureSourceD3D11::GetSize();
 }
 
 TextureSource*
 TextureHostD3D11::AsTextureSource()
 {
-  return mTextureSource;
+  return this;
 }
 
 Effect*
 TextureHostD3D11::Lock(const gfx::Filter& aFilter)
 {
   if (mHasAlpha) {
-    return new EffectRGBA(mTextureSource, true, FILTER_LINEAR);
+    return new EffectRGBA(this, true, FILTER_LINEAR);
   } else {
-    return new EffectRGB(mTextureSource, true, FILTER_LINEAR);
+    return new EffectRGB(this, true, FILTER_LINEAR);
   }
 }
 
@@ -74,6 +71,9 @@ void
 TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
                              bool *aNeedsReset)
 {
+  AutoOpenSurface surf(OPEN_READ_ONLY, aImage);
+  nsIntSize size = surf.Size();
+  UpdateRegionImpl(surf.GetAsImage(), nsIntRegion(nsIntRect(nsIntPoint(0, 0), size)));
 }
 
 void
@@ -90,7 +90,6 @@ TextureHostD3D11::UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
                             1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
 
   mDevice->CreateTexture2D(&desc, &initData, byRef(mTexture));
-  mTextureSource = new TextureSourceD3D11(mTexture);
 
   if (surf->Format() == gfxImageSurface::ImageFormatRGB24) {
     mHasAlpha = false;

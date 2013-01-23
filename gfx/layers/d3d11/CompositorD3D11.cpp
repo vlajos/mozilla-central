@@ -409,7 +409,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   } else if (aEffectChain.mEffects[EFFECT_RGB]) {
     EffectRGB *rgbEffect = static_cast<EffectRGB*>(aEffectChain.mEffects[EFFECT_RGB].get());
 
-    TextureSourceD3D11 *source = static_cast<TextureSourceD3D11*>(rgbEffect->mRGBTexture);
+    TextureSourceD3D11 *source = rgbEffect->mRGBTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -424,7 +424,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   } else if (aEffectChain.mEffects[EFFECT_RGBA]) {
     EffectRGBA *rgbEffect = static_cast<EffectRGBA*>(aEffectChain.mEffects[EFFECT_RGBA].get());
 
-    TextureSourceD3D11 *source = static_cast<TextureSourceD3D11*>(rgbEffect->mRGBATexture);
+    TextureSourceD3D11 *source = rgbEffect->mRGBATexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -532,6 +532,17 @@ CompositorD3D11::RestoreViewport()
   mContext->RSSetViewports(1, &viewport);
 
   return oldViewport;
+}
+
+nsIntSize*
+CompositorD3D11::GetWidgetSize()
+{
+  nsIntRect rect;
+  mWidget->GetClientBounds(rect);
+
+  mSize = rect.Size();
+
+  return &mSize;
 }
 
 void

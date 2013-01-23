@@ -122,6 +122,7 @@ public:
   virtual void NotifyShadowTreeTransaction() { }
 
   virtual nsIWidget* GetWidget() const { return mWidget; }
+  virtual nsIntSize* GetWidgetSize();
 
 private:
   void VerifyBufferSize();
@@ -139,6 +140,8 @@ private:
   nsRefPtr<gfxContext> mTarget;
 
   nsIWidget *mWidget;
+  // XXX - Bas - wth?
+  nsIntSize mSize;
 
   HWND mHwnd;
 

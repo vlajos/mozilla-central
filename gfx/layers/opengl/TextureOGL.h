@@ -31,22 +31,6 @@ namespace layers {
  * sequence as simple as possible. 
  */
 
-// we actually don't need this class anymore
-class TextureHostOGL : public TextureHost
-{
-public:
-  TextureHostOGL(BufferMode aBufferMode = BUFFER_NONE)
-  : TextureHost(aBufferMode)
-  {}
-
-  //TODO[nrc] each TextureHost should implment tis properly
-  virtual LayerRenderState GetRenderState()
-  {
-    NS_WARNING("TextureHost::GetRenderState should be overriden");
-    return LayerRenderState();
-  }
-};
-
 /**
  * Interface.
  * TextureSourceOGL provides the necessary API for CompositorOGL to composite
@@ -61,11 +45,31 @@ public:
   virtual GLenum GetWrapMode() const = 0;
 };
 
+// we actually don't need this class anymore
+class TextureHostOGL : public TextureHost
+                     , public TextureSourceOGL
+{
+public:
+  TextureHostOGL(BufferMode aBufferMode = BUFFER_NONE)
+  : TextureHost(aBufferMode)
+  {}
+
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+    return this;
+  }
+
+  //TODO[nrc] each TextureHost should implment tis properly
+  virtual LayerRenderState GetRenderState()
+  {
+    NS_WARNING("TextureHost::GetRenderState should be overriden");
+    return LayerRenderState();
+  }
+};
+
 /**
  * TextureHost implementation using a TextureImage as the underlying texture.
  */
 class TextureImageAsTextureHostOGL : public TextureHost
-                                   , public TextureSource
                                    , public TextureSourceOGL
                                    , public TileIterator
 {
@@ -169,7 +173,7 @@ protected:
  * YCbCrTextureHostOGL's TextureSource implementation provide access
  * to these channels with the GetSubSource method.
  */
-class YCbCrTextureHostOGL : public TextureHostOGL, public TextureSource
+class YCbCrTextureHostOGL : public TextureHost
 {
 public:
   YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {
@@ -193,6 +197,13 @@ public:
   TextureSource* AsTextureSource() MOZ_OVERRIDE {
     NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
     return nullptr;
+  }
+
+  //TODO[nrc] each TextureHost should implment tis properly
+  virtual LayerRenderState GetRenderState()
+  {
+    NS_WARNING("TextureHost::GetRenderState should be overriden");
+    return LayerRenderState();
   }
 
   struct Channel : public TextureSourceOGL
@@ -303,14 +314,8 @@ protected:
 
 // TODO[nical] this class is not usable yet
 class TextureHostOGLShared : public TextureHostOGL
-                           , public TextureSourceOGL
-                           , public TextureSource
 {
 public:
-  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
-    return this;
-  }
-
   typedef gfxASurface::gfxContentType ContentType;
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
@@ -386,8 +391,6 @@ protected:
 
 //TODO[nrc] can we merge with other host/source
 class TiledTextureHost : public TextureHostOGL
-                       , public TextureSource
-                       , public TextureSourceOGL
 {
 public:
   TiledTextureHost(gl::GLContext* aGL) 
@@ -395,10 +398,6 @@ public:
     , mGL(aGL)
   {}
   ~TiledTextureHost();
-
-  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
-    return this;
-  }
 
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags);
   virtual Effect* Lock(const gfx::Filter& aFilter);
