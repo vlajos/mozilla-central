@@ -227,8 +227,11 @@ public:
     return GetIdentifier() != o.GetIdentifier();
   }
 
-
-  virtual LayerRenderState GetRenderState() = 0;
+  LayerRenderState GetRenderState()
+  {
+    return LayerRenderState(mBuffer,
+                            mFlags & NeedsYFlip ? LAYER_RENDER_STATE_Y_FLIPPED : 0);
+  }
 
   // IPC
 

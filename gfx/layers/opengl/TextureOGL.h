@@ -57,13 +57,6 @@ public:
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
     return this;
   }
-
-  //TODO[nrc] each TextureHost should implment tis properly
-  virtual LayerRenderState GetRenderState()
-  {
-    NS_WARNING("TextureHost::GetRenderState should be overriden");
-    return LayerRenderState();
-  }
 };
 
 /**
@@ -83,11 +76,13 @@ public:
     MOZ_COUNT_CTOR(TextureImageAsTextureHostOGL);
   }
 
-  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
+  {
     return this;
   }
 
-  ~TextureImageAsTextureHostOGL() {
+  ~TextureImageAsTextureHostOGL()
+  {
     MOZ_COUNT_DTOR(TextureImageAsTextureHostOGL);
   }
 
@@ -98,61 +93,69 @@ public:
                   bool* aNeedsReset = nullptr);
   void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
 
-  bool IsValid() const MOZ_OVERRIDE {
+  bool IsValid() const MOZ_OVERRIDE
+  {
     return !!mTexture;
-  }
-
-  LayerRenderState GetRenderState() MOZ_OVERRIDE {
-    return LayerRenderState(); // TODO
   }
 
   Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
   void Abort() MOZ_OVERRIDE;
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE {
+  TextureSource* AsTextureSource() MOZ_OVERRIDE
+  {
     return this;
   }
 
   // textureSource
-  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
+  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE
+  {
     mTexture->BindTexture(aTextureUnit);
   }
 
-  gfx::IntSize GetSize() const MOZ_OVERRIDE {
+  gfx::IntSize GetSize() const MOZ_OVERRIDE
+  {
     return mSize;
   }
 
-  GLenum GetWrapMode() const MOZ_OVERRIDE {
+  GLenum GetWrapMode() const MOZ_OVERRIDE
+  {
     return mTexture->GetWrapMode();
   }
 
-  gl::TextureImage* GetTextureImage() {
+  gl::TextureImage* GetTextureImage()
+  {
     return mTexture;
   }
-  void SetTextureImage(gl::TextureImage* aImage) {
+  void SetTextureImage(gl::TextureImage* aImage)
+  {
     mTexture = aImage;
   }
 
   // TileIterator
 
-  TileIterator* AsTileIterator() MOZ_OVERRIDE {
+  TileIterator* AsTileIterator() MOZ_OVERRIDE
+  {
     return this;
   }
 
-  void BeginTileIteration() MOZ_OVERRIDE {
+  void BeginTileIteration() MOZ_OVERRIDE
+  {
     mTexture->BeginTileIteration();
   }
 
-  nsIntRect GetTileRect() MOZ_OVERRIDE {
+  nsIntRect GetTileRect() MOZ_OVERRIDE
+  {
     return mTexture->GetTileRect();
   }
   
-  size_t GetTileCount() MOZ_OVERRIDE {
+  size_t GetTileCount() MOZ_OVERRIDE
+  {
     return mTexture->GetTileCount();
   }
 
-  bool NextTile() MOZ_OVERRIDE {
+  bool NextTile() MOZ_OVERRIDE
+  {
     return mTexture->NextTile();
   }
 
@@ -198,13 +201,6 @@ public:
   TextureSource* AsTextureSource() MOZ_OVERRIDE {
     NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
     return nullptr;
-  }
-
-  //TODO[nrc] each TextureHost should implment tis properly
-  virtual LayerRenderState GetRenderState()
-  {
-    NS_WARNING("TextureHost::GetRenderState should be overriden");
-    return LayerRenderState();
   }
 
   struct Channel : public TextureSourceOGL
