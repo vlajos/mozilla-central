@@ -59,8 +59,7 @@ public:
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 
-  //TODO[nrc] why did I remove this method?
-  //virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
+  virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
   void EnsureBuffer(BufferType aHostType);
 

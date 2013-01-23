@@ -27,7 +27,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
   if (!mTextureHost || !mInitialised)
     return;
-  // TODO: if this is main-thread code, we don't need to ensure
+  // TODO[nical]: if this is main-thread code, we don't need to ensure
   // For non-async CompositableHost UpdateAsyncTexture does nothing.
   mTextureHost->UpdateAsyncTexture();
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
@@ -169,6 +169,8 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 void 
 ContentHost::AddTextureHost(TextureHost* aTextureHost)
 {
+  //TODO[nrc] I would like to be able to assert that we can cope with the texture host
+  // are we sure we don't have to?
   mTextureHost = aTextureHost;
 }
 
@@ -220,18 +222,6 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   *aNewBackResult = null_t();
   aUpdatedRegionBack->SetEmpty();
 }
-
-//TODO[nrc] has this gone?
-/*
-void
-ContentHostTexture::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
-{
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_CONTENT &&
-               aTextureInfo.memoryType == TEXTURE_SHMEM,
-               "BufferType mismatch.");
-  mTextureHost = aTextureHost;
-}
-*/
 
 void
 ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,

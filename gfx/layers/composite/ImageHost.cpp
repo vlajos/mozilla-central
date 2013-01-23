@@ -34,9 +34,9 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     compositor()->FallbackTextureInfo(id);
     id.textureFlags = mTextureHost->GetFlags();
     mTextureHost = compositor()->CreateTextureHost(id.imageType,
-                                                  id.memoryType,
-                                                  id.textureFlags,
-                                                  nullptr); // TODO[nical] needs a ISurface DeAllocator
+                                                   id.memoryType,
+                                                   id.textureFlags,
+                                                   mTextureHost->GetDeAllocator());
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;

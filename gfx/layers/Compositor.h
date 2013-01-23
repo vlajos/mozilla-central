@@ -212,18 +212,25 @@ public:
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
-  void SetDeAllocator(ISurfaceDeallocator* aDeAllocator) {
+  void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
+  {
     mDeAllocator = aDeAllocator;
+  }
+  ISurfaceDeallocator* GetDeAllocator()
+  {
+    return mDeAllocator;
   }
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
 
-  bool operator== (const TextureHost& o) const {
+  bool operator== (const TextureHost& o) const
+  {
     return GetIdentifier() == o.GetIdentifier();
   }
-  bool operator!= (const TextureHost& o) const {
+  bool operator!= (const TextureHost& o) const
+  {
     return GetIdentifier() != o.GetIdentifier();
   }
 
@@ -276,7 +283,7 @@ protected:
   // BufferMode
 
   void SetBufferMode(BufferMode aBufferMode,
-                    ISurfaceDeallocator* aDeAllocator = nullptr) {
+                     ISurfaceDeallocator* aDeAllocator = nullptr) {
     MOZ_ASSERT (aBufferMode == BUFFER_NONE || aDeAllocator);
     mBufferMode = aBufferMode;
     mDeAllocator = aDeAllocator;
