@@ -71,7 +71,7 @@ public:
   {
     return mCompositor->Initialize(force, aContext);
   }
-  bool Initialize(bool force = false);
+
   GLContext* gl() const { return mCompositor->mGLContext; }
 
   Compositor* GetCompositor() const { return mCompositor; }
