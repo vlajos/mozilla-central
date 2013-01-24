@@ -3173,12 +3173,14 @@ struct LayerManagerPrefs {
     , mDisableAcceleration(false)
     , mPreferOpenGL(false)
     , mPreferD3D9(false)
+    , mOffMainThreadCompositing(false)
   {}
   bool mAccelerateByDefault;
   bool mDisableAcceleration;
   bool mForceAcceleration;
   bool mPreferOpenGL;
   bool mPreferD3D9;
+  bool mOffMainThreadCompositing;
 };
 
 static void
@@ -3192,6 +3194,8 @@ GetLayerManagerPrefs(LayerManagerPrefs* aManagerPrefs)
                        &aManagerPrefs->mPreferOpenGL);
   Preferences::GetBool("layers.prefer-d3d9",
                        &aManagerPrefs->mPreferD3D9);
+  Preferences::GetBool("layers.offmainthreadcomposition.enabled",
+                       &aManagerPrefs->mOffMainThreadCompositing);
 
   const char *acceleratedEnv = PR_GetEnv("MOZ_ACCELERATED");
   aManagerPrefs->mAccelerateByDefault =
@@ -3204,13 +3208,6 @@ GetLayerManagerPrefs(LayerManagerPrefs* aManagerPrefs)
     xr->GetInSafeMode(&safeMode);
   aManagerPrefs->mDisableAcceleration =
     aManagerPrefs->mDisableAcceleration || safeMode;
-}
-
-bool
-nsWindow::UseOffMainThreadCompositing()
-{
-  // OMTC doesn't work on Windows right now.
-  return true;
 }
 
 LayerManager*
@@ -3263,7 +3260,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
     else if (prefs.mAccelerateByDefault)
       mUseLayersAcceleration = true;
 
-    if (false && mUseLayersAcceleration) {
+    if (!UseOffMainThreadCompositing() && mUseLayersAcceleration) {
       if (aPersistence == LAYER_MANAGER_PERSISTENT && !sAllowD3D9) {
         MOZ_ASSERT(!mLayerManager || !mLayerManager->IsInTransaction());
 
@@ -7190,26 +7187,20 @@ bool nsWindow::AutoErase(HDC dc)
 void
 nsWindow::AllowD3D9Callback(nsWindow *aWindow)
 {
-  // XXX - Bas - Disabled for now.
-#if 0
   if (aWindow->mLayerManager) {
     aWindow->mLayerManager->Destroy();
     aWindow->mLayerManager = NULL;
   }
-#endif
 }
 
 void
 nsWindow::AllowD3D9WithReinitializeCallback(nsWindow *aWindow)
 {
-  // XXX - Bas - Disabled for now.
-#if 0
   if (aWindow->mLayerManager) {
     aWindow->mLayerManager->Destroy();
     aWindow->mLayerManager = NULL;
     (void) aWindow->GetLayerManager();
   }
-#endif
 }
 
 void
@@ -7219,7 +7210,7 @@ nsWindow::StartAllowingD3D9(bool aReinitialize)
 
   LayerManagerPrefs prefs;
   GetLayerManagerPrefs(&prefs);
-  if (prefs.mDisableAcceleration) {
+  if (prefs.mDisableAcceleration || prefs.mOffMainThreadCompositing) {
     // The guarantee here is, if there's *any* chance that after we
     // throw out our layer managers we'd create at least one new,
     // accelerated one, we *will* throw out all the current layer
