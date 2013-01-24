@@ -122,7 +122,7 @@ public:
   // and that any initialisation has taken place
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) = 0;
 
-  void SetDescriptor(const SurfaceDescriptor& aDescriptor)
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor)
   {
     mDescriptor = aDescriptor;
   }

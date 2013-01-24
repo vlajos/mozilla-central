@@ -54,6 +54,8 @@ public:
   virtual gfxASurface* LockSurface();
   virtual void Unlock();
 
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor);
+
 private:
   void EnsureSurface();
   void LockTexture();
@@ -73,6 +75,7 @@ public:
     : TextureHost(aBuffering, aDeallocator)
     , mDevice(aDevice)
     , mHasAlpha(true)
+    , mNeedsLock(false)
   {
   }
 
@@ -85,13 +88,18 @@ public:
   virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
   virtual Effect *Lock(const gfx::Filter& aFilter);
+  virtual void Unlock();
 
 protected:
   virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
                           bool *aNeedsReset, nsIntRegion* aRegion);
 private:
+  void LockTexture();
+  void ReleaseTexture();
+
   RefPtr<ID3D11Device> mDevice;
   bool mHasAlpha;
+  bool mNeedsLock;
 };
 
 }

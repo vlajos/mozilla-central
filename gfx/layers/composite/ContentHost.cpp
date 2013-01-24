@@ -72,8 +72,11 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   textureRect.MoveBy(region.GetBounds().TopLeft());
   nsIntRegion subregion;
   subregion.And(region, textureRect);
-  if (subregion.IsEmpty())  // Region is empty, nothing to draw
+  if (subregion.IsEmpty()) {
+    // Region is empty, nothing to draw
+    mTextureHost->Unlock();
     return;
+  }
 
   nsIntRegion screenRects;
   nsIntRegion regionRects;
@@ -164,6 +167,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
         iterOnWhite->NextTile();
   } while (usingTiles && tileIter->NextTile());
 
+  mTextureHost->Unlock();
 }
 
 void 

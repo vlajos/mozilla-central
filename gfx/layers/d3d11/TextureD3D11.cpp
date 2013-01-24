@@ -72,7 +72,10 @@ TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
 
   ID3D10Device *device = gfxWindowsPlatform::GetPlatform()->GetD3D10Device();
 
-  CD3D10_TEXTURE2D_DESC newDesc(DXGI_FORMAT_B8G8R8A8_UNORM, aSize.width, aSize.height, 1, 1);
+  CD3D10_TEXTURE2D_DESC newDesc(DXGI_FORMAT_B8G8R8A8_UNORM,
+                                aSize.width, aSize.height, 1, 1,
+                                D3D10_BIND_RENDER_TARGET | D3D10_BIND_SHADER_RESOURCE);
+
   newDesc.MiscFlags = D3D10_RESOURCE_MISC_SHARED_KEYEDMUTEX;
 
   HRESULT hr = device->CreateTexture2D(&newDesc, nullptr, byRef(mTexture));
@@ -110,6 +113,21 @@ void
 TextureClientD3D11::Unlock()
 {
   ReleaseTexture();
+}
+
+void
+TextureClientD3D11::SetDescriptor(const SurfaceDescriptor& aDescriptor)
+{
+  mDescriptor = aDescriptor;
+
+  MOZ_ASSERT(aDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
+  ID3D10Device *device = gfxWindowsPlatform::GetPlatform()->GetD3D10Device();
+
+  device->OpenSharedResource((HANDLE)aDescriptor.get_SurfaceDescriptorD3D10().handle(),
+                             __uuidof(ID3D10Texture2D),
+                             (void**)(ID3D10Texture2D**)byRef(mTexture));
+
+  mSurface = nullptr;
 }
 
 void
@@ -157,11 +175,18 @@ TextureHostD3D11::AsTextureSource()
 Effect*
 TextureHostD3D11::Lock(const gfx::Filter& aFilter)
 {
+  LockTexture();
   if (mHasAlpha) {
     return new EffectRGBA(this, true, FILTER_LINEAR);
   } else {
     return new EffectRGB(this, true, FILTER_LINEAR);
   }
+}
+
+void
+TextureHostD3D11::Unlock()
+{
+  ReleaseTexture();
 }
 
 void
@@ -187,12 +212,38 @@ TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialis
     if (surf->Format() == gfxImageSurface::ImageFormatRGB24) {
       mHasAlpha = false;
     }
+
+    mNeedsLock = false;
   } else if (aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
-    int a = 1;
+    mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
+                                __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTexture));
+    mHasAlpha = true;
+    mNeedsLock = true;
   }
 
 }
 
+void
+TextureHostD3D11::LockTexture()
+{
+  if (mNeedsLock) {
+    RefPtr<IDXGIKeyedMutex> mutex;
+    mTexture->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
+
+    mutex->AcquireSync(0, INFINITE);
+  }
+}
+
+void
+TextureHostD3D11::ReleaseTexture()
+{
+  if (mNeedsLock) {
+    RefPtr<IDXGIKeyedMutex> mutex;
+    mTexture->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
+
+    mutex->ReleaseSync(0);
+  }
+}
 
 }
 }
