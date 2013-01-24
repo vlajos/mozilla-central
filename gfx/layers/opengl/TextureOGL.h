@@ -90,8 +90,8 @@ public:
 
   void UpdateImpl(const SurfaceDescriptor& aImage,
                   bool* aIsInitialised = nullptr,
-                  bool* aNeedsReset = nullptr);
-  void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
+                  bool* aNeedsReset = nullptr,
+                  nsIntRegion* aRegion = nullptr);
 
   bool IsValid() const MOZ_OVERRIDE
   {
@@ -190,11 +190,8 @@ public:
 
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
-
-  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion) {
-    NS_RUNTIMEABORT("should not be called");
-  }
+                          bool* aNeedsReset = nullptr,
+                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
 
   Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
 
@@ -283,8 +280,9 @@ public:
   }
 
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE;
+                          bool* aIsInitialised = nullptr,
+                          bool* aNeedsReset = nullptr,
+                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
 
   virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE;
@@ -338,8 +336,9 @@ public:
 
   // override from TextureHost
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr);
+                          bool* aIsInitialised = nullptr,
+                          bool* aNeedsReset = nullptr,
+                          nsIntRegion* aRegion = nullptr);
   virtual Effect* Lock(const gfx::Filter& aFilter);
   virtual void Unlock();
 

@@ -72,8 +72,11 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   textureRect.MoveBy(region.GetBounds().TopLeft());
   nsIntRegion subregion;
   subregion.And(region, textureRect);
-  if (subregion.IsEmpty())  // Region is empty, nothing to draw
+  if (subregion.IsEmpty()) {
+    // Region is empty, nothing to draw
+    mTextureHost->Unlock();
     return;
+  }
 
   nsIntRegion screenRects;
   nsIntRegion regionRects;
@@ -164,6 +167,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
         iterOnWhite->NextTile();
   } while (usingTiles && tileIter->NextTile());
 
+  mTextureHost->Unlock();
 }
 
 void 
@@ -191,16 +195,14 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  nsIntRegion* aUpdatedRegionBack,
                                  TiledLayerProperties* aLayerProperties)
 {
-  AutoOpenSurface surface(OPEN_READ_ONLY, aNewFront.buffer());
-  gfxASurface* updated = surface.Get();
-
   // updated is in screen coordinates. Convert it to buffer coordinates.
   nsIntRegion destRegion(aUpdated);
   destRegion.MoveBy(-aNewFront.rect().TopLeft());
 
   // Correct for rotation
   destRegion.MoveBy(aNewFront.rotation());
-  gfxIntSize size = updated->GetSize();
+
+  gfxIntSize size = aNewFront.rect().Size();
   nsIntRect destBounds = destRegion.GetBounds();
   destRegion.MoveBy((destBounds.x >= size.width) ? -size.width : 0,
                     (destBounds.y >= size.height) ? -size.height : 0);
@@ -211,7 +213,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
-  mTextureHost->Update(updated, destRegion);
+  mTextureHost->Update(aNewFront.buffer(), nullptr, nullptr, nullptr, &destRegion);
   mInitialised = true;
 
   mBufferRect = aNewFront.rect();

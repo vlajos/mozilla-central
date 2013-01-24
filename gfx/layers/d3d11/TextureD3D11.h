@@ -7,7 +7,10 @@
 #define MOZILLA_GFX_TEXTURED3D11_H
 
 #include "mozilla/layers/Compositor.h"
+#include "TextureClient.h"
 #include <d3d11.h>
+
+class gfxD2DSurface;
 
 namespace mozilla {
 namespace layers {
@@ -41,6 +44,28 @@ private:
   RefPtr<ID3D11RenderTargetView> mRTView;
 };
 
+class TextureClientD3D11 : public TextureClient
+{
+public:
+  TextureClientD3D11(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
+
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
+
+  virtual gfxASurface* LockSurface();
+  virtual void Unlock();
+
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor);
+
+private:
+  void EnsureSurface();
+  void LockTexture();
+  void ReleaseTexture();
+
+  RefPtr<ID3D10Texture2D> mTexture;
+  nsRefPtr<gfxD2DSurface> mSurface;
+  gfxContentType mContentType;
+};
+
 class TextureHostD3D11 : public TextureHost
                        , public TextureSourceD3D11
 {
@@ -50,6 +75,7 @@ public:
     : TextureHost(aBuffering, aDeallocator)
     , mDevice(aDevice)
     , mHasAlpha(true)
+    , mNeedsLock(false)
   {
   }
 
@@ -62,15 +88,18 @@ public:
   virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
   virtual Effect *Lock(const gfx::Filter& aFilter);
+  virtual void Unlock();
 
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
-                          bool *aNeedsReset);
-
-  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
+                          bool *aNeedsReset, nsIntRegion* aRegion);
 private:
+  void LockTexture();
+  void ReleaseTexture();
+
   RefPtr<ID3D11Device> mDevice;
   bool mHasAlpha;
+  bool mNeedsLock;
 };
 
 }

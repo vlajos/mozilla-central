@@ -58,8 +58,9 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
 }
 
 void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                                       bool* aIsInitialised,
-                                       bool* aNeedsReset)
+                                              bool* aIsInitialised,
+                                              bool* aNeedsReset,
+                                              nsIntRegion* aRegion)
 {
   AutoOpenSurface surf(OPEN_READ_ONLY, aImage);
   nsIntSize size = surf.Size();
@@ -75,29 +76,18 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 
   // XXX this is always just ridiculously slow
-  nsIntRegion updateRegion(nsIntRect(0, 0, size.width, size.height));
+  nsIntRegion updateRegion;
+  
+  if (!aRegion) {
+    updateRegion = nsIntRegion(nsIntRect(0, 0, size.width, size.height));
+  } else {
+    updateRegion = *aRegion;
+  }
   mTexture->DirectUpdate(surf.Get(), updateRegion);
 
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
-}
-
-// thebes
-void
-TextureImageAsTextureHostOGL::UpdateRegionImpl(gfxASurface* aSurface,
-                                               nsIntRegion& aRegion)
-{
-  if (!mTexture ||
-      mTexture->GetSize() != aSurface->GetSize() ||
-      mTexture->GetContentType() != aSurface->GetContentType()) {
-    mTexture = mGL->CreateTextureImage(aSurface->GetSize(),
-                                        aSurface->GetContentType(),
-                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                        FlagsToGLFlags(mFlags)).get();
-    mSize = gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
-  }
-  mTexture->DirectUpdate(aSurface, aRegion);
 }
 
 Effect*
@@ -138,8 +128,9 @@ TextureImageAsTextureHostOGL::Abort()
 
 void
 TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
-                             bool* aIsInitialised,
-                             bool* aNeedsReset)
+                                 bool* aIsInitialised,
+                                 bool* aNeedsReset,
+                                 nsIntRegion* aRegion)
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSharedTextureDescriptor,
               "Invalid descriptor");
@@ -206,8 +197,9 @@ TextureHostOGLShared::Unlock()
 
 void
 YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                         bool* aIsInitialised,
-                         bool* aNeedsReset)
+                                bool* aIsInitialised,
+                                bool* aNeedsReset,
+                                nsIntRegion* aRegion)
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");
 

@@ -37,9 +37,10 @@ TextureHost::~TextureHost()
 void TextureHost::Update(const SurfaceDescriptor& aImage,
                          SurfaceDescriptor* aResult,
                          bool* aIsInitialised,
-                         bool* aNeedsReset)
+                         bool* aNeedsReset,
+                         nsIntRegion* aRegion)
 {
-  UpdateImpl(aImage, aIsInitialised, aNeedsReset);
+  UpdateImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
 
   // buffering
   if (IsBuffered()) {
@@ -52,11 +53,6 @@ void TextureHost::Update(const SurfaceDescriptor& aImage,
       *aResult = aImage;
     }
   }
-}
-
-void TextureHost::Update(gfxASurface* aSurface, nsIntRegion& aRegion) {
-  UpdateRegionImpl(aSurface, aRegion);
-  MOZ_ASSERT(!IsBuffered(), "Buffered TextureHosts are not meant to do thebes updates");
 }
 
 bool TextureHost::UpdateAsyncTexture()

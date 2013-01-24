@@ -174,12 +174,8 @@ public:
   void Update(const SurfaceDescriptor& aImage,
               SurfaceDescriptor* aResult = nullptr,
               bool* aIsInitialised = nullptr,
-              bool* aNeedsReset = nullptr);
-
-  /**
-   * Updates a region of the texture host from aSurface
-   */
-  void Update(gfxASurface* aSurface, nsIntRegion& aRegion);
+              bool* aNeedsReset = nullptr,
+              nsIntRegion *aRegion = nullptr);
 
   /**
    * Update for tiled texture hosts could probably have a better signature, but we
@@ -294,15 +290,11 @@ protected:
    */
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised,
-                          bool* aNeedsReset)
+                          bool* aNeedsReset,
+                          nsIntRegion *aRegion)
   {
     NS_RUNTIMEABORT("Should not be reached");
   }
-
-  virtual void UpdateRegionImpl(gfxASurface* aSurface, nsIntRegion& aRegion)
-  {
-    NS_RUNTIMEABORT("Should not be reached");
-  };
 
   // An internal identifier for this texture host. Two texture hosts
   // should be considered equal iff their identifiers match. Should
