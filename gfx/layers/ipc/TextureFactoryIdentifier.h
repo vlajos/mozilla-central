@@ -30,6 +30,7 @@ enum TextureHostType
   TEXTURE_SHMEM_YCBCR, // TODO[nical]
   TEXTURE_SHARED,
   TEXTURE_SHARED_BUFFERED, // webgl
+  TEXTURE_SHARED_DXGI,
   TEXTURE_TILED, //TODO[nrc] we should be able to use different texture for tiles and this is stupid anyway
   TEXTURE_BRIDGE
 };
