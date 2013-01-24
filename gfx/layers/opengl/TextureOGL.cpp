@@ -78,7 +78,7 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   // XXX this is always just ridiculously slow
   nsIntRegion updateRegion;
   
-  if (aRegion) {
+  if (!aRegion) {
     updateRegion = nsIntRegion(nsIntRect(0, 0, size.width, size.height));
   } else {
     updateRegion = *aRegion;
