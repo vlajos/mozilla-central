@@ -16,7 +16,6 @@ enum EffectTypes
   EFFECT_BGRX,
   EFFECT_RGBX,
   EFFECT_BGRA,
-  EFFECT_RGB,
   EFFECT_RGBA,
   EFFECT_RGBA_EXTERNAL,
   EFFECT_YCBCR,
@@ -106,23 +105,6 @@ struct EffectBGRA : public Effect
   {}
 
   TextureSource* mBGRATexture;
-  bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
-};
-
-struct EffectRGB : public Effect
-{
-  EffectRGB(TextureSource *aRGBTexture,
-            bool aPremultiplied,
-            mozilla::gfx::Filter aFilter,
-            bool aFlipped = false)
-    : Effect(EFFECT_RGB), mRGBTexture(aRGBTexture)
-    , mPremultiplied(aPremultiplied), mFilter(aFilter)
-    , mFlipped(aFlipped)
-  {}
-
-  TextureSource* mRGBTexture;
   bool mPremultiplied;
   mozilla::gfx::Filter mFilter;
   bool mFlipped;
