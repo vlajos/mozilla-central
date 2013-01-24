@@ -13,7 +13,10 @@
 #include "mozilla/layers/TextureChild.h"
 #include "gfxReusableSurfaceWrapper.h"
 #include "gfxPlatform.h"
-
+#ifdef XP_WIN
+#include "mozilla/layers/TextureD3D11.h"
+#endif
+ 
 using namespace mozilla::gl;
 
 namespace mozilla {
@@ -319,6 +322,11 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
   case TEXTURE_BRIDGE:
     result = new TextureClientBridge(aLayerForwarder, aCompositableHostType);
     break;
+  case TEXTURE_SHARED_DXGI:
+#ifdef XP_WIN
+    result = new TextureClientD3D11(aLayerForwarder, aCompositableHostType);
+    break;
+#endif
   default:
     return result.forget();
   }

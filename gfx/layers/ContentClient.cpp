@@ -100,9 +100,16 @@ ContentClientRemote::CreateBuffer(ContentType aType,
     mTextureClient->Destroyed(mLayer);
   }
 
-  mTextureClient = static_cast<TextureClientShmem*>(
-    mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
-                                            mLayer, AllowRepeat, true).drop());
+  if (mLayerForwarder->GetParentBackendType() != LAYERS_D3D11) {
+    mTextureClient = static_cast<TextureClientShmem*>(
+      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
+                                              mLayer, AllowRepeat, true).drop());
+  } else {
+    mTextureClient = static_cast<TextureClientShmem*>(
+      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED_DXGI, GetType(),
+                                              mLayer, AllowRepeat, true).drop());
+  }
+
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
                                       aType);
   nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
