@@ -488,7 +488,10 @@ public:
    * Notify the compositor that composition is being paused/resumed.
    */
   virtual void Pause() {}
-  virtual void Resume() {}
+  /**
+   * Returns true if succeeded
+   */
+  virtual bool Resume() { return true; }
 
   // I expect we will want to move mWidget into this class and implement this
   // method properly.

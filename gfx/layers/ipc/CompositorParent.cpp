@@ -349,19 +349,17 @@ CompositorParent::ResumeComposition()
 
   MonitorAutoLock lock(mResumeCompositionMonitor);
 
+  if (!mLayerManager->GetCompositor()->Resume()) {
 #ifdef MOZ_WIDGET_ANDROID
-  if (!static_cast<LayerManagerOGL*>(mLayerManager.get())->gl()->RenewSurface()) {
     // We can't get a surface. This could be because the activity changed between
     // the time resume was scheduled and now.
     __android_log_print(ANDROID_LOG_INFO, "CompositorParent", "Unable to renew compositor surface; remaining in paused state");
+#endif
     lock.NotifyAll();
     return;
   }
-#endif
-// @endif
-  mPaused = false;
 
-  mLayerManager->GetCompositor()->Resume();
+  mPaused = false;
 
   Composite();
 

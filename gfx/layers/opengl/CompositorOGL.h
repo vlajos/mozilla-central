@@ -156,7 +156,7 @@ public:
   virtual void NotifyShadowTreeTransaction();
 
   virtual void Pause();
-  virtual void Resume();
+  virtual bool Resume();
 
   virtual nsIWidget* GetWidget() const MOZ_OVERRIDE { return mWidget; }
   virtual nsIntSize* GetWidgetSize() {
