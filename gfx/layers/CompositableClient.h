@@ -6,28 +6,15 @@
 #ifndef MOZILLA_GFX_BUFFERCLIENT_H
 #define MOZILLA_GFX_BUFFERCLIENT_H
 
-#include "mozilla/layers/Compositor.h"
-
 namespace mozilla {
 namespace layers {
-
-class PLayerChild;
-class PLayersChild;
-class TextureBufferChild;
 
 class CompositableClient : public RefCounted<CompositableClient>
 {
 public:
-  CompositableClient();
-  virtual ~CompositableClient();
-
-  //TODO[nrc] does anyone ever call this?
-  void Initialize(PLayerChild* aLayer,
-                  PLayersChild* aShadowManager);
-private:
+  virtual ~CompositableClient() {}
 };
 
-} // namespace
-} // namespace
-
+}
+}
 #endif

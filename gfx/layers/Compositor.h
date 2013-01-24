@@ -204,10 +204,6 @@ public:
    */
   virtual void Abort() {}
 
-  // TODO[nical] these probably don't belong here (not sure)
-  // nrc: do we not need them in order to composite a texture?
-  // Or should we pass them in from the CompositableHost? Or store in a TextureSource or something?
-  // nical: looks like something that would fit better in CompositableHost or in TextureSource
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
@@ -320,7 +316,6 @@ protected:
   BufferMode mBufferMode;
   SurfaceDescriptor* mBuffer;
 
-  //TODO[nrc] do we have to have these for all TextureHosts?
   // ImageBridge
   uint64_t mAsyncContainerID;
   uint32_t mAsyncTextureVersion;

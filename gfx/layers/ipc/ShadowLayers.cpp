@@ -582,7 +582,7 @@ ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHost
   mTxn->AddEdit(OpAttachTexture(nullptr, Shadow(aLayer),
                                 nullptr, textureChild));
   client->SetTextureChild(textureChild);
-  textureChild->SetTextureClient(client);
+  textureChild->SetClients(client, aLayer->GetCompositableClient());
 
   return client.forget();
 }

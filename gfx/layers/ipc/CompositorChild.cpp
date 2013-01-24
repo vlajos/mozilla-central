@@ -70,7 +70,6 @@ CompositorChild::Get()
   return sCompositor;
 }
 
-// TODO[nical] merge conflict here, see m-c
 PLayersChild*
 CompositorChild::AllocPLayers(const LayersBackend& aBackendHint,
                               const uint64_t& aId,

@@ -465,7 +465,9 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       const TextureInfo& info = textureParent->GetTextureInfo();
       RefPtr<CompositableHost> bufferHost
-        = static_cast<LayerManagerComposite*>(layer->Manager())->CreateCompositableHost(textureParent->GetTextureInfo().imageType);
+        = static_cast<LayerManagerComposite*>(
+          layer->Manager())->CreateCompositableHost(
+            textureParent->GetTextureInfo().imageType);
       RefPtr<TextureHost> textureHost
         = compositor->CreateTextureHost(info.imageType,
                                         info.memoryType,
@@ -477,7 +479,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       textureHost->SetTextureParent(textureParent);
       bufferHost->AddTextureHost(textureHost);
 
-      // TODO[nical] in the future, we'll want to set the TextureSource rather than the CompositableHost
       layer->AsShadowLayer()->SetCompositableHost(bufferHost.get());
       layer->AsShadowLayer()->SetAllocator(this);
       break;

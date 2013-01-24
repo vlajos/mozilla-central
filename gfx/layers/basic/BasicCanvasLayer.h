@@ -129,19 +129,17 @@ public:
   {
     NS_ERROR("Should not be called.");
   }
-/*
-  virtual void SetBackBuffer(const TextureIdentifier& aTextureIdentifier,
-                             const SurfaceDescriptor& aBuffer)
-  {
-    mCanvasClient->SetBuffer(aTextureIdentifier, aBuffer);
-  }
-*/
+
   virtual void Disconnect()
   {
     mCanvasClient = nullptr;
     BasicShadowableLayer::Disconnect();
   }
 
+  virtual CompositableClient* GetCompositableClient() MOZ_OVERRIDE
+  {
+    return mCanvasClient;
+  }
 private:
   BasicShadowLayerManager* BasicManager()
   {

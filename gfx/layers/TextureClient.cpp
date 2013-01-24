@@ -45,8 +45,7 @@ TextureClient::Updated(ShadowableLayer* aLayer)
 void
 TextureClient::Destroyed(ShadowableLayer* aLayer)
 {
-  mLayerForwarder->DestroyedThebesBuffer(aLayer,
-                                         mDescriptor);
+  mLayerForwarder->DestroyedThebesBuffer(aLayer, mDescriptor);
 }
 
 void

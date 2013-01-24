@@ -179,19 +179,12 @@ ContentClientDirect::~ContentClientDirect()
 }
 
 void
-ContentClientDirect::SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
-                                           const OptionalThebesBuffer& aBuffer,
-                                           const nsIntRegion& aValidRegion,
-                                           const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                           const nsIntRegion& aFrontUpdatedRegion,
-                                           nsIntRegion& aLayerValidRegion)
+ContentClientDirect::SetBufferAttrs(const nsIntRegion& aValidRegion,
+                                    const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                                    const nsIntRegion& aFrontUpdatedRegion,
+                                    const nsIntRect& aBufferRect,
+                                    const nsIntPoint& aBufferRotation)
 {
-  if (OptionalThebesBuffer::Tnull_t == aBuffer.type()) {
-    mTextureClient->SetDescriptor(SurfaceDescriptor());
-  } else {
-    mTextureClient->SetDescriptor(aBuffer.get_ThebesBuffer().buffer());
-  }
-
   MOZ_ASSERT(OptionalThebesBuffer::Tnull_t != aReadOnlyFrontBuffer.type());
 
   mFrontAndBackBufferDiffer = true;
@@ -284,31 +277,21 @@ ContentClientDirect::SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
 }
 
 void
-ContentClientTexture::SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
-                                            const OptionalThebesBuffer& aBuffer,
-                                            const nsIntRegion& aValidRegion,
-                                            const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                            const nsIntRegion& aFrontUpdatedRegion,
-                                            nsIntRegion& aLayerValidRegion)
+ContentClientTexture::SetBufferAttrs(const nsIntRegion& aValidRegion,
+                                     const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                                     const nsIntRegion& aFrontUpdatedRegion,
+                                     const nsIntRect& aBufferRect,
+                                     const nsIntPoint& aBufferRotation)
 {
   // We didn't get back a read-only ref to our old back buffer (the
   // parent's new front buffer).  If the parent is pushing updates
   // to a texture it owns, then we probably got back the same buffer
   // we pushed in the update and all is well.  If not, ...
   MOZ_ASSERT(OptionalThebesBuffer::Tnull_t == aReadOnlyFrontBuffer.type());
-  MOZ_ASSERT(mTextureClient);
 
-  if (OptionalThebesBuffer::Tnull_t == aBuffer.type()) {
-    mTextureClient->SetDescriptor(SurfaceDescriptor());
-    mFrontAndBackBufferDiffer = false;
-  } else {
-    mTextureClient->SetDescriptor(aBuffer.get_ThebesBuffer().buffer());
-    mBackBufferRect = aBuffer.get_ThebesBuffer().rect();
-    mBackBufferRectRotation = aBuffer.get_ThebesBuffer().rotation();
-    mFrontAndBackBufferDiffer = true;
-  }
-
-  aLayerValidRegion = aValidRegion;
+  mBackBufferRect = aBufferRect;
+  mBackBufferRectRotation = aBufferRotation;
+  mFrontAndBackBufferDiffer = true;
 }
 
 void

@@ -142,21 +142,11 @@ public:
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
-/*
-  void SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
-                             const OptionalThebesBuffer& aBuffer,
-                             const nsIntRegion& aValidRegion,
-                             const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                             const nsIntRegion& aFrontUpdatedRegion)
+  virtual CompositableClient* GetCompositableClient() MOZ_OVERRIDE
   {
-    mContentClient->SetBackBufferAndAttrs(aTextureIdentifier,
-                                          aBuffer,
-                                          aValidRegion,
-                                          aReadOnlyFrontBuffer,
-                                          aFrontUpdatedRegion,
-                                          mValidRegion);
+    return mContentClient;
   }
-*/
+
   virtual void Disconnect();
 
   virtual BasicShadowableThebesLayer* AsThebes() { return this; }

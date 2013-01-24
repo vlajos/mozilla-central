@@ -210,6 +210,10 @@ public:
     mImageClient = nullptr;
   }
 
+  virtual CompositableClient* GetCompositableClient() MOZ_OVERRIDE
+  {
+    return mImageClient;
+  }
 private:
   BasicShadowLayerManager* BasicManager()
   {

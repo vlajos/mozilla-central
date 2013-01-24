@@ -479,6 +479,7 @@ protected:
   RefPtr<Compositor> mCompositor;
 };
 
+class CompositableClient;
 
 /**
  * A ShadowableLayer is a Layer can be shared with a parent context
@@ -505,6 +506,7 @@ public:
    */
   PLayerChild* GetShadow() { return mShadow; }
 
+  virtual CompositableClient* GetCompositableClient() { return nullptr; }
 protected:
   ShadowableLayer() : mShadow(NULL) {}
 

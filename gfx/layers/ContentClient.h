@@ -34,6 +34,8 @@ public:
   typedef ThebesLayerBuffer::PaintState PaintState;
   typedef ThebesLayerBuffer::ContentType ContentType;
 
+  virtual BufferType GetType() = 0;
+
   virtual void Clear() { ThebesLayerBuffer::Clear(); }
   virtual PaintState BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
                                 uint32_t aFlags)
@@ -48,11 +50,13 @@ public:
   // back buffer (i.e. as they were for the old back buffer)
   virtual void SyncFrontBufferToBackBuffer() {}
 
-  virtual void SetBackBufferAndAttrs(const OptionalThebesBuffer& aBuffer,
-                                     const nsIntRegion& aValidRegion,
-                                     const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                     const nsIntRegion& aFrontUpdatedRegion,
-                                     nsIntRegion& aLayerValidRegion) {}
+  virtual void EmptyBufferUpdate() {}
+
+  virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
+                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                              const nsIntRegion& aFrontUpdatedRegion,
+                              const nsIntRect& aBufferRect,
+                              const nsIntPoint& aBufferRotation) {}
 
   // call before and after painting into this content client
   virtual void BeginPaint() {}
@@ -67,7 +71,14 @@ public:
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
+
                                                      uint32_t aFlags);
+  virtual BufferType GetType() MOZ_OVERRIDE
+  {
+    MOZ_ASSERT(false, "Should not be called on non-remote ContentClient");
+    return BUFFER_UNKNOWN;
+  }
+
 private:
   nsRefPtr<BasicLayerManager> mManager;
 };
@@ -100,8 +111,6 @@ public:
    */
   virtual void BeginPaint();
   virtual void EndPaint();
-
-  virtual BufferType GetType() = 0;
 
   virtual void Updated(ShadowableLayer* aLayer,
                        const nsIntRegion& aRegionToDraw,
@@ -158,12 +167,11 @@ public:
     return ContentClientRemote::CreateBuffer(aType, aSize, aFlags);
   }
 
-  virtual void SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
-                                     const OptionalThebesBuffer& aBuffer,
-                                     const nsIntRegion& aValidRegion,
-                                     const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                     const nsIntRegion& aFrontUpdatedRegion,
-                                     nsIntRegion& aLayerValidRegion);
+  virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
+                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                              const nsIntRegion& aFrontUpdatedRegion,
+                              const nsIntRect& aBufferRect,
+                              const nsIntPoint& aBufferRotation) MOZ_OVERRIDE;
 
   virtual void SyncFrontBufferToBackBuffer();
 
@@ -198,12 +206,16 @@ public:
     : ContentClientRemote(aLayerForwarder, aLayer, aFlags)
   {}
 
-  virtual void SetBackBufferAndAttrs(const TextureIdentifier& aTextureIdentifier,
-                                     const OptionalThebesBuffer& aBuffer,
-                                     const nsIntRegion& aValidRegion,
-                                     const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                     const nsIntRegion& aFrontUpdatedRegion,
-                                     nsIntRegion& aLayerValidRegion);
+  virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
+                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                              const nsIntRegion& aFrontUpdatedRegion,
+                              const nsIntRect& aBufferRect,
+                              const nsIntPoint& aBufferRotation) MOZ_OVERRIDE;
+
+  virtual void EmptyBufferUpdate() MOZ_OVERRIDE
+  {
+    mFrontAndBackBufferDiffer = false;
+  }
 
   virtual void SyncFrontBufferToBackBuffer(); 
 

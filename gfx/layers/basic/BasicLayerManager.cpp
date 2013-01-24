@@ -1202,21 +1202,25 @@ BasicShadowLayerManager::ForwardTransaction()
 
         const OpThebesBufferSwap& obs = reply.get_OpThebesBufferSwap();
 
-        TextureClient* textureClient = static_cast<TextureChild*>(obs.textureChild())->GetTextureClient();
-        MOZ_ASSERT(textureClient, "textureChild should have a ContentClient");
-/*
-        contentClient->SetBackBufferAndAttrs(obs.newBackBuffer(),
-                                             obs.newValidRegion(),
-                                             obs.readOnlyFrontBuffer(),
-                                             obs.frontUpdatedRegion());
-*/
+        TextureChild* textureChild = static_cast<TextureChild*>(obs.textureChild());
+        TextureClient* textureClient = textureChild->GetTextureClient();
+        ContentClient* contentClient = static_cast<ContentClient*>(textureChild->GetCompositableClient());
+        MOZ_ASSERT(textureClient, "textureChild should have a TextureClient");
+        MOZ_ASSERT(contentClient, "textureChild should have a ContentClient");
+
         if (obs.newBackBuffer().type() == OptionalThebesBuffer::Tnull_t) {
+          MOZ_ASSERT(contentClient->GetType() != BUFFER_CONTENT, "Must have back buffer");
           textureClient->SetDescriptor(SurfaceDescriptor());
+          contentClient->EmptyBufferUpdate();
         } else {
           textureClient->SetDescriptor(obs.newBackBuffer().get_ThebesBuffer().buffer());
+          contentClient->SetBufferAttrs(obs.newValidRegion(),
+                                        obs.readOnlyFrontBuffer(),
+                                        obs.frontUpdatedRegion(),
+                                        obs.newBackBuffer().get_ThebesBuffer().rect(),
+                                        obs.newBackBuffer().get_ThebesBuffer().rotation());
         }
-        // TODO[nical] take care of the buffer rect, rotation, valid region...
-        // cf ContentClientTexture::SetBackBufferAndAttrs
+
         break;
       }
       case EditReply::TOpTextureSwap: {

@@ -25,8 +25,9 @@ namespace layers {
 class TextureChild;
 class ContentClient;
 
-//TODO[nical] this may repalce TextureClient (or get removed)
-class AwesomeTextureClient {
+//TODO[nical] remove
+class AwesomeTextureClient
+{
 public:
   AwesomeTextureClient() {
     MOZ_COUNT_CTOR(AwesomeTextureClient);
@@ -143,8 +144,8 @@ protected:
   TextureClient(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
 
   ShadowLayerForwarder* mLayerForwarder;
-  //TODO[nrc] should this maybe be in implementations, not this interface
-  //see also LockSurfaceDescriptor
+  // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
+  // the reference here.
   SurfaceDescriptor mDescriptor;
   TextureInfo mTextureInfo;
   PTextureChild* mTextureChild;
