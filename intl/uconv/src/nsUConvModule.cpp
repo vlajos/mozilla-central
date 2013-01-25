@@ -40,7 +40,6 @@
 
 // ucvlatin
 #include "nsUCvLatinCID.h"
-#include "nsUCvLatinDll.h"
 #include "nsAsciiToUnicode.h"
 #include "nsISO88592ToUnicode.h"
 #include "nsISO88593ToUnicode.h"
@@ -87,7 +86,7 @@
 #include "nsVPSToUnicode.h"
 #include "nsUTF7ToUnicode.h"
 #include "nsMUTF7ToUnicode.h"
-#include "nsUCS2BEToUnicode.h"
+#include "nsUTF16ToUnicode.h"
 #include "nsT61ToUnicode.h"
 #include "nsUserDefinedToUnicode.h"
 #include "nsUnicodeToAscii.h"
@@ -136,7 +135,7 @@
 #include "nsUnicodeToVPS.h"
 #include "nsUnicodeToUTF7.h"
 #include "nsUnicodeToMUTF7.h"
-#include "nsUnicodeToUCS2BE.h"
+#include "nsUnicodeToUTF16.h"
 #include "nsUnicodeToT61.h"
 #include "nsUnicodeToUserDefined.h"
 #include "nsUnicodeToSymbol.h"
@@ -158,7 +157,6 @@
 
 // ucvibm
 #include "nsUCvIBMCID.h"
-#include "nsUCvIBMDll.h"
 #include "nsCP850ToUnicode.h"
 #include "nsCP852ToUnicode.h"
 #include "nsCP855ToUnicode.h"
@@ -218,7 +216,6 @@
 
 // ucvcn
 #include "nsUCvCnCID.h"
-#include "nsUCvCnDll.h"
 #include "nsHZToUnicode.h"
 #include "nsUnicodeToHZ.h"
 #include "nsGBKToUnicode.h"

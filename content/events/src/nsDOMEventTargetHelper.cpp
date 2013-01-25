@@ -18,8 +18,6 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMEventTargetHelper)
-
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(nsDOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
@@ -73,7 +71,7 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMEventTargetHelper)
 
-NS_IMPL_DOMTARGET_DEFAULTS(nsDOMEventTargetHelper);
+NS_IMPL_DOMTARGET_DEFAULTS(nsDOMEventTargetHelper)
 
 nsDOMEventTargetHelper::~nsDOMEventTargetHelper()
 {
@@ -221,8 +219,7 @@ nsDOMEventTargetHelper::DispatchTrustedEvent(const nsAString& aEventName)
 nsresult
 nsDOMEventTargetHelper::DispatchTrustedEvent(nsIDOMEvent* event)
 {
-  nsresult rv = event->SetTrusted(true);
-  NS_ENSURE_SUCCESS(rv, rv);
+  event->SetTrusted(true);
 
   bool dummy;
   return DispatchEvent(event, &dummy);

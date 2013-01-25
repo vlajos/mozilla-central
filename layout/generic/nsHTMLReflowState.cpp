@@ -26,6 +26,7 @@
 #include "mozilla/Preferences.h"
 #include "nsBidiUtils.h"
 #include "nsFontInflationData.h"
+#include <algorithm>
 
 #ifdef DEBUG
 #undef NOISY_VERTICAL_ALIGN
@@ -1700,7 +1701,7 @@ CalcQuirkContainingBlockHeight(const nsHTMLReflowState* aCBReflowState)
   }
 
   // Make sure not to return a negative height here!
-  return NS_MAX(result, 0);
+  return std::max(result, 0);
 }
 
 // Called by InitConstraints() to compute the containing block rectangle for
@@ -1968,8 +1969,9 @@ nsHTMLReflowState::InitConstraints(nsPresContext* aPresContext,
         rowOrRowGroup = true;
       }
 
-      // calc() acts like auto on internal table elements
-      if (eStyleUnit_Auto == widthUnit || width.IsCalcUnit()) {
+      // calc() with percentages acts like auto on internal table elements
+      if (eStyleUnit_Auto == widthUnit ||
+          (width.IsCalcUnit() && width.CalcHasPercent())) {
         mComputedWidth = availableWidth;
 
         if ((mComputedWidth != NS_UNCONSTRAINEDSIZE) && !rowOrRowGroup){
@@ -1996,8 +1998,9 @@ nsHTMLReflowState::InitConstraints(nsPresContext* aPresContext,
         // 'height' property doesn't apply to table columns and column groups
         heightUnit = eStyleUnit_Auto;
       }
-      // calc() acts like 'auto' on internal table elements
-      if (eStyleUnit_Auto == heightUnit || height.IsCalcUnit()) {
+      // calc() with percentages acts like 'auto' on internal table elements
+      if (eStyleUnit_Auto == heightUnit ||
+          (height.IsCalcUnit() && height.CalcHasPercent())) {
         mComputedHeight = NS_AUTOHEIGHT;
       } else {
         NS_ASSERTION(heightUnit == mStylePosition->mHeight.GetUnit(),
@@ -2478,19 +2481,19 @@ nsCSSOffsetState::ComputePadding(nscoord aContainingBlockWidth, nsIAtom* aFrameT
   else if (isWidthDependent) {
     // We have to compute the value
     // clamp negative calc() results to 0
-    mComputedPadding.left = NS_MAX(0, nsLayoutUtils::
+    mComputedPadding.left = std::max(0, nsLayoutUtils::
       ComputeWidthDependentValue(aContainingBlockWidth,
                                  stylePadding->mPadding.GetLeft()));
-    mComputedPadding.right = NS_MAX(0, nsLayoutUtils::
+    mComputedPadding.right = std::max(0, nsLayoutUtils::
       ComputeWidthDependentValue(aContainingBlockWidth,
                                  stylePadding->mPadding.GetRight()));
 
     // According to the CSS2 spec, percentages are calculated with respect to
     // containing block width for padding-top and padding-bottom
-    mComputedPadding.top = NS_MAX(0, nsLayoutUtils::
+    mComputedPadding.top = std::max(0, nsLayoutUtils::
       ComputeWidthDependentValue(aContainingBlockWidth,
                                  stylePadding->mPadding.GetTop()));
-    mComputedPadding.bottom = NS_MAX(0, nsLayoutUtils::
+    mComputedPadding.bottom = std::max(0, nsLayoutUtils::
       ComputeWidthDependentValue(aContainingBlockWidth,
                                  stylePadding->mPadding.GetBottom()));
   }
@@ -2541,8 +2544,8 @@ nsHTMLReflowState::ComputeMinMaxValues(nscoord aContainingBlockWidth,
 
   // Check for percentage based values and a containing block height that
   // depends on the content height. Treat them like 'auto'
-  // Likewise, check for calc() on internal table elements; calc() on
-  // such elements is unsupported.
+  // Likewise, check for calc() with percentages on internal table elements;
+  // that's treated as 'auto' too.
   // Likewise, if we're a child of a flex container who's measuring our
   // intrinsic height, then we want to disregard our min-height.
 
@@ -2555,7 +2558,7 @@ nsHTMLReflowState::ComputeMinMaxValues(nscoord aContainingBlockWidth,
       (NS_AUTOHEIGHT == aContainingBlockHeight &&
        minHeight.HasPercent()) ||
       (mFrameType == NS_CSS_FRAME_TYPE_INTERNAL_TABLE &&
-       minHeight.IsCalcUnit()) ||
+       minHeight.IsCalcUnit() && minHeight.CalcHasPercent()) ||
       mFlags.mIsFlexContainerMeasuringHeight) {
     mComputedMinHeight = 0;
   } else {
@@ -2571,14 +2574,14 @@ nsHTMLReflowState::ComputeMinMaxValues(nscoord aContainingBlockWidth,
   } else {
     // Check for percentage based values and a containing block height that
     // depends on the content height. Treat them like 'none'
-    // Likewise, check for calc() on internal table elements; calc() on
-    // such elements is unsupported.
+    // Likewise, check for calc() with percentages on internal table elements;
+    // that's treated as 'auto' too.
     // Likewise, if we're a child of a flex container who's measuring our
     // intrinsic height, then we want to disregard our max-height.
     if ((NS_AUTOHEIGHT == aContainingBlockHeight && 
          maxHeight.HasPercent()) ||
         (mFrameType == NS_CSS_FRAME_TYPE_INTERNAL_TABLE &&
-         maxHeight.IsCalcUnit()) ||
+         maxHeight.IsCalcUnit() && maxHeight.CalcHasPercent()) ||
         mFlags.mIsFlexContainerMeasuringHeight) {
       mComputedMaxHeight = NS_UNCONSTRAINEDSIZE;
     } else {

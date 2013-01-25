@@ -1,6 +1,6 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
@@ -78,6 +78,7 @@ private:
 
 class nsIScriptContext;
 class nsICategoryManager;
+class nsIMemoryReporter;
 class GlobalNameMapEntry;
 
 
@@ -109,8 +110,7 @@ public:
   // null if one is not found. The returned nsGlobalNameStruct is only
   // guaranteed to be valid until the next call to any of the methods
   // in this class.
-  nsresult LookupNavigatorName(const nsAString& aName,
-                               const nsGlobalNameStruct **aNameStruct);
+  const nsGlobalNameStruct* LookupNavigatorName(const nsAString& aName);
 
   nsresult RegisterClassName(const char *aClassName,
                              int32_t aDOMClassInfoID,
@@ -192,6 +192,8 @@ private:
   PLDHashTable mNavigatorNames;
 
   bool mIsInitialized;
+
+  nsCOMPtr<nsIMemoryReporter> mReporter;
 };
 
 #endif /* nsScriptNameSpaceManager_h__ */

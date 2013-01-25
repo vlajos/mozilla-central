@@ -50,7 +50,7 @@ public:
   // LayerComposite impl
   virtual void Destroy();
   virtual Layer* GetLayer();
-  virtual TiledLayerComposer* GetTiledLayerComposer();
+  virtual TiledLayerComposer* AsTiledLayerComposer();
   virtual bool IsEmpty();
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect,

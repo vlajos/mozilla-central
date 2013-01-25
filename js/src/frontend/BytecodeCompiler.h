@@ -13,8 +13,8 @@
 namespace js {
 namespace frontend {
 
-JSScript *
-CompileScript(JSContext *cx, HandleObject scopeChain, StackFrame *callerFrame,
+UnrootedScript
+CompileScript(JSContext *cx, HandleObject scopeChain, AbstractFramePtr callerFrame,
               const CompileOptions &options, StableCharPtr chars, size_t length,
               JSString *source_ = NULL, unsigned staticLevel = 0);
 

@@ -12,6 +12,9 @@
 #include "VideoUtils.h"
 
 #include "mozilla/StandardInteger.h"
+#include "mozilla/Util.h"
+#include "mozilla/CheckedInt.h"
+#include <algorithm>
 
 namespace mozilla {
 
@@ -31,17 +34,24 @@ extern PRLogModuleInfo* gMediaDecoderLog;
 #define SEEK_LOG(type, msg)
 #endif
 
+struct waveIdToName {
+  uint32_t id;
+  nsCString name;
+};
+
+
 // Magic values that identify RIFF chunks we're interested in.
 static const uint32_t RIFF_CHUNK_MAGIC = 0x52494646;
 static const uint32_t WAVE_CHUNK_MAGIC = 0x57415645;
 static const uint32_t FRMT_CHUNK_MAGIC = 0x666d7420;
 static const uint32_t DATA_CHUNK_MAGIC = 0x64617461;
+static const uint32_t LIST_CHUNK_MAGIC = 0x4c495354;
 
-// Size of RIFF chunk header.  4 byte chunk header type and 4 byte size field.
-static const uint16_t RIFF_CHUNK_HEADER_SIZE = 8;
+// Size of chunk header.  4 byte chunk header type and 4 byte size field.
+static const uint16_t CHUNK_HEADER_SIZE = 8;
 
 // Size of RIFF header.  RIFF chunk and 4 byte RIFF type.
-static const uint16_t RIFF_INITIAL_SIZE = RIFF_CHUNK_HEADER_SIZE + 4;
+static const uint16_t RIFF_INITIAL_SIZE = CHUNK_HEADER_SIZE + 4;
 
 // Size of required part of format chunk.  Actual format chunks may be
 // extended (for non-PCM encodings), but we skip any extended data.
@@ -120,13 +130,20 @@ nsresult WaveReader::Init(MediaDecoderReader* aCloneDonor)
   return NS_OK;
 }
 
-nsresult WaveReader::ReadMetadata(nsVideoInfo* aInfo,
+nsresult WaveReader::ReadMetadata(VideoInfo* aInfo,
                                     MetadataTags** aTags)
 {
   NS_ASSERTION(mDecoder->OnDecodeThread(), "Should be on decode thread.");
 
-  bool loaded = LoadRIFFChunk() && LoadFormatChunk() && FindDataOffset();
+  bool loaded = LoadRIFFChunk();
   if (!loaded) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsAutoPtr<nsHTMLMediaElement::MetadataTags> tags;
+
+  bool loadAllChunks = LoadAllChunks(tags);
+  if (!loadAllChunks) {
     return NS_ERROR_FAILURE;
   }
 
@@ -137,7 +154,7 @@ nsresult WaveReader::ReadMetadata(nsVideoInfo* aInfo,
 
   *aInfo = mInfo;
 
-  *aTags = nullptr;
+  *aTags = tags.forget();
 
   ReentrantMonitorAutoEnter mon(mDecoder->GetReentrantMonitor());
 
@@ -182,7 +199,7 @@ bool WaveReader::DecodeAudioData()
   NS_ASSERTION(remaining >= 0, "Current wave position is greater than wave file length");
 
   static const int64_t BLOCK_SIZE = 4096;
-  int64_t readSize = NS_MIN(BLOCK_SIZE, remaining);
+  int64_t readSize = std::min(BLOCK_SIZE, remaining);
   int64_t frames = readSize / mFrameSize;
 
   PR_STATIC_ASSERT(uint64_t(BLOCK_SIZE) < UINT_MAX / sizeof(AudioDataValue) / MAX_CHANNELS);
@@ -246,7 +263,7 @@ nsresult WaveReader::Seek(int64_t aTarget, int64_t aStartTime, int64_t aEndTime,
   double d = BytesToTime(GetDataLength());
   NS_ASSERTION(d < INT64_MAX / USECS_PER_S, "Duration overflow"); 
   int64_t duration = static_cast<int64_t>(d * USECS_PER_S);
-  double seekTime = NS_MIN(aTarget, duration) / static_cast<double>(USECS_PER_S);
+  double seekTime = std::min(aTarget, duration) / static_cast<double>(USECS_PER_S);
   int64_t position = RoundDownToFrame(static_cast<int64_t>(TimeToBytes(seekTime)));
   NS_ASSERTION(INT64_MAX - mWavePCMOffset > position, "Integer overflow during wave seek");
   position += mWavePCMOffset;
@@ -335,61 +352,15 @@ WaveReader::LoadRIFFChunk()
 }
 
 bool
-WaveReader::ScanForwardUntil(uint32_t aWantedChunk, uint32_t* aChunkSize)
+WaveReader::LoadFormatChunk(uint32_t aChunkSize)
 {
-  NS_ABORT_IF_FALSE(aChunkSize, "Require aChunkSize argument");
-  *aChunkSize = 0;
-
-  for (;;) {
-    static const unsigned int CHUNK_HEADER_SIZE = 8;
-    char chunkHeader[CHUNK_HEADER_SIZE];
-    const char* p = chunkHeader;
-
-    if (!ReadAll(chunkHeader, sizeof(chunkHeader))) {
-      return false;
-    }
-
-    PR_STATIC_ASSERT(sizeof(uint32_t) * 2 <= CHUNK_HEADER_SIZE);
-    uint32_t magic = ReadUint32BE(&p);
-    uint32_t chunkSize = ReadUint32LE(&p);
-
-    if (magic == aWantedChunk) {
-      *aChunkSize = chunkSize;
-      return true;
-    }
-
-    // RIFF chunks are two-byte aligned, so round up if necessary.
-    chunkSize += chunkSize % 2;
-
-    static const unsigned int MAX_CHUNK_SIZE = 1 << 16;
-    PR_STATIC_ASSERT(MAX_CHUNK_SIZE < UINT_MAX / sizeof(char));
-    nsAutoArrayPtr<char> chunk(new char[MAX_CHUNK_SIZE]);
-    while (chunkSize > 0) {
-      uint32_t size = NS_MIN(chunkSize, MAX_CHUNK_SIZE);
-      if (!ReadAll(chunk.get(), size)) {
-        return false;
-      }
-      chunkSize -= size;
-    }
-  }
-}
-
-bool
-WaveReader::LoadFormatChunk()
-{
-  uint32_t fmtSize, rate, channels, frameSize, sampleFormat;
+  uint32_t rate, channels, frameSize, sampleFormat;
   char waveFormat[WAVE_FORMAT_CHUNK_SIZE];
   const char* p = waveFormat;
 
   // RIFF chunks are always word (two byte) aligned.
   NS_ABORT_IF_FALSE(mDecoder->GetResource()->Tell() % 2 == 0,
                     "LoadFormatChunk called with unaligned resource");
-
-  // The "format" chunk may not directly follow the "riff" chunk, so skip
-  // over any intermediate chunks.
-  if (!ScanForwardUntil(FRMT_CHUNK_MAGIC, &fmtSize)) {
-    return false;
-  }
 
   if (!ReadAll(waveFormat, sizeof(waveFormat))) {
     return false;
@@ -421,7 +392,7 @@ WaveReader::LoadFormatChunk()
   // extension size of 0 bytes.  Be polite and handle this rather than
   // considering the file invalid.  This code skips any extension of the
   // "format" chunk.
-  if (fmtSize > WAVE_FORMAT_CHUNK_SIZE) {
+  if (aChunkSize > WAVE_FORMAT_CHUNK_SIZE) {
     char extLength[2];
     const char* p = extLength;
 
@@ -431,7 +402,7 @@ WaveReader::LoadFormatChunk()
 
     PR_STATIC_ASSERT(sizeof(uint16_t) <= sizeof(extLength));
     uint16_t extra = ReadUint16LE(&p);
-    if (fmtSize - (WAVE_FORMAT_CHUNK_SIZE + 2) != extra) {
+    if (aChunkSize - (WAVE_FORMAT_CHUNK_SIZE + 2) != extra) {
       NS_WARNING("Invalid extended format chunk size");
       return false;
     }
@@ -476,18 +447,11 @@ WaveReader::LoadFormatChunk()
 }
 
 bool
-WaveReader::FindDataOffset()
+WaveReader::FindDataOffset(uint32_t aChunkSize)
 {
   // RIFF chunks are always word (two byte) aligned.
   NS_ABORT_IF_FALSE(mDecoder->GetResource()->Tell() % 2 == 0,
                     "FindDataOffset called with unaligned resource");
-
-  // The "data" chunk may not directly follow the "format" chunk, so skip
-  // over any intermediate chunks.
-  uint32_t length;
-  if (!ScanForwardUntil(DATA_CHUNK_MAGIC, &length)) {
-    return false;
-  }
 
   int64_t offset = mDecoder->GetResource()->Tell();
   if (offset <= 0 || offset > UINT32_MAX) {
@@ -496,7 +460,7 @@ WaveReader::FindDataOffset()
   }
 
   ReentrantMonitorAutoEnter monitor(mDecoder->GetReentrantMonitor());
-  mWaveLength = length;
+  mWaveLength = aChunkSize;
   mWavePCMOffset = uint32_t(offset);
   return true;
 }
@@ -531,8 +495,8 @@ WaveReader::GetDataLength()
   // the content length rather than the expected PCM data length.
   int64_t streamLength = mDecoder->GetResource()->GetLength();
   if (streamLength >= 0) {
-    int64_t dataLength = NS_MAX<int64_t>(0, streamLength - mWavePCMOffset);
-    length = NS_MIN(dataLength, length);
+    int64_t dataLength = std::max<int64_t>(0, streamLength - mWavePCMOffset);
+    length = std::min(dataLength, length);
   }
   return length;
 }
@@ -541,6 +505,175 @@ int64_t
 WaveReader::GetPosition()
 {
   return mDecoder->GetResource()->Tell();
+}
+
+bool
+WaveReader::GetNextChunk(uint32_t* aChunk, uint32_t* aChunkSize)
+{
+  NS_ABORT_IF_FALSE(aChunk, "Must have aChunk");
+  NS_ABORT_IF_FALSE(aChunkSize, "Must have aChunkSize");
+  NS_ABORT_IF_FALSE(mDecoder->GetResource()->Tell() % 2 == 0,
+                    "GetNextChunk called with unaligned resource");
+
+  char chunkHeader[CHUNK_HEADER_SIZE];
+  const char* p = chunkHeader;
+
+  if (!ReadAll(chunkHeader, sizeof(chunkHeader))) {
+    return false;
+  }
+
+  PR_STATIC_ASSERT(sizeof(uint32_t) * 2 <= CHUNK_HEADER_SIZE);
+  *aChunk = ReadUint32BE(&p);
+  *aChunkSize = ReadUint32LE(&p);
+
+  return true;
+}
+
+bool
+WaveReader::LoadListChunk(uint32_t aChunkSize,
+    nsAutoPtr<nsHTMLMediaElement::MetadataTags> &aTags)
+{
+  // List chunks are always word (two byte) aligned.
+  NS_ABORT_IF_FALSE(mDecoder->GetResource()->Tell() % 2 == 0,
+                    "LoadListChunk called with unaligned resource");
+
+  static const unsigned int MAX_CHUNK_SIZE = 1 << 16;
+  PR_STATIC_ASSERT(MAX_CHUNK_SIZE < UINT_MAX / sizeof(char));
+
+  if (aChunkSize > MAX_CHUNK_SIZE) {
+    return false;
+  }
+
+  nsAutoArrayPtr<char> chunk(new char[aChunkSize]);
+  if (!ReadAll(chunk.get(), aChunkSize)) {
+    return false;
+  }
+
+  static const uint32_t INFO_LIST_MAGIC = 0x494e464f;
+  const char *p = chunk.get();
+  if (ReadUint32BE(&p) != INFO_LIST_MAGIC) {
+    return false;
+  }
+
+  const waveIdToName ID_TO_NAME[] = {
+    { 0x49415254, NS_LITERAL_CSTRING("artist") },   // IART
+    { 0x49434d54, NS_LITERAL_CSTRING("comments") }, // ICMT
+    { 0x49474e52, NS_LITERAL_CSTRING("genre") },    // IGNR
+    { 0x494e414d, NS_LITERAL_CSTRING("name") },     // INAM
+  };
+
+  const char* const end = chunk.get() + aChunkSize;
+
+  aTags = new nsHTMLMediaElement::MetadataTags;
+  aTags->Init();
+
+  while (p + 8 < end) {
+    uint32_t id = ReadUint32BE(&p);
+    // Uppercase tag id, inspired by GStreamer's Wave parser.
+    id &= 0xDFDFDFDF;
+
+    uint32_t length = ReadUint32LE(&p);
+
+    // Subchunk shall not exceed parent chunk.
+    if (p + length > end) {
+      break;
+    }
+
+    nsCString val(p, length);
+    if (val[length - 1] == '\0') {
+      val.SetLength(length - 1);
+    }
+
+    // Chunks in List::INFO are always word (two byte) aligned. So round up if
+    // necessary.
+    length += length % 2;
+    p += length;
+
+    if (!IsUTF8(val)) {
+      continue;
+    }
+
+    for (size_t i = 0; i < mozilla::ArrayLength(ID_TO_NAME); ++i) {
+      if (id == ID_TO_NAME[i].id) {
+        aTags->Put(ID_TO_NAME[i].name, val);
+        break;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool
+WaveReader::LoadAllChunks(nsAutoPtr<nsHTMLMediaElement::MetadataTags> &aTags)
+{
+  // Chunks are always word (two byte) aligned.
+  NS_ABORT_IF_FALSE(mDecoder->GetResource()->Tell() % 2 == 0,
+                    "LoadAllChunks called with unaligned resource");
+
+  bool loadFormatChunk = false;
+  bool findDataOffset = false;
+
+  for (;;) {
+    static const unsigned int CHUNK_HEADER_SIZE = 8;
+    char chunkHeader[CHUNK_HEADER_SIZE];
+    const char* p = chunkHeader;
+
+    if (!ReadAll(chunkHeader, sizeof(chunkHeader))) {
+      return false;
+    }
+
+    PR_STATIC_ASSERT(sizeof(uint32_t) * 2 <= CHUNK_HEADER_SIZE);
+
+    uint32_t magic = ReadUint32BE(&p);
+    uint32_t chunkSize = ReadUint32LE(&p);
+    int64_t chunkStart = GetPosition();
+
+    switch (magic) {
+      case FRMT_CHUNK_MAGIC:
+        loadFormatChunk = LoadFormatChunk(chunkSize);
+        if (!loadFormatChunk) {
+          return false;
+        }
+        break;
+
+      case LIST_CHUNK_MAGIC:
+        if (!aTags) {
+          LoadListChunk(chunkSize, aTags);
+        }
+        break;
+
+      case DATA_CHUNK_MAGIC:
+        findDataOffset = FindDataOffset(chunkSize);
+        return loadFormatChunk && findDataOffset;
+
+      default:
+        break;
+    }
+
+    // RIFF chunks are two-byte aligned, so round up if necessary.
+    chunkSize += chunkSize % 2;
+
+    // Move forward to next chunk
+    CheckedInt64 forward = CheckedInt64(chunkStart) + chunkSize - GetPosition();
+
+    if (!forward.isValid() || forward.value() < 0) {
+      return false;
+    }
+
+    static const int64_t MAX_CHUNK_SIZE = 1 << 16;
+    PR_STATIC_ASSERT(uint64_t(MAX_CHUNK_SIZE) < UINT_MAX / sizeof(char));
+    nsAutoArrayPtr<char> chunk(new char[MAX_CHUNK_SIZE]);
+    while (forward.value() > 0) {
+      int64_t size = std::min(forward.value(), MAX_CHUNK_SIZE);
+      if (!ReadAll(chunk.get(), size)) {
+        return false;
+      }
+      forward -= size;
+    }
+  }
+
+  return false;
 }
 
 } // namespace mozilla

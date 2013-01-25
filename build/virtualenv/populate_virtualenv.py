@@ -16,7 +16,7 @@ import sys
 
 # Minimum version of Python required to build.
 MINIMUM_PYTHON_MAJOR = 2
-MINIMUM_PYTHON_MINOR = 6
+MINIMUM_PYTHON_MINOR = 7
 
 
 class VirtualenvManager(object):
@@ -241,12 +241,19 @@ class VirtualenvManager(object):
         program.extend(arguments)
 
         # We probably could call the contents of this file inside the context
-        # of # this interpreter using execfile() or similar. However, if global
+        # of this interpreter using execfile() or similar. However, if global
         # variables like sys.path are adjusted, this could cause all kinds of
         # havoc. While this may work, invoking a new process is safer.
-        result = subprocess.call(program, cwd=directory)
 
-        if result != 0:
+        try:
+            output = subprocess.check_output(program, cwd=directory, stderr=subprocess.STDOUT)
+            print(output)
+        except subprocess.CalledProcessError as e:
+            if 'Python.h: No such file or directory' in e.output:
+                print('WARNING: Python.h not found. Install Python development headers.')
+            else:
+                print(e.output)
+
             raise Exception('Error installing package: %s' % directory)
 
     def build(self):

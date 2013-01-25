@@ -1,4 +1,5 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=4 sw=4 et tw=79 ft=cpp:
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -38,6 +39,9 @@ class MutatingRopeSegmentRange;
  * Utility for building a rope (lazy concatenation) of strings.
  */
 class RopeBuilder;
+
+extern JSString *
+ConcatStringsNoGC(JSContext *cx, JSString *s1, JSString *s2);
 
 }  /* namespace js */
 
@@ -148,14 +152,13 @@ ValueToStringBuffer(JSContext *cx, const Value &v, StringBuffer &sb);
 
 } /* namespace js */
 
+namespace js {
 /*
  * Convert a value to its source expression, returning null after reporting
  * an error, otherwise returning a new string reference.
  */
-extern JS_FRIEND_API(JSString *)
-js_ValueToSource(JSContext *cx, const js::Value &v);
-
-namespace js {
+extern JSString *
+ValueToSource(JSContext *cx, const js::Value &v);
 
 /*
  * Test if strings are equal. The caller can call the function even if str1
@@ -222,9 +225,6 @@ InflateString(JSContext *cx, const char *bytes, size_t *length);
  */
 extern jschar *
 InflateUTF8String(JSContext *cx, const char *bytes, size_t *length);
-
-extern char *
-DeflateString(JSContext *cx, const jschar *chars, size_t length);
 
 /*
  * Inflate bytes to JS chars in an existing buffer. 'chars' must be large

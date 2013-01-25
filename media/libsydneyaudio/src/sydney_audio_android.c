@@ -303,7 +303,7 @@ sa_stream_write(sa_stream_t *s, const void *data, size_t nbytes) {
     return SA_ERROR_OOM;
   }
 
-  unsigned char *p = data;
+  const jbyte *p = data;
   jint r = 0;
   size_t wrote = 0;
   do {
@@ -337,7 +337,6 @@ sa_stream_write(sa_stream_t *s, const void *data, size_t nbytes) {
     wrote += r;
   } while (wrote < nbytes);
 
-  ALOG("%p - Wrote %u", s,  nbytes);
   s->amountWritten += nbytes;
 
   (*jenv)->PopLocalFrame(jenv, NULL);
@@ -368,8 +367,8 @@ sa_stream_get_write_size(sa_stream_t *s, size_t *size) {
   if (*size > s->bufferSize) {
     *size = s->bufferSize;
   }
-  ALOG("%p - Write Size tp=%lld aw=%u sz=%zu", s, s->timePlaying, s->amountWritten, *size);
 
+  ALOG("%p - Write Size tp=%lld aw=%lld sz=%zu", s, s->timePlaying, s->amountWritten, *size);
   return SA_SUCCESS;
 }
 

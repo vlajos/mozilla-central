@@ -168,7 +168,7 @@ TextureClientSharedGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxC
 }
 
 SharedTextureHandle
-TextureClientSharedGL::LockHandle(GLContext* aGL, TextureImage::TextureShareType aFlags)
+TextureClientSharedGL::LockHandle(GLContext* aGL, gl::GLContext::SharedTextureShareType aFlags)
 {
   mGL = aGL;
 

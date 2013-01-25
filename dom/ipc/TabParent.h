@@ -24,7 +24,7 @@
 
 struct gfxMatrix;
 struct JSContext;
-struct JSObject;
+class JSObject;
 class mozIApplication;
 class nsFrameLoader;
 class nsIDOMElement;
@@ -55,6 +55,7 @@ class TabParent : public PBrowserParent
                 , public TabContext
 {
     typedef mozilla::dom::ClonedMessageData ClonedMessageData;
+    typedef mozilla::layout::ScrollingBehavior ScrollingBehavior;
 
 public:
     TabParent(const TabContext& aContext);
@@ -190,9 +191,7 @@ public:
     virtual POfflineCacheUpdateParent* AllocPOfflineCacheUpdate(
             const URIParams& aManifestURI,
             const URIParams& aDocumentURI,
-            const bool& isInBrowserElement,
-            const uint32_t& appId,
-            const bool& stickDocument);
+            const bool& stickDocument) MOZ_OVERRIDE;
     virtual bool DeallocPOfflineCacheUpdate(POfflineCacheUpdateParent* actor);
 
     JSBool GetGlobalJSObject(JSContext* cx, JSObject** globalp);
@@ -295,6 +294,9 @@ private:
     // dispatch to content.
     void MaybeForwardEventToRenderFrame(const nsInputEvent& aEvent,
                                         nsInputEvent* aOutEvent);
+    // When true, we've initiated normal shutdown and notified our
+    // managing PContent.
+    bool mMarkedDestroying;
     // When true, the TabParent is invalid and we should not send IPC messages
     // anymore.
     bool mIsDestroyed;

@@ -91,7 +91,7 @@ public:
     return mTextureHost->Dump();
   }
 #endif
-
+  virtual nsIntPoint GetOriginOffset() = 0;
 protected:
   ThebesLayerBufferOGL(ThebesLayer* aLayer, LayerOGL* aOGLLayer, Compositor* aCompositor)
     : CompositingThebesLayerBuffer(aCompositor)
@@ -147,7 +147,6 @@ public:
     return texImage->GetBackingSurface();
   }
 
-protected:
   virtual nsIntPoint GetOriginOffset() {
     return BufferRect().TopLeft() - BufferRotation();
   }
@@ -170,6 +169,10 @@ public:
 
   virtual PaintState BeginPaint(ContentType aContentType,
                                 uint32_t aFlags);
+  virtual nsIntPoint GetOriginOffset() {
+    return mBufferRect.TopLeft() - mBufferRotation;
+  }
+
 
 protected:
   enum XSide {
@@ -179,10 +182,6 @@ protected:
     TOP, BOTTOM
   };
   nsIntRect GetQuadrantRectangle(XSide aXSide, YSide aYSide);
-
-  virtual nsIntPoint GetOriginOffset() {
-    return mBufferRect.TopLeft() - mBufferRotation;
-  }
 
 private:
   nsIntRect mBufferRect;

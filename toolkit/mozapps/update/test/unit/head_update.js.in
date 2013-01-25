@@ -47,6 +47,12 @@ const IS_ANDROID = true;
 const IS_ANDROID = false;
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+const IS_TOOLKIT_GONK = true;
+#else
+const IS_TOOLKIT_GONK = false;
+#endif
+
 const USE_EXECV = IS_UNIX && !IS_MACOSX;
 
 #ifdef MOZ_VERIFY_MAR_SIGNATURE
@@ -292,7 +298,7 @@ var DEBUG_AUS_TEST = true;
 #include ../shared.js
 
 #ifdef MOZ_MAINTENANCE_SERVICE
-const STATE_APPLIED_PLATFORM = IS_WIN ? STATE_APPLIED_SVC : STATE_APPLIED;
+const STATE_APPLIED_PLATFORM = STATE_APPLIED_SVC;
 #else
 const STATE_APPLIED_PLATFORM = STATE_APPLIED;
 #endif
@@ -434,6 +440,7 @@ if (IS_WIN) {
     file.QueryInterface(AUS_Ci.nsILocalFileWin);
     file.fileAttributesWin |= file.WFA_READONLY;
     file.fileAttributesWin &= ~file.WFA_READWRITE;
+    logTestInfo("testing the successful creation of the lock file");
     do_check_true(file.exists());
     do_check_false(file.isWritable());
   }
@@ -446,6 +453,7 @@ if (IS_WIN) {
     file.QueryInterface(AUS_Ci.nsILocalFileWin);
     file.fileAttributesWin |= file.WFA_READWRITE;
     file.fileAttributesWin &= ~file.WFA_READONLY;
+    logTestInfo("removing and testing the successful removal of the lock file");
     file.remove(false);
     do_check_false(file.exists());
   }
@@ -1433,18 +1441,19 @@ function removeCallbackCopy() {
   appBinCopy.append(TEST_ID + FILE_WIN_TEST_EXE);
   if (appBinCopy.exists()) {
     try {
+      logTestInfo("attempting removal of file: " + appBinCopy.path);
       appBinCopy.remove(false);
-      // Use a timeout to give any files that were in use additional 
-      // time to close.  Same as updater.exe without service tests.
-      do_timeout(TEST_HELPER_TIMEOUT, do_test_finished);
     }
     catch (e) {
-      logTestInfo("unable to remove file during cleanup. Exception: " + e);
+      logTestInfo("non-fatal error removing file during cleanup (will try " +
+                  "again). File: " + appBinCopy.path + " Exception: " + e);
       do_timeout(TEST_HELPER_TIMEOUT, removeCallbackCopy);
+      return;
     }
-  } else {
-    do_timeout(TEST_HELPER_TIMEOUT, do_test_finished);
   }
+  // Use a timeout to give any files that were in use additional 
+  // time to close.  Same as updater.exe without service tests.
+  do_timeout(TEST_HELPER_TIMEOUT, do_test_finished);
 }
 
 /**

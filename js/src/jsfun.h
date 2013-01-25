@@ -13,15 +13,17 @@
 #include "jspubtd.h"
 #include "jsobj.h"
 #include "jsatom.h"
-#include "jsscript.h"
 #include "jsstr.h"
 
 #include "gc/Barrier.h"
 
+ForwardDeclareJS(Atom);
+
 namespace js { class FunctionExtended; }
 
-struct JSFunction : public JSObject
+class JSFunction : public JSObject
 {
+  public:
     enum Flags {
         INTERPRETED      = 0x0001,  /* function has a JSScript and environment. */
         NATIVE_CTOR      = 0x0002,  /* native that can be called as a constructor */
@@ -39,6 +41,14 @@ struct JSFunction : public JSObject
                                        must be constructible but not decompilable. */
         HAS_REST         = 0x0400,  /* function has a rest (...) parameter */
         HAS_DEFAULTS     = 0x0800,  /* function has at least one default parameter */
+        INTERPRETED_LAZY = 0x1000,  /* function is interpreted but doesn't have a script yet */
+
+        /*
+         * Function is cloned anew at each callsite. This is temporarily
+         * needed for ParallelArray selfhosted code until type information can
+         * be made context sensitive. See discussion in bug 826148.
+         */
+        CALLSITE_CLONE   = 0x2000,
 
         /* Derived Flags values for convenience: */
         NATIVE_FUN = 0,
@@ -56,7 +66,7 @@ struct JSFunction : public JSObject
     uint16_t        flags;        /* bitfield composed of the above Flags enum */
     union U {
         class Native {
-            friend struct JSFunction;
+            friend class JSFunction;
             js::Native          native;       /* native method pointer or null */
             const JSJitInfo     *jitinfo;     /* Information about this function to be
                                                  used by the JIT;
@@ -72,11 +82,13 @@ struct JSFunction : public JSObject
     } u;
   private:
     js::HeapPtrAtom  atom_;       /* name for diagnostics and decompiling */
+
+    bool initializeLazyScript(JSContext *cx);
   public:
 
     /* A function can be classified as either native (C++) or interpreted (JS): */
-    bool isInterpreted()            const { return flags & INTERPRETED; }
-    bool isNative()                 const { return !(flags & INTERPRETED); }
+    bool isInterpreted()            const { return flags & (INTERPRETED | INTERPRETED_LAZY); }
+    bool isNative()                 const { return !isInterpreted(); }
 
     /* Possible attributes of a native function: */
     bool isNativeConstructor()      const { return flags & NATIVE_CTOR; }
@@ -84,6 +96,8 @@ struct JSFunction : public JSObject
     /* Possible attributes of an interpreted function: */
     bool isHeavyweight()            const { return flags & HEAVYWEIGHT; }
     bool isFunctionPrototype()      const { return flags & IS_FUN_PROTO; }
+    bool isInterpretedLazy()        const { return flags & INTERPRETED_LAZY; }
+    bool hasScript()                const { return isInterpreted() && u.i.script_; }
     bool isExprClosure()            const { return flags & EXPR_CLOSURE; }
     bool hasGuessedAtom()           const { return flags & HAS_GUESSED_ATOM; }
     bool isLambda()                 const { return flags & LAMBDA; }
@@ -91,6 +105,11 @@ struct JSFunction : public JSObject
     bool isSelfHostedConstructor()  const { return flags & SELF_HOSTED_CTOR; }
     bool hasRest()                  const { return flags & HAS_REST; }
     bool hasDefaults()              const { return flags & HAS_DEFAULTS; }
+
+    /* Original functions that should be cloned are not extended. */
+    bool isCloneAtCallsite()        const { return (flags & CALLSITE_CLONE) && !isExtended(); }
+    /* Cloned functions keep a backlink to the original in extended slot 0. */
+    bool isCallsiteClone()          const { return (flags & CALLSITE_CLONE) && isExtended(); }
 
     /* Compound attributes: */
     bool isBuiltin() const {
@@ -105,20 +124,21 @@ struct JSFunction : public JSObject
     }
 
     /* Returns the strictness of this function, which must be interpreted. */
-    inline bool inStrictMode() const;
+    inline bool strict() const;
 
+    // Can be called multiple times by the parser.
     void setArgCount(uint16_t nargs) {
-        JS_ASSERT(this->nargs == 0);
+        JS_ASSERT(this->nargs == 0 || this->nargs == nargs);
         this->nargs = nargs;
     }
 
+    // Can be called multiple times by the parser.
     void setHasRest() {
-        JS_ASSERT(!hasRest());
         flags |= HAS_REST;
     }
 
+    // Can be called multiple times by the parser.
     void setHasDefaults() {
-        JS_ASSERT(!hasDefaults());
         flags |= HAS_DEFAULTS;
     }
 
@@ -132,6 +152,10 @@ struct JSFunction : public JSObject
         flags |= SELF_HOSTED_CTOR;
     }
 
+    void setIsCloneAtCallsite() {
+        flags |= CALLSITE_CLONE;
+    }
+
     void setIsFunctionPrototype() {
         JS_ASSERT(!isFunctionPrototype());
         flags |= IS_FUN_PROTO;
@@ -141,16 +165,23 @@ struct JSFunction : public JSObject
         flags |= HEAVYWEIGHT;
     }
 
+    // Can be called multiple times by the parser.
     void setIsExprClosure() {
-        JS_ASSERT(!isExprClosure());
         flags |= EXPR_CLOSURE;
+    }
+
+    void markNotLazy() {
+        JS_ASSERT(isInterpretedLazy());
+        JS_ASSERT(hasScript());
+        flags |= INTERPRETED;
+        flags &= ~INTERPRETED_LAZY;
     }
 
     JSAtom *atom() const { return hasGuessedAtom() ? NULL : atom_.get(); }
     inline void initAtom(JSAtom *atom);
     JSAtom *displayAtom() const { return atom_; }
 
-    inline void setGuessedAtom(JSAtom *atom);
+    inline void setGuessedAtom(js::UnrootedAtom atom);
 
     /* uint16_t representation bounds number of call object dynamic slots. */
     enum { MAX_ARGS_AND_VARS = 2 * ((1U << 16) - 1) };
@@ -166,9 +197,35 @@ struct JSFunction : public JSObject
     static inline size_t offsetOfEnvironment() { return offsetof(JSFunction, u.i.env_); }
     static inline size_t offsetOfAtom() { return offsetof(JSFunction, atom_); }
 
-    js::Return<JSScript*> script() const {
-        JS_ASSERT(isInterpreted());
+    static js::UnrootedScript getOrCreateScript(JSContext *cx, JS::HandleFunction fun) {
+        JS_ASSERT(fun->isInterpreted());
+        if (fun->isInterpretedLazy()) {
+            js::MaybeCheckStackRoots(cx);
+            if (!fun->initializeLazyScript(cx))
+                return js::UnrootedScript(NULL);
+        }
+        JS_ASSERT(fun->hasScript());
+        return fun->u.i.script_;
+    }
+
+    static bool maybeGetOrCreateScript(JSContext *cx, js::HandleFunction fun,
+                                       js::MutableHandle<JSScript*> script)
+    {
+        if (fun->isNative()) {
+            script.set(NULL);
+            return true;
+        }
+        script.set(getOrCreateScript(cx, fun));
+        return fun->hasScript();
+    }
+
+    js::UnrootedScript nonLazyScript() const {
+        JS_ASSERT(hasScript());
         return JS::HandleScript::fromMarkedLocation(&u.i.script_);
+    }
+
+    js::UnrootedScript maybeNonLazyScript() const {
+        return isInterpreted() ? nonLazyScript() : js::UnrootedScript(NULL);
     }
 
     js::HeapPtrScript &mutableScript() {
@@ -178,10 +235,6 @@ struct JSFunction : public JSObject
 
     inline void setScript(JSScript *script_);
     inline void initScript(JSScript *script_);
-
-    js::Return<JSScript*> maybeScript() const {
-        return isInterpreted() ? script() : JS::NullPtr();
-    }
 
     JSNative native() const {
         JS_ASSERT(isNative());
@@ -288,7 +341,7 @@ js_CloneFunctionObject(JSContext *cx, js::HandleFunction fun,
 
 extern JSFunction *
 js_DefineFunction(JSContext *cx, js::HandleObject obj, js::HandleId id, JSNative native,
-                  unsigned nargs, unsigned flags, js::Handle<js::PropertyName*> selfHostedName = JS::NullPtr(),
+                  unsigned nargs, unsigned flags,
                   js::gc::AllocKind kind = JSFunction::FinalizeKind);
 
 namespace js {
@@ -300,7 +353,7 @@ namespace js {
  */
 class FunctionExtended : public JSFunction
 {
-    friend struct JSFunction;
+    friend class JSFunction;
 
     /* Reserved slots available for storage by particular native functions. */
     HeapValue extendedSlots[2];

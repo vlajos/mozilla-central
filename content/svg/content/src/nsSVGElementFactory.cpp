@@ -201,7 +201,7 @@ nsresult
 NS_NewSVGAnimateMotionElement(nsIContent **aResult,
                               already_AddRefed<nsINodeInfo> aNodeInfo);
 nsresult
-NS_NewSVGMpathElement(nsIContent **aResult,
+NS_NewSVGMPathElement(nsIContent **aResult,
                       already_AddRefed<nsINodeInfo> aNodeInfo);
 nsresult
 NS_NewSVGSetElement(nsIContent **aResult,
@@ -215,13 +215,6 @@ nsresult
 NS_NewSVGElement(nsIContent** aResult, already_AddRefed<nsINodeInfo> aNodeInfo,
                  FromParser aFromParser)
 {
-  static const char kSVGStyleSheetURI[] = "resource://gre/res/svg.css";
-
-  // this bit of code is to load svg.css on demand
-  nsIDocument *doc = aNodeInfo.get()->GetDocument();
-  if (doc)
-    doc->EnsureCatalogStyleSheet(kSVGStyleSheetURI);
-
   nsIAtom *name = aNodeInfo.get()->NameAtom();
   
   if (name == nsGkAtoms::a)
@@ -348,7 +341,7 @@ NS_NewSVGElement(nsIContent** aResult, already_AddRefed<nsINodeInfo> aNodeInfo,
     if (name == nsGkAtoms::animateMotion)
       return NS_NewSVGAnimateMotionElement(aResult, aNodeInfo);
     if (name == nsGkAtoms::mpath)
-      return NS_NewSVGMpathElement(aResult, aNodeInfo);
+      return NS_NewSVGMPathElement(aResult, aNodeInfo);
     if (name == nsGkAtoms::set)
       return NS_NewSVGSetElement(aResult, aNodeInfo);
   }

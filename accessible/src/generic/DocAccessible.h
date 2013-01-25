@@ -79,8 +79,8 @@ public:
   virtual void Init();
   virtual void Shutdown();
   virtual nsIFrame* GetFrame() const;
-  virtual nsINode* GetNode() const { return mDocument; }
-  nsIDocument* DocumentNode() const { return mDocument; }
+  virtual nsINode* GetNode() const { return mDocumentNode; }
+  nsIDocument* DocumentNode() const { return mDocumentNode; }
 
   // Accessible
   virtual mozilla::a11y::ENameValueFlag Name(nsString& aName);
@@ -122,8 +122,8 @@ public:
     // eDOMLoaded flag check is used for error pages as workaround to make this
     // method return correct result since error pages do not receive 'pageshow'
     // event and as consequence nsIDocument::IsShowing() returns false.
-    return mDocument && mDocument->IsVisible() &&
-      (mDocument->IsShowing() || HasLoadState(eDOMLoaded));
+    return mDocumentNode && mDocumentNode->IsVisible() &&
+      (mDocumentNode->IsShowing() || HasLoadState(eDOMLoaded));
   }
 
   /**
@@ -333,8 +333,11 @@ protected:
    */
   void ProcessLoad();
 
-    void AddScrollListener();
-    void RemoveScrollListener();
+  /**
+   * Add/remove scroll listeners, @see nsIScrollPositionListener interface.
+   */
+  void AddScrollListener();
+  void RemoveScrollListener();
 
   /**
    * Append the given document accessible to this document's child document
@@ -362,7 +365,7 @@ protected:
    * @param aRelProvider [in] accessible that element has relation attribute
    * @param aRelAttr     [in, optional] relation attribute
    */
-  void AddDependentIDsFor(Accessible* aRelProvider,
+  void AddDependentIDsFor(dom::Element* aRelProviderElm,
                           nsIAtom* aRelAttr = nullptr);
 
   /**
@@ -373,7 +376,7 @@ protected:
    * @param aRelProvider [in] accessible that element has relation attribute
    * @param aRelAttr     [in, optional] relation attribute
    */
-  void RemoveDependentIDsFor(Accessible* aRelProvider,
+  void RemoveDependentIDsFor(dom::Element* aRelProviderElm,
                              nsIAtom* aRelAttr = nullptr);
 
   /**
@@ -483,20 +486,39 @@ protected:
 protected:
 
   /**
+   * State and property flags, kept by mDocFlags.
+   */
+  enum {
+    // Whether scroll listeners were added.
+    eScrollInitialized = 1 << 0,
+
+    // Whether we support nsIAccessibleCursorable.
+    eCursorable = 1 << 1,
+
+    // Whether the document is a tab document.
+    eTabDocument = 1 << 2
+  };
+
+  /**
    * Cache of accessibles within this document accessible.
    */
   AccessibleHashtable mAccessibleCache;
   nsDataHashtable<nsPtrHashKey<const nsINode>, Accessible*>
     mNodeToAccessibleMap;
 
-    nsCOMPtr<nsIDocument> mDocument;
+    nsCOMPtr<nsIDocument> mDocumentNode;
     nsCOMPtr<nsITimer> mScrollWatchTimer;
     uint16_t mScrollPositionChangedTicks; // Used for tracking scroll events
 
   /**
    * Bit mask of document load states (@see LoadState).
    */
-  uint32_t mLoadState;
+  uint32_t mLoadState : 3;
+
+  /**
+   * Bit mask of other states and props.
+   */
+  uint32_t mDocFlags : 28;
 
   /**
    * Type of document load event fired after the document is loaded completely.
@@ -515,11 +537,6 @@ protected:
   nsIAtom* mARIAAttrOldValue;
 
   nsTArray<nsRefPtr<DocAccessible> > mChildDocuments;
-
-  /**
-   * Whether we support nsIAccessibleCursorable, used when querying the interface.
-   */
-  bool mIsCursorable;
 
   /**
    * The virtual cursor of the document when it supports nsIAccessibleCursorable.
@@ -574,8 +591,7 @@ private:
 inline DocAccessible*
 Accessible::AsDoc()
 {
-  return mFlags & eDocAccessible ?
-    static_cast<DocAccessible*>(this) : nullptr;
+  return IsDoc() ? static_cast<DocAccessible*>(this) : nullptr;
 }
 
 } // namespace a11y

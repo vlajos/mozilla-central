@@ -111,13 +111,13 @@ public:
 
   // This should be big enough to hold all of your control packets,
   // but if it needs to grow for huge headers it can do so dynamically.
-  // About 1% of requests to SPDY google services seem to be > 1000
-  // with all less than 2000.
+  // About 1% of responses from SPDY google services seem to be > 1000
+  // with all less than 2000 when compression is enabled.
   const static uint32_t kDefaultBufferSize = 2048;
 
   // kDefaultQueueSize must be >= other queue size constants
-  const static uint32_t kDefaultQueueSize =  16384;
-  const static uint32_t kQueueMinimumCleanup = 8192;
+  const static uint32_t kDefaultQueueSize =  32768;
+  const static uint32_t kQueueMinimumCleanup = 24576;
   const static uint32_t kQueueTailRoom    =  4096;
   const static uint32_t kQueueReserved    =  1024;
 
@@ -148,7 +148,8 @@ public:
   static nsresult HandleHeaders(SpdySession3 *);
   static nsresult HandleWindowUpdate(SpdySession3 *);
 
-  static void EnsureBuffer(nsAutoArrayPtr<char> &,
+  template<typename T>
+  static void EnsureBuffer(nsAutoArrayPtr<T> &,
                            uint32_t, uint32_t, uint32_t &);
 
   // For writing the SPDY data stream to LOG4
@@ -162,7 +163,7 @@ public:
   void TransactionHasDataToWrite(SpdyStream3 *);
 
   // an overload of nsAHttpSegementReader
-  virtual nsresult CommitToSegmentSize(uint32_t size);
+  virtual nsresult CommitToSegmentSize(uint32_t size, bool forceCommitment);
   
   uint32_t GetServerInitialWindow() { return mServerInitialWindow; }
 
@@ -194,6 +195,7 @@ private:
 
   void        SetWriteCallbacks();
   void        FlushOutputQueue();
+  void        RealignOutputQueue();
 
   bool        RoomForMoreConcurrent();
   void        ActivateStream(SpdyStream3 *);
@@ -211,6 +213,10 @@ private:
   static PLDHashOperator ShutdownEnumerator(nsAHttpTransaction *,
                                             nsAutoPtr<SpdyStream3> &,
                                             void *);
+
+  static PLDHashOperator GoAwayEnumerator(nsAHttpTransaction *,
+                                          nsAutoPtr<SpdyStream3> &,
+                                          void *);
 
   static PLDHashOperator UpdateServerRwinEnumerator(nsAHttpTransaction *,
                                                     nsAutoPtr<SpdyStream3> &,
@@ -345,6 +351,9 @@ private:
   PRIntervalTime       mLastDataReadEpoch; // used for IdleTime()
   PRIntervalTime       mPingSentEpoch;
   uint32_t             mNextPingID;
+
+  // used as a temporary buffer while enumerating the stream hash during GoAway
+  nsDeque  mGoAwayStreamsToRestart;
 };
 
 }} // namespace mozilla::net

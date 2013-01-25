@@ -61,6 +61,8 @@
 #include "Navigator.h"
 #include "nsDOMStorageBaseDB.h"
 
+#include "AudioChannelService.h"
+
 #ifdef MOZ_XUL
 #include "nsXULPopupManager.h"
 #include "nsXULContentUtils.h"
@@ -77,8 +79,17 @@
 #include "MediaPluginHost.h"
 #endif
 
+#ifdef MOZ_WMF
+#include "WMFDecoder.h"
+#endif
+
 #ifdef MOZ_SYDNEYAUDIO
 #include "AudioStream.h"
+#endif
+
+#ifdef MOZ_WIDGET_GONK
+#include "nsVolumeService.h"
+using namespace mozilla::system;
 #endif
 
 #include "nsError.h"
@@ -254,7 +265,7 @@ nsLayoutStatics::Initialize()
 
   InitProcessPriorityManager();
 
-  nsPermissionManager::AppUninstallObserverInit();
+  nsPermissionManager::AppClearDataObserverInit();
   nsCookieService::AppClearDataObserverInit();
   nsApplicationCacheService::AppClearDataObserverInit();
 
@@ -332,15 +343,23 @@ nsLayoutStatics::Shutdown()
   FrameLayerBuilder::Shutdown();
 
 #ifdef MOZ_MEDIA_PLUGINS
-  MediaPluginHost::Shutdown();  
+  MediaPluginHost::Shutdown();
 #endif
 
 #ifdef MOZ_SYDNEYAUDIO
   AudioStream::ShutdownLibrary();
 #endif
 
+#ifdef MOZ_WMF
+  WMFDecoder::UnloadDLLs();
+#endif
+
+#ifdef MOZ_WIDGET_GONK
+  nsVolumeService::Shutdown();
+#endif
+
   nsCORSListenerProxy::Shutdown();
-  
+
   nsIPresShell::ReleaseStatics();
 
   nsTreeSanitizer::ReleaseStatics();
@@ -361,5 +380,9 @@ nsLayoutStatics::Shutdown()
   nsEditorSpellCheck::ShutDown();
   nsDOMMutationObserver::Shutdown();
 
+  AudioChannelService::Shutdown();
+
   ContentParent::ShutDown();
+
+  nsRefreshDriver::Shutdown();
 }

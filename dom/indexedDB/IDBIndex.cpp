@@ -414,6 +414,7 @@ IDBIndex::~IDBIndex()
   NS_ASSERTION(!mActorParent, "Actor parent owns us, how can we be dying?!");
 
   if (mRooted) {
+    mCachedKeyPath = JSVAL_VOID;
     NS_DROP_JS_OBJECTS(this, IDBIndex);
   }
 
@@ -668,8 +669,6 @@ IDBIndex::OpenCursorFromChildProcess(
   cursor.forget(_retval);
   return NS_OK;
 }
-
-NS_IMPL_CYCLE_COLLECTION_CLASS(IDBIndex)
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(IDBIndex)
   NS_IMPL_CYCLE_COLLECTION_TRACE_JSVAL_MEMBER_CALLBACK(mCachedKeyPath)
@@ -1667,7 +1666,7 @@ GetAllHelper::UnpackResponseFromParentProcess(
 
   for (uint32_t index = 0; index < cloneInfos.Length(); index++) {
     const SerializedStructuredCloneReadInfo srcInfo = cloneInfos[index];
-    const InfallibleTArray<PBlobChild*> blobs = blobArrays[index].blobsChild();
+    const InfallibleTArray<PBlobChild*>& blobs = blobArrays[index].blobsChild();
 
     StructuredCloneReadInfo* destInfo = mCloneReadInfos.AppendElement();
     if (!destInfo->SetFromSerialized(srcInfo)) {

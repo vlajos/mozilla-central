@@ -27,8 +27,8 @@ JS_STATIC_ASSERT(offsetof(JSRuntime, mainThread) == sizeof(RuntimeFriendFields))
 
 PerThreadDataFriendFields::PerThreadDataFriendFields()
 {
-#if defined(JSGC_ROOT_ANALYSIS) || defined(JSGC_USE_EXACT_ROOTING)
-    PodArrayZero(thingGCRooters);
+#if defined(DEBUG) && defined(JS_GC_ZEAL) && defined(JSGC_ROOT_ANALYSIS) && !defined(JS_THREADSAFE)
+    skipGCRooters = NULL;
 #endif
 }
 
@@ -116,8 +116,16 @@ JS_NewObjectWithUniqueType(JSContext *cx, JSClass *clasp, JSObject *protoArg, JS
 {
     RootedObject proto(cx, protoArg);
     RootedObject parent(cx, parentArg);
-    RootedObject obj(cx, JS_NewObject(cx, clasp, proto, parent));
+    /*
+     * Create our object with a null proto and then splice in the correct proto
+     * after we setSingletonType, so that we don't pollute the default
+     * TypeObject attached to our proto with information about our object, since
+     * we're not going to be using that TypeObject anyway.
+     */
+    RootedObject obj(cx, JS_NewObjectWithGivenProto(cx, clasp, NULL, parent));
     if (!obj || !JSObject::setSingletonType(cx, obj))
+        return NULL;
+    if (!JS_SplicePrototype(cx, obj, proto))
         return NULL;
     return obj;
 }
@@ -248,7 +256,7 @@ JS_WrapAutoIdVector(JSContext *cx, js::AutoIdVector &props)
 JS_FRIEND_API(void)
 JS_TraceShapeCycleCollectorChildren(JSTracer *trc, void *shape)
 {
-    MarkCycleCollectorChildren(trc, (Shape *)shape);
+    MarkCycleCollectorChildren(trc, static_cast<RawShape>(shape));
 }
 
 static bool
@@ -296,18 +304,18 @@ JS_DefineFunctionsWithHelp(JSContext *cx, JSObject *objArg, const JSFunctionSpec
 }
 
 AutoSwitchCompartment::AutoSwitchCompartment(JSContext *cx, JSCompartment *newCompartment
-                                             JS_GUARD_OBJECT_NOTIFIER_PARAM_NO_INIT)
+                                             MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
   : cx(cx), oldCompartment(cx->compartment)
 {
-    JS_GUARD_OBJECT_NOTIFIER_INIT;
+    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     cx->setCompartment(newCompartment);
 }
 
 AutoSwitchCompartment::AutoSwitchCompartment(JSContext *cx, JSHandleObject target
-                                             JS_GUARD_OBJECT_NOTIFIER_PARAM_NO_INIT)
+                                             MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
   : cx(cx), oldCompartment(cx->compartment)
 {
-    JS_GUARD_OBJECT_NOTIFIER_INIT;
+    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     cx->setCompartment(target->compartment());
 }
 
@@ -368,7 +376,7 @@ js::IsObjectInContextCompartment(RawObject obj, const JSContext *cx)
 JS_FRIEND_API(bool)
 js::IsOriginalScriptFunction(JSFunction *fun)
 {
-    return fun->script()->function() == fun;
+    return fun->nonLazyScript()->function() == fun;
 }
 
 JS_FRIEND_API(JSScript *)
@@ -381,9 +389,9 @@ js::GetOutermostEnclosingFunctionOfScriptedCaller(JSContext *cx)
     if (!fp->isFunctionFrame())
         return NULL;
 
-    JSFunction *scriptedCaller = fp->fun();
-    RootedScript outermost(cx, scriptedCaller->script());
-    for (StaticScopeIter i(scriptedCaller); !i.done(); i++) {
+    RootedFunction scriptedCaller(cx, fp->fun());
+    RootedScript outermost(cx, scriptedCaller->nonLazyScript());
+    for (StaticScopeIter i(cx, scriptedCaller); !i.done(); i++) {
         if (i.type() == StaticScopeIter::FUNCTION)
             outermost = i.funScript();
     }
@@ -402,7 +410,7 @@ js::DefineFunctionWithReserved(JSContext *cx, JSObject *objArg, const char *name
     if (!atom)
         return NULL;
     Rooted<jsid> id(cx, AtomToId(atom));
-    return js_DefineFunction(cx, obj, id, call, nargs, attrs, NullPtr(), JSFunction::ExtendedFinalizeKind);
+    return js_DefineFunction(cx, obj, id, call, nargs, attrs, JSFunction::ExtendedFinalizeKind);
 }
 
 JS_FRIEND_API(JSFunction *)
@@ -549,11 +557,10 @@ js::TraceWeakMaps(WeakMapTracer *trc)
     WatchpointMap::traceAll(trc);
 }
 
-JS_FRIEND_API(bool)
-js::GCThingIsMarkedGray(void *thing)
+extern JS_FRIEND_API(bool)
+js::AreGCGrayBitsValid(JSRuntime *rt)
 {
-    JS_ASSERT(thing);
-    return reinterpret_cast<gc::Cell *>(thing)->isMarked(gc::GRAY);
+    return rt->gcGrayBitsValid;
 }
 
 JS_FRIEND_API(JSGCTraceKind)
@@ -564,15 +571,9 @@ js::GCThingTraceKind(void *thing)
 }
 
 JS_FRIEND_API(void)
-js::UnmarkGrayGCThing(void *thing)
+js::VisitGrayWrapperTargets(JSCompartment *comp, GCThingCallback callback, void *closure)
 {
-    static_cast<js::gc::Cell *>(thing)->unmark(js::gc::GRAY);
-}
-
-JS_FRIEND_API(void)
-js::VisitGrayWrapperTargets(JSCompartment *comp, GCThingCallback *callback, void *closure)
-{
-    for (WrapperMap::Enum e(comp->crossCompartmentWrappers); !e.empty(); e.popFront()) {
+    for (JSCompartment::WrapperEnum e(comp); !e.empty(); e.popFront()) {
         gc::Cell *thing = e.front().key.wrapped;
         if (thing->isMarked(gc::GRAY))
             callback(closure, thing);
@@ -763,12 +764,6 @@ js::ContextHasOutstandingRequests(const JSContext *cx)
 }
 #endif
 
-JS_FRIEND_API(JSCompartment *)
-js::GetContextCompartment(const JSContext *cx)
-{
-    return cx->compartment;
-}
-
 JS_FRIEND_API(bool)
 js::HasUnrootedGlobal(const JSContext *cx)
 {
@@ -885,18 +880,6 @@ js::IsIncrementalBarrierNeeded(JSContext *cx)
     return IsIncrementalBarrierNeeded(cx->runtime);
 }
 
-JS_FRIEND_API(bool)
-js::IsIncrementalBarrierNeededOnObject(RawObject obj)
-{
-    return obj->compartment()->needsBarrier();
-}
-
-JS_FRIEND_API(bool)
-js::IsIncrementalBarrierNeededOnScript(JSScript *script)
-{
-    return script->compartment()->needsBarrier();
-}
-
 JS_FRIEND_API(void)
 js::IncrementalReferenceBarrier(void *ptr)
 {
@@ -910,15 +893,15 @@ js::IncrementalReferenceBarrier(void *ptr)
 
     uint32_t kind = gc::GetGCThingTraceKind(ptr);
     if (kind == JSTRACE_OBJECT)
-        JSObject::writeBarrierPre((JSObject *) ptr);
+        JSObject::writeBarrierPre(reinterpret_cast<RawObject>(ptr));
     else if (kind == JSTRACE_STRING)
-        JSString::writeBarrierPre((JSString *) ptr);
+        JSString::writeBarrierPre(reinterpret_cast<RawString>(ptr));
     else if (kind == JSTRACE_SCRIPT)
-        JSScript::writeBarrierPre((JSScript *) ptr);
+        JSScript::writeBarrierPre(reinterpret_cast<RawScript>(ptr));
     else if (kind == JSTRACE_SHAPE)
-        Shape::writeBarrierPre((Shape *) ptr);
+        Shape::writeBarrierPre(reinterpret_cast<RawShape>(ptr));
     else if (kind == JSTRACE_BASE_SHAPE)
-        BaseShape::writeBarrierPre((BaseShape *) ptr);
+        BaseShape::writeBarrierPre(reinterpret_cast<RawBaseShape>(ptr));
     else if (kind == JSTRACE_TYPE_OBJECT)
         types::TypeObject::writeBarrierPre((types::TypeObject *) ptr);
     else
@@ -949,6 +932,14 @@ js::GetTestingFunctions(JSContext *cx)
 
     return obj;
 }
+
+#ifdef DEBUG
+JS_FRIEND_API(unsigned)
+js::GetEnterCompartmentDepth(JSContext *cx)
+{
+  return cx->getEnterCompartmentDepth();
+}
+#endif
 
 JS_FRIEND_API(void)
 js::SetRuntimeProfilingStack(JSRuntime *rt, ProfileEntry *stack, uint32_t *size, uint32_t max)
@@ -1000,4 +991,22 @@ uint32_t
 js::GetListBaseExpandoSlot()
 {
     return gListBaseExpandoSlot;
+}
+
+JS_FRIEND_API(void)
+js::SetCTypesActivityCallback(JSRuntime *rt, CTypesActivityCallback cb)
+{
+    rt->ctypesActivityCallback = cb;
+}
+
+js::AutoCTypesActivityCallback::AutoCTypesActivityCallback(JSContext *cx,
+                                                           js::CTypesActivityType beginType,
+                                                           js::CTypesActivityType endType
+                                                           MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+  : cx(cx), callback(cx->runtime->ctypesActivityCallback), beginType(beginType), endType(endType)
+{
+    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+
+    if (callback)
+        callback(cx, beginType);
 }

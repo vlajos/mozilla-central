@@ -45,22 +45,10 @@ public:
   virtual nsIScriptObjectPrincipal* GetObjectPrincipal();
 
   virtual nsresult EvaluateString(const nsAString& aScript,
-                                  JSObject* aScopeObject,
-                                  nsIPrincipal *principal,
-                                  nsIPrincipal *originPrincipal,
-                                  const char *aURL,
-                                  uint32_t aLineNo,
-                                  JSVersion aVersion,
-                                  nsAString *aRetValue,
-                                  bool* aIsUndefined);
-  virtual nsresult EvaluateStringWithValue(const nsAString& aScript,
-                                           JSObject* aScopeObject,
-                                           nsIPrincipal* aPrincipal,
-                                           const char* aURL,
-                                           uint32_t aLineNo,
-                                           uint32_t aVersion,
-                                           JS::Value* aRetValue,
-                                           bool* aIsUndefined);
+                                  JSObject& aScopeObject,
+                                  JS::CompileOptions &aOptions,
+                                  bool aCoerceToString,
+                                  JS::Value* aRetValue);
 
   virtual nsresult CompileScript(const PRUnichar* aText,
                                  int32_t aTextLength,
@@ -71,18 +59,8 @@ public:
                                  nsScriptObjectHolder<JSScript>& aScriptObject,
                                  bool aSaveSource = false);
   virtual nsresult ExecuteScript(JSScript* aScriptObject,
-                                 JSObject* aScopeObject,
-                                 nsAString* aRetValue,
-                                 bool* aIsUndefined);
+                                 JSObject* aScopeObject);
 
-  virtual nsresult CompileEventHandler(nsIAtom *aName,
-                                       uint32_t aArgCount,
-                                       const char** aArgNames,
-                                       const nsAString& aBody,
-                                       const char *aURL, uint32_t aLineNo,
-                                       uint32_t aVersion,
-                                       bool aIsXBL,
-                                       nsScriptObjectHolder<JSObject>& aHandler);
   virtual nsresult CallEventHandler(nsISupports* aTarget, JSObject* aScope,
                                     JSObject* aHandler,
                                     nsIArray *argv, nsIVariant **rv);
@@ -90,20 +68,9 @@ public:
                                             JSObject *aScope,
                                             JSObject* aHandler,
                                             nsScriptObjectHolder<JSObject>& aBoundHandler);
-  virtual nsresult CompileFunction(JSObject* aTarget,
-                                   const nsACString& aName,
-                                   uint32_t aArgCount,
-                                   const char** aArgArray,
-                                   const nsAString& aBody,
-                                   const char* aURL,
-                                   uint32_t aLineNo,
-                                   uint32_t aVersion,
-                                   bool aShared,
-                                   bool aIsXBL,
-                                   JSObject** aFunctionObject);
 
   virtual nsIScriptGlobalObject *GetGlobalObject();
-  inline nsIScriptGlobalObject *GetGlobalObjectRef() { return mGlobalObjectRef; };
+  inline nsIScriptGlobalObject *GetGlobalObjectRef() { return mGlobalObjectRef; }
 
   virtual JSContext* GetNativeContext();
   virtual JSObject* GetNativeGlobal();
@@ -117,6 +84,9 @@ public:
   virtual void SetScriptsEnabled(bool aEnabled, bool aFireTimeouts);
 
   virtual nsresult SetProperty(JSObject* aTarget, const char* aPropName, nsISupports* aVal);
+
+  virtual bool GetProcessingScriptTag();
+  virtual void SetProcessingScriptTag(bool aResult);
 
   virtual bool GetExecutingScript();
 
@@ -281,6 +251,7 @@ private:
   bool mIsInitialized;
   bool mScriptsEnabled;
   bool mGCOnDestruction;
+  bool mProcessingScriptTag;
 
   uint32_t mExecuteDepth;
   uint32_t mDefaultJSOptions;

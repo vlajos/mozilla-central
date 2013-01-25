@@ -21,6 +21,7 @@
 #include "nsAlgorithm.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Likely.h"
+#include <algorithm>
 
 static const char kSetIntervalStr[] = "setInterval";
 static const char kSetTimeoutStr[] = "setTimeout";
@@ -72,7 +73,6 @@ private:
 
 // nsJSScriptTimeoutHandler
 // QueryInterface implementation for nsJSScriptTimeoutHandler
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsJSScriptTimeoutHandler)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsJSScriptTimeoutHandler)
   tmp->ReleaseJSObjects();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -141,17 +141,12 @@ nsJSScriptTimeoutHandler::~nsJSScriptTimeoutHandler()
 void
 nsJSScriptTimeoutHandler::ReleaseJSObjects()
 {
-  if (mExpr || mFunObj) {
-    if (mExpr) {
-      NS_DROP_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
-      mExpr = nullptr;
-    } else if (mFunObj) {
-      NS_DROP_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
-      mFunObj = nullptr;
-    } else {
-      NS_WARNING("No func and no expr - roots may not have been removed");
-    }
+  if (mExpr) {
+    mExpr = nullptr;
+  } else {
+    mFunObj = nullptr;
   }
+  NS_DROP_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
 }
 
 nsresult
@@ -265,8 +260,7 @@ nsJSScriptTimeoutHandler::Init(nsGlobalWindow *aWindow, bool *aIsInterval,
       }
     } // if there's no document, we don't have to do anything.
 
-    rv = NS_HOLD_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
-    NS_ENSURE_SUCCESS(rv, rv);
+    NS_HOLD_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
 
     mExpr = expr;
 
@@ -276,8 +270,7 @@ nsJSScriptTimeoutHandler::Init(nsGlobalWindow *aWindow, bool *aIsInterval,
       mFileName.Assign(filename);
     }
   } else if (funobj) {
-    rv = NS_HOLD_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
-    NS_ENSURE_SUCCESS(rv, rv);
+    NS_HOLD_JS_OBJECTS(this, nsJSScriptTimeoutHandler);
 
     mFunObj = funobj;
 
@@ -286,8 +279,8 @@ nsJSScriptTimeoutHandler::Init(nsGlobalWindow *aWindow, bool *aIsInterval,
     // and the delay, so only arguments after that need to go in our
     // array.
     nsCOMPtr<nsIJSArgArray> array;
-    // NS_MAX(argc - 2, 0) wouldn't work right because argc is unsigned.
-    rv = NS_CreateJSArgv(cx, NS_MAX(argc, 2u) - 2, nullptr,
+    // std::max(argc - 2, 0) wouldn't work right because argc is unsigned.
+    rv = NS_CreateJSArgv(cx, std::max(argc, 2u) - 2, nullptr,
                          getter_AddRefs(array));
     if (NS_FAILED(rv)) {
       return NS_ERROR_OUT_OF_MEMORY;

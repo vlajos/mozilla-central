@@ -6,6 +6,7 @@
 #define DOM_CAMERA_CAMERA_RECORDER_PROFILES_H
 
 #include "nsISupportsImpl.h"
+#include "nsMimeTypes.h"
 #include "nsAutoPtr.h"
 #include "nsTArray.h"
 #include "jsapi.h"
@@ -122,6 +123,14 @@ public:
       default:        return nullptr;
     }
   }
+  const char* GetFileMimeType() const
+  {
+    switch (mFileFormat) {
+      case THREE_GPP: return VIDEO_3GPP;
+      case MPEG4:     return VIDEO_MP4;
+      default:        return nullptr;
+    }
+  }
 
   virtual nsresult GetJsObject(JSContext* aCx, JSObject** aObject) = 0;
 
@@ -219,6 +228,6 @@ protected:
   uint32_t mMaxQualityIndex;
 };
 
-}; // namespace mozilla
+} // namespace mozilla
 
 #endif // DOM_CAMERA_CAMERA_RECORDER_PROFILES_H

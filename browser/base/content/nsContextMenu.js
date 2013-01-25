@@ -57,6 +57,7 @@ nsContextMenu.prototype = {
     this.initClipboardItems();
     this.initMediaPlayerItems();
     this.initLeaveDOMFullScreenItems();
+    this.initClickToPlayItems();
   },
 
   initPageMenuSeparator: function CM_initPageMenuSeparator() {
@@ -138,7 +139,13 @@ nsContextMenu.prototype = {
     }
 
     var shouldShow = this.onSaveableLink || isMailtoInternal || this.onPlainTextLink;
+#ifdef MOZ_PER_WINDOW_PRIVATE_BROWSING
+    var isWindowPrivate = PrivateBrowsingUtils.isWindowPrivate(window);
+    this.showItem("context-openlink", shouldShow && !isWindowPrivate);
+    this.showItem("context-openlinkprivate", shouldShow);
+#else
     this.showItem("context-openlink", shouldShow);
+#endif
     this.showItem("context-openlinkintab", shouldShow);
     this.showItem("context-openlinkincurrent", this.onPlainTextLink);
     this.showItem("context-sep-open", shouldShow);
@@ -411,13 +418,21 @@ nsContextMenu.prototype = {
     this.showItem("context-media-sep-commands",  onMedia);
   },
 
+  initClickToPlayItems: function() {
+    this.showItem("context-ctp-play", this.onCTPPlugin);
+    this.showItem("context-ctp-hide", this.onCTPPlugin);
+    this.showItem("context-sep-ctp", this.onCTPPlugin);
+  },
+
   inspectNode: function CM_inspectNode() {
-    if (InspectorUI.isTreePanelOpen) {
-      InspectorUI.inspectNode(this.target);
-      InspectorUI.stopInspecting();
-    } else {
-      InspectorUI.openInspectorUI(this.target);
-    }
+    let gBrowser = this.browser.ownerDocument.defaultView.gBrowser;
+    let imported = {};
+    Cu.import("resource:///modules/devtools/Target.jsm", imported);
+    let tt = imported.TargetFactory.forTab(gBrowser.selectedTab);
+    return gDevTools.showToolbox(tt, "inspector").then(function(toolbox) {
+      let inspector = toolbox.getCurrentPanel();
+      inspector.selection.setNode(this.target, "browser-context-menu");
+    }.bind(this));
   },
 
   // Set various context menu attributes based on the state of the world.
@@ -425,7 +440,7 @@ nsContextMenu.prototype = {
     const xulNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
     if (aNode.namespaceURI == xulNS ||
         aNode.nodeType == Node.DOCUMENT_NODE ||
-        this.isTargetAFormControl(aNode)) {
+        this.isDisabledForEvents(aNode)) {
       this.shouldDisplay = false;
       return;
     }
@@ -454,6 +469,7 @@ nsContextMenu.prototype = {
     this.bgImageURL        = "";
     this.onEditableArea    = false;
     this.isDesignMode      = false;
+    this.onCTPPlugin       = false;
 
     // Remember the node that was clicked.
     this.target = aNode;
@@ -530,6 +546,12 @@ nsContextMenu.prototype = {
                                               computedURL);
           }
         }
+      }
+      else if ((this.target instanceof HTMLEmbedElement ||
+                this.target instanceof HTMLObjectElement ||
+                this.target instanceof HTMLAppletElement) &&
+               this.target.mozMatchesSelector(":-moz-handler-clicktoplay")) {
+        this.onCTPPlugin = true;
       }
     }
 
@@ -674,6 +696,16 @@ nsContextMenu.prototype = {
     openLinkIn(this.linkURL, "window",
                { charset: doc.characterSet,
                  referrerURI: doc.documentURIObject });
+  },
+
+  // Open linked-to URL in a new private window.
+  openLinkInPrivateWindow : function () {
+    var doc = this.target.ownerDocument;
+    urlSecurityCheck(this.linkURL, doc.nodePrincipal);
+    openLinkIn(this.linkURL, "window",
+               { charset: doc.characterSet,
+                 referrerURI: doc.documentURIObject,
+                 private: true });
   },
 
   // Open linked-to URL in a new tab.
@@ -1091,6 +1123,14 @@ nsContextMenu.prototype = {
     MailIntegration.sendMessage(this.mediaURL, "");
   },
 
+  playPlugin: function() {
+    gPluginHandler.activateSinglePlugin(this.target.ownerDocument.defaultView.top, this.target);
+  },
+
+  hidePlugin: function() {
+    gPluginHandler.hideClickToPlayOverlay(this.target);
+  },
+
   // Generate email address and put it on clipboard.
   copyEmail: function() {
     // Copy the comma-separated list of email addresses only.
@@ -1273,16 +1313,14 @@ nsContextMenu.prototype = {
            "contextMenu.hasBGImage = " + this.hasBGImage + "\n";
   },
 
-  // Returns true if aNode is a from control (except text boxes and images).
-  // This is used to disable the context menu for form controls.
-  isTargetAFormControl: function(aNode) {
-    if (aNode instanceof HTMLInputElement)
-      return (!aNode.mozIsTextField(false) && aNode.type != "image");
-
-    return (aNode instanceof HTMLButtonElement) ||
-           (aNode instanceof HTMLSelectElement) ||
-           (aNode instanceof HTMLOptionElement) ||
-           (aNode instanceof HTMLOptGroupElement);
+  isDisabledForEvents: function(aNode) {
+    let ownerDoc = aNode.ownerDocument;
+    return
+      ownerDoc.defaultView &&
+      ownerDoc.defaultView
+              .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+              .getInterface(Components.interfaces.nsIDOMWindowUtils)
+              .isNodeDisabledForEvents(aNode);
   },
 
   isTargetATextBox: function(node) {

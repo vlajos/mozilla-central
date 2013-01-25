@@ -13,7 +13,6 @@
 
 #include "jsalloc.h"
 #include "jsfriendapi.h"
-#include "jsprvtd.h"
 
 #include "ds/LifoAlloc.h"
 #include "gc/Barrier.h"
@@ -21,9 +20,7 @@
 #include "js/HashTable.h"
 #include "js/Vector.h"
 
-namespace JS {
-struct TypeInferenceSizes;
-}
+ForwardDeclareJS(Script);
 
 namespace js {
 
@@ -51,7 +48,7 @@ class TaggedProto
 template <>
 struct RootKind<TaggedProto>
 {
-    static ThingRootKind rootKind() { return THING_ROOT_OBJECT; };
+    static ThingRootKind rootKind() { return THING_ROOT_OBJECT; }
 };
 
 template <> struct RootMethods<const TaggedProto>
@@ -375,8 +372,8 @@ enum {
         OBJECT_FLAG_PROPERTY_COUNT_MASK >> OBJECT_FLAG_PROPERTY_COUNT_SHIFT,
 
     /*
-     * Some objects are not dense arrays, or are dense arrays whose length
-     * property does not fit in an int32_t.
+     * Whether any objects this represents are not arrays, are arrays whose
+     * length does not fit in an int32_t, or are arrays with sparse indexes.
      */
     OBJECT_FLAG_NON_DENSE_ARRAY       = 0x00010000,
 
@@ -401,8 +398,11 @@ enum {
     /* For a global object, whether flags were set on the RegExpStatics. */
     OBJECT_FLAG_REGEXP_FLAGS_SET      = 0x00800000,
 
+    /* Whether any objects emulate undefined; see EmulatesUndefined. */
+    OBJECT_FLAG_EMULATES_UNDEFINED    = 0x01000000,
+
     /* Flags which indicate dynamic properties of represented objects. */
-    OBJECT_FLAG_DYNAMIC_MASK          = 0x00ff0000,
+    OBJECT_FLAG_DYNAMIC_MASK          = 0x01ff0000,
 
     /*
      * Whether all properties of this object are considered unknown.
@@ -444,7 +444,7 @@ class TypeSet
     inline void sweep(JSCompartment *compartment);
 
     /* Whether this set contains a specific type. */
-    inline bool hasType(Type type);
+    inline bool hasType(Type type) const;
 
     TypeFlags baseFlags() const { return flags & TYPE_FLAG_BASE_MASK; }
     bool unknown() const { return !!(flags & TYPE_FLAG_UNKNOWN); }
@@ -467,6 +467,12 @@ class TypeSet
     }
 
     /*
+     * Clone a type set into an arbitrary allocator. The result should not be
+     * modified further.
+     */
+    const StackTypeSet *clone(LifoAlloc *alloc) const;
+
+    /*
      * Add a type to this set, calling any constraint handlers if this is a new
      * possible type.
      */
@@ -480,10 +486,10 @@ class TypeSet
      * in the hash case (see SET_ARRAY_SIZE in jsinferinlines.h), and getObject
      * may return NULL.
      */
-    inline unsigned getObjectCount();
-    inline TypeObjectKey *getObject(unsigned i);
-    inline RawObject getSingleObject(unsigned i);
-    inline TypeObject *getTypeObject(unsigned i);
+    inline unsigned getObjectCount() const;
+    inline TypeObjectKey *getObject(unsigned i) const;
+    inline RawObject getSingleObject(unsigned i) const;
+    inline TypeObject *getTypeObject(unsigned i) const;
 
     void setOwnProperty(bool configurable) {
         flags |= TYPE_FLAG_OWN_PROPERTY;
@@ -540,9 +546,9 @@ class StackTypeSet : public TypeSet
 
     void addSubset(JSContext *cx, TypeSet *target);
     void addGetProperty(JSContext *cx, HandleScript script, jsbytecode *pc,
-                        StackTypeSet *target, jsid id);
+                        StackTypeSet *target, RawId id);
     void addSetProperty(JSContext *cx, HandleScript script, jsbytecode *pc,
-                        StackTypeSet *target, jsid id);
+                        StackTypeSet *target, RawId id);
     void addSetElement(JSContext *cx, HandleScript script, jsbytecode *pc,
                        StackTypeSet *objectTypes, StackTypeSet *valueTypes);
     void addCall(JSContext *cx, TypeCallsite *site);
@@ -596,13 +602,29 @@ class StackTypeSet : public TypeSet
     RawObject getSingleton();
 
     /* Whether any objects in the type set needs a barrier on id. */
-    bool propertyNeedsBarrier(JSContext *cx, jsid id);
+    bool propertyNeedsBarrier(JSContext *cx, RawId id);
+
+    /*
+     * Whether this set contains all types in other, except (possibly) the
+     * specified type.
+     */
+    bool filtersType(const StackTypeSet *other, Type type) const;
 
     /*
      * Get whether this type only contains non-string primitives:
      * null/undefined/int/double, or some combination of those.
      */
     bool knownNonStringPrimitive();
+
+    bool knownPrimitiveOrObject() {
+        TypeFlags flags = TYPE_FLAG_UNDEFINED | TYPE_FLAG_NULL | TYPE_FLAG_DOUBLE |
+                          TYPE_FLAG_INT32 | TYPE_FLAG_BOOLEAN | TYPE_FLAG_STRING |
+                          TYPE_FLAG_ANYOBJECT;
+        if (baseFlags() & (~flags & TYPE_FLAG_BASE_MASK))
+            return false;
+
+        return true;
+    }
 };
 
 /*
@@ -619,7 +641,7 @@ class HeapTypeSet : public TypeSet
 
     void addSubset(JSContext *cx, TypeSet *target);
     void addGetProperty(JSContext *cx, HandleScript script, jsbytecode *pc,
-                        StackTypeSet *target, jsid id);
+                        StackTypeSet *target, RawId id);
     void addCallProperty(JSContext *cx, HandleScript script, jsbytecode *pc, jsid id);
     void addFilterPrimitives(JSContext *cx, TypeSet *target);
     void addSubsetBarrier(JSContext *cx, HandleScript script, jsbytecode *pc, TypeSet *target);
@@ -798,7 +820,7 @@ struct Property
     inline Property(jsid id);
     inline Property(const Property &o);
 
-    static uint32_t keyBits(jsid id) { return uint32_t(JSID_BITS(id)); }
+    static uint32_t keyBits(RawId id) { return uint32_t(JSID_BITS(id)); }
     static jsid getKey(Property *p) { return p->id; }
 };
 
@@ -900,6 +922,8 @@ struct TypeObject : gc::Cell
     /* Flags for this object. */
     TypeObjectFlags flags;
 
+    static inline size_t offsetOfFlags() { return offsetof(TypeObject, flags); }
+
     /*
      * Estimate of the contribution of this object to the type sets it appears in.
      * This is the sum of the sizes of those sets at the point when the object
@@ -985,10 +1009,10 @@ struct TypeObject : gc::Cell
      * assignment, and the own types of the property will be used instead of
      * aggregate types.
      */
-    inline HeapTypeSet *getProperty(JSContext *cx, jsid id, bool own);
+    inline HeapTypeSet *getProperty(JSContext *cx, RawId id, bool own);
 
     /* Get a property only if it already exists. */
-    inline HeapTypeSet *maybeGetProperty(JSContext *cx, jsid id);
+    inline HeapTypeSet *maybeGetProperty(RawId id, JSContext *cx);
 
     inline unsigned getPropertyCount();
     inline Property *getProperty(unsigned i);
@@ -1004,7 +1028,7 @@ struct TypeObject : gc::Cell
 
     /* Helpers */
 
-    bool addProperty(JSContext *cx, jsid id, Property **pprop);
+    bool addProperty(JSContext *cx, RawId id, Property **pprop);
     bool addDefiniteProperties(JSContext *cx, HandleObject obj);
     bool matchDefiniteProperties(HandleObject obj);
     void addPrototype(JSContext *cx, TypeObject *proto);
@@ -1024,7 +1048,7 @@ struct TypeObject : gc::Cell
     inline void clearProperties();
     inline void sweep(FreeOp *fop);
 
-    void sizeOfExcludingThis(TypeInferenceSizes *sizes, JSMallocSizeOfFun mallocSizeOf);
+    size_t sizeOfExcludingThis(JSMallocSizeOfFun mallocSizeOf);
 
     /*
      * Type objects don't have explicit finalizers. Memory owned by a type
@@ -1063,7 +1087,7 @@ typedef HashSet<ReadBarriered<TypeObject>, TypeObjectEntry, SystemAllocPolicy> T
 
 /* Whether to use a new type object when calling 'new' at script/pc. */
 bool
-UseNewType(JSContext *cx, HandleScript script, jsbytecode *pc);
+UseNewType(JSContext *cx, UnrootedScript script, jsbytecode *pc);
 
 /* Whether to use a new type object for an initializer opcode at script/pc. */
 bool
@@ -1099,14 +1123,14 @@ struct TypeCallsite
     /* Type set receiving the return value of this call. */
     StackTypeSet *returnTypes;
 
-    inline TypeCallsite(JSContext *cx, JSScript *script, jsbytecode *pc,
+    inline TypeCallsite(JSContext *cx, UnrootedScript script, jsbytecode *pc,
                         bool isNew, unsigned argumentCount);
 };
 
 /* Persistent type information for a script, retained across GCs. */
 class TypeScript
 {
-    friend struct ::JSScript;
+    friend class ::JSScript;
 
     /* Analysis information for the script, cleared on each GC. */
     analyze::ScriptAnalysis *analysis;
@@ -1125,7 +1149,7 @@ class TypeScript
     /* Array of type type sets for variables and JOF_TYPESET ops. */
     TypeSet *typeArray() { return (TypeSet *) (uintptr_t(this) + sizeof(TypeScript)); }
 
-    static inline unsigned NumTypeSets(RawScript script);
+    static inline unsigned NumTypeSets(UnrootedScript script);
 
     static inline HeapTypeSet  *ReturnTypes(RawScript script);
     static inline StackTypeSet *ThisTypes(RawScript script);
@@ -1156,7 +1180,7 @@ class TypeScript
     static inline void MonitorString(JSContext *cx, HandleScript script, jsbytecode *pc);
     static inline void MonitorUnknown(JSContext *cx, HandleScript script, jsbytecode *pc);
 
-    static inline void GetPcScript(JSContext *cx, MutableHandleScript script, jsbytecode **pc);
+    static inline void GetPcScript(JSContext *cx, JSScript **script, jsbytecode **pc);
     static inline void MonitorOverflow(JSContext *cx);
     static inline void MonitorString(JSContext *cx);
     static inline void MonitorUnknown(JSContext *cx);
@@ -1374,7 +1398,7 @@ struct TypeCompartment
 
     /* Mark a script as needing recompilation once inference has finished. */
     void addPendingRecompile(JSContext *cx, const RecompileInfo &info);
-    void addPendingRecompile(JSContext *cx, HandleScript script, jsbytecode *pc);
+    void addPendingRecompile(JSContext *cx, UnrootedScript script, jsbytecode *pc);
 
     /* Monitor future effects on a bytecode. */
     void monitorBytecode(JSContext *cx, HandleScript script, uint32_t offset,

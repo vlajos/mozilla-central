@@ -171,7 +171,9 @@ EXPORTS_mozilla/layers =\
         TextureParent.h \
         RenderTrace.h \
         SharedImageUtils.h \
+        SharedRGBImage.h \
         ShmemYCbCrImage.h \
+        TaskThrottler.h \
         CompositingRenderTargetOGL.h \
         $(NULL)
 
@@ -199,6 +201,8 @@ CPPSRCS += \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
         ShmemYCbCrImage.cpp \
+        SharedRGBImage.cpp \
+        TaskThrottler.cpp \
         ImageClient.cpp \
         ImageHost.cpp \
         TextureClient.cpp \

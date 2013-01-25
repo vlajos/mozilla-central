@@ -141,7 +141,7 @@ ThebesLayerComposite::GetLayer()
 }
 
 TiledLayerComposer*
-ThebesLayerComposite::GetTiledLayerComposer()
+ThebesLayerComposite::AsTiledLayerComposer()
 {
   return mBuffer->AsTiledLayerComposer();
 }

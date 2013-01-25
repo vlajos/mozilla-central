@@ -7,6 +7,7 @@
 #ifndef __IPC_GLUE_IPCMESSAGEUTILS_H__
 #define __IPC_GLUE_IPCMESSAGEUTILS_H__
 
+#include "base/process_util.h"
 #include "chrome/common/ipc_message_utils.h"
 
 #include "mozilla/TimeStamp.h"
@@ -147,6 +148,13 @@ struct EnumSerializer {
     return true;
   }
 };
+
+template <>
+struct ParamTraits<base::ChildPrivileges>
+  : public EnumSerializer<base::ChildPrivileges,
+                          base::PRIVILEGES_DEFAULT,
+                          base::PRIVILEGES_LAST>
+{ };
 
 template<>
 struct ParamTraits<int8_t>
@@ -337,10 +345,10 @@ struct ParamTraits<nsString> : ParamTraits<nsAString>
   typedef nsString paramType;
 };
 
-template <typename E, class A>
-struct ParamTraits<nsTArray<E, A> >
+template <typename E>
+struct ParamTraits<FallibleTArray<E> >
 {
-  typedef nsTArray<E, A> paramType;
+  typedef FallibleTArray<E> paramType;
 
   static void Write(Message* aMsg, const paramType& aParam)
   {
@@ -381,17 +389,19 @@ struct ParamTraits<nsTArray<E, A> >
 };
 
 template<typename E>
-struct ParamTraits<InfallibleTArray<E> > :
-  ParamTraits<nsTArray<E, nsTArrayInfallibleAllocator> >
+struct ParamTraits<InfallibleTArray<E> >
 {
   typedef InfallibleTArray<E> paramType;
 
-  // use nsTArray Write() method
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
+    WriteParam(aMsg, static_cast<const FallibleTArray<E>&>(aParam));
+  }
 
   // deserialize the array fallibly, but return an InfallibleTArray
   static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
   {
-    nsTArray<E> temp;
+    FallibleTArray<E> temp;
     if (!ReadParam(aMsg, aIter, &temp))
       return false;
 
@@ -399,7 +409,10 @@ struct ParamTraits<InfallibleTArray<E> > :
     return true;
   }
 
-  // use nsTArray Log() method
+  static void Log(const paramType& aParam, std::wstring* aLog)
+  {
+    LogParam(static_cast<const FallibleTArray<E>&>(aParam), aLog);
+  }
 };
 
 template<>
@@ -966,6 +979,7 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
     WriteParam(aMsg, aParam.mContentRect);
     WriteParam(aMsg, aParam.mScrollOffset);
     WriteParam(aMsg, aParam.mDisplayPort);
+    WriteParam(aMsg, aParam.mCriticalDisplayPort);
     WriteParam(aMsg, aParam.mCompositionBounds);
     WriteParam(aMsg, aParam.mScrollId);
     WriteParam(aMsg, aParam.mResolution);
@@ -981,6 +995,7 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
             ReadParam(aMsg, aIter, &aResult->mContentRect) &&
             ReadParam(aMsg, aIter, &aResult->mScrollOffset) &&
             ReadParam(aMsg, aIter, &aResult->mDisplayPort) &&
+            ReadParam(aMsg, aIter, &aResult->mCriticalDisplayPort) &&
             ReadParam(aMsg, aIter, &aResult->mCompositionBounds) &&
             ReadParam(aMsg, aIter, &aResult->mScrollId) &&
             ReadParam(aMsg, aIter, &aResult->mResolution) &&

@@ -8,6 +8,9 @@
 /*
  * JS debugging API.
  */
+
+#include "mozilla/DebugOnly.h"
+
 #include <string.h>
 #include "jsprvtd.h"
 #include "jstypes.h"
@@ -33,7 +36,6 @@
 #include "frontend/BytecodeEmitter.h"
 #include "frontend/Parser.h"
 #include "vm/Debugger.h"
-#include "ion/Ion.h"
 
 #include "jsatominlines.h"
 #include "jsinferinlines.h"
@@ -45,7 +47,6 @@
 #include "vm/Stack-inl.h"
 
 #include "jsautooplen.h"
-#include "mozilla/Util.h"
 
 using namespace js;
 using namespace js::gc;
@@ -71,16 +72,18 @@ JS_SetRuntimeDebugMode(JSRuntime *rt, JSBool debug)
 }
 
 JSTrapStatus
-js::ScriptDebugPrologue(JSContext *cx, StackFrame *fp)
+js::ScriptDebugPrologue(JSContext *cx, AbstractFramePtr frame)
 {
-    JS_ASSERT(fp == cx->fp());
+    JS_ASSERT_IF(frame.isStackFrame(), frame.asStackFrame() == cx->fp());
 
-    if (fp->isFramePushedByExecute()) {
+    if (frame.isFramePushedByExecute()) {
         if (JSInterpreterHook hook = cx->runtime->debugHooks.executeHook)
-            fp->setHookData(hook(cx, Jsvalify(fp), true, 0, cx->runtime->debugHooks.executeHookData));
+            frame.setHookData(hook(cx, Jsvalify(frame.asStackFrame()), true, 0,
+                                   cx->runtime->debugHooks.executeHookData));
     } else {
         if (JSInterpreterHook hook = cx->runtime->debugHooks.callHook)
-            fp->setHookData(hook(cx, Jsvalify(fp), true, 0, cx->runtime->debugHooks.callHookData));
+            frame.setHookData(hook(cx, Jsvalify(frame.asStackFrame()), true, 0,
+                                   cx->runtime->debugHooks.callHookData));
     }
 
     Value rval;
@@ -95,7 +98,7 @@ js::ScriptDebugPrologue(JSContext *cx, StackFrame *fp)
         cx->clearPendingException();
         break;
       case JSTRAP_RETURN:
-        fp->setReturnValue(rval);
+        frame.setReturnValue(rval);
         break;
       default:
         JS_NOT_REACHED("bad Debugger::onEnterFrame JSTrapStatus value");
@@ -104,22 +107,64 @@ js::ScriptDebugPrologue(JSContext *cx, StackFrame *fp)
 }
 
 bool
-js::ScriptDebugEpilogue(JSContext *cx, StackFrame *fp, bool okArg)
+js::ScriptDebugEpilogue(JSContext *cx, AbstractFramePtr frame, bool okArg)
 {
-    JS_ASSERT(fp == cx->fp());
+    JS_ASSERT_IF(frame.isStackFrame(), frame.asStackFrame() == cx->fp());
     JSBool ok = okArg;
 
-    if (void *hookData = fp->maybeHookData()) {
-        if (fp->isFramePushedByExecute()) {
+    if (void *hookData = frame.maybeHookData()) {
+        if (frame.isFramePushedByExecute()) {
             if (JSInterpreterHook hook = cx->runtime->debugHooks.executeHook)
-                hook(cx, Jsvalify(fp), false, &ok, hookData);
+                hook(cx, Jsvalify(frame.asStackFrame()), false, &ok, hookData);
         } else {
             if (JSInterpreterHook hook = cx->runtime->debugHooks.callHook)
-                hook(cx, Jsvalify(fp), false, &ok, hookData);
+                hook(cx, Jsvalify(frame.asStackFrame()), false, &ok, hookData);
         }
     }
 
     return Debugger::onLeaveFrame(cx, ok);
+}
+
+JSTrapStatus
+js::DebugExceptionUnwind(JSContext *cx, AbstractFramePtr frame, jsbytecode *pc)
+{
+    JS_ASSERT(cx->compartment->debugMode());
+
+    if (!cx->runtime->debugHooks.throwHook && cx->compartment->getDebuggees().empty())
+        return JSTRAP_CONTINUE;
+
+    /* Call debugger throw hook if set. */
+    Value rval;
+    JSTrapStatus status = Debugger::onExceptionUnwind(cx, &rval);
+    if (status == JSTRAP_CONTINUE) {
+        if (JSThrowHook handler = cx->runtime->debugHooks.throwHook) {
+            RootedScript script(cx, frame.script());
+            status = handler(cx, script, pc, &rval, cx->runtime->debugHooks.throwHookData);
+        }
+    }
+
+    switch (status) {
+      case JSTRAP_ERROR:
+        cx->clearPendingException();
+        break;
+
+      case JSTRAP_RETURN:
+        cx->clearPendingException();
+        frame.setReturnValue(rval);
+        break;
+
+      case JSTRAP_THROW:
+        cx->setPendingException(rval);
+        break;
+
+      case JSTRAP_CONTINUE:
+        break;
+
+      default:
+        JS_NOT_REACHED("Invalid trap status");
+    }
+
+    return status;
 }
 
 JS_FRIEND_API(JSBool)
@@ -259,7 +304,7 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id,
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_CANT_WATCH_PROP);
         return false;
     } else {
-        if (!ValueToId(cx, IdToValue(id), propid.address()))
+        if (!ValueToId(cx, IdToValue(id), &propid))
             return false;
     }
 
@@ -275,6 +320,13 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id,
                              obj->getClass()->name);
         return false;
     }
+
+    /*
+     * Use sparse indexes for watched objects, as dense elements can be written
+     * to without checking the watchpoint map.
+     */
+    if (!JSObject::sparsifyDenseElements(cx, obj))
+        return false;
 
     types::MarkTypePropertyConfigured(cx, obj, propid);
 
@@ -324,7 +376,7 @@ JS_ClearAllWatchPoints(JSContext *cx)
 /************************************************************************/
 
 JS_PUBLIC_API(unsigned)
-JS_PCToLineNumber(JSContext *cx, JSScript *script, jsbytecode *pc)
+JS_PCToLineNumber(JSContext *cx, RawScript script, jsbytecode *pc)
 {
     return js::PCToLineNumber(script, pc);
 }
@@ -401,13 +453,13 @@ JS_GetFunctionArgumentCount(JSContext *cx, JSFunction *fun)
 JS_PUBLIC_API(JSBool)
 JS_FunctionHasLocalNames(JSContext *cx, JSFunction *fun)
 {
-    return fun->script()->bindings.count() > 0;
+    return fun->nonLazyScript()->bindings.count() > 0;
 }
 
 extern JS_PUBLIC_API(uintptr_t *)
 JS_GetFunctionLocalNameArray(JSContext *cx, JSFunction *fun, void **markp)
 {
-    RootedScript script(cx, fun->script());
+    RootedScript script(cx, fun->nonLazyScript());
     BindingVector bindings(cx);
     if (!FillBindingVector(script, &bindings))
         return NULL;
@@ -448,8 +500,19 @@ JS_ReleaseFunctionLocalNameArray(JSContext *cx, void *mark)
 JS_PUBLIC_API(JSScript *)
 JS_GetFunctionScript(JSContext *cx, JSFunction *fun)
 {
-    AutoAssertNoGC nogc;
-    return fun->maybeScript().get(nogc);
+    if (fun->isNative())
+        return NULL;
+    UnrootedScript script;
+    if (fun->isInterpretedLazy()) {
+        RootedFunction rootedFun(cx, fun);
+        AutoCompartment funCompartment(cx, rootedFun);
+        script = JSFunction::getOrCreateScript(cx, rootedFun);
+        if (!script)
+            MOZ_CRASH();
+    } else {
+        script = fun->nonLazyScript();
+    }
+    return script;
 }
 
 JS_PUBLIC_API(JSNative)
@@ -497,8 +560,7 @@ JS_BrokenFrameIterator(JSContext *cx, JSStackFrame **iteratorp)
 JS_PUBLIC_API(JSScript *)
 JS_GetFrameScript(JSContext *cx, JSStackFrame *fpArg)
 {
-    AutoAssertNoGC nogc;
-    return Valueify(fpArg)->script().get(nogc);
+    return Valueify(fpArg)->script();
 }
 
 JS_PUBLIC_API(jsbytecode *)
@@ -512,45 +574,6 @@ JS_GetFramePC(JSContext *cx, JSStackFrame *fpArg)
      * recursion and a backtrace.
      */
     return Valueify(fpArg)->pcQuadratic(cx->stack, 100);
-}
-
-JS_PUBLIC_API(void *)
-JS_GetFrameAnnotation(JSContext *cx, JSStackFrame *fpArg)
-{
-    StackFrame *fp = Valueify(fpArg);
-    if (fp->annotation() && fp->scopeChain()->compartment()->principals) {
-        /*
-         * Give out an annotation only if privileges have not been revoked
-         * or disabled globally.
-         */
-        return fp->annotation();
-    }
-
-    return NULL;
-}
-
-JS_PUBLIC_API(void)
-JS_SetTopFrameAnnotation(JSContext *cx, void *annotation)
-{
-    AutoAssertNoGC nogc;
-    StackFrame *fp = cx->fp();
-    JS_ASSERT_IF(fp->beginsIonActivation(), !fp->annotation());
-
-    // Note that if this frame is running in Ion, the actual calling frame
-    // could be inlined or a callee and thus we won't have a correct |fp|.
-    // To account for this, ion::InvalidationBailout will transfer an
-    // annotation from the old cx->fp() to the new top frame. This works
-    // because we will never EnterIon on a frame with an annotation.
-    fp->setAnnotation(annotation);
-
-    RawScript script = fp->script().get(nogc);
-
-    ReleaseAllJITCode(cx->runtime->defaultFreeOp());
-
-    // Ensure that we'll never try to compile this again.
-    JS_ASSERT(!script->hasAnyIonScript());
-    script->ion = ION_DISABLED_SCRIPT;
-    script->parallelIon = ION_DISABLED_SCRIPT;
 }
 
 JS_PUBLIC_API(JSObject *)
@@ -800,7 +823,7 @@ JS_EvaluateInStackFrame(JSContext *cx, JSStackFrame *fp,
 /* This all should be reworked to avoid requiring JSScopeProperty types. */
 
 static JSBool
-GetPropertyDesc(JSContext *cx, JSObject *obj_, Shape *shape, JSPropertyDesc *pd)
+GetPropertyDesc(JSContext *cx, JSObject *obj_, HandleShape shape, JSPropertyDesc *pd)
 {
     assertSameCompartment(cx, obj_);
     pd->id = IdToJsval(shape->propid());
@@ -903,7 +926,7 @@ JS_GetPropertyDescArray(JSContext *cx, JSObject *obj_, JSPropertyDescArray *pda)
             goto bad;
         if (!js_AddRoot(cx, &pd[i].value, NULL))
             goto bad;
-        Shape *shape = const_cast<Shape *>(&r.front());
+        RootedShape shape(cx, const_cast<Shape *>(&r.front()));
         if (!GetPropertyDesc(cx, obj, shape, &pd[i]))
             goto bad;
         if ((pd[i].flags & JSPD_ALIAS) && !js_AddRoot(cx, &pd[i].alias, NULL))
@@ -1013,7 +1036,7 @@ JS_GetFunctionTotalSize(JSContext *cx, JSFunction *fun)
     size_t nbytes = sizeof *fun;
     nbytes += JS_GetObjectTotalSize(cx, fun);
     if (fun->isInterpreted())
-        nbytes += JS_GetScriptTotalSize(cx, fun->script().get(nogc));
+        nbytes += JS_GetScriptTotalSize(cx, fun->nonLazyScript());
     if (fun->displayAtom())
         nbytes += GetAtomTotalSize(cx, fun->displayAtom());
     return nbytes;
@@ -1205,8 +1228,8 @@ JS::DescribeStack(JSContext *cx, unsigned maxFrames)
 
     for (ScriptFrameIter i(cx); !i.done(); ++i) {
         FrameDescription desc;
-        desc.script = i.script().get(nogc);
-        desc.lineno = PCToLineNumber(i.script().get(nogc), i.pc());
+        desc.script = i.script();
+        desc.lineno = PCToLineNumber(i.script(), i.pc());
         desc.fun = i.maybeCallee();
         if (!frames.append(desc))
             return NULL;

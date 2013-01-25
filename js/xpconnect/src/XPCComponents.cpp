@@ -3044,14 +3044,6 @@ NS_IMPL_THREADSAFE_RELEASE(nsXPCComponents_utils_Sandbox)
 #define XPC_MAP_FLAGS               0
 #include "xpc_map_end.h" /* This #undef's the above. */
 
-static bool
-WrapForSandbox(JSContext *cx, bool wantXrays, jsval *vp)
-{
-    return wantXrays
-           ? JS_WrapValue(cx, vp)
-           : xpc::WrapperFactory::WaiveXrayAndWrap(cx, vp);
-}
-
 xpc::SandboxProxyHandler xpc::sandboxProxyHandler;
 
 bool
@@ -3143,18 +3135,16 @@ XPC_WN_Helper_SetProperty(JSContext *cx, JSHandleObject obj, JSHandleId id, JSBo
 
 bool
 xpc::SandboxProxyHandler::getPropertyDescriptor(JSContext *cx, JSObject *proxy,
-                                                jsid id_, bool set,
-                                                PropertyDescriptor *desc)
+                                                jsid id_,
+                                                PropertyDescriptor *desc,
+                                                unsigned flags)
 {
     js::RootedObject obj(cx, wrappedObject(proxy));
     js::RootedId id(cx, id_);
 
     MOZ_ASSERT(js::GetObjectCompartment(obj) == js::GetObjectCompartment(proxy));
-    // XXXbz Not sure about the JSRESOLVE_QUALIFIED here, but we have
-    // no way to tell for sure whether to use it.
     if (!JS_GetPropertyDescriptorById(cx, obj, id,
-                                      (set ? JSRESOLVE_ASSIGNING : 0) | JSRESOLVE_QUALIFIED,
-                                      desc))
+                                      flags, desc))
         return false;
 
     if (!desc->obj)
@@ -3194,10 +3184,11 @@ xpc::SandboxProxyHandler::getPropertyDescriptor(JSContext *cx, JSObject *proxy,
 bool
 xpc::SandboxProxyHandler::getOwnPropertyDescriptor(JSContext *cx,
                                                    JSObject *proxy,
-                                                   jsid id, bool set,
-                                                   PropertyDescriptor *desc)
+                                                   jsid id,
+                                                   PropertyDescriptor *desc,
+                                                   unsigned flags)
 {
-    if (!getPropertyDescriptor(cx, proxy, id, set, desc))
+    if (!getPropertyDescriptor(cx, proxy, id, desc, flags))
         return false;
 
     if (desc->obj != wrappedObject(proxy))
@@ -3291,7 +3282,18 @@ xpc_CreateSandboxObject(JSContext *cx, jsval *vp, nsISupports *prinOrSop, Sandbo
     sandbox = xpc::CreateGlobalObject(cx, &SandboxClass, principal);
     if (!sandbox)
         return NS_ERROR_FAILURE;
-    xpc::GetCompartmentPrivate(sandbox)->wantXrays = options.wantXrays;
+
+    // Set up the wantXrays flag, which indicates whether xrays are desired even
+    // for same-origin access.
+    //
+    // This flag has historically been ignored for chrome sandboxes due to
+    // quirks in the wrapping implementation that have now been removed. Indeed,
+    // same-origin Xrays for chrome->chrome access seems a bit superfluous.
+    // Arguably we should just flip the default for chrome and still honor the
+    // flag, but such a change would break code in subtle ways for minimal
+    // benefit. So we just switch it off here.
+    xpc::GetCompartmentPrivate(sandbox)->wantXrays =
+      AccessCheck::isChrome(sandbox) ? false : options.wantXrays;
 
     JS::AutoObjectRooter tvr(cx, sandbox);
 
@@ -3355,10 +3357,14 @@ xpc_CreateSandboxObject(JSContext *cx, jsval *vp, nsISupports *prinOrSop, Sandbo
     }
 
     if (vp) {
+        // We have this crazy behavior where wantXrays=false also implies that the
+        // returned sandbox is implicitly waived. We've stopped advertising it, but
+        // keep supporting it for now.
         *vp = OBJECT_TO_JSVAL(sandbox);
-        if (!WrapForSandbox(cx, options.wantXrays, vp)) {
+        if (options.wantXrays && !JS_WrapValue(cx, vp))
             return NS_ERROR_UNEXPECTED;
-        }
+        if (!options.wantXrays && !xpc::WrapperFactory::WaiveXrayAndWrap(cx, vp))
+            return NS_ERROR_UNEXPECTED;
     }
 
     // Set the location information for the new global, so that tools like
@@ -3863,6 +3869,7 @@ xpc_EvalInSandbox(JSContext *cx, JSObject *sandbox, const nsAString& source,
 {
     JS_AbortIfWrongThread(JS_GetRuntime(cx));
 
+    bool waiveXray = xpc::WrapperFactory::HasWaiveXrayFlag(sandbox);
     sandbox = js::UnwrapObjectChecked(sandbox);
     if (!sandbox || js::GetObjectJSClass(sandbox) != &SandboxClass) {
         return NS_ERROR_INVALID_ARG;
@@ -3977,10 +3984,11 @@ xpc_EvalInSandbox(JSContext *cx, JSObject *sandbox, const nsAString& source,
                 v = STRING_TO_JSVAL(str);
             }
 
-            CompartmentPrivate *sandboxdata = GetCompartmentPrivate(sandbox);
-            if (!WrapForSandbox(cx, sandboxdata->wantXrays, &v)) {
+            // Transitively apply Xray waivers if |sb| was waived.
+            if (waiveXray && !xpc::WrapperFactory::WaiveXrayAndWrap(cx, &v))
                 rv = NS_ERROR_FAILURE;
-            }
+            if (!waiveXray && !JS_WrapValue(cx, &v))
+                rv = NS_ERROR_FAILURE;
 
             if (NS_SUCCEEDED(rv)) {
                 *rval = v;
@@ -4049,7 +4057,7 @@ nsXPCComponents_Utils::ForceGC()
 NS_IMETHODIMP
 nsXPCComponents_Utils::ForceCC()
 {
-    nsJSContext::CycleCollectNow(nullptr, 0);
+    nsJSContext::CycleCollectNow();
     return NS_OK;
 }
 
@@ -4224,6 +4232,34 @@ nsXPCComponents_Utils::CreateArrayIn(const jsval &vobj, JSContext *cx, jsval *rv
     return NS_OK;
 }
 
+/* jsval createDateIn(in jsval vobj, in long long msec); */
+NS_IMETHODIMP
+nsXPCComponents_Utils::CreateDateIn(const jsval &vobj,
+                                    int64_t msec,
+                                    JSContext *cx, jsval *rval)
+{
+    if (!cx)
+        return NS_ERROR_FAILURE;
+
+    // first argument must be an object
+    if (JSVAL_IS_PRIMITIVE(vobj))
+        return NS_ERROR_XPC_BAD_CONVERT_JS;
+
+    JSObject *scope = js::UnwrapObject(JSVAL_TO_OBJECT(vobj));
+    JSObject *obj;
+    {
+        JSAutoCompartment ac(cx, scope);
+        obj =  JS_NewDateObjectMsec(cx, msec);
+        if (!obj)
+            return NS_ERROR_FAILURE;
+    }
+
+    if (!JS_WrapObject(cx, &obj))
+        return NS_ERROR_FAILURE;
+    *rval = OBJECT_TO_JSVAL(obj);
+    return NS_OK;
+}
+
 JSBool
 FunctionWrapper(JSContext *cx, unsigned argc, jsval *vp)
 {
@@ -4321,6 +4357,21 @@ nsXPCComponents_Utils::RecomputeWrappers(const jsval &vobj, JSContext *cx)
         js::RecomputeWrappers(cx, js::SingleCompartment(c), js::AllCompartments()) &&
         js::RecomputeWrappers(cx, js::AllCompartments(), js::SingleCompartment(c));
 
+    return NS_OK;
+}
+
+/* jsval setWantXrays(jsval vscope); */
+NS_IMETHODIMP
+nsXPCComponents_Utils::SetWantXrays(const jsval &vscope, JSContext *cx)
+{
+    if (!vscope.isObject())
+        return NS_ERROR_INVALID_ARG;
+    JSObject *scopeObj = js::UnwrapObject(&vscope.toObject());
+    JSCompartment *compartment = js::GetObjectCompartment(scopeObj);
+    EnsureCompartmentPrivate(scopeObj)->wantXrays = true;
+    bool ok = js::RecomputeWrappers(cx, js::SingleCompartment(compartment),
+                                    js::AllCompartments());
+    NS_ENSURE_TRUE(ok, NS_ERROR_FAILURE);
     return NS_OK;
 }
 
@@ -4471,6 +4522,14 @@ nsXPCComponents_Utils::NukeSandbox(const JS::Value &obj, JSContext *cx)
     NukeCrossCompartmentWrappers(cx, AllCompartments(),
                                  SingleCompartment(GetObjectCompartment(sb)),
                                  NukeWindowReferences);
+    return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXPCComponents_Utils::IsXrayWrapper(const JS::Value &obj, bool* aRetval)
+{
+    *aRetval =
+        obj.isObject() && xpc::WrapperFactory::IsXrayWrapper(&obj.toObject());
     return NS_OK;
 }
 
@@ -4777,7 +4836,7 @@ ContentComponentsGetterOp(JSContext *cx, JSHandleObject obj, JSHandleId id,
         return true;
 
     // If the caller is XBL, this is ok.
-    if (AccessCheck::callerIsXBL(cx))
+    if (nsContentUtils::IsCallerXBL())
         return true;
 
     // Do Telemetry on how often this happens.
@@ -4866,7 +4925,7 @@ nsXPCComponents::CanCallMethod(const nsIID * iid, const PRUnichar *methodName, c
     *_retval = xpc_CheckAccessList(methodName, allowed);
     if (*_retval &&
         methodName[0] == 'l' &&
-        !AccessCheck::callerIsXBL(nsContentUtils::GetCurrentJSContext()))
+        !nsContentUtils::IsCallerXBL())
     {
         Telemetry::Accumulate(Telemetry::COMPONENTS_LOOKUPMETHOD_ACCESSED_BY_CONTENT, true);
     }
@@ -4881,7 +4940,7 @@ nsXPCComponents::CanGetProperty(const nsIID * iid, const PRUnichar *propertyName
     *_retval = xpc_CheckAccessList(propertyName, allowed);
     if (*_retval &&
         propertyName[0] == 'i' &&
-        !AccessCheck::callerIsXBL(nsContentUtils::GetCurrentJSContext()))
+        !nsContentUtils::IsCallerXBL())
     {
         Telemetry::Accumulate(Telemetry::COMPONENTS_INTERFACES_ACCESSED_BY_CONTENT, true);
     }

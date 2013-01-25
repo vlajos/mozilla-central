@@ -15,6 +15,7 @@
 #include "nsGUIEvent.h"
 #include "nsAutoPtr.h"
 #include "nsIRollupListener.h"
+#include <algorithm>
 class nsIContent;
 class nsAutoRollup;
 class gfxContext;
@@ -116,9 +117,9 @@ public:
   virtual gfxASurface*    GetThebesSurface();
   NS_IMETHOD              SetModal(bool aModal); 
   NS_IMETHOD              SetWindowClass(const nsAString& xulWinType);
-  NS_IMETHOD              MoveClient(int32_t aX, int32_t aY);
-  NS_IMETHOD              ResizeClient(int32_t aWidth, int32_t aHeight, bool aRepaint);
-  NS_IMETHOD              ResizeClient(int32_t aX, int32_t aY, int32_t aWidth, int32_t aHeight, bool aRepaint);
+  NS_IMETHOD              MoveClient(double aX, double aY);
+  NS_IMETHOD              ResizeClient(double aWidth, double aHeight, bool aRepaint);
+  NS_IMETHOD              ResizeClient(double aX, double aY, double aWidth, double aHeight, bool aRepaint);
   NS_IMETHOD              GetBounds(nsIntRect &aRect);
   NS_IMETHOD              GetClientBounds(nsIntRect &aRect);
   NS_IMETHOD              GetScreenBounds(nsIntRect &aRect);
@@ -217,6 +218,7 @@ public:
     ~AutoLayerManagerSetup();
   private:
     nsBaseWidget* mWidget;
+    nsRefPtr<BasicLayerManager> mLayerManager;
   };
   friend class AutoLayerManagerSetup;
 
@@ -226,6 +228,7 @@ public:
     ~AutoUseBasicLayerManager();
   private:
     nsBaseWidget* mWidget;
+    bool mPreviousTemporarilyUseBasicLayerManager;
   };
   friend class AutoUseBasicLayerManager;
 
@@ -308,10 +311,10 @@ protected:
    */
   void ConstrainSize(int32_t* aWidth, int32_t* aHeight) const
   {
-    *aWidth = NS_MAX(mSizeConstraints.mMinSize.width,
-                     NS_MIN(mSizeConstraints.mMaxSize.width, *aWidth));
-    *aHeight = NS_MAX(mSizeConstraints.mMinSize.height,
-                      NS_MIN(mSizeConstraints.mMaxSize.height, *aHeight));
+    *aWidth = std::max(mSizeConstraints.mMinSize.width,
+                     std::min(mSizeConstraints.mMaxSize.width, *aWidth));
+    *aHeight = std::max(mSizeConstraints.mMinSize.height,
+                      std::min(mSizeConstraints.mMaxSize.height, *aHeight));
   }
 
   virtual CompositorChild* GetRemoteRenderer() MOZ_OVERRIDE;

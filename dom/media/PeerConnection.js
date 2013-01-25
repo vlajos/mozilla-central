@@ -23,9 +23,11 @@ const PC_MANAGER_CID = Components.ID("{7293e901-2be3-4c02-b4bd-cbef6fc24f78}");
 // a page is torn down. (Maps inner window ID to an array of PC objects).
 function GlobalPCList() {
   this._list = [];
+  this._networkdown = false; // XXX Need to query current state somehow
   Services.obs.addObserver(this, "inner-window-destroyed", true);
   Services.obs.addObserver(this, "profile-change-net-teardown", true);
   Services.obs.addObserver(this, "network:offline-about-to-go-offline", true);
+  Services.obs.addObserver(this, "network:offline-status-changed", true);
 }
 GlobalPCList.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIObserver,
@@ -54,13 +56,23 @@ GlobalPCList.prototype = {
   addPC: function(pc) {
     let winID = pc._winID;
     if (this._list[winID]) {
-      this._list[winID].push(pc);
+      this._list[winID].push(Components.utils.getWeakReference(pc));
     } else {
-      this._list[winID] = [pc];
+      this._list[winID] = [Components.utils.getWeakReference(pc)];
     }
+    this.removeNullRefs(winID);
+  },
+
+  removeNullRefs: function(winID) {
+    if (this._list === undefined || this._list[winID] === undefined) {
+      return;
+    }
+    this._list[winID] = this._list[winID].filter(
+      function (e,i,a) { return e.get() !== null; });
   },
 
   hasActivePeerConnection: function(winID) {
+    this.removeNullRefs(winID);
     return this._list[winID] ? true : false;
   },
 
@@ -68,10 +80,13 @@ GlobalPCList.prototype = {
     if (topic == "inner-window-destroyed") {
       let winID = subject.QueryInterface(Ci.nsISupportsPRUint64).data;
       if (this._list[winID]) {
-        this._list[winID].forEach(function(pc) {
-          pc._pc.close(false);
-          delete pc._observer;
-          pc._pc = null;
+        this._list[winID].forEach(function(pcref) {
+          let pc = pcref.get();
+          if (pc !== null) {
+            pc._pc.close(false);
+            delete pc._observer;
+            pc._pc = null;
+          }
         });
         delete this._list[winID];
       }
@@ -79,16 +94,28 @@ GlobalPCList.prototype = {
                topic == "network:offline-about-to-go-offline") {
       // Delete all peerconnections on shutdown - synchronously (we need
       // them to be done deleting transports before we return)!
-      // Also kill them if "Work Offline" is selected - more can be created 
+      // Also kill them if "Work Offline" is selected - more can be created
       // while offline, but attempts to connect them should fail.
       let array;
       while ((array = this._list.pop()) != undefined) {
-        array.forEach(function(pc) {
-          pc._pc.close(true);
-          delete pc._observer;
-          pc._pc = null;
+        array.forEach(function(pcref) {
+          let pc = pcref.get();
+          if (pc !== null) {
+            pc._pc.close(true);
+            delete pc._observer;
+            pc._pc = null;
+          }
         });
       };
+      this._networkdown = true;
+    }
+    else if (topic == "network:offline-status-changed") {
+      if (data == "offline") {
+	// this._list shold be empty here
+        this._networkdown = true;
+      } else if (data == "online") {
+        this._networkdown = false;
+      }
     }
   },
 };
@@ -114,14 +141,19 @@ IceCandidate.prototype = {
     Ci.nsIDOMRTCIceCandidate, Ci.nsIDOMGlobalObjectConstructor
   ]),
 
-  constructor: function(win, cand, mid, mline) {
+  constructor: function(win, candidateInitDict) {
     if (this._win) {
       throw new Error("Constructor already called");
     }
     this._win = win;
-    this.candidate = cand;
-    this.sdpMid = mid;
-    this.sdpMLineIndex = mline;
+    if (candidateInitDict !== undefined) {
+      this.candidate = candidateInitDict.candidate || null;
+      this.sdpMid = candidateInitDict.sdbMid || null;
+      this.sdpMLineIndex = candidateInitDict.sdpMLineIndex === null ?
+            null : candidateInitDict.sdpMLineIndex + 1;
+    } else {
+      this.candidate = this.sdpMid = this.sdpMLineIndex = null;
+    }
   }
 };
 
@@ -144,13 +176,17 @@ SessionDescription.prototype = {
     Ci.nsIDOMRTCSessionDescription, Ci.nsIDOMGlobalObjectConstructor
   ]),
 
-  constructor: function(win, type, sdp) {
+  constructor: function(win, descriptionInitDict) {
     if (this._win) {
       throw new Error("Constructor already called");
     }
     this._win = win;
-    this.type = type;
-    this.sdp = sdp;
+    if (descriptionInitDict !== undefined) {
+      this.type = descriptionInitDict.type || null;
+      this.sdp = descriptionInitDict.sdp || null;
+    } else {
+      this.type = this.sdp = null;
+    }
   },
 
   toString: function() {
@@ -184,11 +220,13 @@ function PeerConnection() {
 
   // Public attributes.
   this.onaddstream = null;
+  this.onopen = null;
   this.onremovestream = null;
   this.onicecandidate = null;
   this.onstatechange = null;
   this.ongatheringchange = null;
   this.onicechange = null;
+  this.localDescription = null;
   this.remoteDescription = null;
 
   // Data channel.
@@ -208,7 +246,9 @@ PeerConnection.prototype = {
                                     flags: Ci.nsIClassInfo.DOM_OBJECT}),
 
   QueryInterface: XPCOMUtils.generateQI([
-    Ci.nsIDOMRTCPeerConnection, Ci.nsIDOMGlobalObjectConstructor
+    Ci.nsIDOMRTCPeerConnection,
+    Ci.nsIDOMGlobalObjectConstructor,
+    Ci.nsISupportsWeakReference
   ]),
 
   // Constructor is an explicit function, because of nsIDOMGlobalObjectConstructor.
@@ -218,6 +258,9 @@ PeerConnection.prototype = {
     }
     if (this._win) {
       throw new Error("Constructor already called");
+    }
+    if (_globalPCList._networkdown) {
+      throw new Error("Can't create RTPPeerConnections when the network is down");
     }
 
     this._pc = Cc["@mozilla.org/peerconnection;1"].
@@ -306,10 +349,6 @@ PeerConnection.prototype = {
   },
 
   createOffer: function(onSuccess, onError, constraints) {
-    if (this._onCreateOfferSuccess) {
-      throw new Error("createOffer already called");
-    }
-
     if (!constraints) {
       constraints = {};
     }
@@ -329,10 +368,6 @@ PeerConnection.prototype = {
   },
 
   createAnswer: function(onSuccess, onError, constraints, provisional) {
-    if (this._onCreateAnswerSuccess) {
-      throw new Error("createAnswer already called");
-    }
-
     if (!this.remoteDescription) {
       throw new Error("setRemoteDescription not called");
     }
@@ -365,10 +400,6 @@ PeerConnection.prototype = {
   },
 
   setLocalDescription: function(desc, onSuccess, onError) {
-    if (this._onSetLocalDescriptionSuccess) {
-      throw new Error("setLocalDescription already called");
-    }
-
     this._onSetLocalDescriptionSuccess = onSuccess;
     this._onSetLocalDescriptionFailure = onError;
 
@@ -395,10 +426,6 @@ PeerConnection.prototype = {
   },
 
   setRemoteDescription: function(desc, onSuccess, onError) {
-    if (this._onSetRemoteDescriptionSuccess) {
-      throw new Error("setRemoteDescription already called");
-    }
-
     this._onSetRemoteDescriptionSuccess = onSuccess;
     this._onSetRemoteDescriptionFailure = onError;
 
@@ -416,6 +443,11 @@ PeerConnection.prototype = {
         );
         break;
     }
+
+    this.localDescription = {
+      type: desc.type, sdp: desc.sdp,
+      __exposedProps__: { type: "rw", sdp: "rw"}
+    };
 
     this.remoteDescription = {
       type: desc.type, sdp: desc.sdp,
@@ -435,15 +467,16 @@ PeerConnection.prototype = {
 
   addIceCandidate: function(cand) {
     if (!cand) {
-      throw "Invalid candidate passed to addIceCandidate!";
+      throw "NULL candidate passed to addIceCandidate!";
     }
-    if (!cand.candidate || !cand.sdpMid || !cand.sdpMLineIndex) {
+
+    if (!cand.candidate || !cand.sdpMLineIndex) {
       throw "Invalid candidate passed to addIceCandidate!";
     }
 
     this._queueOrRun({
       func: this._pc.addIceCandidate,
-      args: [cand.candidate, cand.sdpMid, cand.sdpMLineIndex],
+      args: [cand.candidate, cand.sdpMid || "", cand.sdpMLineIndex],
       wait: false
     });
   },
@@ -523,7 +556,8 @@ function PeerConnectionObserver(dompc) {
   this._dompc = dompc;
 }
 PeerConnectionObserver.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.IPeerConnectionObserver]),
+  QueryInterface: XPCOMUtils.generateQI([Ci.IPeerConnectionObserver,
+                                         Ci.nsISupportsWeakReference]),
 
   onCreateOfferSuccess: function(offer) {
     if (this._dompc._onCreateOfferSuccess) {

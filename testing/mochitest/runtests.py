@@ -246,6 +246,11 @@ class MochitestOptions(optparse.OptionParser):
                     help = "Filename of the output file where we can store a .json list of failures to be run in the future with --run-only-tests.")
     defaults["failureFile"] = None
 
+    self.add_option("--run-slower",
+                    action = "store_true", dest = "runSlower",
+                    help = "Delay execution between test files.")
+    defaults["runSlower"] = False
+
     # -h, --help are automatically handled by OptionParser
 
     self.set_defaults(**defaults)
@@ -384,6 +389,13 @@ class MochitestServer:
     
     env = self._automation.environment(xrePath = self._xrePath)
     env["XPCOM_DEBUG_BREAK"] = "warn"
+
+    # When running with an ASan build, our xpcshell server will also be ASan-enabled,
+    # thus consuming too much resources when running together with the browser on
+    # the test slaves. Try to limit the amount of resources by disabling certain
+    # features.
+    env["ASAN_OPTIONS"] = "quarantine_size=1:redzone=32"
+
     if self._automation.IS_WIN32:
       env["PATH"] = env["PATH"] + ";" + self._xrePath
 
@@ -558,7 +570,9 @@ class Mochitest(object):
 
   def buildProfile(self, options):
     """ create the profile and add optional chrome bits and files if requested """
-    self.automation.initializeProfile(options.profilePath, options.extraPrefs, useServerLocations = True)
+    self.automation.initializeProfile(options.profilePath,
+                                      options.extraPrefs,
+                                      useServerLocations=True)
     manifest = self.addChromeToProfile(options)
     self.copyExtraFilesToProfile(options)
     self.installExtensionsToProfile(options)
@@ -639,6 +653,8 @@ class Mochitest(object):
           self.urlOpts.append("runOnly=false")
       if options.failureFile:
         self.urlOpts.append("failureFile=%s" % self.getFullPath(options.failureFile))
+      if options.runSlower:
+        self.urlOpts.append("runSlower=true")
 
   def cleanup(self, manifest, options):
     """ remove temporary files and profile """
@@ -675,7 +691,7 @@ class Mochitest(object):
                                     "VMware recording: (%s)" % str(e))
       self.vmwareHelper = None
 
-  def runTests(self, options):
+  def runTests(self, options, onLaunch=None):
     """ Prepare, configure, run tests and cleanup """
     debuggerInfo = getDebuggerInfo(self.oldcwd, options.debugger, options.debuggerArgs,
                       options.debuggerInteractive);
@@ -722,13 +738,14 @@ class Mochitest(object):
     try:
       status = self.automation.runApp(testURL, browserEnv, options.app,
                                   options.profilePath, options.browserArgs,
-                                  runSSLTunnel = self.runSSLTunnel,
-                                  utilityPath = options.utilityPath,
-                                  xrePath = options.xrePath,
+                                  runSSLTunnel=self.runSSLTunnel,
+                                  utilityPath=options.utilityPath,
+                                  xrePath=options.xrePath,
                                   certPath=options.certPath,
                                   debuggerInfo=debuggerInfo,
                                   symbolsPath=options.symbolsPath,
-                                  timeout = timeout)
+                                  timeout=timeout,
+                                  onLaunch=onLaunch)
     except KeyboardInterrupt:
       self.automation.log.info("INFO | runtests.py | Received keyboard interrupt.\n");
       status = -1

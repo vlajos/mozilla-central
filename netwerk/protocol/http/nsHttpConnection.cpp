@@ -297,7 +297,7 @@ npnComplete:
 
 // called on the socket thread
 nsresult
-nsHttpConnection::Activate(nsAHttpTransaction *trans, uint8_t caps, int32_t pri)
+nsHttpConnection::Activate(nsAHttpTransaction *trans, uint32_t caps, int32_t pri)
 {
     nsresult rv;
 
@@ -358,7 +358,7 @@ failed_activation:
 }
 
 void
-nsHttpConnection::SetupNPN(uint8_t caps)
+nsHttpConnection::SetupNPN(uint32_t caps)
 {
     if (mSetupNPNCalled)                                /* do only once */
         return;
@@ -1446,6 +1446,10 @@ nsHttpConnection::SetupProxyConnect()
     request.SetVersion(gHttpHandler->HttpVersion());
     request.SetRequestURI(buf);
     request.SetHeader(nsHttp::User_Agent, gHttpHandler->UserAgent());
+
+    // a CONNECT is always persistent
+    request.SetHeader(nsHttp::Proxy_Connection, NS_LITERAL_CSTRING("keep-alive"));
+    request.SetHeader(nsHttp::Connection, NS_LITERAL_CSTRING("keep-alive"));
 
     val = mTransaction->RequestHead()->PeekHeader(nsHttp::Host);
     if (val) {

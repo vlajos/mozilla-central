@@ -9,10 +9,13 @@
 #include "cairo-xlib.h"
 #include "cairo-xlib-xrender.h"
 #include <X11/Xlibint.h>	/* For XESetCloseDisplay */
+#undef max // Xlibint.h defines this and it breaks std::max
+#undef min // Xlibint.h defines this and it breaks std::min
 
 #include "nsTArray.h"
 #include "nsAlgorithm.h"
 #include "mozilla/Preferences.h"
+#include <algorithm>
 
 using namespace mozilla;
 
@@ -23,7 +26,7 @@ using namespace mozilla;
 
 gfxXlibSurface::gfxXlibSurface(Display *dpy, Drawable drawable, Visual *visual)
     : mPixmapTaken(false), mDisplay(dpy), mDrawable(drawable)
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
     , mGLXPixmap(None)
 #endif
 {
@@ -34,7 +37,7 @@ gfxXlibSurface::gfxXlibSurface(Display *dpy, Drawable drawable, Visual *visual)
 
 gfxXlibSurface::gfxXlibSurface(Display *dpy, Drawable drawable, Visual *visual, const gfxIntSize& size)
     : mPixmapTaken(false), mDisplay(dpy), mDrawable(drawable), mSize(size)
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
     , mGLXPixmap(None)
 #endif
 {
@@ -49,7 +52,7 @@ gfxXlibSurface::gfxXlibSurface(Screen *screen, Drawable drawable, XRenderPictFor
                                const gfxIntSize& size)
     : mPixmapTaken(false), mDisplay(DisplayOfScreen(screen)),
       mDrawable(drawable), mSize(size)
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
       , mGLXPixmap(None)
 #endif
 {
@@ -67,7 +70,7 @@ gfxXlibSurface::gfxXlibSurface(cairo_surface_t *csurf)
     : mPixmapTaken(false),
       mSize(cairo_xlib_surface_get_width(csurf),
             cairo_xlib_surface_get_height(csurf))
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
       , mGLXPixmap(None)
 #endif
 {
@@ -82,7 +85,7 @@ gfxXlibSurface::gfxXlibSurface(cairo_surface_t *csurf)
 
 gfxXlibSurface::~gfxXlibSurface()
 {
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
     if (mGLXPixmap) {
         gl::sDefGLXLib.DestroyPixmap(mGLXPixmap);
     }
@@ -107,7 +110,7 @@ CreatePixmap(Screen *screen, const gfxIntSize& size, unsigned int depth,
     // X gives us a fatal error if we try to create a pixmap of width
     // or height 0
     return XCreatePixmap(dpy, relatedDrawable,
-                         NS_MAX(1, size.width), NS_MAX(1, size.height),
+                         std::max(1, size.width), std::max(1, size.height),
                          depth);
 }
 
@@ -217,7 +220,7 @@ gfxXlibSurface::CreateSimilarSurface(gfxContentType aContent,
 void
 gfxXlibSurface::Finish()
 {
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
     if (mGLXPixmap) {
         gl::sDefGLXLib.DestroyPixmap(mGLXPixmap);
         mGLXPixmap = None;
@@ -518,7 +521,7 @@ gfxXlibSurface::XRenderFormat()
     return cairo_xlib_surface_get_xrender_format(CairoSurface());
 }
 
-#if !defined(MOZ_PLATFORM_MAEMO)
+#if defined(GL_PROVIDER_GLX)
 GLXPixmap
 gfxXlibSurface::GetGLXPixmap()
 {

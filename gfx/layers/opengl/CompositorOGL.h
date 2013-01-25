@@ -52,7 +52,11 @@ public:
   {
     TextureFactoryIdentifier result;
     result.mParentBackend = LAYERS_OPENGL;
-    result.mMaxTextureSize = mGLContext->GetMaxTextureSize();
+    GLint texSize = 0;
+    mGLContext->fGetIntegerv(LOCAL_GL_MAX_TEXTURE_SIZE,
+                             &texSize);
+    MOZ_ASSERT(texSize != 0);
+    result.mMaxTextureSize = texSize;
     return result;
   }
 
@@ -89,13 +93,17 @@ public:
   {
       if (!mGLContext)
           return false;
-      int32_t maxSize = mGLContext->GetMaxTextureSize();
+      int32_t maxSize = GetMaxTextureSize();
       return aSize <= gfxIntSize(maxSize, maxSize);
   }
 
-  virtual PRInt32 GetMaxTextureSize() const
+  virtual int32_t GetMaxTextureSize() const
   {
-    return mGLContext->GetMaxTextureSize();
+    GLint texSize = 0;
+    mGLContext->fGetIntegerv(LOCAL_GL_MAX_TEXTURE_SIZE,
+                             &texSize);
+    MOZ_ASSERT(texSize != 0);
+    return texSize;
   }
 
   /**

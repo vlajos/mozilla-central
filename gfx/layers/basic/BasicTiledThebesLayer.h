@@ -14,6 +14,9 @@ namespace mozilla {
 namespace layers {
 
 
+// TODO[nrc] get (or ask nical) a diff of what happend in m-c in the last month and apply it on the branch
+// (note from nical: have fun!)
+
 
 /**
  * An implementation of ThebesLayer that ONLY supports remote

@@ -15,16 +15,25 @@ ifdef NS_TRACE_MALLOC
 tier_platform_dirs = tools/trace-malloc/lib
 endif
 
+ifdef MOZ_DMD
+tier_platform_dirs += memory/replace/dmd
+endif
+
 ifdef MOZ_TREE_FREETYPE
 tier_platform_staticdirs += modules/freetype2
 endif
 
-# this must precede xpcom
-ifdef MOZ_DMDV
-tier_platform_dirs += tools/dmdv
+tier_platform_dirs += xpcom
+
+ifndef MOZ_NATIVE_SQLITE
+tier_platform_dirs += db/sqlite3/src
 endif
 
-tier_platform_dirs += xpcom
+ifdef MOZ_PSM
+tier_platform_dirs += \
+  security/build \
+  $(NULL)
+endif
 
 tier_platform_dirs += \
 		modules/libpref \
@@ -130,12 +139,6 @@ tier_platform_dirs += \
 		$(NULL)
 endif
 
-ifdef MOZ_PSM
-tier_platform_dirs += \
-  security/build \
-  $(NULL)
-endif
-
 ifdef MOZ_WEBRTC
 tier_platform_dirs += \
   media/webrtc \
@@ -151,6 +154,12 @@ tier_platform_dirs += \
 		$(NULL)
 endif
 
+ifdef MOZ_SOUNDTOUCH
+tier_platform_dirs += \
+		media/libsoundtouch \
+		$(NULL)
+endif
+
 ifdef MOZ_CUBEB
 tier_platform_dirs += \
 		media/libcubeb \
@@ -161,7 +170,18 @@ ifdef MOZ_OMX_PLUGIN
 tier_platform_dirs += \
 		media/omx-plugin/lib/ics/libutils \
 		media/omx-plugin/lib/ics/libstagefright \
+		media/omx-plugin/lib/gb/libutils \
+		media/omx-plugin/lib/gb/libstagefright \
+		media/omx-plugin/lib/gb/libstagefright_color_conversion \
+		media/omx-plugin/lib/gb235/libstagefright \
+		media/omx-plugin/lib/froyo/libstagefright \
 		media/omx-plugin \
+		media/omx-plugin/gb \
+		media/omx-plugin/gb235 \
+		media/omx-plugin/froyo \
+		media/omx-plugin/lib/hc/libstagefright \
+		media/omx-plugin/hc \
+		media/omx-plugin/sony \
 		$(NULL)
 endif
 
@@ -244,7 +264,7 @@ ifdef MOZ_PREF_EXTENSIONS
 tier_platform_dirs += extensions/pref
 endif
 
-tier_platform_dirs += services/crypto/component
+tier_platform_dirs += services
 
 tier_platform_dirs += startupcache
 
@@ -270,6 +290,10 @@ endif
 tier_platform_dirs += toolkit/library
 
 tier_platform_dirs += xpcom/stub
+
+ifdef MOZ_REPLACE_MALLOC
+tier_platform_dirs += memory/replace
+endif
 
 ifdef NS_TRACE_MALLOC
 tier_platform_dirs += tools/trace-malloc

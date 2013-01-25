@@ -5,6 +5,7 @@
 
 #include "nsIMemoryReporter.h"
 #include "nsMemory.h"
+#include "mozilla/Base64.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/Attributes.h"
 
@@ -15,6 +16,7 @@
 #include "nsRect.h"
 
 #include "cairo.h"
+#include <algorithm>
 
 #ifdef CAIRO_HAS_WIN32_SURFACE
 #include "gfxWindowsSurface.h"
@@ -41,16 +43,14 @@
 
 #include "imgIEncoder.h"
 #include "nsComponentManagerUtils.h"
-#include "prmem.h"
 #include "nsISupportsUtils.h"
-#include "plbase64.h"
 #include "nsCOMPtr.h"
 #include "nsIConsoleService.h"
 #include "nsServiceManagerUtils.h"
 #include "nsStringGlue.h"
 #include "nsIClipboardHelper.h"
 
-using mozilla::CheckedInt;
+using namespace mozilla;
 
 static cairo_user_data_key_t gfxasurface_pointer_key;
 
@@ -649,6 +649,40 @@ gfxASurface::RecordMemoryFreed()
     }
 }
 
+size_t
+gfxASurface::SizeOfExcludingThis(nsMallocSizeOfFun aMallocSizeOf) const
+{
+    // We don't measure mSurface because cairo doesn't allow it.
+    return 0;
+}
+
+size_t
+gfxASurface::SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const
+{
+    return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
+}
+
+/* static */ uint8_t
+gfxASurface::BytesPerPixel(gfxImageFormat aImageFormat)
+{
+  switch (aImageFormat) {
+    case ImageFormatARGB32:
+      return 4;
+    case ImageFormatRGB24:
+      return 4;
+    case ImageFormatRGB16_565:
+      return 2;
+    case ImageFormatA8:
+      return 1;
+    case ImageFormatA1:
+      return 1; // Close enough
+    case ImageFormatUnknown:
+    default:
+      NS_NOTREACHED("Not really sure what you want me to say here");
+      return 0;
+  }
+}
+
 #ifdef MOZ_DUMP_IMAGES
 void
 gfxASurface::WriteAsPNG(const char* aFile)
@@ -692,7 +726,8 @@ gfxASurface::WriteAsPNG_internal(FILE* aFile, bool aBinary)
   nsRefPtr<gfxImageSurface> imgsurf = GetAsImageSurface();
   gfxIntSize size;
 
-  if (!imgsurf) {
+  // FIXME/bug 831898: hack r5g6b5 for now.
+  if (!imgsurf || imgsurf->Format() == ImageFormatRGB16_565) {
     size = GetSize();
     if (size.width == -1 && size.height == -1) {
       printf("Could not determine surface size\n");
@@ -723,8 +758,8 @@ gfxASurface::WriteAsPNG_internal(FILE* aFile, bool aBinary)
   nsCOMPtr<imgIEncoder> encoder =
     do_CreateInstance("@mozilla.org/image/encoder;2?type=image/png");
   if (!encoder) {
-    int32_t w = NS_MIN(size.width, 8);
-    int32_t h = NS_MIN(size.height, 8);
+    int32_t w = std::min(size.width, 8);
+    int32_t h = std::min(size.height, 8);
     printf("Could not create encoder. Printing %dx%d pixels.\n", w, h);
     for (int32_t y = 0; y < h; ++y) {
       for (int32_t x = 0; x < w; ++x) {
@@ -763,7 +798,7 @@ gfxASurface::WriteAsPNG_internal(FILE* aFile, bool aBinary)
   // got everything. 16 bytes for better padding (maybe)
   bufSize += 16;
   uint32_t imgSize = 0;
-  char* imgData = (char*)PR_Malloc(bufSize);
+  char* imgData = (char*)moz_malloc(bufSize);
   if (!imgData)
     return;
   uint32_t numReadThisTime = 0;
@@ -775,9 +810,9 @@ gfxASurface::WriteAsPNG_internal(FILE* aFile, bool aBinary)
     if (imgSize == bufSize) {
       // need a bigger buffer, just double
       bufSize *= 2;
-      char* newImgData = (char*)PR_Realloc(imgData, bufSize);
+      char* newImgData = (char*)moz_realloc(imgData, bufSize);
       if (!newImgData) {
-        PR_Free(imgData);
+        moz_free(imgData);
         return;
       }
       imgData = newImgData;
@@ -794,9 +829,10 @@ gfxASurface::WriteAsPNG_internal(FILE* aFile, bool aBinary)
   }
 
   // base 64, result will be NULL terminated
-  char* encodedImg = PL_Base64Encode(imgData, imgSize, nullptr);
-  PR_Free(imgData);
-  if (!encodedImg) // not sure why this would fail
+  nsCString encodedImg;
+  rv = Base64Encode(Substring(imgData, imgSize), encodedImg);
+  moz_free(imgData);
+  if (NS_FAILED(rv)) // not sure why this would fail
     return;
 
   nsCString string("data:image/png;base64,");
@@ -824,8 +860,6 @@ gfxASurface::WriteAsPNG_internal(FILE* aFile, bool aBinary)
       clipboard->CopyString(NS_ConvertASCIItoUTF16(string), nullptr);
     }
   }
-
-  PR_Free(encodedImg);
 
   return;
 }

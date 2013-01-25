@@ -164,8 +164,6 @@ protected:
   nsStringBuffer*   mCachedBuffer;
 };
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsDocumentEncoder)
-
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDocumentEncoder)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDocumentEncoder)
 
@@ -1202,11 +1200,17 @@ nsDocumentEncoder::EncodeToStream(nsIOutputStream* aStream)
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  mStream = aStream;
-
+  bool chromeCaller = nsContentUtils::IsCallerChrome();
+  if (chromeCaller) {
+    mStream = aStream;
+  }
   nsAutoString buf;
 
   rv = EncodeToString(buf);
+
+  if (!chromeCaller) {
+    mStream = aStream;
+  }
 
   // Force a flush of the last chunk of data.
   FlushText(buf, true);

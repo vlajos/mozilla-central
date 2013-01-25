@@ -14,8 +14,6 @@
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(AudioBuffer)
-
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(AudioBuffer)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mContext)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mChannels)
@@ -54,6 +52,7 @@ AudioBuffer::AudioBuffer(AudioContext* aContext, uint32_t aLength,
 
 AudioBuffer::~AudioBuffer()
 {
+  mChannels.Clear();
   NS_DROP_JS_OBJECTS(this, AudioBuffer);
 }
 

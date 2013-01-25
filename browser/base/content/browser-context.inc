@@ -28,6 +28,12 @@
                 label="&openLinkCmd.label;"
                 accesskey="&openLinkCmd.accesskey;"
                 oncommand="gContextMenu.openLink();"/>
+#ifdef MOZ_PER_WINDOW_PRIVATE_BROWSING
+      <menuitem id="context-openlinkprivate"
+                label="&openLinkInPrivateWindowCmd.label;"
+                accesskey="&openLinkInPrivateWindowCmd.accesskey;"
+                oncommand="gContextMenu.openLinkInPrivateWindow();"/>
+#endif
       <menuseparator id="context-sep-open"/>
       <menuitem id="context-bookmarklink"
                 label="&bookmarkThisLinkCmd.label;"
@@ -156,6 +162,15 @@
                 label="&emailAudioCmd.label;"
                 accesskey="&emailAudioCmd.accesskey;"
                 oncommand="gContextMenu.sendMedia();"/>
+      <menuitem id="context-ctp-play"
+                label="&playPluginCmd.label;"
+                accesskey="&playPluginCmd.accesskey;"
+                oncommand="gContextMenu.playPlugin();"/>
+      <menuitem id="context-ctp-hide"
+                label="&hidePluginCmd.label;"
+                accesskey="&hidePluginCmd.accesskey;"
+                oncommand="gContextMenu.hidePlugin();"/>
+      <menuseparator id="context-sep-ctp"/>
       <menuitem id="context-back"
                 label="&backCmd.label;"
                 accesskey="&backCmd.accesskey;"

@@ -12,8 +12,10 @@ EXPORTS_mozilla += \
   Assertions.h \
   Attributes.h \
   BloomFilter.h \
+  Char16.h \
   CheckedInt.h \
   Constants.h \
+  DebugOnly.h \
   EnumSet.h \
   FloatingPoint.h \
   GuardObjects.h \
@@ -23,11 +25,13 @@ EXPORTS_mozilla += \
   MathAlgorithms.h \
   MSStdInt.h \
   NullPtr.h \
+  Range.h \
   RangedPtr.h \
   RefPtr.h \
   Scoped.h \
-  StandardInteger.h \
   SHA1.h \
+  SplayTree.h \
+  StandardInteger.h \
   ThreadLocal.h \
   TypeTraits.h \
   Types.h \

@@ -20,7 +20,7 @@
 class nsIContent;
 class nsPresContext;
 struct JSContext;
-struct JSObject;
+class JSObject;
  
 class nsDOMEvent : public nsIDOMEvent,
                    public nsIJSNativeInitializer
@@ -102,7 +102,7 @@ protected:
   NS_IMETHOD SetTarget(nsIDOMEventTarget *aTarget) { return _to SetTarget(aTarget); } \
   NS_IMETHOD_(bool) IsDispatchStopped(void) { return _to IsDispatchStopped(); } \
   NS_IMETHOD_(nsEvent *) GetInternalNSEvent(void) { return _to GetInternalNSEvent(); } \
-  NS_IMETHOD SetTrusted(bool aTrusted) { return _to SetTrusted(aTrusted); }
+  NS_IMETHOD_(void) SetTrusted(bool aTrusted) { _to SetTrusted(aTrusted); }
 
 #define NS_FORWARD_TO_NSDOMEVENT_NO_SERIALIZATION_NO_DUPLICATION \
   NS_FORWARD_NSIDOMEVENT_NO_SERIALIZATION_NO_DUPLICATION(nsDOMEvent::)

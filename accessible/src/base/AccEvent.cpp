@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -32,7 +33,10 @@ AccEvent::AccEvent(uint32_t aEventType, Accessible* aAccessible,
                    EIsFromUserInput aIsFromUserInput, EEventRule aEventRule) :
   mEventType(aEventType), mEventRule(aEventRule), mAccessible(aAccessible)
 {
-  CaptureIsFromUserInput(aIsFromUserInput);
+  if (aIsFromUserInput == eAutoDetect)
+    mIsFromUserInput = nsEventStateManager::IsHandlingUserInput();
+  else
+    mIsFromUserInput = aIsFromUserInput == eFromUserInput ? true : false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -49,42 +53,10 @@ AccEvent::CreateXPCOMObject()
 ////////////////////////////////////////////////////////////////////////////////
 // AccEvent cycle collection
 
-NS_IMPL_CYCLE_COLLECTION_NATIVE_CLASS(AccEvent)
-
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_NATIVE(AccEvent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mAccessible)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
-
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NATIVE_BEGIN(AccEvent)
-  NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mAccessible");
-  cb.NoteXPCOMChild(static_cast<nsIAccessible*>(tmp->mAccessible));
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+NS_IMPL_CYCLE_COLLECTION_NATIVE_1(AccEvent, mAccessible)
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(AccEvent, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(AccEvent, Release)
-
-////////////////////////////////////////////////////////////////////////////////
-// AccEvent protected methods
-
-void
-AccEvent::CaptureIsFromUserInput(EIsFromUserInput aIsFromUserInput)
-{
-  if (aIsFromUserInput != eAutoDetect) {
-    mIsFromUserInput = aIsFromUserInput == eFromUserInput ? true : false;
-    return;
-  }
-
-  DocAccessible* document = mAccessible->Document();
-  if (!document) {
-    NS_ASSERTION(mAccessible == ApplicationAcc(),
-                 "Accessible other than application should always have a doc!");
-    return;
-  }
-
-  mIsFromUserInput =
-    document->PresContext()->EventStateManager()->IsHandlingUserInputExternal();
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // AccStateChangeEvent
@@ -146,10 +118,12 @@ AccReorderEvent::IsShowHideEventTarget(const Accessible* aTarget) const
 {
   uint32_t count = mDependentEvents.Length();
   for (uint32_t index = count - 1; index < count; index--) {
-    if (mDependentEvents[index]->mAccessible == aTarget &&
-        mDependentEvents[index]->mEventType == nsIAccessibleEvent::EVENT_SHOW ||
-        mDependentEvents[index]->mEventType == nsIAccessibleEvent::EVENT_HIDE) {
-      return mDependentEvents[index]->mEventType;
+    if (mDependentEvents[index]->mAccessible == aTarget) {
+      uint32_t eventType = mDependentEvents[index]->mEventType;
+      if (eventType == nsIAccessibleEvent::EVENT_SHOW ||
+          eventType == nsIAccessibleEvent::EVENT_HIDE) {
+        return mDependentEvents[index]->mEventType;
+      }
     }
   }
 

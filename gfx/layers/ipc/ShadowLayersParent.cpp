@@ -262,11 +262,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       layer->SetClipRect(common.useClipRect() ? &common.clipRect() : NULL);
       layer->SetBaseTransform(common.transform().value());
       layer->SetPostScale(common.postXScale(), common.postYScale());
-      static bool fixedPositionLayersEnabled = getenv("MOZ_ENABLE_FIXED_POSITION_LAYERS") != 0;
-      if (fixedPositionLayersEnabled) {
-        layer->SetIsFixedPosition(common.isFixedPosition());
-        layer->SetFixedPositionAnchor(common.fixedPositionAnchor());
-      }
+      layer->SetIsFixedPosition(common.isFixedPosition());
+      layer->SetFixedPositionAnchor(common.fixedPositionAnchor());
       if (PLayerParent* maskLayer = common.maskLayerParent()) {
         layer->SetMaskLayer(cast(maskLayer)->AsLayer());
       } else {
@@ -301,6 +298,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
           specific.get_ContainerLayerAttributes();
         containerLayer->SetFrameMetrics(attrs.metrics());
         containerLayer->SetPreScale(attrs.preXScale(), attrs.preYScale());
+        containerLayer->SetInheritedScale(attrs.inheritedXScale(), attrs.inheritedYScale());
         break;
       }
       case Specific::TColorLayerAttributes:
@@ -391,7 +389,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       ShadowLayerParent* shadow = AsShadowLayer(op);
 
       ShadowThebesLayer* shadowLayer = static_cast<ShadowThebesLayer*>(shadow->AsLayer());
-      TiledLayerComposer* tileComposer = shadowLayer->GetTiledLayerComposer();
+      TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
 
       NS_ASSERTION(tileComposer, "shadowLayer is not a tile composer");
 

@@ -23,6 +23,7 @@
 
 #include "WebGLTexelConversions.h"
 #include "WebGLValidateStrings.h"
+#include <algorithm>
 
 // needed to check if current OS is lower than 10.7
 #if defined(MOZ_WIDGET_COCOA)
@@ -748,6 +749,9 @@ WebGLContext::CopyTexSubImage2D_base(WebGLenum target,
 
         gl->fCopyTexSubImage2D(target, level, actual_xoffset, actual_yoffset, actual_x, actual_y, actual_width, actual_height);
     }
+
+    if (!sub)
+        ReattachTextureToAnyFramebufferToWorkAroundBugs(tex, level);
 }
 
 void
@@ -1061,6 +1065,7 @@ WebGLContext::DeleteTexture(WebGLTexture *tex)
     if (mBoundFramebuffer)
         mBoundFramebuffer->DetachTexture(tex);
 
+    WebGLuint activeTexture = mActiveTexture;
     for (int32_t i = 0; i < mGLMaxTextureUnits; i++) {
         if ((tex->Target() == LOCAL_GL_TEXTURE_2D && mBound2DTextures[i] == tex) ||
             (tex->Target() == LOCAL_GL_TEXTURE_CUBE_MAP && mBoundCubeMapTextures[i] == tex))
@@ -1069,7 +1074,7 @@ WebGLContext::DeleteTexture(WebGLTexture *tex)
             BindTexture(tex->Target(), static_cast<WebGLTexture*>(nullptr));
         }
     }
-    ActiveTexture(LOCAL_GL_TEXTURE0 + mActiveTexture);
+    ActiveTexture(LOCAL_GL_TEXTURE0 + activeTexture);
 
     tex->RequestDelete();
 }
@@ -1962,15 +1967,12 @@ WebGLContext::GetParameter(JSContext* cx, WebGLenum pname, ErrorResult& rv)
         case LOCAL_GL_UNPACK_ALIGNMENT:
         case LOCAL_GL_PACK_ALIGNMENT:
         case LOCAL_GL_SUBPIXEL_BITS:
-        case LOCAL_GL_MAX_TEXTURE_SIZE:
-        case LOCAL_GL_MAX_CUBE_MAP_TEXTURE_SIZE:
         case LOCAL_GL_SAMPLE_BUFFERS:
         case LOCAL_GL_SAMPLES:
         case LOCAL_GL_MAX_VERTEX_ATTRIBS:
         case LOCAL_GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:
         case LOCAL_GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS:
         case LOCAL_GL_MAX_TEXTURE_IMAGE_UNITS:
-        case LOCAL_GL_MAX_RENDERBUFFER_SIZE:
         case LOCAL_GL_RED_BITS:
         case LOCAL_GL_GREEN_BITS:
         case LOCAL_GL_BLUE_BITS:
@@ -1992,6 +1994,15 @@ WebGLContext::GetParameter(JSContext* cx, WebGLenum pname, ErrorResult& rv)
                 ErrorInvalidEnum("getParameter: parameter", pname);
                 return JS::NullValue();
             }
+
+        case LOCAL_GL_MAX_TEXTURE_SIZE:
+            return JS::Int32Value(mGLMaxTextureSize);
+
+        case LOCAL_GL_MAX_CUBE_MAP_TEXTURE_SIZE:
+            return JS::Int32Value(mGLMaxCubeMapTextureSize);
+
+        case LOCAL_GL_MAX_RENDERBUFFER_SIZE:
+            return JS::Int32Value(mGLMaxRenderbufferSize);
 
         case LOCAL_GL_MAX_VERTEX_UNIFORM_VECTORS:
             return JS::Int32Value(mGLMaxVertexUniformVectors);
@@ -2251,7 +2262,7 @@ WebGLContext::GetFramebufferAttachmentParameter(JSContext* cx,
 
     MakeContextCurrent();
 
-    const WebGLFramebufferAttachment& fba = mBoundFramebuffer->GetAttachment(attachment);
+    const WebGLFramebuffer::Attachment& fba = mBoundFramebuffer->GetAttachment(attachment);
 
     if (fba.Renderbuffer()) {
         switch (pname) {
@@ -3156,10 +3167,6 @@ WebGLContext::ReadPixels(WebGLint x, WebGLint y, WebGLsizei width,
     WebGLsizei framebufferWidth = framebufferRect ? framebufferRect->Width() : 0;
     WebGLsizei framebufferHeight = framebufferRect ? framebufferRect->Height() : 0;
 
-    void* data = pixels->Data();
-    uint32_t dataByteLen = JS_GetTypedArrayByteLength(pixels->Obj());
-    int dataType = JS_GetTypedArrayType(pixels->Obj());
-
     uint32_t channels = 0;
 
     // Check the format param
@@ -3196,6 +3203,8 @@ WebGLContext::ReadPixels(WebGLint x, WebGLint y, WebGLsizei width,
             return ErrorInvalidEnum("readPixels: Bad type");
     }
 
+    int dataType = JS_GetArrayBufferViewType(pixels->Obj());
+
     // Check the pixels param type
     if (dataType != requiredDataType)
         return ErrorInvalidOperation("readPixels: Mismatched type/pixels types");
@@ -3212,8 +3221,15 @@ WebGLContext::ReadPixels(WebGLint x, WebGLint y, WebGLsizei width,
     if (!checked_neededByteLength.isValid())
         return ErrorInvalidOperation("readPixels: integer overflow computing the needed buffer size");
 
+    uint32_t dataByteLen = JS_GetTypedArrayByteLength(pixels->Obj());
     if (checked_neededByteLength.value() > dataByteLen)
         return ErrorInvalidOperation("readPixels: buffer too small");
+
+    void* data = pixels->Data();
+    if (!data) {
+        ErrorOutOfMemory("readPixels: buffer storage is null. Did we run out of memory?");
+        return rv.Throw(NS_ERROR_OUT_OF_MEMORY);
+    }
 
     // Check the format and type params to assure they are an acceptable pair (as per spec)
     switch (format) {
@@ -3268,12 +3284,12 @@ WebGLContext::ReadPixels(WebGLint x, WebGLint y, WebGLsizei width,
         }
 
         // compute the parameters of the subrect we're actually going to call glReadPixels on
-        GLint   subrect_x      = NS_MAX(x, 0);
-        GLint   subrect_end_x  = NS_MIN(x+width, framebufferWidth);
+        GLint   subrect_x      = std::max(x, 0);
+        GLint   subrect_end_x  = std::min(x+width, framebufferWidth);
         GLsizei subrect_width  = subrect_end_x - subrect_x;
 
-        GLint   subrect_y      = NS_MAX(y, 0);
-        GLint   subrect_end_y  = NS_MIN(y+height, framebufferHeight);
+        GLint   subrect_y      = std::max(y, 0);
+        GLint   subrect_end_y  = std::min(y+height, framebufferHeight);
         GLsizei subrect_height = subrect_end_y - subrect_y;
 
         if (subrect_width < 0 || subrect_height < 0 ||
@@ -3368,8 +3384,8 @@ WebGLContext::RenderbufferStorage(WebGLenum target, WebGLenum internalformat, We
     if (width < 0 || height < 0)
         return ErrorInvalidValue("renderbufferStorage: width and height must be >= 0");
 
-    if (!mBoundRenderbuffer || !mBoundRenderbuffer->GLName())
-        return ErrorInvalidOperation("renderbufferStorage called on renderbuffer 0");
+    if (width > mGLMaxRenderbufferSize || height > mGLMaxRenderbufferSize)
+        return ErrorInvalidValue("renderbufferStorage: width or height exceeds maximum renderbuffer size");
 
     // certain OpenGL ES renderbuffer formats may not exist on desktop OpenGL
     WebGLenum internalformatForGL = internalformat;
@@ -4154,15 +4170,13 @@ WebGLContext::CompileShader(WebGLShader *shader)
         // cleanSource nsAString instance will be destroyed before the reference is
         // actually used.
         StripComments stripComments(shader->Source());
-        const nsAString& cleanSource = nsString(stripComments.result().Elements(), stripComments.length());
+        const nsAString& cleanSource = Substring(stripComments.result().Elements(), stripComments.length());
         if (!ValidateGLSLString(cleanSource, "compileShader"))
             return;
 
-        const nsPromiseFlatString& flatSource = PromiseFlatString(cleanSource);
-
         // shaderSource() already checks that the source stripped of comments is in the
         // 7-bit ASCII range, so we can skip the NS_IsAscii() check.
-        const nsCString& sourceCString = NS_LossyConvertUTF16toASCII(flatSource);
+        NS_LossyConvertUTF16toASCII sourceCString(cleanSource);
 
         if (gl->WorkAroundDriverBugs()) {
             const uint32_t maxSourceLength = 0x3ffff;
@@ -4178,7 +4192,8 @@ WebGLContext::CompileShader(WebGLShader *shader)
                                        targetShaderSourceLanguage,
                                        &resources);
 
-        int compileOptions = SH_ATTRIBUTES_UNIFORMS;
+        int compileOptions = SH_ATTRIBUTES_UNIFORMS |
+                             SH_ENFORCE_PACKING_RESTRICTIONS;
         if (useShaderSourceTranslation) {
             compileOptions |= SH_OBJECT_CODE
                             | SH_MAP_LONG_VARIABLE_NAMES;
@@ -4282,8 +4297,7 @@ WebGLContext::CompileShader(WebGLShader *shader)
             translatedSrc.SetLength(len);
             ShGetObjectCode(compiler, translatedSrc.BeginWriting());
 
-            nsPromiseFlatCString translatedSrc2(translatedSrc);
-            const char *ts = translatedSrc2.get();
+            const char *ts = translatedSrc.get();
 
             gl->fShaderSource(shadername, 1, &ts, NULL);
         } else { // not useShaderSourceTranslation
@@ -4340,6 +4354,8 @@ WebGLContext::CompressedTexImage2D(WebGLenum target, WebGLint level, WebGLenum i
 
     gl->fCompressedTexImage2D(target, level, internalformat, width, height, border, byteLength, view.Data());
     tex->SetImageInfo(target, level, width, height, internalformat, LOCAL_GL_UNSIGNED_BYTE);
+
+    ReattachTextureToAnyFramebufferToWorkAroundBugs(tex, level);
 }
 
 void
@@ -4595,7 +4611,7 @@ WebGLContext::ShaderSource(WebGLShader *shader, const nsAString& source)
     // cleanSource nsAString instance will be destroyed before the reference is
     // actually used.
     StripComments stripComments(source);
-    const nsAString& cleanSource = nsString(stripComments.result().Elements(), stripComments.length());
+    const nsAString& cleanSource = Substring(stripComments.result().Elements(), stripComments.length());
     if (!ValidateGLSLString(cleanSource, "compileShader"))
         return;
 
@@ -4852,13 +4868,15 @@ WebGLContext::TexImage2D_base(WebGLenum target, WebGLint level, WebGLenum intern
 
         free(tempZeroData);
     }
-    
+
     if (error) {
         GenerateWarning("texImage2D generated error %s", ErrorName(error));
         return;
     }
 
     tex->SetImageInfo(target, level, width, height, format, type);
+
+    ReattachTextureToAnyFramebufferToWorkAroundBugs(tex, level);
 }
 
 void
@@ -4873,7 +4891,7 @@ WebGLContext::TexImage2D(WebGLenum target, WebGLint level,
     return TexImage2D_base(target, level, internalformat, width, height, 0, border, format, type,
                            pixels ? pixels->Data() : 0,
                            pixels ? pixels->Length() : 0,
-                           pixels ? (int)JS_GetTypedArrayType(pixels->Obj()) : -1,
+                           pixels ? (int)JS_GetArrayBufferViewType(pixels->Obj()) : -1,
                            WebGLTexelConversions::Auto, false);
 }
 
@@ -5027,7 +5045,7 @@ WebGLContext::TexSubImage2D(WebGLenum target, WebGLint level,
     return TexSubImage2D_base(target, level, xoffset, yoffset,
                               width, height, 0, format, type,
                               pixels->Data(), pixels->Length(),
-                              JS_GetTypedArrayType(pixels->Obj()),
+                              JS_GetArrayBufferViewType(pixels->Obj()),
                               WebGLTexelConversions::Auto, false);
 }
 
@@ -5271,3 +5289,43 @@ InternalFormatForFormatAndType(WebGLenum format, WebGLenum type, bool isGLES2)
     return 0;
 }
 
+void
+WebGLContext::ReattachTextureToAnyFramebufferToWorkAroundBugs(WebGLTexture *tex,
+                                                              WebGLint level)
+{
+    MOZ_ASSERT(tex);
+
+    if (!gl->WorkAroundDriverBugs())
+        return;
+
+    if (!mIsMesa)
+        return;
+
+    MakeContextCurrent();
+
+    for(WebGLFramebuffer *framebuffer = mFramebuffers.getFirst();
+        framebuffer;
+        framebuffer = framebuffer->getNext())
+    {
+        if (framebuffer->ColorAttachment().Texture() == tex) {
+            framebuffer->FramebufferTexture2D(
+              LOCAL_GL_FRAMEBUFFER, LOCAL_GL_COLOR_ATTACHMENT0,
+              tex->Target(), tex, level);
+        }
+        if (framebuffer->DepthAttachment().Texture() == tex) {
+            framebuffer->FramebufferTexture2D(
+              LOCAL_GL_FRAMEBUFFER, LOCAL_GL_DEPTH_ATTACHMENT,
+              tex->Target(), tex, level);
+        }
+        if (framebuffer->StencilAttachment().Texture() == tex) {
+            framebuffer->FramebufferTexture2D(
+              LOCAL_GL_FRAMEBUFFER, LOCAL_GL_STENCIL_ATTACHMENT,
+              tex->Target(), tex, level);
+        }
+        if (framebuffer->DepthStencilAttachment().Texture() == tex) {
+            framebuffer->FramebufferTexture2D(
+              LOCAL_GL_FRAMEBUFFER, LOCAL_GL_DEPTH_STENCIL_ATTACHMENT,
+              tex->Target(), tex, level);
+        }
+    }
+}

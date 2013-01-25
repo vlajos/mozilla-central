@@ -113,7 +113,7 @@ public:
   virtual TemporaryRef<gfx::DrawTarget> LockDT() { return nullptr; } 
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
-  virtual SharedTextureHandle LockHandle(GLContext* aGL, TextureImage::TextureShareType aFlags) { return 0; }
+  virtual SharedTextureHandle LockHandle(GLContext* aGL, GLContext::SharedTextureShareType aFlags) { return 0; }
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
 
   /**
@@ -200,7 +200,7 @@ class TextureClientSharedGL : public TextureClientShared
 public:
   virtual ~TextureClientSharedGL();
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
-  virtual gl::SharedTextureHandle LockHandle(GLContext* aGL, gl::TextureImage::TextureShareType aFlags);
+  virtual gl::SharedTextureHandle LockHandle(GLContext* aGL, gl::GLContext::SharedTextureShareType aFlags);
   virtual void Unlock();
 
 protected:

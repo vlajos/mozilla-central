@@ -15,10 +15,15 @@
 #include "critical_section_wrapper.h"
 #include "audio_mixer_manager_alsa_linux.h"
 
-#include <sys/soundcard.h>
 #include <sys/ioctl.h>
 
+#if defined (WEBRTC_GONK)
+#include <linux/soundcard.h>
+#include <tinyalsa/asoundlib.h>
+#else
+#include <sys/soundcard.h>
 #include <alsa/asoundlib.h>
+#endif
 
 namespace webrtc
 {
@@ -165,7 +170,9 @@ private:
                                  const bool playback,
                                  const WebRtc_Word32 enumDeviceNo = 0,
                                  char* enumDeviceName = NULL,
-                                 const WebRtc_Word32 ednLen = 0) const;
+                                 const WebRtc_Word32 ednLen = 0,
+                                 char* enumDeviceID = NULL,
+                                 const WebRtc_Word32 ediLen = 0) const;
     WebRtc_Word32 ErrorRecovery(WebRtc_Word32 error, snd_pcm_t* deviceHandle);
 
 private:

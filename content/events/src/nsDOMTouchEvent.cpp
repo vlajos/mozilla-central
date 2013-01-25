@@ -142,20 +142,13 @@ nsDOMTouchList::nsDOMTouchList(nsTArray<nsCOMPtr<nsIDOMTouch> > &aTouches)
 
 DOMCI_DATA(TouchList, nsDOMTouchList)
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMTouchList)
-
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMTouchList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
   NS_INTERFACE_MAP_ENTRY(nsIDOMTouchList)
   NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(TouchList)
 NS_INTERFACE_MAP_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsDOMTouchList)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPoints)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsDOMTouchList)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPoints)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+NS_IMPL_CYCLE_COLLECTION_1(nsDOMTouchList, mPoints)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMTouchList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMTouchList)
@@ -218,8 +211,6 @@ nsDOMTouchEvent::~nsDOMTouchEvent()
     mEvent = nullptr;
   }
 }
-
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMTouchEvent)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsDOMTouchEvent, nsDOMUIEvent)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTouches)
@@ -288,7 +279,7 @@ nsDOMTouchEvent::GetTouches(nsIDOMTouchList** aTouches)
   if (mEvent->message == NS_TOUCH_END || mEvent->message == NS_TOUCH_CANCEL) {
     // for touchend events, remove any changed touches from the touches array
     nsTArray<nsCOMPtr<nsIDOMTouch> > unchangedTouches;
-    nsTArray<nsCOMPtr<nsIDOMTouch> > touches = touchEvent->touches;
+    const nsTArray<nsCOMPtr<nsIDOMTouch> >& touches = touchEvent->touches;
     for (uint32_t i = 0; i < touches.Length(); ++i) {
       if (!touches[i]->mChanged) {
         unchangedTouches.AppendElement(touches[i]);
@@ -314,7 +305,7 @@ nsDOMTouchEvent::GetTargetTouches(nsIDOMTouchList** aTargetTouches)
 
   nsTArray<nsCOMPtr<nsIDOMTouch> > targetTouches;
   nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(mEvent);
-  nsTArray<nsCOMPtr<nsIDOMTouch> > touches = touchEvent->touches;
+  const nsTArray<nsCOMPtr<nsIDOMTouch> >& touches = touchEvent->touches;
   for (uint32_t i = 0; i < touches.Length(); ++i) {
     // for touchend/cancel events, don't append to the target list if this is a
     // touch that is ending
@@ -342,7 +333,7 @@ nsDOMTouchEvent::GetChangedTouches(nsIDOMTouchList** aChangedTouches)
 
   nsTArray<nsCOMPtr<nsIDOMTouch> > changedTouches;
   nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(mEvent);
-  nsTArray<nsCOMPtr<nsIDOMTouch> > touches = touchEvent->touches;
+  const nsTArray<nsCOMPtr<nsIDOMTouch> >& touches = touchEvent->touches;
   for (uint32_t i = 0; i < touches.Length(); ++i) {
     if (touches[i]->mChanged) {
       changedTouches.AppendElement(touches[i]);

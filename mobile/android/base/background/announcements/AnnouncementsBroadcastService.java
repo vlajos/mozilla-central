@@ -123,13 +123,12 @@ public class AnnouncementsBroadcastService extends IntentService {
       Logger.error(LOG_TAG, "Method " + BackgroundConstants.GECKO_PREFERENCES_CLASS + "/" + BackgroundConstants.GECKO_BROADCAST_METHOD + " not found!");
       return;
     } catch (IllegalArgumentException e) {
-      // Fall through.
+      Logger.error(LOG_TAG, "Got exception invoking " + BackgroundConstants.GECKO_BROADCAST_METHOD + ".");
     } catch (IllegalAccessException e) {
-      // Fall through.
+      Logger.error(LOG_TAG, "Got exception invoking " + BackgroundConstants.GECKO_BROADCAST_METHOD + ".");
     } catch (InvocationTargetException e) {
-      // Fall through.
+      Logger.error(LOG_TAG, "Got exception invoking " + BackgroundConstants.GECKO_BROADCAST_METHOD + ".");
     }
-    Logger.error(LOG_TAG, "Got exception invoking " + BackgroundConstants.GECKO_BROADCAST_METHOD + ".");
   }
 
   /**
@@ -156,7 +155,7 @@ public class AnnouncementsBroadcastService extends IntentService {
       final SharedPreferences sharedPreferences = this.getSharedPreferences(AnnouncementsConstants.PREFS_BRANCH,
                                                                             BackgroundConstants.SHARED_PREFERENCES_MODE);
       final Editor editor = sharedPreferences.edit();
-      editor.remove(AnnouncementsConstants.PREF_LAST_FETCH);
+      editor.remove(AnnouncementsConstants.PREF_LAST_FETCH_LOCAL_TIME);
       editor.remove(AnnouncementsConstants.PREF_EARLIEST_NEXT_ANNOUNCE_FETCH);
       editor.commit();
     }

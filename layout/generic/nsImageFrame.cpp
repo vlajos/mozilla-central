@@ -5,7 +5,7 @@
 
 /* rendering object for replaced elements with bitmap image data */
 
-#include "mozilla/Util.h"
+#include "mozilla/DebugOnly.h"
 
 #include "nsHTMLParts.h"
 #include "nsCOMPtr.h"
@@ -43,6 +43,7 @@
 #include "nsTextFragment.h"
 #include "nsIDOMHTMLMapElement.h"
 #include "nsIScriptSecurityManager.h"
+#include <algorithm>
 #ifdef ACCESSIBILITY
 #include "nsAccessibilityService.h"
 #endif
@@ -53,6 +54,7 @@
 
 #include "imgIContainer.h"
 #include "imgLoader.h"
+#include "imgRequestProxy.h"
 
 #include "nsCSSFrameConstructor.h"
 #include "nsIDOMRange.h"
@@ -69,7 +71,6 @@
 #include "ImageContainer.h"
 
 #include "mozilla/Preferences.h"
-#include "mozilla/Util.h" // for DebugOnly
 
 using namespace mozilla;
 
@@ -163,10 +164,10 @@ nsImageFrame::AccessibleType()
 {
   // Don't use GetImageMap() to avoid reentrancy into accessibility.
   if (HasImageMap()) {
-    return a11y::eHTMLImageMapAccessible;
+    return a11y::eHTMLImageMapType;
   }
 
-  return a11y::eImageAccessible;
+  return a11y::eImageType;
 }
 #endif
 
@@ -863,7 +864,7 @@ nsImageFrame::Reflow(nsPresContext*          aPresContext,
     aMetrics.width = GetPrevInFlow()->GetSize().width;
     nscoord y = GetContinuationOffset();
     aMetrics.height -= y + aReflowState.mComputedBorderPadding.top;
-    aMetrics.height = NS_MAX(0, aMetrics.height);
+    aMetrics.height = std::max(0, aMetrics.height);
   }
 
 
@@ -886,7 +887,7 @@ nsImageFrame::Reflow(nsPresContext*          aPresContext,
       aMetrics.height > aReflowState.availableHeight) { 
     // our desired height was greater than 0, so to avoid infinite
     // splitting, use 1 pixel as the min
-    aMetrics.height = NS_MAX(nsPresContext::CSSPixelsToAppUnits(1), aReflowState.availableHeight);
+    aMetrics.height = std::max(nsPresContext::CSSPixelsToAppUnits(1), aReflowState.availableHeight);
     aStatus = NS_FRAME_NOT_COMPLETE;
   }
 
@@ -904,7 +905,12 @@ nsImageFrame::Reflow(nsPresContext*          aPresContext,
     nsRect altFeedbackSize(0, 0,
                            nsPresContext::CSSPixelsToAppUnits(ICON_SIZE+2*(ICON_PADDING+ALT_BORDER_WIDTH)),
                            nsPresContext::CSSPixelsToAppUnits(ICON_SIZE+2*(ICON_PADDING+ALT_BORDER_WIDTH)));
-    aMetrics.mOverflowAreas.UnionAllWith(altFeedbackSize);
+    // We include the altFeedbackSize in our visual overflow, but not in our
+    // scrollable overflow, since it doesn't really need to be scrolled to
+    // outside the image.
+    MOZ_STATIC_ASSERT(eOverflowType_LENGTH == 2, "Unknown overflow types?");
+    nsRect& visualOverflow = aMetrics.VisualOverflow();
+    visualOverflow.UnionRect(visualOverflow, altFeedbackSize);
   }
   FinishAndStoreOverflow(&aMetrics);
 
@@ -937,7 +943,7 @@ nsImageFrame::MeasureString(const PRUnichar*     aString,
     uint32_t  len = aLength;
     bool      trailingSpace = false;
     for (int32_t i = 0; i < aLength; i++) {
-      if (XP_IS_SPACE(aString[i]) && (i > 0)) {
+      if (dom::IsSpaceCharacter(aString[i]) && (i > 0)) {
         len = i;  // don't include the space when measuring
         trailingSpace = true;
         break;
@@ -1229,10 +1235,11 @@ nsDisplayImage::Paint(nsDisplayListBuilder* aBuilder,
 }
 
 already_AddRefed<ImageContainer>
-nsDisplayImage::GetContainer(nsDisplayListBuilder* aBuilder)
+nsDisplayImage::GetContainer(LayerManager* aManager,
+                             nsDisplayListBuilder* aBuilder)
 {
   nsRefPtr<ImageContainer> container;
-  nsresult rv = mImage->GetImageContainer(getter_AddRefs(container));
+  nsresult rv = mImage->GetImageContainer(aManager, getter_AddRefs(container));
   NS_ENSURE_SUCCESS(rv, nullptr);
   return container.forget();
 }
@@ -1278,12 +1285,18 @@ nsDisplayImage::GetLayerState(nsDisplayListBuilder* aBuilder,
 
   // If we are not scaling at all, no point in separating this into a layer.
   if (scale.width == 1.0f && scale.height == 1.0f) {
-    return LAYER_INACTIVE;
+    return LAYER_NONE;
   }
 
   // If the target size is pretty small, no point in using a layer.
   if (destRect.width * destRect.height < 64 * 64) {
-    return LAYER_INACTIVE;
+    return LAYER_NONE;
+  }
+
+  nsRefPtr<ImageContainer> container;
+  mImage->GetImageContainer(aManager, getter_AddRefs(container));
+  if (!container) {
+    return LAYER_NONE;
   }
 
   return LAYER_ACTIVE;
@@ -1295,7 +1308,7 @@ nsDisplayImage::BuildLayer(nsDisplayListBuilder* aBuilder,
                            const ContainerParameters& aParameters)
 {
   nsRefPtr<ImageContainer> container;
-  nsresult rv = mImage->GetImageContainer(getter_AddRefs(container));
+  nsresult rv = mImage->GetImageContainer(aManager, getter_AddRefs(container));
   NS_ENSURE_SUCCESS(rv, nullptr);
 
   nsRefPtr<ImageLayer> layer = aManager->CreateImageLayer();
@@ -1804,7 +1817,7 @@ nsImageFrame::GetIntrinsicImageSize(nsSize& aSize)
 nsresult
 nsImageFrame::LoadIcon(const nsAString& aSpec,
                        nsPresContext *aPresContext,
-                       imgIRequest** aRequest)
+                       imgRequestProxy** aRequest)
 {
   nsresult rv = NS_OK;
   NS_PRECONDITION(!aSpec.IsEmpty(), "What happened??");

@@ -123,42 +123,54 @@ class LModI : public LBinaryMath<3>
         setTemp(1, temp2);
         setTemp(2, callTemp);
     }
+
+    MMod *mir() const {
+        return mir_->toMod();
+    }
 };
 
 class LModPowTwoI : public LInstructionHelper<1, 1, 0>
 {
-    const int32 shift_;
+    const int32_t shift_;
 
   public:
     LIR_HEADER(ModPowTwoI);
-    int32 shift()
+    int32_t shift()
     {
         return shift_;
     }
 
-    LModPowTwoI(const LAllocation &lhs, int32 shift)
+    LModPowTwoI(const LAllocation &lhs, int32_t shift)
       : shift_(shift)
     {
         setOperand(0, lhs);
+    }
+
+    MMod *mir() const {
+        return mir_->toMod();
     }
 };
 
 class LModMaskI : public LInstructionHelper<1, 1, 1>
 {
-    const int32 shift_;
+    const int32_t shift_;
 
   public:
     LIR_HEADER(ModMaskI);
 
-    LModMaskI(const LAllocation &lhs, const LDefinition &temp1, int32 shift)
+    LModMaskI(const LAllocation &lhs, const LDefinition &temp1, int32_t shift)
       : shift_(shift)
     {
         setOperand(0, lhs);
         setTemp(0, temp1);
     }
 
-    int32 shift() const {
+    int32_t shift() const {
         return shift_;
+    }
+
+    MMod *mir() const {
+        return mir_->toMod();
     }
 };
 

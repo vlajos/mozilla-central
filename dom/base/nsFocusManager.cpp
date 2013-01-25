@@ -39,7 +39,7 @@
 #include "nsIWebNavigation.h"
 #include "nsCaret.h"
 #include "nsIBaseWindow.h"
-#include "nsIViewManager.h"
+#include "nsViewManager.h"
 #include "nsFrameSelection.h"
 #include "mozilla/Selection.h"
 #include "nsXULPopupManager.h"
@@ -54,6 +54,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/Preferences.h"
+#include <algorithm>
 
 #ifdef MOZ_XUL
 #include "nsIDOMXULTextboxElement.h"
@@ -133,23 +134,13 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsFocusManager)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsFocusManager)
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsFocusManager)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsFocusManager)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mActiveWindow)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFocusedWindow)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFocusedContent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFirstBlurEvent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFirstFocusEvent)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWindowBeingLowered)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsFocusManager)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mActiveWindow)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFocusedWindow)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFocusedContent)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFirstBlurEvent)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFirstFocusEvent)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindowBeingLowered)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+NS_IMPL_CYCLE_COLLECTION_6(nsFocusManager,
+                           mActiveWindow,
+                           mFocusedWindow,
+                           mFocusedContent,
+                           mFirstBlurEvent,
+                           mFirstFocusEvent,
+                           mWindowBeingLowered)
 
 nsFocusManager* nsFocusManager::sInstance = nullptr;
 bool nsFocusManager::sMouseFocusesFormControl = false;
@@ -628,8 +619,7 @@ nsFocusManager::MoveCaretToFocus(nsIDOMWindow* aWindow)
       nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(dsti);
       NS_ENSURE_TRUE(docShell, NS_ERROR_FAILURE);
 
-      nsCOMPtr<nsIPresShell> presShell;
-      docShell->GetPresShell(getter_AddRefs(presShell));
+      nsCOMPtr<nsIPresShell> presShell = docShell->GetPresShell();
       NS_ENSURE_TRUE(presShell, NS_ERROR_FAILURE);
 
       nsCOMPtr<nsPIDOMWindow> window(do_QueryInterface(aWindow));
@@ -726,8 +716,7 @@ nsFocusManager::WindowRaised(nsIDOMWindow* aWindow)
 
   nsCOMPtr<nsIDocShell> currentDocShell = currentWindow->GetDocShell();
 
-  nsCOMPtr<nsIPresShell> presShell;
-  currentDocShell->GetPresShell(getter_AddRefs(presShell));
+  nsCOMPtr<nsIPresShell> presShell = currentDocShell->GetPresShell();
   if (presShell) {
     // disable selection mousedown state on activation
     // XXXndeakin P3 not sure if this is necessary, but it doesn't hurt
@@ -937,8 +926,7 @@ nsFocusManager::WindowHidden(nsIDOMWindow* aWindow)
   nsCOMPtr<nsIContent> oldFocusedContent = mFocusedContent.forget();
 
   nsCOMPtr<nsIDocShell> focusedDocShell = mFocusedWindow->GetDocShell();
-  nsCOMPtr<nsIPresShell> presShell;
-  focusedDocShell->GetPresShell(getter_AddRefs(presShell));
+  nsCOMPtr<nsIPresShell> presShell = focusedDocShell->GetPresShell();
 
   if (oldFocusedContent && oldFocusedContent->IsInDoc()) {
     NotifyFocusStateChange(oldFocusedContent,
@@ -1066,10 +1054,9 @@ nsFocusManager::EnsureCurrentWidgetFocused()
   // platform knows that this widget is focused.
   nsCOMPtr<nsIDocShell> docShell = mFocusedWindow->GetDocShell();
   if (docShell) {
-    nsCOMPtr<nsIPresShell> presShell;
-    docShell->GetPresShell(getter_AddRefs(presShell));
+    nsCOMPtr<nsIPresShell> presShell = docShell->GetPresShell();
     if (presShell) {
-      nsIViewManager* vm = presShell->GetViewManager();
+      nsViewManager* vm = presShell->GetViewManager();
       if (vm) {
         nsCOMPtr<nsIWidget> widget;
         vm->GetRootWidget(getter_AddRefs(widget));
@@ -1272,8 +1259,7 @@ nsFocusManager::SetFocusInner(nsIContent* aNewContent, int32_t aFlags,
     if (aFocusChanged) {
       nsCOMPtr<nsIDocShell> docShell = newWindow->GetDocShell();
 
-      nsCOMPtr<nsIPresShell> presShell;
-      docShell->GetPresShell(getter_AddRefs(presShell));
+      nsCOMPtr<nsIPresShell> presShell = docShell->GetPresShell();
       if (presShell)
         ScrollIntoView(presShell, contentToFocus, aFlags);
     }
@@ -1338,7 +1324,7 @@ nsFocusManager::GetCommonAncestor(nsPIDOMWindow* aWindow1,
   uint32_t pos2 = parents2.Length();
   nsIDocShellTreeItem* parent = nullptr;
   uint32_t len;
-  for (len = NS_MIN(pos1, pos2); len > 0; --len) {
+  for (len = std::min(pos1, pos2); len > 0; --len) {
     nsIDocShellTreeItem* child1 = parents1.ElementAt(--pos1);
     nsIDocShellTreeItem* child2 = parents2.ElementAt(--pos2);
     if (child1 != child2) {
@@ -1523,8 +1509,7 @@ nsFocusManager::Blur(nsPIDOMWindow* aWindowToClear,
 
   // Keep a ref to presShell since dispatching the DOM event may cause
   // the document to be destroyed.
-  nsCOMPtr<nsIPresShell> presShell;
-  docShell->GetPresShell(getter_AddRefs(presShell));
+  nsCOMPtr<nsIPresShell> presShell = docShell->GetPresShell();
   if (!presShell) {
     mFocusedContent = nullptr;
     return true;
@@ -1568,7 +1553,7 @@ nsFocusManager::Blur(nsPIDOMWindow* aWindowToClear,
       if (aAdjustWidgets && objectFrame && !sTestMode) {
         // note that the presshell's widget is being retrieved here, not the one
         // for the object frame.
-        nsIViewManager* vm = presShell->GetViewManager();
+        nsViewManager* vm = presShell->GetViewManager();
         if (vm) {
           nsCOMPtr<nsIWidget> widget;
           vm->GetRootWidget(getter_AddRefs(widget));
@@ -1674,8 +1659,7 @@ nsFocusManager::Focus(nsPIDOMWindow* aWindow,
   if (!docShell)
     return;
 
-  nsCOMPtr<nsIPresShell> presShell;
-  docShell->GetPresShell(getter_AddRefs(presShell));
+  nsCOMPtr<nsIPresShell> presShell = docShell->GetPresShell();
   if (!presShell)
     return;
 
@@ -1743,7 +1727,7 @@ nsFocusManager::Focus(nsPIDOMWindow* aWindow,
       objectFrameWidget = objectFrame->GetWidget();
   }
   if (aAdjustWidgets && !objectFrameWidget && !sTestMode) {
-    nsIViewManager* vm = presShell->GetViewManager();
+    nsViewManager* vm = presShell->GetViewManager();
     if (vm) {
       nsCOMPtr<nsIWidget> widget;
       vm->GetRootWidget(getter_AddRefs(widget));
@@ -1829,7 +1813,7 @@ nsFocusManager::Focus(nsPIDOMWindow* aWindow,
     if (aAdjustWidgets && objectFrameWidget &&
         mFocusedWindow == aWindow && mFocusedContent == nullptr &&
         !sTestMode) {
-      nsIViewManager* vm = presShell->GetViewManager();
+      nsViewManager* vm = presShell->GetViewManager();
       if (vm) {
         nsCOMPtr<nsIWidget> widget;
         vm->GetRootWidget(getter_AddRefs(widget));
@@ -1872,7 +1856,7 @@ public:
   NS_IMETHOD Run()
   {
     nsFocusEvent event(true, mType);
-    event.flags |= NS_EVENT_FLAG_CANT_BUBBLE;
+    event.mFlags.mBubbles = false;
     event.fromRaise = mWindowRaised;
     event.isRefocus = mIsRefocus;
     return nsEventDispatcher::Dispatch(mTarget, mContext, &event);
@@ -1987,12 +1971,11 @@ nsFocusManager::RaiseWindow(nsPIDOMWindow* aWindow)
   if (!docShell)
     return;
 
-  nsCOMPtr<nsIPresShell> presShell;
-  docShell->GetPresShell(getter_AddRefs(presShell));
+  nsCOMPtr<nsIPresShell> presShell = docShell->GetPresShell();
   if (!presShell)
     return;
 
-  nsIViewManager* vm = presShell->GetViewManager();
+  nsViewManager* vm = presShell->GetViewManager();
   if (vm) {
     nsCOMPtr<nsIWidget> widget;
     vm->GetRootWidget(getter_AddRefs(widget));
@@ -2036,8 +2019,7 @@ nsFocusManager::UpdateCaret(bool aMoveCaretToFocus,
   bool browseWithCaret =
     Preferences::GetBool("accessibility.browsewithcaret");
 
-  nsCOMPtr<nsIPresShell> presShell;
-  focusedDocShell->GetPresShell(getter_AddRefs(presShell));
+  nsCOMPtr<nsIPresShell> presShell = focusedDocShell->GetPresShell();
   if (!presShell)
     return;
 
@@ -3111,7 +3093,8 @@ nsFocusManager::GetNextTabbablePanel(nsIDocument* aDocument, nsIFrame* aCurrentP
     return nullptr;
 
   // Iterate through the array backwards if aForward is false.
-  nsTArray<nsIFrame *> popups = pm->GetVisiblePopups();
+  nsTArray<nsIFrame *> popups;
+  pm->GetVisiblePopups(popups);
   int32_t i = aForward ? 0 : popups.Length() - 1;
   int32_t end = aForward ? popups.Length() : -1;
 

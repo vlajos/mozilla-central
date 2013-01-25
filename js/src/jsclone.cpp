@@ -121,7 +121,7 @@ SwapBytes(uint64_t u)
 }
 
 bool
-js::WriteStructuredClone(JSContext *cx, const Value &v, uint64_t **bufp, size_t *nbytesp,
+js::WriteStructuredClone(JSContext *cx, HandleValue v, uint64_t **bufp, size_t *nbytesp,
                          const JSStructuredCloneCallbacks *cb, void *cbClosure,
                          jsval transferable)
 {
@@ -207,8 +207,10 @@ SCInput::SCInput(JSContext *cx, uint64_t *data, size_t nbytes)
 bool
 SCInput::read(uint64_t *p)
 {
-    if (point == end)
+    if (point == end) {
+        *p = 0;  /* initialize to shut GCC up */
         return eof();
+    }
     *p = SwapBytes(*point++);
     return true;
 }
@@ -216,7 +218,7 @@ SCInput::read(uint64_t *p)
 bool
 SCInput::readPair(uint32_t *tagp, uint32_t *datap)
 {
-    uint64_t u = 0;     /* initialize to shut GCC up */
+    uint64_t u;
     bool ok = read(&u);
     if (ok) {
         *tagp = uint32_t(u >> 32);
@@ -464,7 +466,7 @@ JSStructuredCloneWriter::parseTransferable()
         return false;
     }
 
-    JSObject* array = &transferable.toObject();
+    RootedObject array(context(), &transferable.toObject());
     if (!JS_IsArrayObject(context(), array)) {
         reportErrorTransferable();
         return false;
@@ -475,9 +477,10 @@ JSStructuredCloneWriter::parseTransferable()
         return false;
     }
 
+    RootedValue v(context());
+
     for (uint32_t i = 0; i < length; ++i) {
-        Value v;
-        if (!JS_GetElement(context(), array, i, &v)) {
+        if (!JS_GetElement(context(), array, i, v.address())) {
             return false;
         }
 
@@ -486,7 +489,11 @@ JSStructuredCloneWriter::parseTransferable()
             return false;
         }
 
-        JSObject* tObj = &v.toObject();
+        JSObject* tObj = UnwrapObjectChecked(&v.toObject());
+        if (!tObj) {
+            JS_ReportError(context(), "Permission denied to access object");
+            return false;
+        }
         if (!tObj->isArrayBuffer()) {
             reportErrorTransferable();
             return false;

@@ -24,9 +24,11 @@
 
 #include "imgILoader.h"
 #include "imgIContainer.h"
+#include "imgRequestProxy.h"
 
 #include "nsIServiceManager.h"
 #include "nsIComponentManager.h"
+#include <algorithm>
 
 #ifdef ACCESSIBILITY
 #include "nsAccessibilityService.h"
@@ -94,7 +96,7 @@ nsBulletFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
 {
   nsFrame::DidSetStyleContext(aOldStyleContext);
 
-  imgIRequest *newRequest = GetStyleList()->GetListStyleImage();
+  imgRequestProxy *newRequest = GetStyleList()->GetListStyleImage();
 
   if (newRequest) {
 
@@ -119,7 +121,7 @@ nsBulletFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
         } else {
           nsLayoutUtils::DeregisterImageRequest(PresContext(), mImageRequest,
                                                 &mRequestRegistered);
-          mImageRequest->Cancel(NS_ERROR_FAILURE);
+          mImageRequest->CancelAndForgetObserver(NS_ERROR_FAILURE);
           mImageRequest = nullptr;
         }
       }
@@ -139,7 +141,7 @@ nsBulletFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
       nsLayoutUtils::DeregisterImageRequest(PresContext(), mImageRequest,
                                             &mRequestRegistered);
 
-      mImageRequest->Cancel(NS_ERROR_FAILURE);
+      mImageRequest->CancelAndForgetObserver(NS_ERROR_FAILURE);
       mImageRequest = nullptr;
     }
   }
@@ -168,6 +170,19 @@ nsBulletFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
   }
 #endif
 }
+
+class nsDisplayBulletGeometry : public nsDisplayItemGenericGeometry
+{
+public:
+  nsDisplayBulletGeometry(nsDisplayItem* aItem, nsDisplayListBuilder* aBuilder)
+    : nsDisplayItemGenericGeometry(aItem, aBuilder)
+  {
+    nsBulletFrame* f = static_cast<nsBulletFrame*>(aItem->GetUnderlyingFrame());
+    mOrdinal = f->GetOrdinal();
+  }
+
+  int32_t mOrdinal;
+};
 
 class nsDisplayBullet : public nsDisplayItem {
 public:
@@ -198,6 +213,27 @@ public:
   {
     bool snap;
     return GetBounds(aBuilder, &snap);
+  }
+
+  virtual nsDisplayItemGeometry* AllocateGeometry(nsDisplayListBuilder* aBuilder)
+  {
+    return new nsDisplayBulletGeometry(this, aBuilder);
+  }
+
+  virtual void ComputeInvalidationRegion(nsDisplayListBuilder* aBuilder,
+                                         const nsDisplayItemGeometry* aGeometry,
+                                         nsRegion *aInvalidRegion)
+  {
+    const nsDisplayBulletGeometry* geometry = static_cast<const nsDisplayBulletGeometry*>(aGeometry);
+    nsBulletFrame* f = static_cast<nsBulletFrame*>(mFrame);
+
+    if (f->GetOrdinal() != geometry->mOrdinal) {
+      bool snap;
+      aInvalidRegion->Or(geometry->mBounds, GetBounds(aBuilder, &snap));
+      return;
+    }
+
+    return nsDisplayItem::ComputeInvalidationRegion(aBuilder, aGeometry, aInvalidRegion);
   }
 };
 
@@ -1314,7 +1350,7 @@ nsBulletFrame::GetDesiredSize(nsPresContext*  aCX,
     case NS_STYLE_LIST_STYLE_CIRCLE:
     case NS_STYLE_LIST_STYLE_SQUARE:
       ascent = fm->MaxAscent();
-      bulletSize = NS_MAX(nsPresContext::CSSPixelsToAppUnits(MIN_BULLET_SIZE),
+      bulletSize = std::max(nsPresContext::CSSPixelsToAppUnits(MIN_BULLET_SIZE),
                           NSToCoordRound(0.8f * (float(ascent) / 2.0f)));
       mPadding.bottom = NSToCoordRound(float(ascent) / 8.0f);
       aMetrics.width = mPadding.right + bulletSize;
@@ -1577,7 +1613,7 @@ nsBulletFrame::GetBaseline() const
       case NS_STYLE_LIST_STYLE_SQUARE:
         ascent = fm->MaxAscent();
         bottomPadding = NSToCoordRound(float(ascent) / 8.0f);
-        ascent = NS_MAX(nsPresContext::CSSPixelsToAppUnits(MIN_BULLET_SIZE),
+        ascent = std::max(nsPresContext::CSSPixelsToAppUnits(MIN_BULLET_SIZE),
                         NSToCoordRound(0.8f * (float(ascent) / 2.0f)));
         ascent += bottomPadding;
         break;

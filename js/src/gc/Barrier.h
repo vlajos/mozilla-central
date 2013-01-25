@@ -320,7 +320,7 @@ BarrieredSetPair(JSCompartment *comp,
     v2.post();
 }
 
-struct Shape;
+class Shape;
 class BaseShape;
 namespace types { struct TypeObject; }
 
@@ -466,25 +466,30 @@ class HeapSlot : public EncapsulatedValue
     inline HeapSlot &operator=(const HeapSlot &v) MOZ_DELETE;
 
   public:
+    enum Kind {
+        Slot,
+        Element
+    };
+
     explicit inline HeapSlot() MOZ_DELETE;
-    explicit inline HeapSlot(JSObject *obj, uint32_t slot, const Value &v);
-    explicit inline HeapSlot(JSObject *obj, uint32_t slot, const HeapSlot &v);
+    explicit inline HeapSlot(JSObject *obj, Kind kind, uint32_t slot, const Value &v);
+    explicit inline HeapSlot(JSObject *obj, Kind kind, uint32_t slot, const HeapSlot &v);
     inline ~HeapSlot();
 
-    inline void init(JSObject *owner, uint32_t slot, const Value &v);
-    inline void init(JSCompartment *comp, JSObject *owner, uint32_t slot, const Value &v);
+    inline void init(JSObject *owner, Kind kind, uint32_t slot, const Value &v);
+    inline void init(JSCompartment *comp, JSObject *owner, Kind kind, uint32_t slot, const Value &v);
 
-    inline void set(JSObject *owner, uint32_t slot, const Value &v);
-    inline void set(JSCompartment *comp, JSObject *owner, uint32_t slot, const Value &v);
-    inline void setCrossCompartment(JSObject *owner, uint32_t slot, const Value &v,
+    inline void set(JSObject *owner, Kind kind, uint32_t slot, const Value &v);
+    inline void set(JSCompartment *comp, JSObject *owner, Kind kind, uint32_t slot, const Value &v);
+    inline void setCrossCompartment(JSObject *owner, Kind kind, uint32_t slot, const Value &v,
                                     JSCompartment *vcomp);
 
-    static inline void writeBarrierPost(JSObject *obj, uint32_t slot);
-    static inline void writeBarrierPost(JSCompartment *comp, JSObject *obj, uint32_t slot);
+    static inline void writeBarrierPost(JSObject *obj, Kind kind, uint32_t slot);
+    static inline void writeBarrierPost(JSCompartment *comp, JSObject *obj, Kind kind, uint32_t slot);
 
   private:
-    inline void post(JSObject *owner, uint32_t slot);
-    inline void post(JSCompartment *comp, JSObject *owner, uint32_t slot);
+    inline void post(JSObject *owner, Kind kind, uint32_t slot);
+    inline void post(JSCompartment *comp, JSObject *owner, Kind kind, uint32_t slot);
 };
 
 /*
@@ -494,7 +499,7 @@ class HeapSlot : public EncapsulatedValue
  * single step.
  */
 inline void
-SlotRangeWriteBarrierPost(JSCompartment *comp, JSObject *obj, uint32_t start, uint32_t count);
+DenseRangeWriteBarrierPost(JSCompartment *comp, JSObject *obj, uint32_t start, uint32_t count);
 
 /*
  * This is a post barrier for HashTables whose key can be moved during a GC.
@@ -612,6 +617,8 @@ class ReadBarriered
   public:
     ReadBarriered() : value(NULL) {}
     ReadBarriered(T *value) : value(value) {}
+    ReadBarriered(const Unrooted<T*> &unrooted) : value(unrooted) {}
+    ReadBarriered(const Rooted<T*> &rooted) : value(rooted) {}
 
     T *get() const {
         if (!value)
@@ -626,6 +633,7 @@ class ReadBarriered
     T *operator->() const { return get(); }
 
     T **unsafeGet() { return &value; }
+    T * const * unsafeGet() const { return &value; }
 
     void set(T *v) { value = v; }
 

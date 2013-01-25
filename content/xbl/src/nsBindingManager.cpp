@@ -110,8 +110,6 @@ nsAnonymousContentList::~nsAnonymousContentList()
   delete mElements;
 }
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsAnonymousContentList)
-
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsAnonymousContentList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsAnonymousContentList)
 
@@ -419,8 +417,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsBindingManager)
   // No need to traverse mProcessAttachedQueueEvent, since it'll just
   // fire at some point or become revoke and drop its ref to us.
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsBindingManager)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsBindingManager)
   NS_INTERFACE_MAP_ENTRY(nsIMutationObserver)
@@ -1219,17 +1215,7 @@ nsBindingManager::GetBindingImplementation(nsIContent* aContent, REFNSIID aIID,
 
       nsIXPConnect *xpConnect = nsContentUtils::XPConnect();
 
-      nsCOMPtr<nsIXPConnectWrappedNative> wrapper;
-      xpConnect->GetWrappedNativeOfNativeObject(jscontext,
-                                                global->GetGlobalJSObject(),
-                                                aContent,
-                                                NS_GET_IID(nsISupports),
-                                                getter_AddRefs(wrapper));
-      NS_ENSURE_TRUE(wrapper, NS_NOINTERFACE);
-
-      JSObject* jsobj = nullptr;
-
-      wrapper->GetJSObject(&jsobj);
+      JSObject* jsobj = aContent->GetWrapper();
       NS_ENSURE_TRUE(jsobj, NS_NOINTERFACE);
 
       nsresult rv = xpConnect->WrapJSAggregatedToNative(aContent, jscontext,
