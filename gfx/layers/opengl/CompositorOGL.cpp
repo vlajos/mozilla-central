@@ -1569,12 +1569,13 @@ CompositorOGL::Pause()
 #endif
 }
 
-void
+bool
 CompositorOGL::Resume()
 {
 #ifdef MOZ_WIDGET_ANDROID
-  gl()->RenewSurface();
+  return gl()->RenewSurface();
 #endif
+  return true;
 }
 
 
