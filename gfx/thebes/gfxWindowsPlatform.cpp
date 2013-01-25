@@ -621,8 +621,11 @@ gfxWindowsPlatform::VerifyD2DDevice(bool aAttemptForce)
         D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_9_3 };
         D3D_FEATURE_LEVEL level;
         RefPtr<ID3D11DeviceContext> ctx;
-        createD3D11Device(adapter1, D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG, levels,
-          sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, byRef(mD3D11Device), &level, byRef(ctx));
+        createD3D11Device(adapter1, D3D_DRIVER_TYPE_UNKNOWN, NULL,
+                          D3D11_CREATE_DEVICE_BGRA_SUPPORT |
+                          D3D11_CREATE_DEVICE_DEBUG, levels, sizeof(levels) /
+                          sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION,
+                          byRef(mD3D11Device), &level, byRef(ctx));
 
         // It takes a lot of time (5-10% of startup time or ~100ms) to do both
         // a createD3DDevice on D3D10_FEATURE_LEVEL_10_0 and 
