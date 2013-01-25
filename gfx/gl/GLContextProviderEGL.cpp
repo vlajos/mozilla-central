@@ -1254,7 +1254,8 @@ public:
                     GLContext* aContext,
                     Flags aFlags = TextureImage::NoFlags,
                     TextureState aTextureState = Created)
-        : TextureImage(aContext, aSize, aWrapMode, aContentType, aFlags)
+        : TextureImage(aSize, aWrapMode, aContentType, aFlags)
+        , mGLContext(aContext)
         , mUpdateFormat(gfxASurface::ImageFormatUnknown)
         , mEGLImage(nullptr)
         , mTexture(aTexture)
@@ -1855,6 +1856,8 @@ public:
 
 protected:
     typedef gfxASurface::gfxImageFormat ImageFormat;
+
+    GLContext* mGLContext;
 
     nsIntRect mUpdateRect;
     ImageFormat mUpdateFormat;
