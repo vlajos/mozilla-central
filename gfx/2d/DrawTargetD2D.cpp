@@ -900,8 +900,15 @@ DrawTargetD2D::FillGlyphs(ScaledFont *aFont,
     }
   }
 
+  AntialiasMode aaMode = font->GetDefaultAAMode();
+
+  if (aOptions.mAntialiasMode != AA_DEFAULT) {
+    aaMode = aOptions.mAntialiasMode;
+  }
+
   if (mFormat == FORMAT_B8G8R8A8 && mPermitSubpixelAA &&
-      aOptions.mCompositionOp == OP_OVER && aPattern.GetType() == PATTERN_COLOR) {
+      aOptions.mCompositionOp == OP_OVER && aPattern.GetType() == PATTERN_COLOR &&
+      aaMode == AA_SUBPIXEL) {
     if (FillGlyphsManual(font, aBuffer,
                          static_cast<const ColorPattern*>(&aPattern)->mColor,
                          params, aOptions)) {
@@ -912,6 +919,29 @@ DrawTargetD2D::FillGlyphs(ScaledFont *aFont,
   ID2D1RenderTarget *rt = GetRTForOperation(aOptions.mCompositionOp, aPattern);
 
   PrepareForDrawing(rt);
+
+  D2D1_TEXT_ANTIALIAS_MODE d2dAAMode = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
+
+  switch (aaMode) {
+  case AA_NONE:
+    d2dAAMode = D2D1_TEXT_ANTIALIAS_MODE_ALIASED;
+    break;
+  case AA_GRAY:
+    d2dAAMode = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE;
+    break;
+  case AA_SUBPIXEL:
+    d2dAAMode = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE;
+    break;
+  default:
+    d2dAAMode = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
+  }
+
+  if (d2dAAMode == D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE &&
+      mFormat != FORMAT_B8G8R8X8) {
+    d2dAAMode = D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE;
+  }
+
+  rt->SetTextAntialiasMode(d2dAAMode);
 
   if (rt != mRT || params != mTextRenderingParams) {
     rt->SetTextRenderingParams(params);
@@ -1484,11 +1514,15 @@ DrawTargetD2D::GetBlendStateForOperator(CompositionOp aOperator)
 ID2D1RenderTarget*
 DrawTargetD2D::GetRTForOperation(CompositionOp aOperator, const Pattern &aPattern)
 {
-  if (aOperator == OP_OVER && !IsPatternSupportedByD2D(aPattern)) {
+  if (aOperator == OP_OVER && IsPatternSupportedByD2D(aPattern)) {
     return mRT;
   }
 
   PopAllClips();
+
+  if (aOperator > OP_XOR) {
+    mRT->Flush();
+  }
 
   if (mTempRT) {
     mTempRT->Clear(D2D1::ColorF(0, 0));
@@ -1527,7 +1561,7 @@ DrawTargetD2D::GetRTForOperation(CompositionOp aOperator, const Pattern &aPatter
 void
 DrawTargetD2D::FinalizeRTForOperation(CompositionOp aOperator, const Pattern &aPattern, const Rect &aBounds)
 {
-  if (aOperator == OP_OVER && !IsPatternSupportedByD2D(aPattern)) {
+  if (aOperator == OP_OVER && IsPatternSupportedByD2D(aPattern)) {
     return;
   }
 
@@ -1568,15 +1602,65 @@ DrawTargetD2D::FinalizeRTForOperation(CompositionOp aOperator, const Pattern &aP
   viewport.TopLeftX = 0;
   viewport.TopLeftY = 0;
 
+  RefPtr<ID3D10Texture2D> tmpTexture;
+  RefPtr<ID3D10ShaderResourceView> mBckSRView;
+
   mDevice->RSSetViewports(1, &viewport);
   mPrivateData->mEffect->GetVariableByName("QuadDesc")->AsVector()->
     SetFloatVector(ShaderConstantRectD3D10(-1.0f, 1.0f, 2.0f, -2.0f));
 
-  if (!IsPatternSupportedByD2D(aPattern)) {
+  if (IsPatternSupportedByD2D(aPattern)) {
     mPrivateData->mEffect->GetVariableByName("TexCoords")->AsVector()->
       SetFloatVector(ShaderConstantRectD3D10(0, 0, 1.0f, 1.0f));
     mPrivateData->mEffect->GetVariableByName("tex")->AsShaderResource()->SetResource(mSRView);
-    mPrivateData->mEffect->GetTechniqueByName("SampleTexture")->GetPassByIndex(0)->Apply(0);
+
+    // Handle the case where we blend with the backdrop
+    if (aOperator > OP_XOR) {
+      IntSize size = mSize;
+      SurfaceFormat format = mFormat;
+
+      CD3D10_TEXTURE2D_DESC desc(DXGIFormat(format), size.width, size.height, 1, 1);
+      desc.BindFlags = D3D10_BIND_RENDER_TARGET | D3D10_BIND_SHADER_RESOURCE;
+
+      HRESULT hr = mDevice->CreateTexture2D(&desc, nullptr, byRef(tmpTexture));
+      if (FAILED(hr)) {
+        gfxWarning() << "Failed to create temporary texture to hold surface data.";
+        return;
+      }
+
+      mDevice->CopyResource(tmpTexture, mTexture);
+      if (FAILED(hr)) {
+        gfxWarning() << *this << "Failed to create shader resource view for temp texture. Code: " << hr;
+        return;
+      }
+
+      DrawTargetD2D::Flush();
+
+      hr = mDevice->CreateShaderResourceView(tmpTexture, nullptr, byRef(mBckSRView));
+
+      if (FAILED(hr)) {
+        gfxWarning() << *this << "Failed to create shader resource view for temp texture. Code: " << hr;
+        return;
+      }
+
+      unsigned int compop = (unsigned int)aOperator - (unsigned int)OP_XOR;
+      mPrivateData->mEffect->GetVariableByName("bcktex")->AsShaderResource()->SetResource(mBckSRView);
+      mPrivateData->mEffect->GetVariableByName("blendop")->AsScalar()->SetInt(compop);
+
+      if (aOperator > OP_EXCLUSION)
+        mPrivateData->mEffect->GetTechniqueByName("SampleTextureForNonSeparableBlending")->
+          GetPassByIndex(0)->Apply(0);
+      else if (aOperator > OP_COLOR_DODGE)
+        mPrivateData->mEffect->GetTechniqueByName("SampleTextureForSeparableBlending_2")->
+          GetPassByIndex(0)->Apply(0);
+      else
+        mPrivateData->mEffect->GetTechniqueByName("SampleTextureForSeparableBlending_1")->
+          GetPassByIndex(0)->Apply(0);
+    }
+    else {
+      mPrivateData->mEffect->GetTechniqueByName("SampleTexture")->GetPassByIndex(0)->Apply(0);
+    }
+
   } else if (aPattern.GetType() == PATTERN_RADIAL_GRADIENT) {
     const RadialGradientPattern *pat = static_cast<const RadialGradientPattern*>(&aPattern);
 
@@ -2058,7 +2142,7 @@ DrawTargetD2D::FillGlyphsManual(ScaledFontDWrite *aFont,
 TemporaryRef<ID2D1Brush>
 DrawTargetD2D::CreateBrushForPattern(const Pattern &aPattern, Float aAlpha)
 {
-  if (IsPatternSupportedByD2D(aPattern)) {
+  if (!IsPatternSupportedByD2D(aPattern)) {
     RefPtr<ID2D1SolidColorBrush> colBrush;
     mRT->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), byRef(colBrush));
     return colBrush;
@@ -2656,6 +2740,15 @@ DrawTargetD2D::factory()
   return mFactory;
 }
 
+void
+DrawTargetD2D::CleanupD2D()
+{
+  if (mFactory) {
+    mFactory->Release();
+    mFactory = nullptr;
+  }
+}
+
 IDWriteFactory*
 DrawTargetD2D::GetDWriteFactory()
 {
@@ -2706,7 +2799,7 @@ DrawTargetD2D::PushD2DLayer(ID2D1RenderTarget *aRT, ID2D1Geometry *aGeometry, ID
   D2D1_LAYER_OPTIONS options = D2D1_LAYER_OPTIONS_NONE;
   D2D1_LAYER_OPTIONS1 options1 =  D2D1_LAYER_OPTIONS1_NONE;
 
-  if (mFormat == FORMAT_B8G8R8X8) {
+  if (aRT->GetPixelFormat().alphaMode == D2D1_ALPHA_MODE_IGNORE) {
     options = D2D1_LAYER_OPTIONS_INITIALIZE_FOR_CLEARTYPE;
     options1 = D2D1_LAYER_OPTIONS1_IGNORE_ALPHA | D2D1_LAYER_OPTIONS1_INITIALIZE_FROM_BACKGROUND;
   }

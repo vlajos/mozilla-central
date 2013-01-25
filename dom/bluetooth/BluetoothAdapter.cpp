@@ -10,7 +10,6 @@
 #include "BluetoothPropertyEvent.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
-#include "BluetoothServiceUuid.h"
 #include "BluetoothUtils.h"
 #include "GeneratedEvents.h"
 
@@ -34,8 +33,6 @@ using namespace mozilla;
 USING_BLUETOOTH_NAMESPACE
 
 DOMCI_DATA(BluetoothAdapter, BluetoothAdapter)
-
-NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothAdapter)
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(BluetoothAdapter,
                                                nsDOMEventTargetHelper)
@@ -164,6 +161,8 @@ BluetoothAdapter::Unroot()
   if (!mIsRooted) {
     return;
   }
+  mJsUuids = nullptr;
+  mJsDeviceAddresses = nullptr;
   NS_DROP_JS_OBJECTS(this, BluetoothAdapter);
   mIsRooted = false;
 }

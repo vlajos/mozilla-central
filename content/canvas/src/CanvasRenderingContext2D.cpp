@@ -16,7 +16,7 @@
 #include "nsContentUtils.h"
 
 #include "nsIDocument.h"
-#include "nsHTMLCanvasElement.h"
+#include "mozilla/dom/HTMLCanvasElement.h"
 #include "nsSVGEffects.h"
 #include "nsPresContext.h"
 #include "nsIPresShell.h"
@@ -94,9 +94,11 @@
 #include "nsJSUtils.h"
 #include "XPCQuickStubs.h"
 #include "mozilla/dom/BindingUtils.h"
-#include "nsHTMLImageElement.h"
+#include "mozilla/dom/HTMLImageElement.h"
 #include "nsHTMLVideoElement.h"
 #include "mozilla/dom/CanvasRenderingContext2DBinding.h"
+#include <cstdlib> // for std::abs(int/long)
+#include <cmath> // for std::abs(float/double)
 
 #ifdef XP_WIN
 #include "gfxWindowsPlatform.h"
@@ -128,7 +130,6 @@ static NS_NAMED_LITERAL_STRING(kDefaultFontStyle, "10px sans-serif");
 const Float SIGMA_MAX = 100;
 
 /* Memory reporter stuff */
-static nsIMemoryReporter *gCanvasAzureMemoryReporter = nullptr;
 static int64_t gCanvasAzureMemoryUsed = 0;
 
 static int64_t GetCanvasAzureMemoryUsed() {
@@ -301,10 +302,10 @@ public:
 
     // We need to enlarge and possibly offset our temporary surface
     // so that things outside of the canvas may cast shadows.
-    mTempRect.Inflate(Margin(blurRadius + NS_MAX<Float>(state.shadowOffset.x, 0),
-                             blurRadius + NS_MAX<Float>(state.shadowOffset.y, 0),
-                             blurRadius + NS_MAX<Float>(-state.shadowOffset.x, 0),
-                             blurRadius + NS_MAX<Float>(-state.shadowOffset.y, 0)));
+    mTempRect.Inflate(Margin(blurRadius + std::max<Float>(state.shadowOffset.x, 0),
+                             blurRadius + std::max<Float>(state.shadowOffset.y, 0),
+                             blurRadius + std::max<Float>(-state.shadowOffset.x, 0),
+                             blurRadius + std::max<Float>(-state.shadowOffset.y, 0)));
 
     if (aBounds) {
       // We actually include the bounds of the shadow blur, this makes it
@@ -523,8 +524,6 @@ NS_INTERFACE_MAP_END
 
 // Initialize our static variables.
 uint32_t CanvasRenderingContext2D::sNumLivingContexts = 0;
-uint8_t (*CanvasRenderingContext2D::sUnpremultiplyTable)[256] = nullptr;
-uint8_t (*CanvasRenderingContext2D::sPremultiplyTable)[256] = nullptr;
 DrawTarget* CanvasRenderingContext2D::sErrorTarget = nullptr;
 
 
@@ -549,10 +548,6 @@ CanvasRenderingContext2D::~CanvasRenderingContext2D()
   }
   sNumLivingContexts--;
   if (!sNumLivingContexts) {
-    delete[] sUnpremultiplyTable;
-    delete[] sPremultiplyTable;
-    sUnpremultiplyTable = nullptr;
-    sPremultiplyTable = nullptr;
     NS_IF_RELEASE(sErrorTarget);
   }
 }
@@ -625,7 +620,7 @@ CanvasRenderingContext2D::Reset()
 }
 
 static void
-WarnAboutUnexpectedStyle(nsHTMLCanvasElement* canvasElement)
+WarnAboutUnexpectedStyle(HTMLCanvasElement* canvasElement)
 {
   nsContentUtils::ReportToConsole(
     nsIScriptError::warningFlag,
@@ -796,9 +791,10 @@ CanvasRenderingContext2D::EnsureTarget()
   }
 
   if (mTarget) {
-    if (gCanvasAzureMemoryReporter == nullptr) {
-        gCanvasAzureMemoryReporter = new NS_MEMORY_REPORTER_NAME(CanvasAzureMemory);
-      NS_RegisterMemoryReporter(gCanvasAzureMemoryReporter);
+    static bool registered = false;
+    if (!registered) {
+      registered = true;
+      NS_RegisterMemoryReporter(new NS_MEMORY_REPORTER_NAME(CanvasAzureMemory));
     }
 
     gCanvasAzureMemoryUsed += mWidth * mHeight * 4;
@@ -1058,10 +1054,6 @@ CanvasRenderingContext2D::Restore()
 void
 CanvasRenderingContext2D::Scale(double x, double y, ErrorResult& error)
 {
-  if (!FloatValidate(x,y)) {
-    return;
-  }
-
   TransformWillUpdate();
   if (!IsTargetValid()) {
     error.Throw(NS_ERROR_FAILURE);
@@ -1075,16 +1067,11 @@ CanvasRenderingContext2D::Scale(double x, double y, ErrorResult& error)
 void
 CanvasRenderingContext2D::Rotate(double angle, ErrorResult& error)
 {
-  if (!FloatValidate(angle)) {
-    return;
-  }
-
   TransformWillUpdate();
   if (!IsTargetValid()) {
     error.Throw(NS_ERROR_FAILURE);
     return;
   }
-
 
   Matrix rotation = Matrix::Rotation(angle);
   mTarget->SetTransform(rotation * mTarget->GetTransform());
@@ -1093,10 +1080,6 @@ CanvasRenderingContext2D::Rotate(double angle, ErrorResult& error)
 void
 CanvasRenderingContext2D::Translate(double x, double y, ErrorResult& error)
 {
-  if (!FloatValidate(x,y)) {
-    return;
-  }
-
   TransformWillUpdate();
   if (!IsTargetValid()) {
     error.Throw(NS_ERROR_FAILURE);
@@ -1112,10 +1095,6 @@ CanvasRenderingContext2D::Transform(double m11, double m12, double m21,
                                     double m22, double dx, double dy,
                                     ErrorResult& error)
 {
-  if (!FloatValidate(m11,m12,m21,m22,dx,dy)) {
-    return;
-  }
-
   TransformWillUpdate();
   if (!IsTargetValid()) {
     error.Throw(NS_ERROR_FAILURE);
@@ -1132,10 +1111,6 @@ CanvasRenderingContext2D::SetTransform(double m11, double m12,
                                        double dx, double dy,
                                        ErrorResult& error)
 {
-  if (!FloatValidate(m11,m12,m21,m22,dx,dy)) {
-    return;
-  }
-
   TransformWillUpdate();
   if (!IsTargetValid()) {
     error.Throw(NS_ERROR_FAILURE);
@@ -1380,11 +1355,6 @@ already_AddRefed<nsIDOMCanvasGradient>
 CanvasRenderingContext2D::CreateLinearGradient(double x0, double y0, double x1, double y1,
                                                ErrorResult& aError)
 {
-  if (!FloatValidate(x0,y0,x1,y1)) {
-    aError.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return nullptr;
-  }
-
   nsRefPtr<nsIDOMCanvasGradient> grad =
     new CanvasLinearGradient(Point(x0, y0), Point(x1, y1));
 
@@ -1396,11 +1366,6 @@ CanvasRenderingContext2D::CreateRadialGradient(double x0, double y0, double r0,
                                                double x1, double y1, double r1,
                                                ErrorResult& aError)
 {
-  if (!FloatValidate(x0,y0,r0,x1,y1,r1)) {
-    aError.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return nullptr;
-  }
-
   if (r0 < 0.0 || r1 < 0.0) {
     aError.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return nullptr;
@@ -1435,7 +1400,7 @@ CanvasRenderingContext2D::CreatePattern(const HTMLImageOrCanvasOrVideoElement& e
 
   Element* htmlElement;
   if (element.IsHTMLCanvasElement()) {
-    nsHTMLCanvasElement* canvas = element.GetAsHTMLCanvasElement();
+    HTMLCanvasElement* canvas = element.GetAsHTMLCanvasElement();
     htmlElement = canvas;
 
     nsIntSize size = canvas->GetSize();
@@ -1456,7 +1421,7 @@ CanvasRenderingContext2D::CreatePattern(const HTMLImageOrCanvasOrVideoElement& e
       return pat.forget();
     }
   } else if (element.IsHTMLImageElement()) {
-    htmlElement = element.GetAsHTMLImageElement();
+    htmlElement = &element.GetAsHTMLImageElement();
   } else {
     htmlElement = element.GetAsHTMLVideoElement();
   }
@@ -1510,7 +1475,7 @@ void
 CanvasRenderingContext2D::ClearRect(double x, double y, double w,
                                     double h)
 {
-  if (!FloatValidate(x,y,w,h) || !mTarget) {
+  if (!mTarget) {
     return;
   }
 
@@ -1523,10 +1488,6 @@ void
 CanvasRenderingContext2D::FillRect(double x, double y, double w,
                                    double h)
 {
-  if (!FloatValidate(x,y,w,h)) {
-    return;
-  }
-
   const ContextState &state = CurrentState();
 
   if (state.patternStyles[STYLE_FILL]) {
@@ -1595,10 +1556,6 @@ void
 CanvasRenderingContext2D::StrokeRect(double x, double y, double w,
                                      double h)
 {
-  if (!FloatValidate(x,y,w,h)) {
-    return;
-  }
-
   const ContextState &state = CurrentState();
 
   mgfx::Rect bounds;
@@ -1679,9 +1636,9 @@ CanvasRenderingContext2D::BeginPath()
 }
 
 void
-CanvasRenderingContext2D::Fill()
+CanvasRenderingContext2D::Fill(const CanvasWindingRule& winding)
 {
-  EnsureUserSpacePath();
+  EnsureUserSpacePath(winding);
 
   if (!mPath) {
     return;
@@ -1730,9 +1687,9 @@ CanvasRenderingContext2D::Stroke()
 }
 
 void
-CanvasRenderingContext2D::Clip()
+CanvasRenderingContext2D::Clip(const CanvasWindingRule& winding)
 {
-  EnsureUserSpacePath();
+  EnsureUserSpacePath(winding);
 
   if (!mPath) {
     return;
@@ -1747,10 +1704,6 @@ CanvasRenderingContext2D::ArcTo(double x1, double y1, double x2,
                                 double y2, double radius,
                                 ErrorResult& error)
 {
-  if (!FloatValidate(x1, y1, x2, y2, radius)) {
-    return;
-  }
-
   if (radius < 0) {
     error.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return;
@@ -1829,10 +1782,6 @@ CanvasRenderingContext2D::Arc(double x, double y, double r,
                               double startAngle, double endAngle,
                               bool anticlockwise, ErrorResult& error)
 {
-  if (!FloatValidate(x, y, r, startAngle, endAngle)) {
-    return;
-  }
-
   if (r < 0.0) {
     error.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return;
@@ -1846,10 +1795,6 @@ CanvasRenderingContext2D::Arc(double x, double y, double r,
 void
 CanvasRenderingContext2D::Rect(double x, double y, double w, double h)
 {
-  if (!FloatValidate(x, y, w, h)) {
-    return;
-  }
-
   EnsureWritablePath();
 
   if (mPathBuilder) {
@@ -1898,13 +1843,16 @@ CanvasRenderingContext2D::EnsureWritablePath()
     mDSPathBuilder =
       mPath->TransformedCopyToBuilder(mPathToDS, fillRule);
     mPathTransformWillUpdate = false;
+    mPath = nullptr;
   }
 }
 
 void
-CanvasRenderingContext2D::EnsureUserSpacePath(bool aCommitTransform /* = true */)
+CanvasRenderingContext2D::EnsureUserSpacePath(const CanvasWindingRule& winding)
 {
   FillRule fillRule = CurrentState().fillRule;
+  if(winding == CanvasWindingRuleValues::Evenodd)
+    fillRule = FILL_EVEN_ODD;
 
   if (!mPath && !mPathBuilder && !mDSPathBuilder) {
     EnsureTarget();
@@ -1916,8 +1864,7 @@ CanvasRenderingContext2D::EnsureUserSpacePath(bool aCommitTransform /* = true */
     mPathBuilder = nullptr;
   }
 
-  if (aCommitTransform &&
-      mPath &&
+  if (mPath &&
       mPathTransformWillUpdate) {
     mDSPathBuilder =
       mPath->TransformedCopyToBuilder(mPathToDS, fillRule);
@@ -2549,10 +2496,6 @@ CanvasRenderingContext2D::DrawOrMeasureText(const nsAString& aRawText,
 {
   nsresult rv;
 
-  if (!FloatValidate(aX, aY) ||
-      (aMaxWidth.WasPassed() && !FloatValidate(aMaxWidth.Value())))
-      return NS_ERROR_DOM_SYNTAX_ERR;
-
   // spec isn't clear on what should happen if aMaxWidth <= 0, so
   // treat it as an invalid argument
   // technically, 0 should be an invalid value as well, but 0 is the default
@@ -2607,7 +2550,7 @@ CanvasRenderingContext2D::DrawOrMeasureText(const nsAString& aRawText,
   const ContextState &state = CurrentState();
 
   // This is only needed to know if we can know the drawing bounding box easily.
-  bool doDrawShadow = aOp == TEXT_DRAW_OPERATION_FILL && NeedToDrawShadow();
+  bool doDrawShadow = NeedToDrawShadow();
 
   CanvasBidiProcessor processor;
 
@@ -2888,10 +2831,6 @@ CanvasRenderingContext2D::GetMozDash(JSContext* cx, ErrorResult& error)
 void
 CanvasRenderingContext2D::SetMozDashOffset(double mozDashOffset)
 {
-  if (!FloatValidate(mozDashOffset)) {
-    return;
-  }
-
   ContextState& state = CurrentState();
   if (!state.dash.IsEmpty()) {
     state.dashOffset = mozDashOffset;
@@ -2899,30 +2838,32 @@ CanvasRenderingContext2D::SetMozDashOffset(double mozDashOffset)
 }
 
 bool
-CanvasRenderingContext2D::IsPointInPath(double x, double y)
+CanvasRenderingContext2D::IsPointInPath(double x, double y, const CanvasWindingRule& winding)
 {
   if (!FloatValidate(x,y)) {
     return false;
   }
 
-  EnsureUserSpacePath(false);
+  EnsureUserSpacePath(winding);
   if (!mPath) {
     return false;
   }
+
   if (mPathTransformWillUpdate) {
     return mPath->ContainsPoint(Point(x, y), mPathToDS);
   }
+
   return mPath->ContainsPoint(Point(x, y), mTarget->GetTransform());
 }
 
 bool
-CanvasRenderingContext2D::MozIsPointInStroke(double x, double y)
+CanvasRenderingContext2D::IsPointInStroke(double x, double y)
 {
   if (!FloatValidate(x,y)) {
     return false;
   }
 
-  EnsureUserSpacePath(false);
+  EnsureUserSpacePath();
   if (!mPath) {
     return false;
   }
@@ -2976,7 +2917,7 @@ CanvasRenderingContext2D::DrawImage(const HTMLImageOrCanvasOrVideoElement& image
 
   EnsureTarget();
   if (image.IsHTMLCanvasElement()) {
-    nsHTMLCanvasElement* canvas = image.GetAsHTMLCanvasElement();
+    HTMLCanvasElement* canvas = image.GetAsHTMLCanvasElement();
     element = canvas;
     nsIntSize size = canvas->GetSize();
     if (size.width == 0 || size.height == 0) {
@@ -3007,7 +2948,7 @@ CanvasRenderingContext2D::DrawImage(const HTMLImageOrCanvasOrVideoElement& image
     }
   } else {
     if (image.IsHTMLImageElement()) {
-      nsHTMLImageElement* img = image.GetAsHTMLImageElement();
+      HTMLImageElement* img = &image.GetAsHTMLImageElement();
       element = img;
     } else {
       nsHTMLVideoElement* video = image.GetAsHTMLVideoElement();
@@ -3132,6 +3073,21 @@ CanvasRenderingContext2D::SetGlobalCompositeOperation(const nsAString& op,
   else CANVAS_OP_TO_GFX_OP("destination-atop", DEST_ATOP)
   else CANVAS_OP_TO_GFX_OP("lighter", ADD)
   else CANVAS_OP_TO_GFX_OP("xor", XOR)
+  else CANVAS_OP_TO_GFX_OP("multiply", MULTIPLY)
+  else CANVAS_OP_TO_GFX_OP("screen", SCREEN)
+  else CANVAS_OP_TO_GFX_OP("overlay", OVERLAY)
+  else CANVAS_OP_TO_GFX_OP("darken", DARKEN)
+  else CANVAS_OP_TO_GFX_OP("lighten", LIGHTEN)
+  else CANVAS_OP_TO_GFX_OP("color-dodge", COLOR_DODGE)
+  else CANVAS_OP_TO_GFX_OP("color-burn", COLOR_BURN)
+  else CANVAS_OP_TO_GFX_OP("hard-light", HARD_LIGHT)
+  else CANVAS_OP_TO_GFX_OP("soft-light", SOFT_LIGHT)
+  else CANVAS_OP_TO_GFX_OP("difference", DIFFERENCE)
+  else CANVAS_OP_TO_GFX_OP("exclusion", EXCLUSION)
+  else CANVAS_OP_TO_GFX_OP("hue", HUE)
+  else CANVAS_OP_TO_GFX_OP("saturation", SATURATION)
+  else CANVAS_OP_TO_GFX_OP("color", COLOR)
+  else CANVAS_OP_TO_GFX_OP("luminosity", LUMINOSITY)
   // XXX ERRMSG we need to report an error to developers here! (bug 329026)
   else return;
 
@@ -3160,6 +3116,21 @@ CanvasRenderingContext2D::GetGlobalCompositeOperation(nsAString& op,
   else CANVAS_OP_TO_GFX_OP("source-out", OUT)
   else CANVAS_OP_TO_GFX_OP("source-over", OVER)
   else CANVAS_OP_TO_GFX_OP("xor", XOR)
+  else CANVAS_OP_TO_GFX_OP("multiply", MULTIPLY)
+  else CANVAS_OP_TO_GFX_OP("screen", SCREEN)
+  else CANVAS_OP_TO_GFX_OP("overlay", OVERLAY)
+  else CANVAS_OP_TO_GFX_OP("darken", DARKEN)
+  else CANVAS_OP_TO_GFX_OP("lighten", LIGHTEN)
+  else CANVAS_OP_TO_GFX_OP("color-dodge", COLOR_DODGE)
+  else CANVAS_OP_TO_GFX_OP("color-burn", COLOR_BURN)
+  else CANVAS_OP_TO_GFX_OP("hard-light", HARD_LIGHT)
+  else CANVAS_OP_TO_GFX_OP("soft-light", SOFT_LIGHT)
+  else CANVAS_OP_TO_GFX_OP("difference", DIFFERENCE)
+  else CANVAS_OP_TO_GFX_OP("exclusion", EXCLUSION)
+  else CANVAS_OP_TO_GFX_OP("hue", HUE)
+  else CANVAS_OP_TO_GFX_OP("saturation", SATURATION)
+  else CANVAS_OP_TO_GFX_OP("color", COLOR)
+  else CANVAS_OP_TO_GFX_OP("luminosity", LUMINOSITY)
   else {
     error.Throw(NS_ERROR_FAILURE);
   }
@@ -3352,33 +3323,6 @@ CanvasRenderingContext2D::AsyncDrawXULElement(nsIDOMXULElement* elem,
 // device pixel getting/setting
 //
 
-void
-CanvasRenderingContext2D::EnsureUnpremultiplyTable() {
-  if (sUnpremultiplyTable)
-    return;
-
-  // Infallably alloc the unpremultiply table.
-  sUnpremultiplyTable = new uint8_t[256][256];
-
-  // It's important that the array be indexed first by alpha and then by rgb
-  // value.  When we unpremultiply a pixel, we're guaranteed to do three
-  // lookups with the same alpha; indexing by alpha first makes it likely that
-  // those three lookups will be close to one another in memory, thus
-  // increasing the chance of a cache hit.
-
-  // a == 0 case
-  for (uint32_t c = 0; c <= 255; c++) {
-    sUnpremultiplyTable[0][c] = c;
-  }
-
-  for (int a = 1; a <= 255; a++) {
-    for (int c = 0; c <= 255; c++) {
-      sUnpremultiplyTable[a][c] = (uint8_t)((c * 255) / a);
-    }
-  }
-}
-
-
 already_AddRefed<ImageData>
 CanvasRenderingContext2D::GetImageData(JSContext* aCx, double aSx,
                                        double aSy, double aSw,
@@ -3511,9 +3455,6 @@ CanvasRenderingContext2D::GetImageDataArray(JSContext* aCx,
     }
   }
 
-  // make sure sUnpremultiplyTable has been created
-  EnsureUnpremultiplyTable();
-
   // NOTE! dst is the same as src, and this relies on reading
   // from src and advancing that ptr before writing to dst.
   // NOTE! I'm not sure that it is, I think this comment might have been
@@ -3535,9 +3476,9 @@ CanvasRenderingContext2D::GetImageDataArray(JSContext* aCx,
       uint8_t b = *src++;
 #endif
       // Convert to non-premultiplied color
-      *dst++ = sUnpremultiplyTable[a][r];
-      *dst++ = sUnpremultiplyTable[a][g];
-      *dst++ = sUnpremultiplyTable[a][b];
+      *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + r];
+      *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + g];
+      *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + b];
       *dst++ = a;
     }
     src += srcStride - (dstWriteRect.width * 4);
@@ -3546,25 +3487,6 @@ CanvasRenderingContext2D::GetImageDataArray(JSContext* aCx,
 
   *aRetval = darray;
   return NS_OK;
-}
-
-void
-CanvasRenderingContext2D::EnsurePremultiplyTable() {
-  if (sPremultiplyTable)
-    return;
-
-  // Infallably alloc the premultiply table.
-  sPremultiplyTable = new uint8_t[256][256];
-
-  // Like the unpremultiply table, it's important that we index the premultiply
-  // table with the alpha value as the first index to ensure good cache
-  // performance.
-
-  for (int a = 0; a <= 255; a++) {
-    for (int c = 0; c <= 255; c++) {
-      sPremultiplyTable[a][c] = (a * c + 254) / 255;
-    }
-  }
 }
 
 void
@@ -3594,11 +3516,6 @@ void
 CanvasRenderingContext2D::PutImageData(ImageData& imageData, double dx,
                                        double dy, ErrorResult& error)
 {
-  if (!FloatValidate(dx, dy)) {
-    error.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return;
-  }
-
   dom::Uint8ClampedArray arr(imageData.GetDataObject());
 
   error = PutImageData_explicit(JS_DoubleToInt32(dx), JS_DoubleToInt32(dy),
@@ -3613,11 +3530,6 @@ CanvasRenderingContext2D::PutImageData(ImageData& imageData, double dx,
                                        double dirtyHeight,
                                        ErrorResult& error)
 {
-  if (!FloatValidate(dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight)) {
-    error.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return;
-  }
-
   dom::Uint8ClampedArray arr(imageData.GetDataObject());
 
   error = PutImageData_explicit(JS_DoubleToInt32(dx), JS_DoubleToInt32(dy),
@@ -3699,9 +3611,6 @@ CanvasRenderingContext2D::PutImageData_explicit(int32_t x, int32_t y, uint32_t w
     return NS_ERROR_FAILURE;
   }
 
-  // ensure premultiply table has been created
-  EnsurePremultiplyTable();
-
   uint8_t *src = aData;
   uint8_t *dst = imgsurf->Data();
 
@@ -3714,15 +3623,15 @@ CanvasRenderingContext2D::PutImageData_explicit(int32_t x, int32_t y, uint32_t w
 
       // Convert to premultiplied color (losslessly if the input came from getImageData)
 #ifdef IS_LITTLE_ENDIAN
-      *dst++ = sPremultiplyTable[a][b];
-      *dst++ = sPremultiplyTable[a][g];
-      *dst++ = sPremultiplyTable[a][r];
+      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
+      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
+      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
       *dst++ = a;
 #else
       *dst++ = a;
-      *dst++ = sPremultiplyTable[a][r];
-      *dst++ = sPremultiplyTable[a][g];
-      *dst++ = sPremultiplyTable[a][b];
+      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
+      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
+      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
 #endif
     }
   }
@@ -3735,6 +3644,13 @@ CanvasRenderingContext2D::PutImageData_explicit(int32_t x, int32_t y, uint32_t w
   RefPtr<SourceSurface> sourceSurface =
     mTarget->CreateSourceSurfaceFromData(imgsurf->Data(), IntSize(w, h), imgsurf->Stride(), FORMAT_B8G8R8A8);
 
+  // In certain scenarios, requesting larger than 8k image fails.  Bug 803568
+  // covers the details of how to run into it, but the full detailed
+  // investigation hasn't been done to determine the underlying cause.  We
+  // will just handle the failure to allocate the surface to avoid a crash.
+  if (!sourceSurface) {
+    return NS_ERROR_FAILURE;
+  }
 
   mTarget->CopySurface(sourceSurface,
                        IntRect(dirtyRect.x - x, dirtyRect.y - y,
@@ -3800,11 +3716,6 @@ already_AddRefed<ImageData>
 CanvasRenderingContext2D::CreateImageData(JSContext* cx, double sw,
                                           double sh, ErrorResult& error)
 {
-  if (!FloatValidate(sw, sh)) {
-    error.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return NULL;
-  }
-
   if (!sw || !sh) {
     error.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return NULL;
@@ -3813,8 +3724,8 @@ CanvasRenderingContext2D::CreateImageData(JSContext* cx, double sw,
   int32_t wi = JS_DoubleToInt32(sw);
   int32_t hi = JS_DoubleToInt32(sh);
 
-  uint32_t w = NS_ABS(wi);
-  uint32_t h = NS_ABS(hi);
+  uint32_t w = std::abs(wi);
+  uint32_t h = std::abs(hi);
   return mozilla::dom::CreateImageData(cx, this, w, h, error);
 }
 

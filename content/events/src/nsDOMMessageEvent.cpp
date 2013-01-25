@@ -8,8 +8,6 @@
 #include "jsapi.h"
 #include "nsDOMClassInfoID.h"
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMMessageEvent)
-
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsDOMMessageEvent, nsDOMEvent)
   if (tmp->mDataRooted) {
     tmp->UnrootData();
@@ -62,9 +60,9 @@ void
 nsDOMMessageEvent::UnrootData()
 {
   NS_ASSERTION(mDataRooted, "...");
-  NS_DROP_JS_OBJECTS(this, nsDOMMessageEvent);
   mDataRooted = false;
   mData = JSVAL_VOID;
+  NS_DROP_JS_OBJECTS(this, nsDOMMessageEvent);
 }
 
 NS_IMETHODIMP

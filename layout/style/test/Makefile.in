@@ -62,9 +62,10 @@ MOCHITEST_FILES =	test_acid3_test46.html \
 		test_bug391221.html \
 		test_bug397427.html \
 		test_bug399349.html \
-		$(warning test_bug401046.html is disabled for intermittent failures. Bug 701060) \
+		$(filter disabled-for-intermittent-failures--bug-701060, test_bug401046.html) \
 		test_bug405818.html \
 		test_bug412901.html \
+		test_bug413958.html \
 		test_bug437915.html \
 		test_bug450191.html \
 		test_bug453896_deck.html \
@@ -87,19 +88,24 @@ MOCHITEST_FILES =	test_acid3_test46.html \
 		file_bug645998-2.css \
 		test_bug716226.html \
 		test_bug765590.html \
+		test_bug798567.html \
 		test_cascade.html \
 		test_ch_ex_no_infloops.html \
 		test_compute_data_with_start_struct.html \
 		test_computed_style.html \
 		test_computed_style_no_pseudo.html \
+		test_condition_text.html \
+		test_condition_text_assignment.html \
 		test_default_computed_style.html \
 		test_css_cross_domain.html \
 		test_css_eof_handling.html \
+		test_css_supports.html \
 		test_default_bidi_css.html \
 		test_descriptor_storage.html \
 		test_descriptor_syntax_errors.html \
 		test_dont_use_document_colors.html \
 		test_font_face_parser.html \
+		test_font_family_parsing.html \
 		test_garbage_at_end_of_declarations.html \
 		test_html_attribute_computed_values.html \
 		test_ident_escaping.html \
@@ -125,6 +131,7 @@ MOCHITEST_FILES =	test_acid3_test46.html \
 		test_priority_preservation.html \
 		test_property_syntax_errors.html \
 		test_rem_unit.html \
+		test_rule_insertion.html \
 		test_rule_serialization.html \
 		test_rules_out_of_sheets.html \
 		test_selectors.html \

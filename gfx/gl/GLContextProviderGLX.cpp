@@ -568,8 +568,8 @@ GLXLibrary::xCreateNewContext(Display* display,
 {
     BEFORE_GLX_CALL;
     GLXContext result = xCreateNewContextInternal(display, config, 
-	                                              render_type,
-	                                              share_list, direct);
+                                                  render_type,
+                                                  share_list, direct);
     AFTER_GLX_CALL;
     return result;
 }
@@ -1027,7 +1027,7 @@ private:
                    GLXPixmap aPixmap,
                    TextureImage::Flags aFlags,
                    LibType aLibType)
-        : TextureImage(aContext, aSize, aWrapMode, aContentType, aFlags)
+        : TextureImage(aSize, aWrapMode, aContentType, aFlags)
         , mGLContext(aContext)
         , mUpdateSurface(aSurface)
         , mPixmap(aPixmap)

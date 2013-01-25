@@ -1,4 +1,5 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -35,6 +36,7 @@
 #include "nsDOMBlobBuilder.h"
 #include "nsIPrincipal.h"
 #include "nsIScriptObjectPrincipal.h"
+#include "nsISizeOfEventTarget.h"
 
 #include "mozilla/Assertions.h"
 #include "mozilla/dom/BindingUtils.h"
@@ -52,7 +54,7 @@
 class nsILoadGroup;
 class AsyncVerifyRedirectCallbackForwarder;
 class nsIUnicodeDecoder;
-class nsIDOMFormData;
+class nsFormData;
 
 class nsXHREventTarget : public nsDOMEventTargetHelper,
                          public nsIXMLHttpRequestEventTarget
@@ -124,7 +126,8 @@ class nsXMLHttpRequest : public nsXHREventTarget,
                          public nsIInterfaceRequestor,
                          public nsSupportsWeakReference,
                          public nsIJSNativeInitializer,
-                         public nsITimerCallback
+                         public nsITimerCallback,
+                         public nsISizeOfEventTarget
 {
   friend class nsXHRParseEndListener;
   friend class nsXMLHttpRequestXPCOMifier;
@@ -159,7 +162,7 @@ public:
 
     nsRefPtr<nsXMLHttpRequest> req = new nsXMLHttpRequest();
     req->Construct(principal->GetPrincipal(), window);
-    req->InitParameters(aParams.mozAnon, aParams.mozSystem);
+    req->InitParameters(aParams.mMozAnon, aParams.mMozSystem);
     return req.forget();
   }
 
@@ -229,6 +232,10 @@ public:
   NS_IMETHOD Initialize(nsISupports* aOwner, JSContext* cx, JSObject* obj,
                        uint32_t argc, jsval* argv);
 
+  // nsISizeOfEventTarget
+  virtual size_t
+    SizeOfEventTargetIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const;
+
   NS_FORWARD_NSIDOMEVENTTARGET(nsXHREventTarget::)
 
 #ifdef DEBUG
@@ -262,7 +269,7 @@ public:
   }
   void SetTimeout(uint32_t aTimeout, ErrorResult& aRv);
   bool WithCredentials();
-  void SetWithCredentials(bool aWithCredentials, nsresult& aRv);
+  void SetWithCredentials(bool aWithCredentials, ErrorResult& aRv);
   nsXMLHttpRequestUpload* Upload();
 
 private:
@@ -276,6 +283,10 @@ private:
     {
       mValue.mArrayBuffer = aArrayBuffer;
     }
+    RequestBody(mozilla::dom::ArrayBufferView* aArrayBufferView) : mType(ArrayBufferView)
+    {
+      mValue.mArrayBufferView = aArrayBufferView;
+    }
     RequestBody(nsIDOMBlob* aBlob) : mType(Blob)
     {
       mValue.mBlob = aBlob;
@@ -288,9 +299,9 @@ private:
     {
       mValue.mString = &aString;
     }
-    RequestBody(nsIDOMFormData* aFormData) : mType(FormData)
+    RequestBody(nsFormData& aFormData) : mType(FormData)
     {
-      mValue.mFormData = aFormData;
+      mValue.mFormData = &aFormData;
     }
     RequestBody(nsIInputStream* aStream) : mType(InputStream)
     {
@@ -300,6 +311,7 @@ private:
     enum Type {
       Uninitialized,
       ArrayBuffer,
+      ArrayBufferView,
       Blob,
       Document,
       DOMString,
@@ -308,10 +320,11 @@ private:
     };
     union Value {
       mozilla::dom::ArrayBuffer* mArrayBuffer;
+      mozilla::dom::ArrayBufferView* mArrayBufferView;
       nsIDOMBlob* mBlob;
       nsIDocument* mDocument;
       const nsAString* mString;
-      nsIDOMFormData* mFormData;
+      nsFormData* mFormData;
       nsIInputStream* mStream;
     };
 
@@ -357,15 +370,18 @@ public:
   {
     aRv = Send(RequestBody(&aArrayBuffer));
   }
+  void Send(mozilla::dom::ArrayBufferView& aArrayBufferView, ErrorResult& aRv)
+  {
+    aRv = Send(RequestBody(&aArrayBufferView));
+  }
   void Send(nsIDOMBlob* aBlob, ErrorResult& aRv)
   {
     NS_ASSERTION(aBlob, "Null should go to string version");
     aRv = Send(RequestBody(aBlob));
   }
-  void Send(nsIDocument* aDoc, ErrorResult& aRv)
+  void Send(nsIDocument& aDoc, ErrorResult& aRv)
   {
-    NS_ASSERTION(aDoc, "Null should go to string version");
-    aRv = Send(RequestBody(aDoc));
+    aRv = Send(RequestBody(&aDoc));
   }
   void Send(const nsAString& aString, ErrorResult& aRv)
   {
@@ -376,9 +392,8 @@ public:
       aRv = Send(RequestBody(aString));
     }
   }
-  void Send(nsIDOMFormData* aFormData, ErrorResult& aRv)
+  void Send(nsFormData& aFormData, ErrorResult& aRv)
   {
-    NS_ASSERTION(aFormData, "Null should go to string version");
     aRv = Send(RequestBody(aFormData));
   }
   void Send(nsIInputStream* aStream, ErrorResult& aRv)
@@ -409,6 +424,7 @@ public:
     }
   }
   void GetAllResponseHeaders(nsString& aResponseHeaders);
+  bool IsSafeHeader(const nsACString& aHeaderName, nsIHttpChannel* aHttpChannel);
   void OverrideMimeType(const nsAString& aMimeType)
   {
     // XXX Should we do some validation here?
@@ -482,6 +498,7 @@ public:
   void RootJSResultObjects();
 
   virtual void DisconnectFromOwner();
+
 protected:
   friend class nsMultipartProxyListener;
 
@@ -544,11 +561,14 @@ protected:
   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSIHTTPHEADERVISITOR
-    nsHeaderVisitor() { }
+    nsHeaderVisitor(nsXMLHttpRequest* aXMLHttpRequest, nsIHttpChannel* aHttpChannel)
+      : mXHR(aXMLHttpRequest), mHttpChannel(aHttpChannel) {}
     virtual ~nsHeaderVisitor() {}
     const nsACString &Headers() { return mHeaders; }
   private:
     nsCString mHeaders;
+    nsXMLHttpRequest* mXHR;
+    nsCOMPtr<nsIHttpChannel> mHttpChannel;
   };
 
   // The bytes of our response body. Only used for DEFAULT, ARRAYBUFFER and
@@ -561,7 +581,7 @@ protected:
   // accessed.
   // Only used for DEFAULT and TEXT responseTypes.
   nsString mResponseText;
-  
+
   // For DEFAULT responseType we use this to keep track of how far we've
   // lazily decoded from mResponseBody to mResponseText
   uint32_t mResponseBodyDecodedPos;
@@ -596,8 +616,7 @@ protected:
   // but is also explicitly set in OnStopRequest.
   nsCOMPtr<nsIDOMBlob> mResponseBlob;
   // Non-null only when we are able to get a os-file representation of the
-  // response, i.e. when loading from a file, or when the http-stream
-  // caches into a file or is reading from a cached file.
+  // response, i.e. when loading from a file.
   nsRefPtr<nsDOMFile> mDOMFile;
   // We stream data to mBlobSet when response type is "blob" or "moz-blob"
   // and mDOMFile is null.
@@ -687,8 +706,6 @@ protected:
   // Helper object to manage our XPCOM scriptability bits
   nsXMLHttpRequestXPCOMifier* mXPCOMifier;
 };
-
-#undef IMPL_EVENT_HANDLER
 
 // A shim class designed to expose the non-DOM interfaces of
 // XMLHttpRequest via XPCOM stuff.

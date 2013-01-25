@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <time.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -29,10 +30,11 @@
 #include "nsThread.h"
 #include <media/MediaProfiles.h>
 #include "mozilla/FileUtils.h"
+#include "mozilla/Services.h"
 #include "nsAlgorithm.h"
 #include <media/mediaplayer.h>
-#include "nsDirectoryServiceDefs.h" // for NS_GetSpecialDirectory
 #include "nsPrintfCString.h"
+#include "nsIObserverService.h"
 #include "DOMCameraManager.h"
 #include "GonkCameraHwMgr.h"
 #include "DOMCameraCapabilities.h"
@@ -45,6 +47,16 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::layers;
 using namespace android;
+
+/**
+ * See bug 783682.  Most camera implementations, despite claiming they
+ * support 'yuv420p' as a preview format, actually ignore this setting
+ * and return 'yuv420sp' data anyway.  We have come across a new implementation
+ * that, while reporting that 'yuv420p' is supported *and* has been accepted,
+ * still returns the frame data in 'yuv420sp' anyway.  So for now, since
+ * everyone seems to return this format, we just force it.
+ */
+#define FORCE_PREVIEW_FORMAT_YUV420SP   1
 
 static const char* getKeyText(uint32_t aKey)
 {
@@ -188,14 +200,18 @@ nsGonkCameraControl::nsGonkCameraControl(uint32_t aCameraId, nsIThread* aCameraT
   , mHeight(0)
   , mLastPictureWidth(0)
   , mLastPictureHeight(0)
+#if !FORCE_PREVIEW_FORMAT_YUV420SP
   , mFormat(PREVIEW_FORMAT_UNKNOWN)
+#else
+  , mFormat(PREVIEW_FORMAT_YUV420SP)
+#endif
   , mFps(30)
   , mDiscardedFrameCount(0)
   , mMediaProfiles(nullptr)
   , mRecorder(nullptr)
-  , mVideoFile()
   , mProfileManager(nullptr)
   , mRecorderProfile(nullptr)
+  , mVideoFile(nullptr)
 {
   // Constructor runs on the main thread...
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
@@ -216,15 +232,21 @@ nsGonkCameraControl::Init()
   PullParametersImpl();
 
   // Try to set preferred image format and frame rate
+#if !FORCE_PREVIEW_FORMAT_YUV420SP
   DOM_CAMERA_LOGI("Camera preview formats: %s\n", mParams.get(mParams.KEY_SUPPORTED_PREVIEW_FORMATS));
   const char* const PREVIEW_FORMAT = "yuv420p";
   const char* const BAD_PREVIEW_FORMAT = "yuv420sp";
   mParams.setPreviewFormat(PREVIEW_FORMAT);
   mParams.setPreviewFrameRate(mFps);
+#else
+  mParams.setPreviewFormat("yuv420sp");
+  mParams.setPreviewFrameRate(mFps);
+#endif
   PushParametersImpl();
 
   // Check that our settings stuck
   PullParametersImpl();
+#if !FORCE_PREVIEW_FORMAT_YUV420SP
   const char* format = mParams.getPreviewFormat();
   if (strcmp(format, PREVIEW_FORMAT) == 0) {
     mFormat = PREVIEW_FORMAT_YUV420P;  /* \o/ */
@@ -235,6 +257,7 @@ nsGonkCameraControl::Init()
     mFormat = PREVIEW_FORMAT_UNKNOWN;
     DOM_CAMERA_LOGE("Camera ignored our request for '%s' preview, returned UNSUPPORTED format '%s'\n", PREVIEW_FORMAT, format);
   }
+#endif
 
   // Check the frame rate and log if the camera ignored our setting
   uint32_t fps = mParams.getPreviewFrameRate();
@@ -260,7 +283,8 @@ nsGonkCameraControl::Init()
 nsGonkCameraControl::~nsGonkCameraControl()
 {
   DOM_CAMERA_LOGT("%s:%d : this=%p, mHwHandle = %d\n", __func__, __LINE__, this, mHwHandle);
-  GonkCameraHardware::ReleaseHandle(mHwHandle);
+
+  ReleaseHardwareImpl(nullptr);
   if (mRwLock) {
     PRRWLock* lock = mRwLock;
     mRwLock = nullptr;
@@ -591,11 +615,17 @@ nsGonkCameraControl::SetParameter(uint32_t aKey, int aValue)
 nsresult
 nsGonkCameraControl::GetPreviewStreamImpl(GetPreviewStreamTask* aGetPreviewStream)
 {
+  // stop any currently running preview
+  StopPreviewInternal(true /* forced */);
+
+  // remove any existing recorder profile
+  mRecorderProfile = nullptr;
+
   SetPreviewSize(aGetPreviewStream->mSize.width, aGetPreviewStream->mSize.height);
+  DOM_CAMERA_LOGI("picture preview: wanted %d x %d, got %d x %d (%d fps, format %d)\n", aGetPreviewStream->mSize.width, aGetPreviewStream->mSize.height, mWidth, mHeight, mFps, mFormat);
 
-  DOM_CAMERA_LOGI("config preview: wated %d x %d, got %d x %d (%d fps, format %d)\n", aGetPreviewStream->mSize.width, aGetPreviewStream->mSize.height, mWidth, mHeight, mFps, mFormat);
-
-  nsCOMPtr<GetPreviewStreamResult> getPreviewStreamResult = new GetPreviewStreamResult(this, mWidth, mHeight, mFps, aGetPreviewStream->mOnSuccessCb, mWindowId);
+  nsMainThreadPtrHandle<nsICameraPreviewStreamCallback> onSuccess = aGetPreviewStream->mOnSuccessCb;
+  nsCOMPtr<GetPreviewStreamResult> getPreviewStreamResult = new GetPreviewStreamResult(this, mWidth, mHeight, mFps, onSuccess, mWindowId);
   return NS_DispatchToMainThread(getPreviewStreamResult);
 }
 
@@ -608,9 +638,7 @@ nsGonkCameraControl::StartPreviewImpl(StartPreviewTask* aStartPreview)
    * currently set DOM-facing preview object.
    */
   if (aStartPreview->mDOMPreview) {
-    if (mDOMPreview) {
-      mDOMPreview->Stopped(true);
-    }
+    StopPreviewInternal(true /* forced */);
     mDOMPreview = aStartPreview->mDOMPreview;
   } else if (!mDOMPreview) {
     return NS_ERROR_INVALID_ARG;
@@ -631,7 +659,7 @@ nsGonkCameraControl::StartPreviewImpl(StartPreviewTask* aStartPreview)
 nsresult
 nsGonkCameraControl::StopPreviewInternal(bool aForced)
 {
-  DOM_CAMERA_LOGI("%s: stopping preview\n", __func__);
+  DOM_CAMERA_LOGI("%s: stopping preview (mDOMPreview=%p)\n", __func__, mDOMPreview);
 
   // StopPreview() is a synchronous call--it doesn't return
   // until the camera preview thread exits.
@@ -653,20 +681,7 @@ nsGonkCameraControl::StopPreviewImpl(StopPreviewTask* aStopPreview)
 nsresult
 nsGonkCameraControl::AutoFocusImpl(AutoFocusTask* aAutoFocus)
 {
-  nsCOMPtr<nsICameraAutoFocusCallback> cb = mAutoFocusOnSuccessCb;
-  if (cb) {
-    /**
-     * We already have a callback, so someone has already
-     * called autoFocus() -- cancel it.
-     */
-    mAutoFocusOnSuccessCb = nullptr;
-    nsCOMPtr<nsICameraErrorCallback> ecb = mAutoFocusOnErrorCb;
-    mAutoFocusOnErrorCb = nullptr;
-    if (ecb) {
-      nsresult rv = NS_DispatchToMainThread(new CameraErrorResult(ecb, NS_LITERAL_STRING("CANCELLED"), mWindowId));
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
-
+  if (aAutoFocus->mCancel) {
     GonkCameraHardware::CancelAutoFocus(mHwHandle);
   }
 
@@ -721,20 +736,7 @@ nsGonkCameraControl::SetupThumbnail(uint32_t aPictureWidth, uint32_t aPictureHei
 nsresult
 nsGonkCameraControl::TakePictureImpl(TakePictureTask* aTakePicture)
 {
-  nsCOMPtr<nsICameraTakePictureCallback> cb = mTakePictureOnSuccessCb;
-  if (cb) {
-    /**
-     * We already have a callback, so someone has already
-     * called TakePicture() -- cancel it.
-     */
-    mTakePictureOnSuccessCb = nullptr;
-    nsCOMPtr<nsICameraErrorCallback> ecb = mTakePictureOnErrorCb;
-    mTakePictureOnErrorCb = nullptr;
-    if (ecb) {
-      nsresult rv = NS_DispatchToMainThread(new CameraErrorResult(ecb, NS_LITERAL_STRING("CANCELLED"), mWindowId));
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
-
+  if (aTakePicture->mCancel) {
     GonkCameraHardware::CancelTakePicture(mHwHandle);
   }
 
@@ -796,6 +798,33 @@ nsGonkCameraControl::TakePictureImpl(TakePictureTask* aTakePicture)
     SetParameter(CameraParameters::KEY_GPS_TIMESTAMP, nsPrintfCString("%lf", aTakePicture->mPosition.timestamp).get());
   }
 
+  // Add the non-GPS timestamp.  The EXIF date/time field is formatted as
+  // "YYYY:MM:DD HH:MM:SS", without room for a time-zone; as such, the time
+  // is meant to be stored as a local time.  Since we are given seconds from
+  // Epoch GMT, we use localtime_r() to handle the conversion.
+  time_t time = aTakePicture->mDateTime;
+  if (time != aTakePicture->mDateTime) {
+    DOM_CAMERA_LOGE("picture date/time '%llu' is too far in the future\n", aTakePicture->mDateTime);
+  } else {
+    struct tm t;
+    if (localtime_r(&time, &t)) {
+      char dateTime[20];
+      if (strftime(dateTime, sizeof(dateTime), "%Y:%m:%d %T", &t)) {
+        DOM_CAMERA_LOGI("setting picture date/time to %s\n", dateTime);
+        // Not every platform defines a CameraParameters::KEY_EXIF_DATETIME;
+        // for those who don't, we use the raw string key, and if the platform
+        // doesn't support it, it will be ignored.
+        //
+        // See bug 832494.
+        SetParameter("exif-datetime", dateTime);
+      } else {
+        DOM_CAMERA_LOGE("picture date/time couldn't be converted to string\n");
+      }
+    } else {
+      DOM_CAMERA_LOGE("picture date/time couldn't be converted to local time: (%d) %s\n", errno, strerror(errno));
+    }
+  }
+
   mDeferConfigUpdate = false;
   PushParameters();
 
@@ -829,8 +858,8 @@ nsGonkCameraControl::PullParametersImpl()
 nsresult
 nsGonkCameraControl::StartRecordingImpl(StartRecordingTask* aStartRecording)
 {
-  mStartRecordingOnSuccessCb = aStartRecording->mOnSuccessCb;
-  mStartRecordingOnErrorCb = aStartRecording->mOnErrorCb;
+  NS_ENSURE_TRUE(mRecorderProfile, NS_ERROR_NOT_INITIALIZED);
+  NS_ENSURE_FALSE(mRecorder, NS_ERROR_FAILURE);
 
   /**
    * Get the base path from device storage and append the app-specified
@@ -842,10 +871,16 @@ nsGonkCameraControl::StartRecordingImpl(StartRecordingTask* aStartRecording)
    */
   nsCOMPtr<nsIFile> filename = aStartRecording->mFolder;
   filename->AppendRelativePath(aStartRecording->mFilename);
+  mVideoFile = new DeviceStorageFile(NS_LITERAL_STRING("videos"), filename);
 
   nsAutoCString nativeFilename;
   filename->GetNativePath(nativeFilename);
   DOM_CAMERA_LOGI("Video filename is '%s'\n", nativeFilename.get());
+
+  if (!mVideoFile->IsSafePath()) {
+    DOM_CAMERA_LOGE("Invalid video file name\n");
+    return NS_ERROR_INVALID_ARG;
+  }
 
   ScopedClose fd(open(nativeFilename.get(), O_RDWR | O_CREAT, 0644));
   if (fd < 0) {
@@ -858,19 +893,53 @@ nsGonkCameraControl::StartRecordingImpl(StartRecordingTask* aStartRecording)
 
   if (mRecorder->start() != OK) {
     DOM_CAMERA_LOGE("mRecorder->start() failed\n");
+    // important: we MUST destroy the recorder if start() fails!
+    mRecorder = nullptr;
     return NS_ERROR_FAILURE;
   }
 
   return NS_OK;
 }
 
+class RecordingComplete : public nsRunnable
+{
+public:
+  RecordingComplete(DeviceStorageFile* aFile, nsACString& aType)
+    : mFile(aFile)
+    , mType(aType)
+  { }
+
+  ~RecordingComplete() { }
+
+  NS_IMETHOD Run()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    nsString data;
+    CopyASCIItoUTF16(mType, data);
+    nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+    obs->NotifyObservers(mFile, "file-watcher-notify", data.get());
+    return NS_OK;
+  }
+
+private:
+  nsRefPtr<DeviceStorageFile> mFile;
+  nsCString mType;
+};
+
 nsresult
 nsGonkCameraControl::StopRecordingImpl(StopRecordingTask* aStopRecording)
 {
+  // nothing to do if we have no mRecorder
+  NS_ENSURE_TRUE(mRecorder, NS_OK);
+
   mRecorder->stop();
-  delete mRecorder;
   mRecorder = nullptr;
-  return NS_OK;
+
+  // notify DeviceStorage that the new video file is closed and ready
+  nsCString type(mRecorderProfile->GetFileMimeType());
+  nsCOMPtr<nsIRunnable> recordingComplete = new RecordingComplete(mVideoFile, type);
+  return NS_DispatchToMainThread(recordingComplete, NS_DISPATCH_NORMAL);
 }
 
 void
@@ -910,8 +979,7 @@ nsGonkCameraControl::TakePictureComplete(uint8_t* aData, uint32_t aLength)
   memcpy(data, aData, aLength);
 
   // TODO: see bug 779144.
-  nsIDOMBlob* blob = new nsDOMMemoryFile(static_cast<void*>(data), static_cast<uint64_t>(aLength), NS_LITERAL_STRING("image/jpeg"));
-  nsCOMPtr<nsIRunnable> takePictureResult = new TakePictureResult(blob, mTakePictureOnSuccessCb, mWindowId);
+  nsCOMPtr<nsIRunnable> takePictureResult = new TakePictureResult(data, aLength, NS_LITERAL_STRING("image/jpeg"), mTakePictureOnSuccessCb, mWindowId);
   /**
    * Remember to set these to null so that we don't hold any extra
    * references to our document's window.
@@ -1246,6 +1314,32 @@ nsGonkCameraControl::GetPreviewStreamVideoModeImpl(GetPreviewStreamVideoModeTask
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch GetPreviewStreamVideoMode() onSuccess callback to main thread!");
     return rv;
+  }
+
+  return NS_OK;
+}
+
+nsresult
+nsGonkCameraControl::ReleaseHardwareImpl(ReleaseHardwareTask* aReleaseHardware)
+{
+  DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
+
+  // if we're recording, stop recording
+  if (mRecorder) {
+    DOM_CAMERA_LOGI("shutting down existing video recorder\n");
+    mRecorder->stop();
+    mRecorder = nullptr;
+  }
+
+  // stop the preview
+  StopPreviewInternal(true /* forced */);
+
+  // release the hardware handle
+  GonkCameraHardware::ReleaseHandle(mHwHandle, true /* unregister */);
+
+  if (aReleaseHardware) {
+    nsCOMPtr<nsIRunnable> releaseHardwareResult = new ReleaseHardwareResult(aReleaseHardware->mOnSuccessCb, mWindowId);
+    return NS_DispatchToMainThread(releaseHardwareResult);
   }
 
   return NS_OK;

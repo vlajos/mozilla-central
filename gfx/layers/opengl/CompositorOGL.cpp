@@ -24,6 +24,7 @@
 #include "gfxCrashReporterUtils.h"
 
 #include "sampler.h"
+#include <algorithm>
 
 #if MOZ_ANDROID_OMTC
 #include "TexturePoolOGL.h"
@@ -75,7 +76,7 @@ private:
       const TimeStamp& frame = mFrames[i];
       if (!frame.IsNull() && frame > beginningOfWindow) {
         ++numFramesDrawnInWindow;
-        earliestFrameInWindow = NS_MIN(earliestFrameInWindow, frame);
+        earliestFrameInWindow = std::min(earliestFrameInWindow, frame);
       }
     }
     double realWindowSecs = (aNow - earliestFrameInWindow).ToSeconds();

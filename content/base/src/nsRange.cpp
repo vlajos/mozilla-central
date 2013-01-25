@@ -253,8 +253,6 @@ nsRange::CreateRange(nsIDOMNode* aStartParent, int32_t aStartOffset,
  * nsISupports
  ******************************************************/
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsRange)
-
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsRange)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsRange)
 
@@ -559,7 +557,7 @@ nsRange::ContentAppended(nsIDocument* aDocument,
   if (mStartOffsetWasIncremented || mEndOffsetWasIncremented) {
     MOZ_ASSERT(mAssertNextInsertOrAppendIndex == aNewIndexInContainer);
     MOZ_ASSERT(mAssertNextInsertOrAppendNode == aFirstNewContent);
-    MOZ_ASSERT(aFirstNewContent->IsNodeOfType(nsINode::eTEXT));
+    MOZ_ASSERT(aFirstNewContent->IsNodeOfType(nsINode::eDATA_NODE));
     mStartOffsetWasIncremented = mEndOffsetWasIncremented = false;
 #ifdef DEBUG
     mAssertNextInsertOrAppendIndex = -1;
@@ -596,7 +594,7 @@ nsRange::ContentInserted(nsIDocument* aDocument,
   if (mStartOffsetWasIncremented || mEndOffsetWasIncremented) {
     MOZ_ASSERT(mAssertNextInsertOrAppendIndex == aIndexInContainer);
     MOZ_ASSERT(mAssertNextInsertOrAppendNode == aChild);
-    MOZ_ASSERT(aChild->IsNodeOfType(nsINode::eTEXT));
+    MOZ_ASSERT(aChild->IsNodeOfType(nsINode::eDATA_NODE));
     mStartOffsetWasIncremented = mEndOffsetWasIncremented = false;
 #ifdef DEBUG
     mAssertNextInsertOrAppendIndex = -1;

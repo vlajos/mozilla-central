@@ -59,6 +59,7 @@ TEST_DIRS += tests
 EXTRA_JS_MODULES = \
   debug.js \
   DeferredTask.jsm \
+  Deprecated.jsm \
   Dict.jsm \
   Geometry.jsm \
   InlineSpellChecker.jsm \
@@ -66,7 +67,6 @@ EXTRA_JS_MODULES = \
   PopupNotifications.jsm \
   PropertyListUtils.jsm \
   Task.jsm \
-  UpdateChannel.jsm \
   $(NULL)
 
 EXTRA_PP_JS_MODULES = \
@@ -74,6 +74,7 @@ EXTRA_PP_JS_MODULES = \
   Services.jsm \
   WindowDraggingUtils.jsm \
   Troubleshoot.jsm \
+  UpdateChannel.jsm \
   $(NULL)
 
 ifneq (Android,$(OS_TARGET))

@@ -27,11 +27,12 @@ const FILE_UPDATER_INI_BAK = "updater.ini.bak";
 // Number of milliseconds for each do_timeout call.
 const CHECK_TIMEOUT_MILLI = 1000;
 
+// How many of CHECK_TIMEOUT_MILLI to wait before we abort the test.
 const MAX_TIMEOUT_RUNS = 300;
 
 // Maximum number of milliseconds the process that is launched can run before
 // the test will try to kill it.
-const APP_TIMER_TIMEOUT = 15000;
+const APP_TIMER_TIMEOUT = 20000;
 
 Components.utils.import("resource://gre/modules/ctypes.jsm");
 
@@ -111,6 +112,10 @@ function run_test() {
   do_test_pending();
   do_register_cleanup(end_test);
 
+  if (IS_WIN) {
+    Services.prefs.setBoolPref(PREF_APP_UPDATE_SERVICE_ENABLED, true);
+  }
+
   removeUpdateDirsAndFiles();
 
   symlinkUpdateFilesIntoBundleDirectory();
@@ -164,6 +169,14 @@ function run_test() {
   reloadUpdateManagerData();
   gActiveUpdate = gUpdateManager.activeUpdate;
   do_check_true(!!gActiveUpdate);
+
+  // Backup the updater.ini if it exists by moving it. This prevents the post
+  // update executable from being launched if it is specified.
+  let updaterIni = processDir.clone();
+  updaterIni.append(FILE_UPDATER_INI);
+  if (updaterIni.exists()) {
+    updaterIni.moveTo(processDir, FILE_UPDATER_INI_BAK);
+  }
 
   let updateSettingsIni = processDir.clone();
   updateSettingsIni.append(UPDATE_SETTINGS_INI_FILE);
@@ -231,6 +244,14 @@ function end_test() {
   }
 
   resetEnvironment();
+
+  let processDir = getAppDir();
+  // Restore the backup of the updater.ini if it exists
+  let updaterIni = processDir.clone();
+  updaterIni.append(FILE_UPDATER_INI_BAK);
+  if (updaterIni.exists()) {
+    updaterIni.moveTo(processDir, FILE_UPDATER_INI);
+  }
 
   // Remove the files added by the update.
   let updateTestDir = getUpdateTestDir();

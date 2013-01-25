@@ -18,6 +18,7 @@
 #include "builtin/Eval.h"
 #include "builtin/Intl.h"
 #include "builtin/MapObject.h"
+#include "builtin/Object.h"
 #include "builtin/RegExp.h"
 #include "frontend/BytecodeEmitter.h"
 
@@ -199,7 +200,7 @@ GlobalObject::initFunctionAndObjectClasses(JSContext *cx)
      * to have unknown properties, to simplify handling of e.g. heterogenous
      * objects in JSON and script literals.
      */
-    if (!objectProto->setNewTypeUnknown(cx))
+    if (!setNewTypeUnknown(cx, objectProto))
         return NULL;
 
     /* Create |Function.prototype| next so we can create other functions. */
@@ -262,7 +263,7 @@ GlobalObject::initFunctionAndObjectClasses(JSContext *cx)
          * inference to have unknown properties, to simplify handling of e.g.
          * CloneFunctionObject.
          */
-        if (!functionProto->setNewTypeUnknown(cx))
+        if (!setNewTypeUnknown(cx, functionProto))
             return NULL;
     }
 
@@ -273,7 +274,7 @@ GlobalObject::initFunctionAndObjectClasses(JSContext *cx)
         if (!ctor)
             return NULL;
         RootedAtom objectAtom(cx, cx->names().Object);
-        objectCtor = js_NewFunction(cx, ctor, js_Object, 1, JSFunction::NATIVE_CTOR, self,
+        objectCtor = js_NewFunction(cx, ctor, obj_construct, 1, JSFunction::NATIVE_CTOR, self,
                                     objectAtom);
         if (!objectCtor)
             return NULL;
@@ -353,9 +354,9 @@ GlobalObject::initFunctionAndObjectClasses(JSContext *cx)
     }
 
     /* Add the global Function and Object properties now. */
-    if (!self->addDataProperty(cx, NameToId(cx->names().Object), JSProto_Object + JSProto_LIMIT * 2, 0))
+    if (!self->addDataProperty(cx, cx->names().Object, JSProto_Object + JSProto_LIMIT * 2, 0))
         return NULL;
-    if (!self->addDataProperty(cx, NameToId(cx->names().Function), JSProto_Function + JSProto_LIMIT * 2, 0))
+    if (!self->addDataProperty(cx, cx->names().Function, JSProto_Function + JSProto_LIMIT * 2, 0))
         return NULL;
 
     /* Heavy lifting done, but lingering tasks remain. */
@@ -376,12 +377,17 @@ GlobalObject::initFunctionAndObjectClasses(JSContext *cx)
         return NULL;
     self->setThrowTypeError(throwTypeError);
 
-    RootedObject intrinsicsHolder(cx, JS_NewObject(cx, NULL, NULL, self));
-    if (!intrinsicsHolder)
-        return NULL;
+    RootedObject intrinsicsHolder(cx);
+    if (cx->runtime->isSelfHostingGlobal(self)) {
+        intrinsicsHolder = self;
+    } else {
+        intrinsicsHolder = NewObjectWithClassProto(cx, &ObjectClass, NULL, self);
+        if (!intrinsicsHolder)
+            return NULL;
+    }
     self->setIntrinsicsHolder(intrinsicsHolder);
     /* Define a property 'global' with the current global as its value. */
-    RootedValue global(cx, OBJECT_TO_JSVAL(self));
+    RootedValue global(cx, ObjectValue(*self));
     if (!JSObject::defineProperty(cx, intrinsicsHolder, cx->names().global,
                                   global, JS_PropertyStub, JS_StrictPropertyStub,
                                   JSPROP_PERMANENT | JSPROP_READONLY))
@@ -405,8 +411,8 @@ GlobalObject::initFunctionAndObjectClasses(JSContext *cx)
      * Notify any debuggers about the creation of the script for
      * |Function.prototype| -- after all initialization, for simplicity.
      */
-    RootedScript functionProtoScript(cx, functionProto->script());
-    js_CallNewScriptHook(cx, functionProtoScript, functionProto);
+    RootedScript functionProtoScript(cx, functionProto->nonLazyScript());
+    CallNewScriptHook(cx, functionProtoScript, functionProto);
     return functionProto;
 }
 
@@ -488,7 +494,7 @@ GlobalObject::isRuntimeCodeGenEnabled(JSContext *cx)
          * and that it permits runtime code generation, then cache the result.
          */
         JSCSPEvalChecker allows = cx->runtime->securityCallbacks->contentSecurityPolicyAllows;
-        v.set(this, RUNTIME_CODEGEN_ENABLED, BooleanValue(!allows || allows(cx)));
+        v.set(this, HeapSlot::Slot, RUNTIME_CODEGEN_ENABLED, BooleanValue(!allows || allows(cx)));
     }
     return !v.isFalse();
 }

@@ -16,6 +16,7 @@
 #include "nsIHttpChannelInternal.h"
 #include "nsURLHelper.h"
 #include "nsIStreamConverterService.h"
+#include <algorithm>
 
 //
 // Helper function for determining the length of data bytes up to
@@ -637,7 +638,7 @@ nsMultiMixedConv::OnDataAvailable(nsIRequest *request, nsISupports *context,
         // have enough info to start a part, go ahead and buffer
         // enough to collect a boundary token.
         if (!mPartChannel || !(cursor[bufLen-1] == nsCRT::LF) )
-            bufAmt = NS_MIN(mTokenLen - 1, bufLen);
+            bufAmt = std::min(mTokenLen - 1, bufLen);
     }
 
     if (bufAmt) {
@@ -987,9 +988,12 @@ nsMultiMixedConv::ParseHeaders(nsIChannel *aChannel, char *&aPtr,
 
                 // pass the bytes-unit and the SP
                 char *range = (char *) strchr(colon + 2, ' ');
-
                 if (!range)
                     return NS_ERROR_FAILURE;
+
+                do {
+                    range++;
+                } while (*range == ' ');
 
                 if (range[0] == '*'){
                     mByteRangeStart = mByteRangeEnd = 0;

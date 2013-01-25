@@ -31,15 +31,13 @@ nsDOMNotifyAudioAvailableEvent::nsDOMNotifyAudioAvailableEvent(nsPresContext* aP
 
 DOMCI_DATA(NotifyAudioAvailableEvent, nsDOMNotifyAudioAvailableEvent)
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMNotifyAudioAvailableEvent)
-
 NS_IMPL_ADDREF_INHERITED(nsDOMNotifyAudioAvailableEvent, nsDOMEvent)
 NS_IMPL_RELEASE_INHERITED(nsDOMNotifyAudioAvailableEvent, nsDOMEvent)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsDOMNotifyAudioAvailableEvent, nsDOMEvent)
   if (tmp->mCachedArray) {
-    NS_DROP_JS_OBJECTS(tmp, nsDOMNotifyAudioAvailableEvent);
     tmp->mCachedArray = nullptr;
+    NS_DROP_JS_OBJECTS(tmp, nsDOMNotifyAudioAvailableEvent);
   }
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -60,8 +58,8 @@ nsDOMNotifyAudioAvailableEvent::~nsDOMNotifyAudioAvailableEvent()
 {
   MOZ_COUNT_DTOR(nsDOMNotifyAudioAvailableEvent);
   if (mCachedArray) {
-    NS_DROP_JS_OBJECTS(this, nsDOMNotifyAudioAvailableEvent);
     mCachedArray = nullptr;
+    NS_DROP_JS_OBJECTS(this, nsDOMNotifyAudioAvailableEvent);
   }
 }
 

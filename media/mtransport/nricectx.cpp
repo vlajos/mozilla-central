@@ -275,7 +275,7 @@ RefPtr<NrIceCtx> NrIceCtx::Create(const std::string& name,
       NR_reg_set_uchar((char *)"ice.pref.interface.wlan0", 232);
     }
 
-    NR_reg_set_string((char *)"ice.stun.server.0.addr", (char *)"216.93.246.14");
+    NR_reg_set_string((char *)"ice.stun.server.0.addr", (char *)"23.21.150.121");
     NR_reg_set_uint2((char *)"ice.stun.server.0.port",3478);
     NR_reg_set_uint4((char *)"stun.client.maximum_transmits",4);
   }
@@ -345,6 +345,17 @@ NrIceCtx::CreateStream(const std::string& name, int components) {
   return stream;
 }
 
+void NrIceCtx::destroy_peer_ctx() {
+  nr_ice_peer_ctx_destroy(&peer_);
+}
+
+nsresult NrIceCtx::SetControlling(Controlling controlling) {
+  peer_->controlling = (controlling == ICE_CONTROLLING)? 1 : 0;
+
+  MOZ_MTLOG(PR_LOG_DEBUG, "ICE ctx " << name_ << " setting controlling to" <<
+            controlling);
+  return NS_OK;
+}
 
 nsresult NrIceCtx::StartGathering() {
   this->AddRef();
@@ -484,6 +495,7 @@ void NrIceCtx::SetState(State state) {
   state_ = state;
 }
 }  // close namespace
+
 
 
 extern "C" {

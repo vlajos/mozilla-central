@@ -20,6 +20,13 @@
 #include "MediaResource.h"
 #include "nsError.h"
 #include "mozilla/Preferences.h"
+#include <cstdlib> // for std::abs(int/long)
+#include <cmath> // for std::abs(float/double)
+#include <algorithm>
+
+#ifdef MOZ_WMF
+#include "WMFDecoder.h"
+#endif
 
 using namespace mozilla::layers;
 using namespace mozilla::dom;
@@ -281,6 +288,7 @@ double MediaDecoder::GetDuration()
 
 int64_t MediaDecoder::GetMediaDuration()
 {
+  NS_ENSURE_TRUE(GetStateMachine(), -1);
   return GetStateMachine()->GetDuration();
 }
 
@@ -303,7 +311,8 @@ MediaDecoder::MediaDecoder() :
   mInitialVolume(0.0),
   mRequestedSeekTime(-1.0),
   mDuration(-1),
-  mSeekable(true),
+  mTransportSeekable(true),
+  mMediaSeekable(true),
   mReentrantMonitor("media.decoder"),
   mPlayState(PLAY_STATE_PAUSED),
   mNextState(PLAY_STATE_PAUSED),
@@ -426,6 +435,7 @@ nsresult MediaDecoder::Load(MediaResource* aResource,
 nsresult MediaDecoder::InitializeStateMachine(MediaDecoder* aCloneDonor)
 {
   MOZ_ASSERT(NS_IsMainThread());
+  NS_ASSERTION(mDecoderStateMachine, "Cannot initialize null state machine!");
 
   MediaDecoder* cloneDonor = static_cast<MediaDecoder*>(aCloneDonor);
   if (NS_FAILED(mDecoderStateMachine->Init(cloneDonor ?
@@ -435,7 +445,8 @@ nsresult MediaDecoder::InitializeStateMachine(MediaDecoder* aCloneDonor)
   }
   {
     ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
-    mDecoderStateMachine->SetSeekable(mSeekable);
+    mDecoderStateMachine->SetTransportSeekable(mTransportSeekable);
+    mDecoderStateMachine->SetMediaSeekable(mMediaSeekable);
     mDecoderStateMachine->SetDuration(mDuration);
     mDecoderStateMachine->SetVolume(mInitialVolume);
     mDecoderStateMachine->SetAudioCaptured(mInitialAudioCaptured);
@@ -559,11 +570,11 @@ nsresult MediaDecoder::Seek(double aTime)
         NS_ENSURE_SUCCESS(res, NS_OK);
         res = seekable.Start(range + 1, &rightBound);
         NS_ENSURE_SUCCESS(res, NS_OK);
-        double distanceLeft = NS_ABS(leftBound - aTime);
-        double distanceRight = NS_ABS(rightBound - aTime);
+        double distanceLeft = std::abs(leftBound - aTime);
+        double distanceRight = std::abs(rightBound - aTime);
         if (distanceLeft == distanceRight) {
-          distanceLeft = NS_ABS(leftBound - mCurrentTime);
-          distanceRight = NS_ABS(rightBound - mCurrentTime);
+          distanceLeft = std::abs(leftBound - mCurrentTime);
+          distanceRight = std::abs(rightBound - mCurrentTime);
         } 
         aTime = (distanceLeft < distanceRight) ? leftBound : rightBound;
       } else {
@@ -598,12 +609,6 @@ nsresult MediaDecoder::Seek(double aTime)
   return ScheduleStateMachineThread();
 }
 
-nsresult MediaDecoder::PlaybackRateChanged()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
 double MediaDecoder::GetCurrentTime()
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -631,10 +636,19 @@ void MediaDecoder::AudioAvailable(float* aFrameBuffer,
   mOwner->NotifyAudioAvailable(frameBuffer.forget(), aFrameBufferLength, aTime);
 }
 
-void MediaDecoder::MetadataLoaded(uint32_t aChannels,
-                                      uint32_t aRate,
-                                      bool aHasAudio,
-                                      const MetadataTags* aTags)
+void MediaDecoder::QueueMetadata(int64_t aPublishTime,
+                                 int aChannels,
+                                 int aRate,
+                                 bool aHasAudio,
+                                 MetadataTags* aTags)
+{
+  NS_ASSERTION(mDecoderStateMachine->OnDecodeThread(),
+               "Should be on decode thread.");
+  GetReentrantMonitor().AssertCurrentThreadIn();
+  mDecoderStateMachine->QueueMetadata(aPublishTime, aChannels, aRate, aHasAudio, aTags);
+}
+
+void MediaDecoder::MetadataLoaded(int aChannels, int aRate, bool aHasAudio, MetadataTags* aTags)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (mShuttingDown) {
@@ -802,8 +816,8 @@ void MediaDecoder::PlaybackEnded()
   PlaybackPositionChanged();
   ChangeState(PLAY_STATE_ENDED);
 
+  UpdateReadyStateForData();
   if (mOwner)  {
-    UpdateReadyStateForData();
     mOwner->PlaybackEnded();
   }
 
@@ -880,12 +894,12 @@ void MediaDecoder::UpdatePlaybackRate()
   uint32_t rate = uint32_t(ComputePlaybackRate(&reliable));
   if (reliable) {
     // Avoid passing a zero rate
-    rate = NS_MAX(rate, 1u);
+    rate = std::max(rate, 1u);
   }
   else {
     // Set a minimum rate of 10,000 bytes per second ... sometimes we just
     // don't have good data
-    rate = NS_MAX(rate, 10000u);
+    rate = std::max(rate, 10000u);
   }
   mResource->SetPlaybackRate(rate);
 }
@@ -912,6 +926,10 @@ void MediaDecoder::NotifySuspendedStatusChanged()
 void MediaDecoder::NotifyBytesDownloaded()
 {
   MOZ_ASSERT(NS_IsMainThread());
+  {
+    ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
+    UpdatePlaybackRate();
+  }
   UpdateReadyStateForData();
   Progress(false);
 }
@@ -951,6 +969,7 @@ void MediaDecoder::NotifyPrincipalChanged()
 
 void MediaDecoder::NotifyBytesConsumed(int64_t aBytes)
 {
+  NS_ENSURE_TRUE_VOID(mDecoderStateMachine);
   ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
   MOZ_ASSERT(OnStateMachineThread() || mDecoderStateMachine->OnDecodeThread());
   if (!mIgnoreProgressData) {
@@ -1182,28 +1201,41 @@ void MediaDecoder::SetDuration(double aDuration)
 
 void MediaDecoder::SetMediaDuration(int64_t aDuration)
 {
+  NS_ENSURE_TRUE_VOID(GetStateMachine());
   GetStateMachine()->SetDuration(aDuration);
 }
 
-void MediaDecoder::SetSeekable(bool aSeekable)
-{
-  MOZ_ASSERT(NS_IsMainThread());
-  mSeekable = aSeekable;
+void MediaDecoder::SetMediaSeekable(bool aMediaSeekable) {
+  ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
+  MOZ_ASSERT(NS_IsMainThread() || OnDecodeThread());
+  mMediaSeekable = aMediaSeekable;
   if (mDecoderStateMachine) {
-    ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
-    mDecoderStateMachine->SetSeekable(aSeekable);
+    mDecoderStateMachine->SetMediaSeekable(aMediaSeekable);
   }
 }
 
-bool MediaDecoder::IsSeekable()
+void MediaDecoder::SetTransportSeekable(bool aTransportSeekable)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  return mSeekable;
+  mTransportSeekable = aTransportSeekable;
+  if (mDecoderStateMachine) {
+    ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
+    mDecoderStateMachine->SetTransportSeekable(aTransportSeekable);
+  }
+}
+
+bool MediaDecoder::IsTransportSeekable()
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  return mTransportSeekable;
 }
 
 bool MediaDecoder::IsMediaSeekable()
 {
-  return GetStateMachine()->IsSeekable();
+  NS_ENSURE_TRUE(GetStateMachine(), false);
+  ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
+  MOZ_ASSERT(OnDecodeThread() || NS_IsMainThread());
+  return mMediaSeekable;
 }
 
 nsresult MediaDecoder::GetSeekable(nsTimeRanges* aSeekable)
@@ -1211,18 +1243,17 @@ nsresult MediaDecoder::GetSeekable(nsTimeRanges* aSeekable)
   //TODO : change 0.0 to GetInitialTime() when available
   double initialTime = 0.0;
 
-  if (IsSeekable()) {
+  // We can seek in buffered range if the media is seekable. Also, we can seek
+  // in unbuffered ranges if the transport level is seekable (local file or the
+  // server supports range requests, etc.)
+  if (!IsMediaSeekable()) {
+    return NS_OK;
+  } else if (!IsTransportSeekable()) {
+    return GetBuffered(aSeekable);
+  } else {
     double end = IsInfinite() ? std::numeric_limits<double>::infinity()
                               : initialTime + GetDuration();
     aSeekable->Add(initialTime, end);
-    return NS_OK;
-  }
-
-  if (mDecoderStateMachine && mDecoderStateMachine->IsSeekableInBufferedRanges()) {
-    return GetBuffered(aSeekable);
-  } else {
-    // The stream is not seekable using only buffered ranges, and is not
-    // seekable. Don't allow seeking (return no ranges in |seekable|).
     return NS_OK;
   }
 }
@@ -1238,6 +1269,7 @@ void MediaDecoder::SetFragmentEndTime(double aTime)
 
 void MediaDecoder::SetMediaEndTime(int64_t aTime)
 {
+  NS_ENSURE_TRUE_VOID(GetStateMachine());
   GetStateMachine()->SetMediaEndTime(aTime);
 }
 
@@ -1295,7 +1327,7 @@ void MediaDecoder::MoveLoadsToBackground()
 void MediaDecoder::UpdatePlaybackOffset(int64_t aOffset)
 {
   ReentrantMonitorAutoEnter mon(GetReentrantMonitor());
-  mPlaybackPosition = NS_MAX(aOffset, mPlaybackPosition);
+  mPlaybackPosition = std::max(aOffset, mPlaybackPosition);
 }
 
 bool MediaDecoder::OnStateMachineThread() const
@@ -1312,7 +1344,35 @@ void MediaDecoder::NotifyAudioAvailableListener()
   }
 }
 
+void MediaDecoder::SetPlaybackRate(double aPlaybackRate)
+{
+  if (aPlaybackRate == 0) {
+    mPausedForPlaybackRateNull = true;
+    Pause();
+    return;
+  } else if (mPausedForPlaybackRateNull) {
+    // If the playbackRate is no longer null, restart the playback, iff the
+    // media was playing.
+    if (mOwner && !mOwner->GetPaused()) {
+      Play();
+    }
+    mPausedForPlaybackRateNull = false;
+  }
+
+  if (mDecoderStateMachine) {
+    mDecoderStateMachine->SetPlaybackRate(aPlaybackRate);
+  }
+}
+
+void MediaDecoder::SetPreservesPitch(bool aPreservesPitch)
+{
+  if (mDecoderStateMachine) {
+    mDecoderStateMachine->SetPreservesPitch(aPreservesPitch);
+  }
+}
+
 bool MediaDecoder::OnDecodeThread() const {
+  NS_ENSURE_TRUE(mDecoderStateMachine, false);
   return mDecoderStateMachine->OnDecodeThread();
 }
 
@@ -1372,10 +1432,12 @@ MediaDecoderStateMachine* MediaDecoder::GetStateMachine() const {
 }
 
 bool MediaDecoder::IsShutdown() const {
+  NS_ENSURE_TRUE(GetStateMachine(), true);
   return GetStateMachine()->IsShutdown();
 }
 
 int64_t MediaDecoder::GetEndMediaTime() const {
+  NS_ENSURE_TRUE(GetStateMachine(), -1);
   return GetStateMachine()->GetEndMediaTime();
 }
 
@@ -1575,6 +1637,14 @@ bool
 MediaDecoder::IsDASHEnabled()
 {
   return Preferences::GetBool("media.dash.enabled");
+}
+#endif
+
+#ifdef MOZ_WMF
+bool
+MediaDecoder::IsWMFEnabled()
+{
+  return WMFDecoder::IsEnabled();
 }
 #endif
 

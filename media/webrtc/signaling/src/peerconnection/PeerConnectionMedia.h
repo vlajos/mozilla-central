@@ -49,7 +49,7 @@ class Fake_AudioGenerator {
  public:
 Fake_AudioGenerator(nsDOMMediaStream* aStream) : mStream(aStream), mCount(0) {
     mTimer = do_CreateInstance("@mozilla.org/timer;1");
-    PR_ASSERT(mTimer);
+    MOZ_ASSERT(mTimer);
 
     // Make a track
     mozilla::AudioSegment *segment = new mozilla::AudioSegment();
@@ -63,17 +63,18 @@ Fake_AudioGenerator(nsDOMMediaStream* aStream) : mStream(aStream), mCount(0) {
   static void Callback(nsITimer* timer, void *arg) {
     Fake_AudioGenerator* gen = static_cast<Fake_AudioGenerator*>(arg);
 
-    nsRefPtr<mozilla::SharedBuffer> samples = mozilla::SharedBuffer::Create(1600 * 2 * sizeof(int16_t));
-    for (int i=0; i<1600*2; i++) {
-      reinterpret_cast<int16_t *>(samples->Data())[i] = ((gen->mCount % 8) * 4000) - (7*4000)/2;
+    nsRefPtr<mozilla::SharedBuffer> samples = mozilla::SharedBuffer::Create(1600 * sizeof(int16_t));
+    int16_t* data = static_cast<int16_t*>(samples->Data());
+    for (int i=0; i<1600; i++) {
+      data[i] = ((gen->mCount % 8) * 4000) - (7*4000)/2;
       ++gen->mCount;
     }
 
     mozilla::AudioSegment segment;
     segment.Init(1);
-    segment.AppendFrames(samples.forget(), 1600,
-                         0, 1600, mozilla::AUDIO_FORMAT_S16);
-
+    nsAutoTArray<const int16_t*,1> channelData;
+    channelData.AppendElement(data);
+    segment.AppendFrames(samples.forget(), channelData, 1600);
     gen->mStream->GetStream()->AsSourceStream()->AppendToTrack(1, &segment);
   }
 
@@ -91,7 +92,7 @@ class Fake_VideoGenerator {
     mStream = aStream;
     mCount = 0;
     mTimer = do_CreateInstance("@mozilla.org/timer;1");
-    PR_ASSERT(mTimer);
+    MOZ_ASSERT(mTimer);
 
     // Make a track
     mozilla::VideoSegment *segment = new mozilla::VideoSegment();
@@ -157,31 +158,15 @@ class Fake_VideoGenerator {
 };
 #endif
 
-class LocalSourceStreamInfo : public mozilla::MediaStreamListener {
+class LocalSourceStreamInfo {
 public:
   LocalSourceStreamInfo(nsDOMMediaStream* aMediaStream)
-    : mMediaStream(aMediaStream) {}
+    : mMediaStream(aMediaStream) {
+      MOZ_ASSERT(aMediaStream);
+    }
   ~LocalSourceStreamInfo() {
     mMediaStream = NULL;
   }
-
-  /**
-   * Notify that changes to one of the stream tracks have been queued.
-   * aTrackEvents can be any combination of TRACK_EVENT_CREATED and
-   * TRACK_EVENT_ENDED. aQueuedMedia is the data being added to the track
-   * at aTrackOffset (relative to the start of the stream).
-   */
-  virtual void NotifyQueuedTrackChanges(
-    mozilla::MediaStreamGraph* aGraph,
-    mozilla::TrackID aID,
-    mozilla::TrackRate aTrackRate,
-    mozilla::TrackTicks aTrackOffset,
-    uint32_t aTrackEvents,
-    const mozilla::MediaSegment& aQueuedMedia
-  );
-
-  virtual void NotifyPull(mozilla::MediaStreamGraph* aGraph,
-    mozilla::StreamTime aDesiredTime) {}
 
   nsDOMMediaStream* GetMediaStream() {
     return mMediaStream;
@@ -194,18 +179,16 @@ public:
   unsigned VideoTrackCount();
 
   void Detach() {
-    // Disconnect my own listener
-    GetMediaStream()->GetStream()->RemoveListener(this);
-
     // walk through all the MediaPipelines and disconnect them.
     for (std::map<int, mozilla::RefPtr<mozilla::MediaPipeline> >::iterator it =
            mPipelines.begin(); it != mPipelines.end();
          ++it) {
-      it->second->DetachMediaStream();
+      it->second->Shutdown();
     }
     mMediaStream = NULL;
   }
 
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(LocalSourceStreamInfo)
 private:
   std::map<int, mozilla::RefPtr<mozilla::MediaPipeline> > mPipelines;
   nsRefPtr<nsDOMMediaStream> mMediaStream;
@@ -217,7 +200,9 @@ class RemoteSourceStreamInfo {
  public:
   RemoteSourceStreamInfo(nsDOMMediaStream* aMediaStream) :
     mMediaStream(already_AddRefed<nsDOMMediaStream>(aMediaStream)),
-    mPipelines() {}
+    mPipelines() {
+      MOZ_ASSERT(aMediaStream);
+    }
 
   nsDOMMediaStream* GetMediaStream() {
     return mMediaStream;
@@ -229,7 +214,7 @@ class RemoteSourceStreamInfo {
     for (std::map<int, mozilla::RefPtr<mozilla::MediaPipeline> >::iterator it =
            mPipelines.begin(); it != mPipelines.end();
          ++it) {
-      it->second->DetachMediaStream();
+      it->second->Shutdown();
     }
     mMediaStream = NULL;
   }

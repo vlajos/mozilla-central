@@ -12,8 +12,8 @@
 #include "TypeOracle.h"
 #include "Registers.h"
 
-struct JSFunction;
-struct JSScript;
+class JSFunction;
+class JSScript;
 
 namespace js {
 namespace ion {
@@ -23,6 +23,7 @@ class IonCacheSetProperty;
 class IonCacheGetElement;
 class IonCacheBindName;
 class IonCacheName;
+class IonCacheCallsiteClone;
 
 // Common structure encoding the state of a polymorphic inline cache contained
 // in the code for an IonScript. IonCaches are used for polymorphic operations
@@ -87,14 +88,16 @@ class IonCache
         GetElement,
         BindName,
         Name,
-        NameTypeOf
+        NameTypeOf,
+        CallsiteClone
     };
 
   protected:
     Kind kind_ : 8;
     bool pure_ : 1;
     bool idempotent_ : 1;
-    size_t stubCount_ : 6;
+    bool disabled_ : 1;
+    size_t stubCount_ : 5;
 
     CodeLocationJump initialJump_;
     CodeLocationJump lastJump_;
@@ -111,7 +114,9 @@ class IonCache
             Register object;
             PropertyName *name;
             TypedOrValueRegisterSpace output;
-            bool allowGetters;
+            bool allowGetters : 1;
+            bool hasArrayLengthStub : 1;
+            bool hasTypedArrayLengthStub : 1;
         } getprop;
         struct {
             Register object;
@@ -124,7 +129,7 @@ class IonCache
             ConstantOrRegisterSpace index;
             TypedOrValueRegisterSpace output;
             bool monitoredResult : 1;
-            bool hasDenseArrayStub : 1;
+            bool hasDenseStub : 1;
         } getelem;
         struct {
             Register scopeChain;
@@ -136,6 +141,12 @@ class IonCache
             PropertyName *name;
             TypedOrValueRegisterSpace output;
         } name;
+        struct {
+            Register callee;
+            Register output;
+            JSScript *callScript;
+            jsbytecode *callPc;
+        } callsiteclone;
     } u;
 
     // Registers live after the cache, excluding output registers. The initial
@@ -164,6 +175,12 @@ class IonCache
     IonCache() { PodZero(this); }
 
     void updateBaseAddress(IonCode *code, MacroAssembler &masm);
+
+    // disable the IC.
+    void disable();
+    inline bool isDisabled() const {
+        return disabled_;
+    }
     
     // Reset the cache around garbage collection.
     void reset();
@@ -172,9 +189,9 @@ class IonCache
     CodeLocationLabel cacheLabel() const { return cacheLabel_; }
 
     CodeLocationLabel rejoinLabel() const {
-        uint8 *ptr = initialJump_.raw();
+        uint8_t *ptr = initialJump_.raw();
 #ifdef JS_CPU_ARM
-        uint32 i = 0;
+        uint32_t i = 0;
         while (i < REJOIN_LABEL_OFFSET)
             ptr = Assembler::nextInstruction(ptr, &i);
 #endif
@@ -227,8 +244,12 @@ class IonCache
         JS_ASSERT(kind_ == Name || kind_ == NameTypeOf);
         return *(IonCacheName *)this;
     }
+    IonCacheCallsiteClone &toCallsiteClone() {
+        JS_ASSERT(kind_ == CallsiteClone);
+        return *(IonCacheCallsiteClone *)this;
+    }
 
-    void setScriptedLocation(JSScript *script, jsbytecode *pc) {
+    void setScriptedLocation(UnrootedScript script, jsbytecode *pc) {
         JS_ASSERT(!idempotent_);
         this->script = script;
         this->pc = pc;
@@ -265,18 +286,24 @@ class IonCacheGetProperty : public IonCache
         u.getprop.name = name;
         u.getprop.output.data() = output;
         u.getprop.allowGetters = allowGetters;
+        u.getprop.hasArrayLengthStub = false;
+        u.getprop.hasTypedArrayLengthStub = false;
     }
 
     Register object() const { return u.getprop.object; }
     PropertyName *name() const { return u.getprop.name; }
     TypedOrValueRegister output() const { return u.getprop.output.data(); }
     bool allowGetters() const { return u.getprop.allowGetters; }
+    bool hasArrayLengthStub() const { return u.getprop.hasArrayLengthStub; }
+    bool hasTypedArrayLengthStub() const { return u.getprop.hasTypedArrayLengthStub; }
 
     bool attachReadSlot(JSContext *cx, IonScript *ion, JSObject *obj, JSObject *holder,
-                        const Shape *shape);
+                        HandleShape shape);
     bool attachCallGetter(JSContext *cx, IonScript *ion, JSObject *obj, JSObject *holder,
-                          const Shape *shape,
+                          HandleShape shape,
                           const SafepointIndex *safepointIndex, void *returnAddr);
+    bool attachArrayLength(JSContext *cx, IonScript *ion, JSObject *obj);
+    bool attachTypedArrayLength(JSContext *cx, IonScript *ion, JSObject *obj);
 };
 
 class IonCacheSetProperty : public IonCache
@@ -305,8 +332,8 @@ class IonCacheSetProperty : public IonCache
     bool attachNativeExisting(JSContext *cx, IonScript *ion, HandleObject obj, HandleShape shape);
     bool attachSetterCall(JSContext *cx, IonScript *ion, HandleObject obj,
                           HandleObject holder, HandleShape shape, void *returnAddr);
-    bool attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj, const Shape *oldshape,
-                            const Shape *newshape, const Shape *propshape);
+    bool attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj, HandleShape oldshape,
+                            HandleShape newshape, HandleShape propshape);
 };
 
 class IonCacheGetElement : public IonCache
@@ -324,7 +351,7 @@ class IonCacheGetElement : public IonCache
         u.getelem.index.data() = index;
         u.getelem.output.data() = output;
         u.getelem.monitoredResult = monitoredResult;
-        u.getelem.hasDenseArrayStub = false;
+        u.getelem.hasDenseStub = false;
     }
 
     Register object() const {
@@ -339,16 +366,16 @@ class IonCacheGetElement : public IonCache
     bool monitoredResult() const {
         return u.getelem.monitoredResult;
     }
-    bool hasDenseArrayStub() const {
-        return u.getelem.hasDenseArrayStub;
+    bool hasDenseStub() const {
+        return u.getelem.hasDenseStub;
     }
-    void setHasDenseArrayStub() {
-        JS_ASSERT(!hasDenseArrayStub());
-        u.getelem.hasDenseArrayStub = true;
+    void setHasDenseStub() {
+        JS_ASSERT(!hasDenseStub());
+        u.getelem.hasDenseStub = true;
     }
 
     bool attachGetProp(JSContext *cx, IonScript *ion, HandleObject obj, const Value &idval, PropertyName *name);
-    bool attachDenseArray(JSContext *cx, IonScript *ion, JSObject *obj, const Value &idval);
+    bool attachDenseElement(JSContext *cx, IonScript *ion, JSObject *obj, const Value &idval);
 };
 
 class IonCacheBindName : public IonCache
@@ -412,7 +439,40 @@ class IonCacheName : public IonCache
     }
 
     bool attach(JSContext *cx, IonScript *ion, HandleObject scopeChain, HandleObject obj,
-                Shape *shape);
+                HandleShape shape);
+};
+
+class IonCacheCallsiteClone : public IonCache
+{
+  public:
+    IonCacheCallsiteClone(CodeOffsetJump initialJump,
+                          CodeOffsetLabel rejoinLabel,
+                          CodeOffsetLabel cacheLabel,
+                          RegisterSet liveRegs,
+                          Register callee, JSScript *callScript, jsbytecode *callPc,
+                          Register output)
+    {
+        init(CallsiteClone, liveRegs, initialJump, rejoinLabel, cacheLabel);
+        u.callsiteclone.callee = callee;
+        u.callsiteclone.callScript = callScript;
+        u.callsiteclone.callPc = callPc;
+        u.callsiteclone.output = output;
+    }
+
+    Register calleeReg() const {
+        return u.callsiteclone.callee;
+    }
+    HandleScript callScript() const {
+        return HandleScript::fromMarkedLocation(&u.callsiteclone.callScript);
+    }
+    jsbytecode *callPc() const {
+        return u.callsiteclone.callPc;
+    }
+    Register outputReg() const {
+        return u.callsiteclone.output;
+    }
+
+    bool attach(JSContext *cx, IonScript *ion, HandleFunction original, HandleFunction clone);
 };
 
 bool
@@ -431,6 +491,9 @@ BindNameCache(JSContext *cx, size_t cacheIndex, HandleObject scopeChain);
 
 bool
 GetNameCache(JSContext *cx, size_t cacheIndex, HandleObject scopeChain, MutableHandleValue vp);
+
+JSObject *
+CallsiteCloneCache(JSContext *cx, size_t cacheIndex, HandleObject callee);
 
 } // namespace ion
 } // namespace js

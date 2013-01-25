@@ -6,9 +6,11 @@
 #ifndef MOZILLA_STREAMBUFFER_H_
 #define MOZILLA_STREAMBUFFER_H_
 
-#include "mozilla/Util.h"
+#include "mozilla/DebugOnly.h"
+
 #include "MediaSegment.h"
 #include "nsAutoPtr.h"
+#include <algorithm>
 
 namespace mozilla {
 
@@ -163,7 +165,7 @@ public:
     {
       mSegment->ForgetUpTo(aTime);
 #ifdef DEBUG
-      mForgottenUpTo = NS_MAX<TrackTicks>(mForgottenUpTo, aTime);
+      mForgottenUpTo = std::max<TrackTicks>(mForgottenUpTo, aTime);
 #endif
     }
 #ifdef DEBUG

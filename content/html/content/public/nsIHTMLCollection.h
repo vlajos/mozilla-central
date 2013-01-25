@@ -10,7 +10,7 @@
 #include "nsWrapperCache.h"
 
 struct JSContext;
-struct JSObject;
+class JSObject;
 class nsINode;
 namespace mozilla {
 class ErrorResult;
@@ -70,11 +70,11 @@ public:
 
   virtual void GetSupportedNames(nsTArray<nsString>& aNames) = 0;
 
-  JSObject* GetWrapper()
+  JSObject* GetWrapperPreserveColor()
   {
     nsWrapperCache* cache;
     CallQueryInterface(this, &cache);
-    return cache->GetWrapper();
+    return cache->GetWrapperPreserveColor();
   }
   virtual JSObject* WrapObject(JSContext *cx, JSObject *scope,
                                bool *triedToWrap) = 0;

@@ -32,6 +32,7 @@ SEARCH_PATHS = [
     'testing',
     'testing/xpcshell',
     'testing/mozbase/mozprocess',
+    'testing/mozbase/mozfile',
     'testing/mozbase/mozinfo',
 ]
 
@@ -41,6 +42,7 @@ MACH_MODULES = [
     'python/mozboot/mozboot/mach_commands.py',
     'python/mozbuild/mozbuild/config.py',
     'python/mozbuild/mozbuild/mach_commands.py',
+    'python/mozbuild/mozbuild/frontend/mach_commands.py',
     'testing/mochitest/mach_commands.py',
     'testing/xpcshell/mach_commands.py',
 ]

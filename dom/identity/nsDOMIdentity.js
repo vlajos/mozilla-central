@@ -9,6 +9,11 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 const PREF_DEBUG = "toolkit.identity.debug";
 const PREF_ENABLED = "dom.identity.enabled";
 
+// Bug 822450: Workaround for Bug 821740.  When testing with marionette,
+// relax navigator.id.request's requirement that it be handling native
+// events.  Synthetic marionette events are ok.
+const PREF_SYNTHETIC_EVENTS_OK = "dom.identity.syntheticEventsOk";
+
 // Maximum length of a string that will go through IPC
 const MAX_STRING_LENGTH = 2048;
 // Maximum number of times navigator.id.request can be called for a document
@@ -16,7 +21,7 @@ const MAX_RP_CALLS = 100;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/IdentityUtils.jsm");
+Cu.import("resource://gre/modules/identity/IdentityUtils.jsm");
 
 // This is the child process corresponding to nsIDOMIdentity
 XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
@@ -32,6 +37,8 @@ nsDOMIdentity.prototype = {
     watch: 'r',
     request: 'r',
     logout: 'r',
+    get: 'r',
+    getVerifiedEmail: 'r',
 
     // Provisioning
     beginProvisioning: 'r',
@@ -45,13 +52,19 @@ nsDOMIdentity.prototype = {
     raiseAuthenticationFailure: 'r',
   },
 
-  // nsIDOMIdentity
+  // require native events unless syntheticEventsOk is set
+  get nativeEventsRequired() {
+    if (Services.prefs.prefHasUserValue(PREF_SYNTHETIC_EVENTS_OK)) {
+      return !Services.prefs.getBoolPref(PREF_SYNTHETIC_EVENTS_OK);
+    }
+    return true;
+  },
+
   /**
    * Relying Party (RP) APIs
    */
 
   watch: function nsDOMIdentity_watch(aOptions) {
-    this._log("watch");
     if (this._rpWatcher) {
       throw new Error("navigator.id.watch was already called");
     }
@@ -110,8 +123,12 @@ nsDOMIdentity.prototype = {
     let util = this._window.QueryInterface(Ci.nsIInterfaceRequestor)
                            .getInterface(Ci.nsIDOMWindowUtils);
 
-    // Do not allow call of request() outside of a user input handler.
-    if (!util.isHandlingUserInput) {
+    // The only time we permit calling of request() outside of a user
+    // input handler is when we are handling the (deprecated) get() or
+    // getVerifiedEmail() calls, which make use of an RP context
+    // marked as _internal.
+    if (this.nativeEventsRequired && !util.isHandlingUserInput && !aOptions._internal) {
+      this._log("request: rejecting non-native event");
       return;
     }
 
@@ -164,6 +181,70 @@ nsDOMIdentity.prototype = {
     this._rpCalls++;
     let message = this.DOMIdentityMessage();
     this._identityInternal._mm.sendAsyncMessage("Identity:RP:Logout", message);
+  },
+
+  /*
+   * Get an assertion.  This function is deprecated.  RPs are
+   * encouraged to use the observer API instead (watch + request).
+   */
+  get: function nsDOMIdentity_get(aCallback, aOptions) {
+    var opts = {};
+    aOptions = aOptions || {};
+
+    // We use the observer API (watch + request) to implement get().
+    // Because the caller can call get() and getVerifiedEmail() as
+    // many times as they want, we lift the restriction that watch() can
+    // only be called once.
+    this._rpWatcher = null;
+
+    // This flag tells internal_api.js (in the shim) to record in the
+    // login parameters whether the assertion was acquired silently or
+    // with user interaction.
+    opts._internal = true;
+
+    opts.privacyPolicy = aOptions.privacyPolicy || undefined;
+    opts.termsOfService = aOptions.termsOfService || undefined;
+    opts.privacyURL = aOptions.privacyURL || undefined;
+    opts.tosURL = aOptions.tosURL || undefined;
+    opts.siteName = aOptions.siteName || undefined;
+    opts.siteLogo = aOptions.siteLogo || undefined;
+
+    if (checkDeprecated(aOptions, "silent")) {
+      // Silent has been deprecated, do nothing. Placing the check here
+      // prevents the callback from being called twice, once with null and
+      // once after internalWatch has been called. See issue #1532:
+      // https://github.com/mozilla/browserid/issues/1532
+      if (aCallback) {
+        setTimeout(function() { aCallback(null); }, 0);
+      }
+      return;
+    }
+
+    // Get an assertion by using our observer api: watch + request.
+    var self = this;
+    this.watch({
+      oncancel: function get_oncancel() {
+        if (aCallback) {
+          aCallback(null);
+          aCallback = null;
+        }
+      },
+      onlogin: function get_onlogin(assertion, internalParams) {
+        if (assertion && aCallback && internalParams && !internalParams.silent) {
+          aCallback(assertion);
+          aCallback = null;
+        }
+      },
+      onlogout: function get_onlogout() {},
+      onready: function get_onready() {
+        self.request(opts);
+      }
+    });
+  },
+
+  getVerifiedEmail: function nsDOMIdentity_getVerifiedEmail(aCallback) {
+    Cu.reportError("WARNING: getVerifiedEmail has been deprecated");
+    this.get(aCallback, {});
   },
 
   /**
@@ -324,16 +405,22 @@ nsDOMIdentity.prototype = {
       case "Identity:RP:Watch:OnLogin":
         // Do we have a watcher?
         if (!this._rpWatcher) {
+          dump("WARNING: Received OnLogin message, but there is no RP watcher\n");
           return;
         }
 
         if (this._rpWatcher.onlogin) {
-          this._rpWatcher.onlogin(msg.assertion);
+          if (this._rpWatcher._internal) {
+            this._rpWatcher.onlogin(msg.assertion, msg._internalParams);
+          } else {
+            this._rpWatcher.onlogin(msg.assertion);
+          }
         }
         break;
       case "Identity:RP:Watch:OnLogout":
         // Do we have a watcher?
         if (!this._rpWatcher) {
+          dump("WARNING: Received OnLogout message, but there is no RP watcher\n");
           return;
         }
 
@@ -344,6 +431,7 @@ nsDOMIdentity.prototype = {
       case "Identity:RP:Watch:OnReady":
         // Do we have a watcher?
         if (!this._rpWatcher) {
+          dump("WARNING: Received OnReady message, but there is no RP watcher\n");
           return;
         }
 
@@ -351,9 +439,10 @@ nsDOMIdentity.prototype = {
           this._rpWatcher.onready();
         }
         break;
-      case "Identity:RP:Request:OnCancel":
+      case "Identity:RP:Watch:OnCancel":
         // Do we have a watcher?
         if (!this._rpWatcher) {
+          dump("WARNING: Received OnCancel message, but there is no RP watcher\n");
           return;
         }
 
@@ -432,7 +521,6 @@ nsDOMIdentity.prototype = {
     // window origin
     message.origin = this._origin;
 
-    dump("nsDOM message: " + JSON.stringify(message) + "\n");
     return message;
   },
 
@@ -510,7 +598,7 @@ nsDOMIdentityInternal.prototype = {
       "Identity:RP:Watch:OnLogin",
       "Identity:RP:Watch:OnLogout",
       "Identity:RP:Watch:OnReady",
-      "Identity:RP:Request:OnCancel",
+      "Identity:RP:Watch:OnCancel",
       "Identity:IDP:CallBeginProvisioningCallback",
       "Identity:IDP:CallGenKeyPairCallback",
       "Identity:IDP:CallBeginAuthenticationCallback",
@@ -534,14 +622,14 @@ nsDOMIdentityInternal.prototype = {
   },
 
   // Component setup.
-  classID: Components.ID("{8bcac6a3-56a4-43a4-a44c-cdf42763002f}"),
+  classID: Components.ID("{210853d9-2c97-4669-9761-b1ab9cbf57ef}"),
 
   QueryInterface: XPCOMUtils.generateQI(
     [Ci.nsIDOMGlobalPropertyInitializer, Ci.nsIMessageListener]
   ),
 
   classInfo: XPCOMUtils.generateCI({
-    classID: Components.ID("{8bcac6a3-56a4-43a4-a44c-cdf42763002f}"),
+    classID: Components.ID("{210853d9-2c97-4669-9761-b1ab9cbf57ef}"),
     contractID: "@mozilla.org/dom/identity;1",
     interfaces: [],
     classDescription: "Identity DOM Implementation"

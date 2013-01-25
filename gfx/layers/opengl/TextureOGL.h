@@ -8,7 +8,7 @@
  
 #include "ImageLayerOGL.h"
 #include "mozilla/layers/CompositorOGL.h"
-#include "GLContext.h"
+#include "GLContextTypes.h"
 #include "gfx2DGlue.h"
 #include "mozilla/layers/Effects.h"
 #include "gfxReusableSurfaceWrapper.h"
@@ -302,7 +302,7 @@ protected:
   GLuint mTextureHandle;
   GLenum mWrapMode;
   gl::SharedTextureHandle mSharedHandle;
-  gl::TextureImage::TextureShareType mShareType;
+  gl::GLContext::SharedTextureShareType mShareType;
 
 };
 
@@ -382,7 +382,7 @@ protected:
   GLuint mTextureHandle;
   GLenum mWrapMode;
   gl::SharedTextureHandle mSharedHandle;
-  gl::TextureImage::TextureShareType mShareType;
+  gl::GLContext::SharedTextureShareType mShareType;
 };
 
 class TiledTextureHost : public TextureHostOGL

@@ -309,7 +309,6 @@ struct SetElementIC : public BaseIC {
 
     void purge(Repatcher &repatcher);
     LookupStatus attachTypedArray(VMFrame &f, JSObject *obj, int32_t key);
-    LookupStatus attachHoleStub(VMFrame &f, JSObject *obj, int32_t key);
     LookupStatus update(VMFrame &f, const Value &objval, const Value &idval);
     LookupStatus disable(VMFrame &f, const char *reason);
     LookupStatus error(JSContext *cx);
@@ -489,14 +488,14 @@ struct PICInfo : public BasePolyIC {
   public:
     void purge(Repatcher &repatcher);
 
-    void setInlinePathShape(Shape *shape) {
+    void setInlinePathShape(UnrootedShape shape) {
         JS_ASSERT(!inlinePathShape_);
         inlinePathShape_ = shape;
     }
 
-    Shape *getSingleShape() {
+    UnrootedShape getSingleShape() {
         if (disabled || hadUncacheable || stubsGenerated > 0)
-            return NULL;
+            return UnrootedShape(NULL);
         return inlinePathShape_;
     }
 

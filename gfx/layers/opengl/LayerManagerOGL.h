@@ -11,7 +11,7 @@
 #include "LayerManagerOGLProgram.h"
 
 #include "mozilla/TimeStamp.h"
-
+#include "nsPoint.h"
 
 #ifdef XP_WIN
 #include <windows.h>
@@ -32,9 +32,12 @@ typedef int GLsizei;
 #include "gfxContext.h"
 #include "gfx3DMatrix.h"
 #include "nsIWidget.h"
-#include "GLContext.h"
+#include "GLContextTypes.h"
 
 namespace mozilla {
+namespace gl {
+class GLContext;
+}
 namespace layers {
 
 class LayerOGL;
@@ -68,7 +71,7 @@ public:
   {
     return mCompositor->Initialize(force, aContext);
   }
-
+  bool Initialize(bool force = false);
   GLContext* gl() const { return mCompositor->mGLContext; }
 
   Compositor* GetCompositor() const { return mCompositor; }
@@ -108,10 +111,7 @@ public:
     return mCompositor->CanUseCanvasLayerForSize(aSize);
   }
 
-  virtual int32_t GetMaxTextureSize() const
-  {
-    return mCompositor->GetMaxTextureSize();
-  }
+  virtual int32_t GetMaxTextureSize() const;
 
   virtual already_AddRefed<ThebesLayer> CreateThebesLayer();
 
@@ -131,6 +131,8 @@ public:
 
   virtual void ClearCachedResources(Layer* aSubtree = nullptr) MOZ_OVERRIDE;
 
+  // |NSOpenGLContext*|:
+  void* GetNSOpenGLContext() const;
 
   DrawThebesLayerCallback GetThebesLayerCallback() const
   { return mThebesLayerCallback; }
@@ -214,6 +216,7 @@ public:
   GLintptr QuadVBOTexCoordOffset() { return mCompositor->QuadVBOTexCoordOffset(); }
   GLintptr QuadVBOFlippedTexCoordOffset() { return mCompositor->QuadVBOFlippedTexCoordOffset(); }
 
+// TODO[nical:merge] next 4 methods only declared here, impl moved to cpp so check what they do
   void BindQuadVBO() {
     mCompositor->BindQuadVBO();
   }
@@ -359,11 +362,13 @@ private:
   
   /**
    * Recursive helper method for use by ComputeRenderIntegrity. Subtracts
-   * any incomplete rendering on aLayer from aScreenRegion. aTransform is the
+   * any incomplete rendering on aLayer from aScreenRegion. Any low-precision
+   * rendering is included in aLowPrecisionScreenRegion. aTransform is the
    * accumulated transform of intermediate surfaces beneath aLayer.
    */
   static void ComputeRenderIntegrityInternal(Layer* aLayer,
                                              nsIntRegion& aScreenRegion,
+                                             nsIntRegion& aLowPrecisionScreenRegion,
                                              const gfx3DMatrix& aTransform);
 
   /* Thebes layer callbacks; valid at the end of a transaciton,
@@ -371,6 +376,7 @@ private:
   DrawThebesLayerCallback mThebesLayerCallback;
   void *mThebesLayerCallbackData;
   gfxMatrix mWorldMatrix;
+  nsIntRect mRenderBounds;
 #ifdef DEBUG
   // NB: only interesting when this is a purely compositing layer
   // manager.  True after possibly onscreen layers have had their

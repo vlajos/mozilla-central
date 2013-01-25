@@ -11,6 +11,7 @@
 #include "nsGkAtoms.h"
 #include "nsError.h"
 #include "nsIDocument.h"
+#include "nsIPluginDocument.h"
 #include "nsIDOMDocument.h"
 #include "nsIDOMHTMLAppletElement.h"
 #include "nsIDOMHTMLEmbedElement.h"
@@ -205,7 +206,6 @@ nsHTMLSharedObjectElement::DoneAddingChildren(bool aHaveNotified)
   }
 }
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsHTMLSharedObjectElement)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsHTMLSharedObjectElement,
                                                   nsGenericHTMLElement)
   nsObjectLoadingContent::Traverse(tmp, cb);
@@ -269,8 +269,13 @@ nsHTMLSharedObjectElement::BindToTree(nsIDocument *aDocument,
                                           aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
+  // Don't kick off load from being bound to a plugin document - the plugin
+  // document will call nsObjectLoadingContent::InitializeFromChannel() for the
+  // initial load.
+  nsCOMPtr<nsIPluginDocument> pluginDoc = do_QueryInterface(aDocument);
+
   // If we already have all the children, start the load.
-  if (mIsDoneAddingChildren) {
+  if (mIsDoneAddingChildren && !pluginDoc) {
     void (nsHTMLSharedObjectElement::*start)() =
       &nsHTMLSharedObjectElement::StartObjectLoad;
     nsContentUtils::AddScriptRunner(NS_NewRunnableMethod(this, start));

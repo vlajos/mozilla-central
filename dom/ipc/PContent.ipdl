@@ -23,9 +23,10 @@ include DOMTypes;
 include URIParams;
 
 include "mozilla/chrome/RegistryMessageUtils.h";
-include "mozilla/net/NeckoMessageUtils.h";
+include "mozilla/dom/PermissionMessageUtils.h";
 include "mozilla/dom/TabMessageUtils.h";
-
+include "mozilla/layout/RenderFrameUtils.h";
+include "mozilla/net/NeckoMessageUtils.h";
 include "nsGeoPositionIPCSerialiser.h";
 
 using GeoPosition;
@@ -34,10 +35,14 @@ using PrefTuple;
 using ChromePackage;
 using ResourceMapping;
 using OverrideMapping;
+using base::ChildPrivileges;
 using IPC::Permission;
+using IPC::Principal;
 using mozilla::null_t;
 using mozilla::void_t;
+using mozilla::dom::AudioChannelType;
 using mozilla::dom::NativeThreadId;
+using mozilla::layout::ScrollingBehavior;
 using gfxIntSize;
 
 namespace mozilla {
@@ -113,27 +118,6 @@ union DeviceStorageParams
   DeviceStorageStatParams;
 };
 
-struct SlicedBlobConstructorParams
-{
-  PBlob source;
-  uint64_t begin;
-  uint64_t end;
-  nsString contentType;
-};
-
-struct MysteryBlobConstructorParams
-{
-  // Nothing is known about this type of blob.
-};
-
-union BlobConstructorParams
-{
-  NormalBlobConstructorParams;
-  FileBlobConstructorParams;
-  SlicedBlobConstructorParams;
-  MysteryBlobConstructorParams;
-};
-
 // An IPCTabContext which corresponds to a PBrowser opened by a child when it
 // receives window.open().
 //
@@ -182,12 +166,17 @@ struct VanillaFrameIPCTabContext
 // We need IPCTabContext (specifically, PopupIPCTabContext) to prevent a
 // privilege escalation attack by a compromised child process.  See the comment
 // on AllocPBrowser for details.
-union IPCTabContext
+union IPCTabAppBrowserContext
 {
   PopupIPCTabContext;
   AppFrameIPCTabContext;
   BrowserFrameIPCTabContext;
   VanillaFrameIPCTabContext;
+};
+
+struct IPCTabContext {
+  IPCTabAppBrowserContext appBrowserContext;
+  ScrollingBehavior scrollingBehavior;
 };
 
 union PrefValue {
@@ -255,7 +244,19 @@ both:
     async PBlob(BlobConstructorParams params);
 
 child:
+    /**
+     * Update OS process privileges to |privs|.  Can usually only be
+     * performed zero or one times.  The child will abnormally exit if
+     * the privilege update fails.
+     */
+    async SetProcessPrivileges(ChildPrivileges privs);
+
     PMemoryReportRequest();
+
+    /**
+     * Notify the AudioChannelService in the child processes.
+     */
+    async AudioChannelNotify();
 
     /**
      * Dump the contents of about:memory to a file in our temp directory.
@@ -313,7 +314,8 @@ child:
 
     FilePathUpdate(nsString type, nsString filepath, nsCString reasons);
 
-    FileSystemUpdate(nsString fsName, nsString mountPoint, int32_t fsState);
+    FileSystemUpdate(nsString fsName, nsString mountPoint, int32_t fsState,
+                     int32_t mountGeneration);
 
 parent:
     /**
@@ -382,8 +384,9 @@ parent:
                        nsCString aContentDisposition, bool aForceSave,
                        int64_t aContentLength, OptionalURIParams aReferrer);
 
-    AddGeolocationListener();
+    AddGeolocationListener(Principal principal);
     RemoveGeolocationListener();
+    SetGeolocationHigherAccuracy(bool enable);
 
     ConsoleMessage(nsString message);
     ScriptError(nsString message, nsString sourceName, nsString sourceLine,
@@ -416,6 +419,23 @@ parent:
 
     // Tell the parent that the child has gone idle for the first time
     async FirstIdle();
+
+    // Get Muted from the main AudioChannelService.
+    sync AudioChannelGetMuted(AudioChannelType aType, bool aElementHidden,
+                              bool aElementWasHidden)
+        returns (bool value);
+
+    sync AudioChannelRegisterType(AudioChannelType aType);
+    sync AudioChannelUnregisterType(AudioChannelType aType,
+                                    bool aElementHidden);
+
+    async AudioChannelChangedNotification();
+
+    async FilePathUpdateNotify(nsString aType,
+                               nsString aFilepath,
+                               nsCString aReason);
+    // get nsIVolumeService to broadcast volume information
+    async BroadcastVolume(nsString volumeName);
 
 both:
      AsyncMessage(nsString aMessage, ClonedMessageData aData);

@@ -10,6 +10,10 @@
 #include <cmath> // for std::abs(float/double)
 
 
+// TODO[nrc] get (or ask nical) a diff of what happend in m-c in the last month and apply it on the branch
+// (note from nical: have fun!)
+
+
 namespace mozilla {
 namespace layers {
 

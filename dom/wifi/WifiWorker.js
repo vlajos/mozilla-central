@@ -40,18 +40,21 @@ XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
 // command always succeeds and we do a string/boolean check for the
 // expected results).
 var WifiManager = (function() {
-  function getSdkVersion() {
+  function getStartupPrefs() {
     Cu.import("resource://gre/modules/systemlibs.js");
-    let sdkVersion = libcutils.property_get("ro.build.version.sdk");
-    return parseInt(sdkVersion, 10);
+    return {
+      sdkVersion: parseInt(libcutils.property_get("ro.build.version.sdk"), 10),
+      schedScanRecovery: libcutils.property_get("ro.moz.wifi.sched_scan_recover") === "false" ? false : true
+    };
   }
 
-  let sdkVersion = getSdkVersion();
+  let {sdkVersion, schedScanRecovery} = getStartupPrefs();
 
   var controlWorker = new ChromeWorker(WIFIWORKER_WORKER);
   var eventWorker = new ChromeWorker(WIFIWORKER_WORKER);
 
   var manager = {};
+  manager.schedScanRecovery = schedScanRecovery;
 
   // Callbacks to invoke when a reply arrives from the controlWorker.
   var controlCallbacks = Object.create(null);
@@ -737,7 +740,7 @@ var WifiManager = (function() {
     }
 
     retryTimer = null;
-    notify("supplicantfailed");
+    notify("supplicantlost", { success: false });
   }
 
   manager.connectionDropped = function(callback) {
@@ -800,6 +803,26 @@ var WifiManager = (function() {
 
   var driverEventMap = { STOPPED: "driverstopped", STARTED: "driverstarted", HANGED: "driverhung" };
 
+  manager.getCurrentNetworkId = function (ssid, callback) {
+    manager.getConfiguredNetworks(function(networks) {
+      if (!networks) {
+        debug("Unable to get configured networks");
+        return callback(null);
+      }
+      for (let net in networks) {
+        let network = networks[net];
+        // Trying to get netId from
+        // 1. CURRENT network.
+        // 2. Trying to associate with SSID 'ssid' event
+        if (network.status === "CURRENT" ||
+            (ssid && ssid === dequote(network.ssid))) {
+          return callback(net);
+        }
+      }
+      callback(null);
+    });
+  }
+
   // handle events sent to us by the event worker
   function handleEvent(event) {
     debug("Event coming in: " + event);
@@ -809,8 +832,8 @@ var WifiManager = (function() {
       if (event.indexOf("Association request to the driver failed") !== -1) {
         notify("passwordmaybeincorrect");
         if (manager.authenticationFailuresCount > MAX_RETRIES_ON_AUTHENTICATION_FAILURE) {
-          notify("disconnected");
           manager.authenticationFailuresCount = 0;
+          notify("disconnected", {ssid: manager.connectionInfo.ssid});
         }
         return true;
       }
@@ -868,7 +891,7 @@ var WifiManager = (function() {
       // simply exit here (we don't have to notify about having lost
       // the connection).
       if (eventData.indexOf("connection closed") !== -1) {
-        notify("supplicantlost");
+        notify("supplicantlost", { success: true });
         return false;
       }
 
@@ -878,27 +901,33 @@ var WifiManager = (function() {
         return true;
 
       notifyStateChange({ state: "DISCONNECTED", BSSID: null, id: -1 });
-      notify("supplicantlost");
+      notify("supplicantlost", { success: true });
       return false;
     }
     if (eventData.indexOf("CTRL-EVENT-DISCONNECTED") === 0) {
       var token = event.split(" ")[1];
       var bssid = token.split("=")[1];
+      if (manager.authenticationFailuresCount > MAX_RETRIES_ON_AUTHENTICATION_FAILURE) {
+        manager.authenticationFailuresCount = 0;
+        notify("disconnected", {ssid: manager.connectionInfo.ssid});
+      }
       manager.connectionInfo.bssid = null;
       manager.connectionInfo.ssid = null;
       manager.connectionInfo.id = -1;
-      if (manager.authenticationFailuresCount > MAX_RETRIES_ON_AUTHENTICATION_FAILURE) {
-        notify("disconnected", {BSSID: bssid});
-        manager.authenticationFailuresCount = 0;
-      }
       return true;
     }
     // Association reject is triggered mostly on incorrect WEP key.
     if (eventData.indexOf("CTRL-EVENT-ASSOC-REJECT") === 0) {
       notify("passwordmaybeincorrect");
       if (manager.authenticationFailuresCount > MAX_RETRIES_ON_AUTHENTICATION_FAILURE) {
-        notify("disconnected");
         manager.authenticationFailuresCount = 0;
+        notify("disconnected", {ssid: manager.connectionInfo.ssid});
+      }
+      return true;
+    }
+    if (eventData.indexOf("CTRL-EVENT-EAP-FAILURE") === 0) {
+      if (event.indexOf("EAP authentication failed") !== -1) {
+        notify("passwordmaybeincorrect");
       }
       return true;
     }
@@ -1002,6 +1031,21 @@ var WifiManager = (function() {
   manager.authenticationFailuresCount = 0;
   manager.loopDetectionCount = 0;
 
+  const DRIVER_READY_WAIT = 2000;
+  var waitForDriverReadyTimer = null;
+  function cancelWaitForDriverReadyTimer() {
+    if (waitForDriverReadyTimer) {
+      waitForDriverReadyTimer.cancel();
+      waitForDriverReadyTimer = null;
+    }
+  };
+  function createWaitForDriverReadyTimer(onTimeout) {
+    waitForDriverReadyTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    waitForDriverReadyTimer.initWithCallback(onTimeout,
+                                             DRIVER_READY_WAIT,
+                                             Ci.nsITimer.TYPE_ONE_SHOT);
+  };
+
   // Public interface of the wifi service
   manager.setWifiEnabled = function(enable, callback) {
     if (enable === manager.enabled) {
@@ -1042,9 +1086,8 @@ var WifiManager = (function() {
               return;
             }
 
-            let timer;
             function doStartSupplicant() {
-              timer = null;
+              cancelWaitForDriverReadyTimer();
               startSupplicant(function (status) {
                 if (status < 0) {
                   unloadDriver(function() {
@@ -1063,9 +1106,8 @@ var WifiManager = (function() {
             // Driver startup on certain platforms takes longer than it takes for us
             // to return from loadDriver, so wait 2 seconds before starting
             // the supplicant to give it a chance to start.
-            timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-            timer.init(doStartSupplicant, 2000, Ci.nsITimer.TYPE_ONE_SHOT);
-          });
+            createWaitForDriverReadyTimer(doStartSupplicant);
+         });
         });
       });
     } else {
@@ -1101,15 +1143,23 @@ var WifiManager = (function() {
             callback(enabled);
             return;
           }
-          WifiNetworkInterface.name = manager.ifname;
-          manager.state = "WIFITETHERING";
-          // Turning on wifi tethering.
-          gNetworkManager.setWifiTethering(enabled, WifiNetworkInterface, function(result) {
-            // Pop out current request.
-            callback(enabled);
-            // Should we fire a dom event if we fail to set wifi tethering  ?
-            debug("Enable Wifi tethering result: " + (result ? result : "successfully"));
-          });
+
+          function doStartWifiTethering() {
+            cancelWaitForDriverReadyTimer();
+            WifiNetworkInterface.name = manager.ifname;
+            manager.state = "WIFITETHERING";
+            gNetworkManager.setWifiTethering(enabled, WifiNetworkInterface, function(result) {
+              // Pop out current request.
+              callback(enabled);
+              // Should we fire a dom event if we fail to set wifi tethering  ?
+              debug("Enable Wifi tethering result: " + (result ? result : "successfully"));
+            });
+          }
+
+          // Driver startup on certain platforms takes longer than it takes
+          // for us to return from loadDriver, so wait 2 seconds before
+          // turning on Wifi tethering.
+          createWaitForDriverReadyTimer(doStartWifiTethering);
         });
       });
     } else {
@@ -1315,7 +1365,7 @@ var WifiManager = (function() {
           manager.loopDetectionCount++;
         }
         if (manager.loopDetectionCount > MAX_SUPPLICANT_LOOP_ITERATIONS) {
-          notify("disconnected");
+          notify("disconnected", {ssid: manager.connectionInfo.ssid});
           manager.loopDetectionCount = 0;
         }
       }
@@ -1569,6 +1619,7 @@ function WifiWorker() {
 
   this.wantScanResults = [];
 
+  this._allowWpaEap = false;
   this._needToEnableNetworks = false;
   this._highestPriority = -1;
 
@@ -1582,6 +1633,7 @@ function WifiWorker() {
   // all cases, the supplicant will take the last quotation that we pass it as
   // the end of the string.
   this.configuredNetworks = Object.create(null);
+  this._addingNetworks = Object.create(null);
 
   this.currentNetwork = null;
   this.ipAddress = "";
@@ -1605,9 +1657,11 @@ function WifiWorker() {
   this._turnOnBackgroundScan = false;
 
   function startScanStuckTimer() {
-    self._scanStuckTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-    self._scanStuckTimer.initWithCallback(scanIsStuck, SCAN_STUCK_WAIT,
-                                          Ci.nsITimer.TYPE_ONE_SHOT);
+    if (WifiManager.schedScanRecovery) {
+      self._scanStuckTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+      self._scanStuckTimer.initWithCallback(scanIsStuck, SCAN_STUCK_WAIT,
+                                            Ci.nsITimer.TYPE_ONE_SHOT);
+    }
   }
 
   function scanIsStuck() {
@@ -1713,7 +1767,6 @@ function WifiWorker() {
   WifiManager.onsupplicantconnection = function() {
     debug("Connected to supplicant");
     WifiManager.enabled = true;
-    self._updateWifiSetting(true);
     WifiManager.getMacAddress(function (mac) {
       self.macAddress = mac;
       debug("Got mac: " + mac);
@@ -1723,8 +1776,20 @@ function WifiWorker() {
       // Prime this.networks.
       if (!ok)
         return;
+
       self.waitForScan(function firstScan() {});
+      // The select network command we used in associate() disables others networks.
+      // Enable them here to make sure wpa_supplicant helps to connect to known
+      // network automatically.
+      self._enableAllNetworks();
+      WifiManager.saveConfig(function() {})
     });
+
+    try {
+      self._allowWpaEap = Services.prefs.getBoolPref("b2g.wifi.allow_unsafe_wpa_eap");
+    } catch (e) {
+      self._allowWpaEap = false;
+    }
 
     // Check if we need to dequeue requests first.
     self._notifyAfterStateChange(true, true);
@@ -1737,25 +1802,14 @@ function WifiWorker() {
 
   WifiManager.onsupplicantlost = function() {
     WifiManager.enabled = WifiManager.supplicantStarted = false;
-    self._updateWifiSetting(false);
     WifiManager.state = "UNINITIALIZED";
     debug("Supplicant died!");
 
     // Check if we need to dequeue requests first.
-    self._notifyAfterStateChange(true, false);
+    self._notifyAfterStateChange(this.success, false);
 
     // Notify everybody, even if they didn't ask us to come up.
     self._fireEvent("wifiDown", {});
-  };
-
-  WifiManager.onsupplicantfailed = function() {
-    WifiManager.enabled = WifiManager.supplicantStarted = false;
-    self._updateWifiSetting(false);
-    WifiManager.state = "UNINITIALIZED";
-    debug("Couldn't connect to supplicant");
-
-    // Check if we need to dequeue requests first.
-    self._notifyAfterStateChange(false, false);
   };
 
   WifiManager.onpasswordmaybeincorrect = function() {
@@ -1763,12 +1817,26 @@ function WifiWorker() {
   };
 
   WifiManager.ondisconnected = function() {
-    var currentNetwork = self.currentNetwork;
-    if (currentNetwork) {
-      WifiManager.disableNetwork(currentNetwork.netId, function() {});
-      self._fireEvent("onconnectingfailed", {network: currentNetwork});
+    // We may fail to establish the connection, re-enable the
+    // rest of our networks.
+    if (self._needToEnableNetworks) {
+      self._enableAllNetworks();
+      self._needToEnableNetworks = false;
     }
-  };
+
+    WifiManager.getCurrentNetworkId(this.ssid, function(netId) {
+      // Trying to get netId from current network.
+      if (!netId &&
+          self.currentNetwork &&
+          typeof self.currentNetwork.netId !== "undefined") {
+        netId = self.currentNetwork.netId;
+      }
+      if (netId) {
+        WifiManager.disableNetwork(netId, function() {});
+      }
+    });
+    self._fireEvent("onconnectingfailed", {network: self.currentNetwork});
+  }
 
   WifiManager.onstatechange = function() {
     debug("State change: " + this.prevState + " -> " + this.state);
@@ -1919,7 +1987,11 @@ function WifiWorker() {
       self._lastConnectionInfo = null;
       self._fireEvent("onconnect", { network: netToDOM(self.currentNetwork) });
     } else {
-      WifiManager.reassociate(function(){});
+      // NB: We have to call disconnect first. Otherwise, we only reauth with
+      // the existing AP and don't retrigger DHCP.
+      WifiManager.disconnect(function() {
+        WifiManager.reassociate(function(){});
+      });
     }
   };
 
@@ -1961,13 +2033,17 @@ function WifiWorker() {
               signalLevel = match[3],
               flags = match[4];
 
+          // Skip ad-hoc networks which aren't supported (bug 811635).
+          if (flags.indexOf("[IBSS]") >= 0)
+            continue;
+
           // If this is the first time that we've seen this SSID in the scan
           // results, add it to the list along with any other information.
           // Also, we use the highest signal strength that we see.
           let network = new ScanResult(ssid, bssid, flags, signalLevel);
-          self.networksArray.push(network);
 
           let networkKey = getNetworkKey(network);
+          let eapIndex = -1;
           if (networkKey in self.configuredNetworks) {
             let known = self.configuredNetworks[networkKey];
             network.known = true;
@@ -1982,8 +2058,21 @@ function WifiWorker() {
                 ("wep_key0" in known && known.wep_key0)) {
               network.password = "*";
             }
+          } else if (!self._allowWpaEap &&
+                     (eapIndex = network.capabilities.indexOf("WPA-EAP")) >= 0) {
+            // Don't offer to connect to WPA-EAP networks unless one has been
+            // configured through other means (e.g. it was added directly to
+            // wpa_supplicant.conf). Here, we have an unknown WPA-EAP network,
+            // so we ignore it entirely if it only supports WPA-EAP, otherwise
+            // we take EAP out of the list and offer the rest of the
+            // capabilities.
+            if (network.capabilities.length === 1)
+              continue;
+
+            network.capabilities.splice(eapIndex, 1);
           }
 
+          self.networksArray.push(network);
           if (network.bssid === WifiManager.connectionInfo.bssid)
             network.connected = true;
 
@@ -2095,14 +2184,14 @@ WifiWorker.prototype = {
 
     var self = this;
     function getConnectionInformation() {
-      WifiManager.getConnectionInfo(function(info) {
+      WifiManager.getConnectionInfo(function(connInfo) {
         // See comments in calculateSignal for information about this.
-        if (!info) {
+        if (!connInfo) {
           self._lastConnectionInfo = null;
           return;
         }
 
-        let { rssi, linkspeed } = info;
+        let { rssi, linkspeed } = connInfo;
         if (rssi > 0)
           rssi -= 256;
         if (rssi <= MIN_RSSI)
@@ -2326,7 +2415,11 @@ WifiWorker.prototype = {
       return;
     }
 
+    let sent = false;
     let callback = (function (networks) {
+      if (sent)
+        return;
+      sent = true;
       this._sendMessage(message, networks !== null, networks, msg);
     }).bind(this);
     this.waitForScan(callback);
@@ -2337,10 +2430,12 @@ WifiWorker.prototype = {
         return;
 
       // Avoid sending multiple responses.
-      this.wantScanResults.splice(this.wantScanResults.indexOf(callback), 1);
+      if (sent)
+        return;
 
       // Otherwise, let the client know that it failed, it's responsible for
       // trying again in a few seconds.
+      sent = true;
       this._sendMessage(message, false, "ScanFailed", msg);
     }).bind(this));
   },
@@ -2566,6 +2661,11 @@ WifiWorker.prototype = {
     let networkKey = getNetworkKey(privnet);
     let configured;
 
+    if (networkKey in this._addingNetworks) {
+      this._sendMessage(message, false, "Racing associates");
+      return;
+    }
+
     if (networkKey in this.configuredNetworks)
       configured = this.configuredNetworks[networkKey];
 
@@ -2588,7 +2688,10 @@ WifiWorker.prototype = {
       // set it to being "enabled" before we add it and save the
       // configuration.
       privnet.disabled = 0;
+      this._addingNetworks[networkKey] = privnet;
       WifiManager.addNetwork(privnet, (function(ok) {
+        delete this._addingNetworks[networkKey];
+
         if (!ok) {
           this._sendMessage(message, false, "Network is misconfigured", msg);
           return;
@@ -2726,6 +2829,11 @@ WifiWorker.prototype = {
       this.setWifiEnabledInternal(false, function(data) {
         this.setWifiApEnabled(data, this.nextRequest.bind(this));
       }.bind(this));
+      // It's really sad that we don't have an API to notify the wifi
+      // hotspot status. Toggle settings to let gaia know that wifi hotspot
+      // is disalbed.
+      gSettingsService.createLock().set(
+        "tethering.wifi.enabled", false, null, "fromInternalSetting");
     }
     this.setWifiEnabled({enabled: enabled});
   },
@@ -2751,18 +2859,6 @@ WifiWorker.prototype = {
         this.setWifiApEnabled(data, this.nextRequest.bind(this));
       }).bind(this));
     }
-  },
-
-  _updateWifiSetting: function(enabled) {
-    // This is used to update the setting value, whenever the
-    // WifiManager.enabled is re-assigned based on supplicant
-    // connection/lost/failed.
-    //
-    // To avoid WifiWorker setting the wifi again, we mark the
-    // "fromInternalSetting" so WifiWorker won't deal with such
-    // an internal "mozsettings-changed" event when receiving it.
-    gSettingsService.createLock().set(
-      "wifi.enabled", enabled, null, "fromInternalSetting");
   },
 
   // nsIObserver implementation

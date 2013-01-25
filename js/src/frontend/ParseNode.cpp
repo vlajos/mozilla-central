@@ -4,7 +4,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
+#include "builtin/Module.h"
 #include "frontend/ParseNode.h"
 #include "frontend/Parser.h"
 
@@ -434,7 +434,7 @@ CloneParseTree(ParseNode *opn, Parser *parser)
 
       case PN_FUNC:
         NULLCHECK(pn->pn_funbox =
-                  parser->newFunctionBox(opn->pn_funbox->function(), pc, opn->pn_funbox->strictModeState));
+                  parser->newFunctionBox(opn->pn_funbox->function(), pc, opn->pn_funbox->strict));
         NULLCHECK(pn->pn_body = CloneParseTree(opn->pn_body, parser));
         pn->pn_cookie = opn->pn_cookie;
         pn->pn_dflags = opn->pn_dflags;
@@ -463,7 +463,6 @@ CloneParseTree(ParseNode *opn, Parser *parser)
             NULLCHECK(pn->pn_right = CloneParseTree(opn->pn_right, parser));
         else
             pn->pn_right = pn->pn_left;
-        pn->pn_pval = opn->pn_pval;
         pn->pn_iflags = opn->pn_iflags;
         break;
 
@@ -806,6 +805,29 @@ ObjectBox::ObjectBox(JSFunction *function, ObjectBox* traceLink)
     emitLink(NULL)
 {
     JS_ASSERT(object->isFunction());
+    JS_ASSERT(asFunctionBox()->function() == function);
+}
+
+ModuleBox *
+ObjectBox::asModuleBox()
+{
+    JS_ASSERT(isModuleBox());
+    return static_cast<ModuleBox *>(this);
+}
+
+FunctionBox *
+ObjectBox::asFunctionBox()
+{
+    JS_ASSERT(isFunctionBox());
+    return static_cast<FunctionBox *>(this);
+}
+
+ObjectBox::ObjectBox(Module *module, ObjectBox* traceLink)
+  : object(module),
+    traceLink(traceLink),
+    emitLink(NULL)
+{
+    JS_ASSERT(object->isModule());
 }
 
 void
@@ -814,6 +836,8 @@ ObjectBox::trace(JSTracer *trc)
     ObjectBox *box = this;
     while (box) {
         MarkObjectRoot(trc, &box->object, "parser.object");
+        if (box->isModuleBox())
+            box->asModuleBox()->bindings.trace(trc);
         if (box->isFunctionBox())
             box->asFunctionBox()->bindings.trace(trc);
         box = box->traceLink;

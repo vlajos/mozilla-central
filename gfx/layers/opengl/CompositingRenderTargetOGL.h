@@ -7,6 +7,7 @@
 #define MOZILLA_GFX_COMPOSITINGRENDERTARGETOGL_H
 
 #include "mozilla/layers/Compositor.h"
+#include "gfxASurface.h"
 
 #ifdef MOZ_DUMP_PAINTING
 #include "mozilla/layers/CompositorOGL.h"
@@ -22,11 +23,12 @@ namespace layers {
 class CompositingRenderTargetOGL : public CompositingRenderTarget,
                                    public TextureSourceOGL
 {
+  typedef gfxASurface::gfxContentType ContentType;
   typedef mozilla::gl::GLContext GLContext;
 
 public:
   CompositingRenderTargetOGL(GLContext* aGL, GLuint aTexure, GLuint aFBO)
-    : mGL(aGL), mFBO(aFBO), mTexture(new gl::BasicTexture(aGL, aTexure))
+    : mGL(aGL), mTextureHandle(aTexure), mFBO(aFBO)
   {}
 
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
@@ -34,11 +36,13 @@ public:
   gfx::IntSize GetSize() const MOZ_OVERRIDE { return mSize; }
 
   void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
-    mTexture->BindTexture(aTextureUnit);
+    MOZ_ASSERT(mTextureHandle != 0);
+    mGL->fActiveTexture(aTextureUnit);
+    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
   }
 
   bool IsValid() const MOZ_OVERRIDE {
-    return mTexture->GetTextureID() != 0;
+    return mTextureHandle != 0;
   }
 
   GLuint GetFBO() const {
@@ -47,7 +51,7 @@ public:
 
   ~CompositingRenderTargetOGL()
   {
-    mTexture = nullptr;
+    mGL->fDeleteTextures(1, &mTextureHandle);
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
@@ -59,16 +63,18 @@ public:
   virtual already_AddRefed<gfxImageSurface> Dump(Compositor* aCompositor)
   {
     CompositorOGL* compositorOGL = static_cast<CompositorOGL*>(aCompositor);
-    return mGL->GetTexImage(mTexture->GetTextureID(), true, compositorOGL->GetFBOLayerProgramType());
+    return mGL->GetTexImage(mTextureHandle, true, compositorOGL->GetFBOLayerProgramType());
   }
 #endif
 
   GLContext* mGL;
-  GLuint mFBO;
-  gfx::IntSize mSize;
   GLuint mTextureHandle;
+  GLuint mFBO;
 
-  RefPtr<gl::BasicTexture> mTexture;
+  gfx::IntSize mSize;
+  GLenum mWrapMode;
+  ContentType mContentType;
+
 };
 
 

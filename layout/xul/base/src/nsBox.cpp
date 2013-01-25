@@ -20,6 +20,7 @@
 #include "nsIServiceManager.h"
 #include "nsBoxLayout.h"
 #include "FrameLayerBuilder.h"
+#include <algorithm>
 
 using namespace mozilla;
 
@@ -463,7 +464,7 @@ nsBox::GetFlex(nsBoxLayoutState& aState)
 }
 
 uint32_t
-nsIFrame::GetOrdinal(nsBoxLayoutState& aState)
+nsIFrame::GetOrdinal()
 {
   uint32_t ordinal = GetStyleXUL()->mBoxOrdinal;
 
@@ -571,7 +572,7 @@ nsBox::SyncLayout(nsBoxLayoutState& aState)
     visualOverflow = overflowAreas.VisualOverflow();
   }
 
-  nsIView* view = GetView();
+  nsView* view = GetView();
   if (view) {
     // Make sure the frame's view is properly sized and positioned and has
     // things like opacity correct
@@ -914,8 +915,8 @@ nsBox::BoundsCheck(nscoord aMin, nscoord aPref, nscoord aMax)
 nsSize
 nsBox::BoundsCheckMinMax(const nsSize& aMinSize, const nsSize& aMaxSize)
 {
-  return nsSize(NS_MAX(aMaxSize.width, aMinSize.width),
-                NS_MAX(aMaxSize.height, aMinSize.height));
+  return nsSize(std::max(aMaxSize.width, aMinSize.width),
+                std::max(aMaxSize.height, aMinSize.height));
 }
 
 nsSize

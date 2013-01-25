@@ -28,6 +28,7 @@
 #include "nsIScreenManager.h"
 #include "mozilla/dom/Element.h"
 #include "nsError.h"
+#include <algorithm>
 
 using namespace mozilla;
 
@@ -399,7 +400,7 @@ nsResizerFrame::AdjustDimensions(int32_t* aPos, int32_t* aSize,
     *aSize = 1;
 
   // Constrain the size within the minimum and maximum size.
-  *aSize = NS_MAX(aMinSize, NS_MIN(aMaxSize, *aSize));
+  *aSize = std::max(aMinSize, std::min(aMaxSize, *aSize));
 
   // For left and top resizers, the window must be moved left by the same
   // amount that the window was resized.
@@ -545,6 +546,5 @@ nsResizerFrame::MouseClicked(nsPresContext* aPresContext, nsGUIEvent *aEvent)
 {
   // Execute the oncommand event handler.
   nsContentUtils::DispatchXULCommand(mContent,
-                                     aEvent ?
-                                       NS_IS_TRUSTED_EVENT(aEvent) : false);
+                                     aEvent && aEvent->mFlags.mIsTrusted);
 }

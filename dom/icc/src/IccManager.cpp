@@ -23,8 +23,6 @@ namespace icc {
 const char* kStkCommandTopic     = "icc-manager-stk-command";
 const char* kStkSessionEndTopic  = "icc-manager-stk-session-end";
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(IccManager)
-
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(IccManager,
                                                   nsDOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -135,6 +133,17 @@ IccManager::SendStkMenuSelection(uint16_t aItemIdentifier, bool aHelpRequested)
   }
 
   mProvider->SendStkMenuSelection(GetOwner(), aItemIdentifier, aHelpRequested);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+IccManager::SendStkTimerExpiration(const JS::Value& aTimer)
+{
+  if (!mProvider) {
+    return NS_ERROR_FAILURE;
+  }
+
+  mProvider->SendStkTimerExpiration(GetOwner(), aTimer);
   return NS_OK;
 }
 

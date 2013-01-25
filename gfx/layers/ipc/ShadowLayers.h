@@ -16,6 +16,8 @@
 #include "mozilla/ipc/SharedMemory.h"
 #include "mozilla/WidgetUtils.h"
 #include "mozilla/layers/ISurfaceDeallocator.h"
+#include "mozilla/dom/ScreenOrientation.h"
+
 
 class gfxSharedImageSurface;
 
@@ -121,7 +123,9 @@ public:
    * ShadowLayerManager.
    */
   void BeginTransaction(const nsIntRect& aTargetBounds,
-                        ScreenRotation aRotation);
+                        ScreenRotation aRotation,
+                        const nsIntRect& aClientBounds,
+                        mozilla::dom::ScreenOrientation aOrientation);
 
   /**
    * The following methods may only be called after BeginTransaction()
@@ -580,7 +584,7 @@ public:
   const nsIntRegion& GetShadowVisibleRegion() { return mShadowVisibleRegion; }
   const gfx3DMatrix& GetShadowTransform() { return mShadowTransform; }
 
-  virtual TiledLayerComposer* GetTiledLayerComposer() { return NULL; }
+  virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
 
 protected:
   ShadowLayer()

@@ -14,6 +14,7 @@ include protocol PTexture;
 
 include "mozilla/WidgetUtils.h";
 include "mozilla/TimeStamp.h";
+include "mozilla/dom/ScreenOrientation.h";
 include "nsCSSProperty.h";
 include "gfxipc/ShadowLayerUtils.h";
 
@@ -25,6 +26,7 @@ using mozilla::TimeDuration;
 using mozilla::TimeStamp;
 using mozilla::ScreenRotation;
 using nsCSSProperty;
+using mozilla::dom::ScreenOrientation;
 
 /**
  * The layers protocol is spoken between thread contexts that manage
@@ -40,6 +42,8 @@ namespace layers {
 struct TargetConfig {
   nsIntRect naturalBounds;
   ScreenRotation rotation;
+  nsIntRect clientBounds;
+  ScreenOrientation orientation;
 };
 
 // Create a shadow layer for |layer|
@@ -154,6 +158,9 @@ union AnimationData {
 };
 
 struct Animation {
+  // Unlike in nsAnimationManager, this start time is at the end of the
+  // delay.  If the delay is changed dynamically, the layer's data will
+  // be updated.
   TimeStamp startTime;
   TimeDuration duration;
   // For each frame, the interpolation point is computed based on the
@@ -192,6 +199,8 @@ struct ContainerLayerAttributes {
   FrameMetrics metrics;
   float preXScale;
   float preYScale;
+  float inheritedXScale;
+  float inheritedYScale;
 };
 struct ColorLayerAttributes     { LayerColor color; };
 struct CanvasLayerAttributes    { GraphicsFilterType filter; };

@@ -394,9 +394,6 @@ T* DowncastCCParticipant(void *p)
     nsISupports *s = static_cast<nsISupports*>(p);                             \
     NS_CYCLE_COLLECTION_CLASSNAME(_base_class)::UnlinkImpl(s);
 
-#define NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_NATIVE(_class)                   \
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)
-
 #define NS_IMPL_CYCLE_COLLECTION_UNLINK(_field)                                \
     ImplCycleCollectionUnlink(tmp->_field);
 
@@ -406,20 +403,8 @@ T* DowncastCCParticipant(void *p)
   }
 
 #define NS_IMPL_CYCLE_COLLECTION_UNLINK_0(_class)                              \
-  NS_METHOD                                                                    \
-  NS_CYCLE_COLLECTION_CLASSNAME(_class)::UnlinkImpl(void *p)                   \
-  {                                                                            \
-    MOZ_ASSERT(CheckForRightISupports(static_cast<nsISupports*>(p)),           \
-               "not the nsISupports pointer we expect");                       \
-    return NS_OK;                                                              \
-  }
-
-#define NS_IMPL_CYCLE_COLLECTION_UNLINK_NATIVE_0(_class)                       \
-  NS_METHOD                                                                    \
-  NS_CYCLE_COLLECTION_CLASSNAME(_class)::UnlinkImpl(void *p)                   \
-  {                                                                            \
-    return NS_OK;                                                              \
-  }
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                \
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -452,9 +437,6 @@ T* DowncastCCParticipant(void *p)
         == NS_SUCCESS_INTERRUPTED_TRAVERSE) {                                  \
       return NS_SUCCESS_INTERRUPTED_TRAVERSE;                                  \
     }
-
-#define NS_IMPL_CYCLE_COLLECTION_TRAVERSE_NATIVE_BEGIN(_class)                 \
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_class)
 
 #define NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_field)                              \
   ImplCycleCollectionTraverse(cb, tmp->_field, #_field, 0);
@@ -489,9 +471,6 @@ T* DowncastCCParticipant(void *p)
                                                           aCallback,           \
                                                           aClosure);
 
-#define NS_IMPL_CYCLE_COLLECTION_TRACE_NATIVE_BEGIN(_class)                    \
-  NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(_class)
-
 #define NS_IMPL_CYCLE_COLLECTION_TRACE_JS_CALLBACK(_object, _name)             \
   if (_object)                                                                 \
     aCallback(_object, _name, aClosure);
@@ -515,10 +494,6 @@ T* DowncastCCParticipant(void *p)
 ///////////////////////////////////////////////////////////////////////////////
 // Helpers for implementing a concrete nsCycleCollectionParticipant 
 ///////////////////////////////////////////////////////////////////////////////
-
-#define NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE                               \
-  static const CCParticipantVTable<NS_CYCLE_COLLECTION_INNERCLASS>::Type       \
-      NS_CYCLE_COLLECTION_INNERNAME;
 
 #define NS_DECL_CYCLE_COLLECTION_CLASS_BODY_NO_UNLINK(_class, _base)           \
 public:                                                                        \
@@ -544,13 +519,26 @@ public:                                                                        \
   NS_DECL_CYCLE_COLLECTION_CLASS_BODY_NO_UNLINK(_class, _base)                 \
   static NS_METHOD UnlinkImpl(void *p);
 
+#define NS_PARTICIPANT_AS(type, participant)                                   \
+  const_cast<type*>(reinterpret_cast<const type*>(participant))
+
+#define NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                 \
+  static nsXPCOMCycleCollectionParticipant* GetParticipant()                   \
+  {                                                                            \
+    static const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)>    \
+      ::Type p = {                                                             \
+        NS_IMPL_CYCLE_COLLECTION_VTABLE(NS_CYCLE_COLLECTION_CLASSNAME(_class)) \
+      };                                                                       \
+    return NS_PARTICIPANT_AS(nsXPCOMCycleCollectionParticipant, &p);           \
+  }
+
 #define NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(_class, _base)                \
 class NS_CYCLE_COLLECTION_INNERCLASS                                           \
  : public nsXPCOMCycleCollectionParticipant                                    \
 {                                                                              \
   NS_DECL_CYCLE_COLLECTION_CLASS_BODY(_class, _base)                           \
-};                                                                             \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_CLASS(_class)                                 \
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(_class, _class)
@@ -565,8 +553,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                            
   static NS_METHOD_(bool) CanSkipImpl(void *p, bool aRemovingAllowed);           \
   static NS_METHOD_(bool) CanSkipInCCImpl(void *p);                              \
   static NS_METHOD_(bool) CanSkipThisImpl(void *p);                              \
-};                                                                               \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_SKIPPABLE_CLASS(_class)                       \
         NS_DECL_CYCLE_COLLECTION_SKIPPABLE_CLASS_AMBIGUOUS(_class, _class)
@@ -577,8 +565,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                           \
 {                                                                              \
   NS_DECL_CYCLE_COLLECTION_CLASS_BODY(_class, _base)                           \
   static NS_METHOD_(void) TraceImpl(void *p, TraceCallback cb, void *closure); \
-};                                                                             \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_AMBIGUOUS(_class, _base)   \
 class NS_CYCLE_COLLECTION_INNERCLASS                                                      \
@@ -590,8 +578,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                            
   static NS_METHOD_(bool) CanSkipImpl(void *p, bool aRemovingAllowed);                    \
   static NS_METHOD_(bool) CanSkipInCCImpl(void *p);                                       \
   static NS_METHOD_(bool) CanSkipThisImpl(void *p);                                       \
-};                                                                                        \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                        \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS(_class)  \
   NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_AMBIGUOUS(_class, _class)
@@ -607,8 +595,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                            
   static NS_METHOD_(bool) CanSkipImpl(void *p, bool aRemovingAllowed);                \
   static NS_METHOD_(bool) CanSkipInCCImpl(void *p);                                   \
   static NS_METHOD_(bool) CanSkipThisImpl(void *p);                                   \
-};                                                                                    \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(_class)  \
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(_class, _class)
@@ -634,8 +622,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                           \
 {                                                                              \
 public:                                                                        \
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED_BODY(_class, _base_class)           \
-};                                                                             \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED_NO_UNLINK(_class,             \
                                                            _base_class)        \
@@ -644,8 +632,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                           \
 {                                                                              \
 public:                                                                        \
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED_BODY_NO_UNLINK(_class, _base_class) \
-};                                                                             \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 #define NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(_class,         \
                                                                _base_class)    \
@@ -654,8 +642,8 @@ class NS_CYCLE_COLLECTION_INNERCLASS                                           \
 {                                                                              \
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED_BODY(_class, _base_class)           \
   static NS_METHOD_(void) TraceImpl(void *p, TraceCallback cb, void *closure); \
-};                                                                             \
-NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+  NS_IMPL_GET_XPCOM_CYCLE_COLLECTION_PARTICIPANT(_class)                       \
+};
 
 /**
  * This implements a stub UnmarkIfPurple function for classes that want to be
@@ -714,33 +702,6 @@ struct Skippable
   NS_IMPL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_VTABLE(_class)
 
 
-// Cycle collector participant implementations.
-
-// A native class is non-nsISupports and uses nsCycleCollectingAutoRefCnt.
-#define NS_IMPL_CYCLE_COLLECTION_NATIVE_CLASS(_class)                          \
-  const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)>             \
-    ::Type _class::NS_CYCLE_COLLECTION_INNERNAME =                             \
-  { NS_IMPL_CYCLE_COLLECTION_NATIVE_VTABLE(NS_CYCLE_COLLECTION_CLASSNAME(_class)) };
-
-// For native classes containing JS pointers.
-#define NS_IMPL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(_class)            \
-  const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)>             \
-    ::Type _class::NS_CYCLE_COLLECTION_INNERNAME =                             \
-  { NS_IMPL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_VTABLE(NS_CYCLE_COLLECTION_CLASSNAME(_class)) };
-
-// A legacy native class is non-nsISupports, but does not use
-// nsCycleCollectingAutoRefCnt. This should be avoided because it can
-// cause leaks.
-#define NS_IMPL_CYCLE_COLLECTION_LEGACY_NATIVE_CLASS(_class)                   \
-  NS_IMPL_CYCLE_COLLECTION_NATIVE_CLASS(_class)
-
-// For nsISupports classes.
-#define NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                 \
-  const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)>             \
-    ::Type _class::NS_CYCLE_COLLECTION_INNERNAME =                             \
-  { NS_IMPL_CYCLE_COLLECTION_VTABLE(NS_CYCLE_COLLECTION_CLASSNAME(_class)) };
-
-
 // Cycle collector participant declarations.
 
 #define NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS_BODY(_class)                     \
@@ -768,8 +729,16 @@ struct Skippable
   {                                                                            \
      NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS_BODY(_class)                        \
      NS_DECL_CYCLE_COLLECTION_NATIVE_UNMARK_IF_PURPLE(_class)                  \
-  };                                                                           \
-  NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+     static nsCycleCollectionParticipant* GetParticipant()                     \
+     {                                                                         \
+        static const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)> \
+        ::Type p = {                                                          \
+           NS_IMPL_CYCLE_COLLECTION_NATIVE_VTABLE(                             \
+              NS_CYCLE_COLLECTION_CLASSNAME(_class))                           \
+        };                                                                     \
+        return NS_PARTICIPANT_AS(nsCycleCollectionParticipant, &p);            \
+    }                                                                          \
+  };
 
 #define NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(_class)            \
   class NS_CYCLE_COLLECTION_INNERCLASS                                         \
@@ -779,8 +748,16 @@ struct Skippable
     NS_DECL_CYCLE_COLLECTION_NATIVE_UNMARK_IF_PURPLE(_class)                   \
     static NS_METHOD_(void) TraceImpl(void *p, TraceCallback cb,               \
                                       void *closure);                          \
-  };                                                                           \
-  NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+    static nsScriptObjectTracer* GetParticipant()                              \
+    {                                                                          \
+      static const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)>  \
+        ::Type participant = {                                                 \
+          NS_IMPL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_VTABLE(                \
+            NS_CYCLE_COLLECTION_CLASSNAME(_class))                             \
+        };                                                                     \
+      return NS_PARTICIPANT_AS(nsScriptObjectTracer, &participant);            \
+    }                                  \
+  };
 
 #define NS_DECL_CYCLE_COLLECTION_LEGACY_NATIVE_CLASS(_class)                   \
   class NS_CYCLE_COLLECTION_INNERCLASS                                         \
@@ -788,8 +765,16 @@ struct Skippable
   {                                                                            \
      NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS_BODY(_class)                        \
      NS_DECL_CYCLE_COLLECTION_STUB_UNMARK_IF_PURPLE(_class)                    \
-  };                                                                           \
-  NS_CYCLE_COLLECTION_PARTICIPANT_INSTANCE
+    static nsCycleCollectionParticipant* GetParticipant()                      \
+    {                                                                          \
+      static const CCParticipantVTable<NS_CYCLE_COLLECTION_CLASSNAME(_class)>  \
+        ::Type p = {                                                           \
+          NS_IMPL_CYCLE_COLLECTION_NATIVE_VTABLE(                              \
+              NS_CYCLE_COLLECTION_CLASSNAME(_class))                           \
+        };                                                                     \
+      return NS_PARTICIPANT_AS(nsCycleCollectionParticipant, &p);              \
+    }                                                                          \
+  };
 
 #define NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(_class, _root_function)           \
   NS_METHOD                                                                    \
@@ -810,13 +795,11 @@ struct Skippable
   }
 
 #define NS_IMPL_CYCLE_COLLECTION_0(_class)                                     \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_0(_class)                                     \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_class)                               \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_1(_class, _f)                                 \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f)                                           \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                           \
@@ -825,7 +808,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_2(_class, _f1, _f2)                           \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -836,7 +818,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_3(_class, _f1, _f2, _f3)                      \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -849,7 +830,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_4(_class, _f1, _f2, _f3, _f4)                 \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -864,7 +844,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_5(_class, _f1, _f2, _f3, _f4, _f5)            \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -881,7 +860,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_6(_class, _f1, _f2, _f3, _f4, _f5, _f6)       \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -900,7 +878,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_7(_class, _f1, _f2, _f3, _f4, _f5, _f6, _f7)  \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -921,7 +898,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_8(_class, _f1, _f2, _f3, _f4, _f5, _f6, _f7, _f8) \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -944,14 +920,12 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_0(_class, _base)                    \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                           \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(_class, _base)              \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_1(_class, _base, _f1)               \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                           \
@@ -960,7 +934,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_2(_class, _base, _f1, _f2)          \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -971,7 +944,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_3(_class, _base, _f1, _f2, _f3)     \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -984,7 +956,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_4(_class, _base, _f1, _f2, _f3, _f4) \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -999,7 +970,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_5(_class, _base, _f1, _f2, _f3, _f4, _f5) \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -1016,7 +986,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_6(_class, _base, _f1, _f2, _f3, _f4, _f5, _f6) \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -1035,7 +1004,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_7(_class, _base, _f1, _f2, _f3, _f4, _f5, _f6, _f7) \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -1056,7 +1024,6 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_IMPL_CYCLE_COLLECTION_INHERITED_8(_class, _base, _f1, _f2, _f3, _f4, _f5, _f6, _f7, _f8) \
- NS_IMPL_CYCLE_COLLECTION_CLASS(_class)                                        \
  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(_class, _base)                \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
  NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
@@ -1076,6 +1043,39 @@ struct Skippable
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f6)                                        \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f7)                                        \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f8)                                        \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+// NS_IMPL_CYCLE_COLLECTION_NATIVE_0 is intentionally not defined, because
+// if you need it, something is probably wrong.
+
+#define NS_IMPL_CYCLE_COLLECTION_NATIVE_1(_class, _f)                          \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK(_f)                                           \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                           \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_class)                               \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f)                                         \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+#define NS_IMPL_CYCLE_COLLECTION_NATIVE_2(_class, _f1, _f2)                    \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                           \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_class)                               \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f1)                                        \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f2)                                        \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+#define NS_IMPL_CYCLE_COLLECTION_NATIVE_3(_class, _f1, _f2, _f3)               \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_class)                                 \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK(_f1)                                          \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK(_f2)                                          \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK(_f3)                                          \
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                           \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_class)                               \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f1)                                        \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f2)                                        \
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_f3)                                        \
  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 #define NS_CYCLE_COLLECTION_NOTE_EDGE_NAME CycleCollectionNoteEdgeName

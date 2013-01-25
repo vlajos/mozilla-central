@@ -3578,6 +3578,14 @@ var gCSSProperties = {
 		other_values: [ "url(#mymask)" ],
 		invalid_values: []
 	},
+	"mask-type": {
+		domProp: "maskType",
+		inherited: false,
+		type: CSS_TYPE_LONGHAND,
+		initial_values: [ "luminance" ],
+		other_values: [ "alpha" ],
+		invalid_values: []
+	},
 	"shape-rendering": {
 		domProp: "shapeRendering",
 		inherited: true,
@@ -4242,4 +4250,15 @@ if (SpecialPowers.getBoolPref("layout.css.flexbox.enabled")) {
 	}
 	gCSSProperties["display"].other_values.push("flex");
 	gCSSProperties["display"].other_values.push("inline-flex");
+}
+
+if (SpecialPowers.getBoolPref("svg.paint-order.enabled")) {
+  gCSSProperties["paint-order"] = {
+    domProp: "paintOrder",
+    inherited: true,
+    type: CSS_TYPE_LONGHAND,
+    initial_values: [ "normal" ],
+    other_values: [ "fill", "fill stroke", "fill stroke markers", "stroke markers fill" ],
+    invalid_values: [ "fill stroke markers fill", "fill normal" ]
+  };
 }

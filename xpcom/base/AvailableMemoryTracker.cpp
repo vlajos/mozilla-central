@@ -27,7 +27,7 @@
 #endif
 
 #if defined(MOZ_MEMORY)
-#   include "jemalloc.h"
+#   include "mozmemory.h"
 #endif  // MOZ_MEMORY
 
 using namespace mozilla;
@@ -92,12 +92,12 @@ void safe_write(const char *a)
 void safe_write(uint64_t x)
 {
   // 2^64 is 20 decimal digits.
-  const int max_len = 21;
+  const unsigned int max_len = 21;
   char buf[max_len];
   buf[max_len - 1] = '\0';
 
   uint32_t i;
-  for (i = max_len - 2; i >= 0 && x > 0; i--)
+  for (i = max_len - 2; i < max_len && x > 0; i--)
   {
     buf[i] = "0123456789"[x % 10];
     x /= 10;
@@ -345,7 +345,7 @@ class NumLowMemoryEventsReporter : public nsIMemoryReporter
   }
 };
 
-class NumLowVirtualMemoryEventsMemoryReporter : public NumLowMemoryEventsReporter
+class NumLowVirtualMemoryEventsMemoryReporter MOZ_FINAL : public NumLowMemoryEventsReporter
 {
 public:
   NS_DECL_ISUPPORTS
@@ -391,7 +391,7 @@ public:
 
 NS_IMPL_ISUPPORTS1(NumLowVirtualMemoryEventsMemoryReporter, nsIMemoryReporter)
 
-class NumLowCommitSpaceEventsMemoryReporter : public NumLowMemoryEventsReporter
+class NumLowCommitSpaceEventsMemoryReporter MOZ_FINAL : public NumLowMemoryEventsReporter
 {
 public:
   NS_DECL_ISUPPORTS
@@ -433,7 +433,7 @@ public:
 
 NS_IMPL_ISUPPORTS1(NumLowCommitSpaceEventsMemoryReporter, nsIMemoryReporter)
 
-class NumLowPhysicalMemoryEventsMemoryReporter : public NumLowMemoryEventsReporter
+class NumLowPhysicalMemoryEventsMemoryReporter MOZ_FINAL : public NumLowMemoryEventsReporter
 {
 public:
   NS_DECL_ISUPPORTS
@@ -498,9 +498,7 @@ nsJemallocFreeDirtyPagesRunnable::Run()
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-#if defined(MOZ_JEMALLOC)
-  mallctl("arenas.purge", nullptr, 0, nullptr, 0);
-#elif defined(MOZ_MEMORY)
+#if defined(MOZ_MEMORY)
   jemalloc_free_dirty_pages();
 #endif
 

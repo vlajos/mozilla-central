@@ -9,6 +9,7 @@
 #include "nsPresContext.h"
 #include "nsStyleContext.h"
 #include "nsStyleConsts.h"
+#include "nsTableRowFrame.h"
 #include "nsINameSpaceManager.h"
 #include "nsRenderingContext.h"
 
@@ -20,6 +21,7 @@
 #include "celldata.h"
 
 #include "nsMathMLmtableFrame.h"
+#include <algorithm>
 
 using namespace mozilla;
 
@@ -511,8 +513,7 @@ nsIFrame*
 nsMathMLmtableOuterFrame::GetRowFrameAt(nsPresContext* aPresContext,
                                         int32_t         aRowIndex)
 {
-  int32_t rowCount, colCount;
-  GetTableSize(rowCount, colCount);
+  int32_t rowCount = GetRowCount();
 
   // Negative indices mean to find upwards from the end.
   if (aRowIndex < 0) {
@@ -779,7 +780,7 @@ nsMathMLmtdFrame::GetRowSpan()
       rowspan = value.ToInteger(&error);
       if (NS_FAILED(error) || rowspan < 0)
         rowspan = 1;
-      rowspan = NS_MIN(rowspan, MAX_ROWSPAN);
+      rowspan = std::min(rowspan, MAX_ROWSPAN);
     }
   }
   return rowspan;

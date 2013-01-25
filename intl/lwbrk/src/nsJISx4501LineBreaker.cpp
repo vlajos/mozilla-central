@@ -7,8 +7,6 @@
 
 #include "nsJISx4501LineBreaker.h"
 
-#include "pratom.h"
-#include "nsLWBRKDll.h"
 #include "jisx4501class.h"
 #include "nsComplexBreaker.h"
 #include "nsTArray.h"
@@ -491,6 +489,12 @@ GetClass(PRUnichar u)
        c = CLASS_NON_BREAKABLE;
      else
        c = CLASS_CHARACTER;
+   } else if (0x1600 == h) {
+     if (0x80 == l) { // U+1680 OGHAM SPACE MARK
+       c = CLASS_BREAKABLE;
+     } else {
+       c = CLASS_CHARACTER;
+     }
    } else {
      c = CLASS_CHARACTER; // others
    }

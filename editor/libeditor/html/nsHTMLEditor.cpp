@@ -2,6 +2,9 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "mozilla/DebugOnly.h"
+
 #include "nsCRT.h"
 
 #include "nsUnicharUtils.h"
@@ -21,7 +24,7 @@
 #include "nsIDOMNodeList.h"
 #include "nsIDOMDocument.h"
 #include "nsIDOMAttr.h"
-#include "nsIDocument.h"
+#include "nsIDocumentInlines.h"
 #include "nsIDOMEventTarget.h" 
 #include "nsIDOMKeyEvent.h"
 #include "nsIDOMHTMLAnchorElement.h"
@@ -66,6 +69,7 @@
 #include "nsIParserService.h"
 #include "mozilla/Selection.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/HTMLBodyElement.h"
 #include "nsTextFragment.h"
 
 using namespace mozilla;
@@ -155,8 +159,6 @@ nsHTMLEditor::HideAnonymousEditingUIs()
   if (mResizedObject)
     HideResizers();
 }
-
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsHTMLEditor)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsHTMLEditor, nsPlaintextEditor)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTypeInState)
@@ -484,6 +486,7 @@ nsHTMLEditor::SetFlags(uint32_t aFlags)
 NS_IMETHODIMP
 nsHTMLEditor::InitRules()
 {
+  MOZ_ASSERT(!mRules);
   // instantiate the rules for the html editor
   mRules = new nsHTMLEditRules();
   return mRules->Init(static_cast<nsPlaintextEditor*>(this));
@@ -1894,7 +1897,7 @@ nsHTMLEditor::GetHTMLBackgroundColorState(bool *aMixed, nsAString &aOutColor)
 
     // No color is set, but we need to report visible color inherited 
     // from nested cells/tables, so search up parent chain
-    element = element->GetElementParent();
+    element = element->GetParentElement();
   }
 
   // If no table or cell found, get page body
@@ -2271,42 +2274,31 @@ nsHTMLEditor::Align(const nsAString& aAlignType)
 NS_IMETHODIMP
 nsHTMLEditor::GetElementOrParentByTagName(const nsAString& aTagName, nsIDOMNode *aNode, nsIDOMElement** aReturn)
 {
-  if (aTagName.IsEmpty() || !aReturn )
-    return NS_ERROR_NULL_POINTER;
-  
-  nsresult res = NS_OK;
-  nsCOMPtr<nsIDOMNode> currentNode;
+  NS_ENSURE_TRUE(!aTagName.IsEmpty(), NS_ERROR_NULL_POINTER);
+  NS_ENSURE_TRUE(aReturn, NS_ERROR_NULL_POINTER);
 
-  if (aNode)
-    currentNode = aNode;
-  else
-  {
+  nsCOMPtr<nsINode> current = do_QueryInterface(aNode);
+  if (!current) {
     // If no node supplied, get it from anchor node of current selection
-    nsCOMPtr<nsISelection>selection;
-    res = GetSelection(getter_AddRefs(selection));
-    NS_ENSURE_SUCCESS(res, res);
+    nsRefPtr<Selection> selection = GetSelection();
     NS_ENSURE_TRUE(selection, NS_ERROR_NULL_POINTER);
 
-    nsCOMPtr<nsIDOMNode> anchorNode;
-    res = selection->GetAnchorNode(getter_AddRefs(anchorNode));
-    if(NS_FAILED(res)) return res;
+    nsCOMPtr<nsINode> anchorNode = selection->GetAnchorNode();
     NS_ENSURE_TRUE(anchorNode, NS_ERROR_FAILURE);
 
     // Try to get the actual selected node
-    bool hasChildren = false;
-    anchorNode->HasChildNodes(&hasChildren);
-    if (hasChildren)
-    {
-      int32_t offset;
-      res = selection->GetAnchorOffset(&offset);
-      if(NS_FAILED(res)) return res;
-      currentNode = nsEditor::GetChildAt(anchorNode, offset);
+    if (anchorNode->HasChildNodes() && anchorNode->IsContent()) {
+      int32_t offset = selection->GetAnchorOffset();
+      current = anchorNode->GetChildAt(offset);
     }
     // anchor node is probably a text node - just use that
-    if (!currentNode)
-      currentNode = anchorNode;
+    if (!current) {
+      current = anchorNode;
+    }
   }
-   
+
+  nsCOMPtr<nsIDOMNode> currentNode = current->AsDOMNode();
+
   nsAutoString TagName(aTagName);
   ToLowerCase(TagName);
   bool getLink = IsLinkTag(TagName);
@@ -2373,19 +2365,14 @@ NODE_FOUND:
 
     currentNode = parent;
   }
-  if (bNodeFound)
-  {
-    nsCOMPtr<nsIDOMElement> currentElement = do_QueryInterface(currentNode);
-    if (currentElement)
-    {
-      *aReturn = currentElement;
-      // Getters must addref
-      NS_ADDREF(*aReturn);
-    }
-  }
-  else res = NS_EDITOR_ELEMENT_NOT_FOUND;
 
-  return res;
+  if (!bNodeFound) {
+    return NS_EDITOR_ELEMENT_NOT_FOUND;
+  }
+
+  nsCOMPtr<nsIDOMElement> currentElement = do_QueryInterface(currentNode);
+  currentElement.forget(aReturn);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -4074,34 +4061,42 @@ nsHTMLEditor::GetNextHTMLSibling(nsIDOMNode *inParent, int32_t inOffset, nsCOMPt
 // GetPriorHTMLNode: returns the previous editable leaf node, if there is
 //                   one within the <body>
 //
-nsresult
-nsHTMLEditor::GetPriorHTMLNode(nsIDOMNode *inNode, nsCOMPtr<nsIDOMNode> *outNode, bool bNoBlockCrossing)
+nsIContent*
+nsHTMLEditor::GetPriorHTMLNode(nsINode* aNode, bool aNoBlockCrossing)
 {
-  NS_ENSURE_TRUE(outNode, NS_ERROR_NULL_POINTER);
+  MOZ_ASSERT(aNode);
 
-  nsIContent* activeEditingHost = GetActiveEditingHost();
-  if (!activeEditingHost) {
-    *outNode = nullptr;
-    return NS_OK;
+  if (!GetActiveEditingHost()) {
+    return nullptr;
   }
 
-  nsresult res = GetPriorNode(inNode, true, address_of(*outNode),
-                              bNoBlockCrossing);
-  NS_ENSURE_SUCCESS(res, res);
-  
-  NS_ASSERTION(!*outNode || IsDescendantOfEditorRoot(*outNode),
-               "GetPriorNode screwed up");
-  return res;
+  return GetPriorNode(aNode, true, aNoBlockCrossing);
+}
+
+nsresult
+nsHTMLEditor::GetPriorHTMLNode(nsIDOMNode* aNode,
+                               nsCOMPtr<nsIDOMNode>* aResultNode,
+                               bool aNoBlockCrossing)
+{
+  NS_ENSURE_TRUE(aResultNode, NS_ERROR_NULL_POINTER);
+
+  nsCOMPtr<nsINode> node = do_QueryInterface(aNode);
+  NS_ENSURE_TRUE(node, NS_ERROR_NULL_POINTER);
+
+  *aResultNode = do_QueryInterface(GetPriorHTMLNode(node, aNoBlockCrossing));
+  return NS_OK;
 }
 
 
 ///////////////////////////////////////////////////////////////////////////
 // GetPriorHTMLNode: same as above but takes {parent,offset} instead of node
-//                       
+//
 nsIContent*
 nsHTMLEditor::GetPriorHTMLNode(nsINode* aParent, int32_t aOffset,
                                bool aNoBlockCrossing)
 {
+  MOZ_ASSERT(aParent);
+
   if (!GetActiveEditingHost()) {
     return nullptr;
   }
@@ -4110,23 +4105,18 @@ nsHTMLEditor::GetPriorHTMLNode(nsINode* aParent, int32_t aOffset,
 }
 
 nsresult
-nsHTMLEditor::GetPriorHTMLNode(nsIDOMNode *inParent, int32_t inOffset, nsCOMPtr<nsIDOMNode> *outNode, bool bNoBlockCrossing)
+nsHTMLEditor::GetPriorHTMLNode(nsIDOMNode* aNode, int32_t aOffset,
+                               nsCOMPtr<nsIDOMNode>* aResultNode,
+                               bool aNoBlockCrossing)
 {
-  NS_ENSURE_TRUE(outNode, NS_ERROR_NULL_POINTER);
+  NS_ENSURE_TRUE(aResultNode, NS_ERROR_NULL_POINTER);
 
-  nsIContent* activeEditingHost = GetActiveEditingHost();
-  if (!activeEditingHost) {
-    *outNode = nullptr;
-    return NS_OK;
-  }
+  nsCOMPtr<nsINode> node = do_QueryInterface(aNode);
+  NS_ENSURE_TRUE(node, NS_ERROR_NULL_POINTER);
 
-  nsresult res = GetPriorNode(inParent, inOffset, true, address_of(*outNode),
-                              bNoBlockCrossing);
-  NS_ENSURE_SUCCESS(res, res);
-
-  NS_ASSERTION(!*outNode || IsDescendantOfEditorRoot(*outNode),
-               "GetPriorNode screwed up");
-  return res;
+  *aResultNode = do_QueryInterface(GetPriorHTMLNode(node, aOffset,
+                                                    aNoBlockCrossing));
+  return NS_OK;
 }
 
 
@@ -4134,23 +4124,37 @@ nsHTMLEditor::GetPriorHTMLNode(nsIDOMNode *inParent, int32_t inOffset, nsCOMPtr<
 // GetNextHTMLNode: returns the next editable leaf node, if there is
 //                   one within the <body>
 //                       
-nsresult
-nsHTMLEditor::GetNextHTMLNode(nsIDOMNode *inNode, nsCOMPtr<nsIDOMNode> *outNode, bool bNoBlockCrossing)
+nsIContent*
+nsHTMLEditor::GetNextHTMLNode(nsINode* aNode, bool aNoBlockCrossing)
 {
-  NS_ENSURE_TRUE(outNode, NS_ERROR_NULL_POINTER);
-  nsresult res = GetNextNode(inNode, true, address_of(*outNode), bNoBlockCrossing);
-  NS_ENSURE_SUCCESS(res, res);
-  
-  // if it's not in the body, then zero it out
-  if (*outNode && !IsDescendantOfEditorRoot(*outNode)) {
-    *outNode = nullptr;
+  MOZ_ASSERT(aNode);
+
+  nsIContent* result = GetNextNode(aNode, true, aNoBlockCrossing);
+
+  if (result && !IsDescendantOfEditorRoot(result)) {
+    return nullptr;
   }
-  return res;
+
+  return result;
+}
+
+nsresult
+nsHTMLEditor::GetNextHTMLNode(nsIDOMNode* aNode,
+                              nsCOMPtr<nsIDOMNode>* aResultNode,
+                              bool aNoBlockCrossing)
+{
+  NS_ENSURE_TRUE(aResultNode, NS_ERROR_NULL_POINTER);
+
+  nsCOMPtr<nsINode> node = do_QueryInterface(aNode);
+  NS_ENSURE_TRUE(node, NS_ERROR_NULL_POINTER);
+
+  *aResultNode = do_QueryInterface(GetNextHTMLNode(node, aNoBlockCrossing));
+  return NS_OK;
 }
 
 
 ///////////////////////////////////////////////////////////////////////////
-// GetNHTMLextNode: same as above but takes {parent,offset} instead of node
+// GetNextHTMLNode: same as above but takes {parent,offset} instead of node
 //                       
 nsIContent*
 nsHTMLEditor::GetNextHTMLNode(nsINode* aParent, int32_t aOffset,
@@ -4164,17 +4168,18 @@ nsHTMLEditor::GetNextHTMLNode(nsINode* aParent, int32_t aOffset,
 }
 
 nsresult
-nsHTMLEditor::GetNextHTMLNode(nsIDOMNode *inParent, int32_t inOffset, nsCOMPtr<nsIDOMNode> *outNode, bool bNoBlockCrossing)
+nsHTMLEditor::GetNextHTMLNode(nsIDOMNode* aNode, int32_t aOffset,
+                              nsCOMPtr<nsIDOMNode>* aResultNode,
+                              bool aNoBlockCrossing)
 {
-  NS_ENSURE_TRUE(outNode, NS_ERROR_NULL_POINTER);
-  nsresult res = GetNextNode(inParent, inOffset, true, address_of(*outNode), bNoBlockCrossing);
-  NS_ENSURE_SUCCESS(res, res);
-  
-  // if it's not in the body, then zero it out
-  if (*outNode && !IsDescendantOfEditorRoot(*outNode)) {
-    *outNode = nullptr;
-  }
-  return res;
+  NS_ENSURE_TRUE(aResultNode, NS_ERROR_NULL_POINTER);
+
+  nsCOMPtr<nsINode> node = do_QueryInterface(aNode);
+  NS_ENSURE_TRUE(node, NS_ERROR_NULL_POINTER);
+
+  *aResultNode = do_QueryInterface(GetNextHTMLNode(node, aOffset,
+                                                   aNoBlockCrossing));
+  return NS_OK;
 }
 
 

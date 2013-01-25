@@ -11,9 +11,10 @@
  */
 
 [Constructor, PrefControlled]
-interface mozAudioContext {
+interface AudioContext {
 
     readonly attribute AudioDestinationNode destination;
+    readonly attribute float sampleRate;
     readonly attribute AudioListener listener;
 
     [Creator, Throws]
@@ -28,8 +29,6 @@ interface mozAudioContext {
 
     [Creator]
     GainNode createGain();
-    // maxDelayTime should ideally be a restricted double to protect against
-    // things such as NaNs.
     [Creator, Throws]
     DelayNode createDelay(optional double maxDelayTime = 1);
     [Creator]
@@ -41,6 +40,4 @@ interface mozAudioContext {
     DynamicsCompressorNode createDynamicsCompressor();
 
 };
-
-typedef mozAudioContext AudioContext;
 

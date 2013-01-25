@@ -306,8 +306,6 @@ IDBKeyRange::ToSerializedKeyRange(T& aKeyRange)
   }
 }
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(IDBKeyRange)
-
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(IDBKeyRange)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_SCRIPT_OBJECTS
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -318,14 +316,7 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(IDBKeyRange)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(IDBKeyRange)
-  if (tmp->mRooted) {
-    NS_DROP_JS_OBJECTS(tmp, IDBKeyRange);
-    tmp->mCachedLowerVal = JSVAL_VOID;
-    tmp->mCachedUpperVal = JSVAL_VOID;
-    tmp->mHaveCachedLowerVal = false;
-    tmp->mHaveCachedUpperVal = false;
-    tmp->mRooted = false;
-  }
+  tmp->DropJSObjects();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IDBKeyRange)
@@ -339,11 +330,23 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(IDBKeyRange)
 
 DOMCI_DATA(IDBKeyRange, IDBKeyRange)
 
+void
+IDBKeyRange::DropJSObjects()
+{
+  if (!mRooted) {
+    return;
+  }
+  mCachedLowerVal = JSVAL_VOID;
+  mCachedUpperVal = JSVAL_VOID;
+  mHaveCachedLowerVal = false;
+  mHaveCachedUpperVal = false;
+  mRooted = false;
+  NS_DROP_JS_OBJECTS(this, IDBKeyRange);
+}
+
 IDBKeyRange::~IDBKeyRange()
 {
-  if (mRooted) {
-    NS_DROP_JS_OBJECTS(this, IDBKeyRange);
-  }
+  DropJSObjects();
 }
 
 NS_IMETHODIMP

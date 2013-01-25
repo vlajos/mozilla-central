@@ -48,15 +48,23 @@ function reflectString(aParameters)
    * specifications, don't add it to the loop below and keep it here.
    */
   element.setAttribute(contentAttr, null);
-  todo_is(element.getAttribute(contentAttr), "null",
+  is(element.getAttribute(contentAttr), "null",
      "null should have been stringified to 'null'");
-  todo_is(element[idlAttr], "null",
+  is(element[idlAttr], "null",
      "null should have been stringified to 'null'");
   element.removeAttribute(contentAttr);
 
   element[idlAttr] = null;
   // TODO: remove this ugly hack when null stringification will work as expected.
-  if (element.localName == "textarea" && idlAttr == "wrap") {
+  var todoAttrs = {
+    form: [ "acceptCharset", "name", "target" ],
+    input: [ "accept", "alt", "formTarget", "max", "min", "name", "pattern", "placeholder", "step", "defaultValue" ],
+    link: [ "crossOrigin" ],
+    source: [ "media" ],
+    textarea: [ "name", "placeholder" ],
+    style: [ "media", "type" ]
+  };
+  if (!(element.localName in todoAttrs) || todoAttrs[element.localName].indexOf(idlAttr) == -1) {
     is(element.getAttribute(contentAttr), "null",
        "null should have been stringified to 'null'");
     is(element[idlAttr], "null", "null should have been stringified to 'null'");
@@ -156,7 +164,7 @@ function reflectUnsignedInt(aParameters)
 
   var values = [ 1, 3, 42, 2147483647 ];
 
-  for each (var value in values) {
+  for (var value of values) {
     element[attr] = value;
     is(element[attr], value, "." + attr + " should be equals " + value);
     is(element.getAttribute(attr), value,
@@ -188,7 +196,7 @@ function reflectUnsignedInt(aParameters)
     [ 3147483647,  3147483647 ],
   ];
 
-  for each (var values in nonValidValues) {
+  for (var values of nonValidValues) {
     element[attr] = values[0];
     is(element.getAttribute(attr), values[1],
        "@" + attr + " should be equals to " + values[1]);
@@ -196,7 +204,7 @@ function reflectUnsignedInt(aParameters)
        "." + attr + " should be equals to " + defaultValue);
   }
 
-  for each (var values in nonValidValues) {
+  for (var values of nonValidValues) {
     element.setAttribute(attr, values[0]);
     is(element.getAttribute(attr), values[0],
        "@" + attr + " should be equals to " + values[0]);
@@ -235,15 +243,17 @@ function reflectUnsignedInt(aParameters)
  * Checks that a given attribute is correctly reflected as limited to known
  * values enumerated attribute.
  *
- * @param aParameters    Object    object containing the parameters, which are:
- *  - element            Element   node to test on
- *  - attribute          String    name of the attribute
+ * @param aParameters     Object   object containing the parameters, which are:
+ *  - element             Element  node to test on
+ *  - attribute           String   name of the attribute
  *     OR
- *    attribute          Object    object containing two attributes, 'content' and 'idl'
- *  - validValues        Array     valid values we support
- *  - invalidValues      Array     invalid values
- *  - defaultValue       String    [optional] default value when no valid value is set
- *  - unsupportedValues  Array     [optional] valid values we do not support
+ *    attribute           Object   object containing two attributes, 'content' and 'idl'
+ *  - validValues         Array    valid values we support
+ *  - invalidValues       Array    invalid values
+ *  - defaultValue        String   [optional] default value when no valid value is set
+ *     OR
+ *    defaultValue        Object   [optional] object containing two attributes, 'invalid' and 'missing'
+ *  - unsupportedValues   Array    [optional] valid values we do not support
  */
 function reflectLimitedEnumerated(aParameters)
 {
@@ -256,6 +266,12 @@ function reflectLimitedEnumerated(aParameters)
   var invalidValues = aParameters.invalidValues;
   var defaultValue = aParameters.defaultValue !== undefined
                        ? aParameters.defaultValue : "";
+  var defaultValueInvalid = aParameters.defaultValue === undefined
+                               ? "" : typeof aParameters.defaultValue === "string"
+                                   ? aParameters.defaultValue : aParameters.defaultValue.invalid
+  var defaultValueMissing = aParameters.defaultValue === undefined
+                                ? "" : typeof aParameters.defaultValue === "string"
+                                    ? aParameters.defaultValue : aParameters.defaultValue.missing
   var unsupportedValues = aParameters.unsupportedValues !== undefined
                             ? aParameters.unsupportedValues : [];
 
@@ -264,7 +280,7 @@ function reflectLimitedEnumerated(aParameters)
 
   // Explicitly check the default value.
   element.removeAttribute(contentAttr);
-  is(element[idlAttr], defaultValue,
+  is(element[idlAttr], defaultValueMissing,
      "When no attribute is set, the value should be the default value.");
 
   // Check valid values.
@@ -301,14 +317,14 @@ function reflectLimitedEnumerated(aParameters)
   // Check invalid values.
   invalidValues.forEach(function (v) {
     element.setAttribute(contentAttr, v);
-    is(element[idlAttr], defaultValue,
+    is(element[idlAttr], defaultValueInvalid,
        "When the content attribute is set to an invalid value, the default value should be returned.");
     is(element.getAttribute(contentAttr), v,
        "Content attribute should not have been changed.");
     element.removeAttribute(contentAttr);
 
     element[idlAttr] = v;
-    is(element[idlAttr], defaultValue,
+    is(element[idlAttr], defaultValueInvalid,
        "When the value is set to an invalid value, the default value should be returned.");
     is(element.getAttribute(contentAttr), v,
        "Content attribute should not have been changed.");
@@ -423,14 +439,8 @@ function reflectBoolean(aParameters)
     element.setAttribute(contentAttr, v.value);
     is(element[idlAttr], true,
        "IDL attribute should return always return 'true' if the content attribute has been set");
-    if (v.value === null) {
-      // bug 667856
-      todo(element.getAttribute(contentAttr), v.stringified,
-           "Content attribute should return the stringified value it has been set to.");
-    } else {
-      is(element.getAttribute(contentAttr), v.stringified,
-         "Content attribute should return the stringified value it has been set to.");
-    }
+    is(element.getAttribute(contentAttr), v.stringified,
+       "Content attribute should return the stringified value it has been set to.");
     element.removeAttribute(contentAttr);
 
     element[idlAttr] = v.value;
@@ -465,7 +475,7 @@ function reflectInt(aParameters)
 {
   // Expected value returned by .getAttribute() when |value| has been previously passed to .setAttribute().
   function expectedGetAttributeResult(value) {
-    return (value !== null) ? String(value) : "";
+    return String(value);
   }
 
   function stringToInteger(value, nonNegative, defaultValue) {

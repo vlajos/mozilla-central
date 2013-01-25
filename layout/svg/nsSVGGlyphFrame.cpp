@@ -5,6 +5,7 @@
 
 // Main header first:
 #include "nsSVGGlyphFrame.h"
+#include <algorithm>
 
 // Keep others in (case-insensitive) order:
 #include "DOMSVGPoint.h"
@@ -541,15 +542,6 @@ nsSVGGlyphFrame::ReflowSVG()
               PresContext()->AppUnitsPerCSSPixel());
   }
 
-  // We only invalidate if we are dirty, if our outer-<svg> has already had its
-  // initial reflow (since if it hasn't, its entire area will be invalidated
-  // when it gets that initial reflow), and if our parent is not dirty (since
-  // if it is, then it will invalidate its entire new area, which will include
-  // our new area).
-  bool invalidate = (mState & NS_FRAME_IS_DIRTY) &&
-    !(GetParent()->GetStateBits() &
-       (NS_FRAME_FIRST_REFLOW | NS_FRAME_IS_DIRTY));
-
   nsRect overflow = nsRect(nsPoint(0,0), mRect.Size());
   nsOverflowAreas overflowAreas(overflow, overflow);
   FinishAndStoreOverflow(overflowAreas, mRect.Size());
@@ -557,11 +549,12 @@ nsSVGGlyphFrame::ReflowSVG()
   mState &= ~(NS_FRAME_FIRST_REFLOW | NS_FRAME_IS_DIRTY |
               NS_FRAME_HAS_DIRTY_CHILDREN);
 
-  if (invalidate) {
-    // XXXSDL Let FinishAndStoreOverflow do this.
-    nsSVGUtils::InvalidateBounds(this, true);
+  // Invalidate, but only if this is not our first reflow (since if it is our
+  // first reflow then we haven't had our first paint yet).
+  if (!(GetParent()->GetStateBits() & NS_FRAME_FIRST_REFLOW)) {
+    InvalidateFrame();
   }
-}  
+}
 
 void
 nsSVGGlyphFrame::NotifySVGChanged(uint32_t aFlags)
@@ -964,6 +957,20 @@ nsSVGGlyphFrame::SetupCairoState(gfxContext *aContext,
     toDraw = DrawMode(toDraw | gfxFont::GLYPH_FILL);
   }
 
+  uint32_t paintOrder = GetStyleSVG()->mPaintOrder;
+  while (paintOrder) {
+    uint32_t component =
+      paintOrder & ((1 << NS_STYLE_PAINT_ORDER_BITWIDTH) - 1);
+    if (component == NS_STYLE_PAINT_ORDER_FILL) {
+      break;
+    }
+    if (component == NS_STYLE_PAINT_ORDER_STROKE) {
+      toDraw = DrawMode(toDraw | gfxFont::GLYPH_STROKE_UNDERNEATH);
+      break;
+    }
+    paintOrder >>= NS_STYLE_PAINT_ORDER_BITWIDTH;
+  }
+
   *aThisObjectPaint = thisObjectPaint;
 
   return toDraw;
@@ -974,15 +981,11 @@ nsSVGGlyphFrame::SetupCairoStroke(gfxContext *aContext,
                                   gfxTextObjectPaint *aOuterObjectPaint,
                                   SVGTextObjectPaint *aThisObjectPaint)
 {
-  const nsStyleSVG *style = GetStyleSVG();
-  if (style->mStroke.mType == eStyleSVGPaintType_None) {
-    aThisObjectPaint->SetStrokeOpacity(0.0f);
+  if (!nsSVGUtils::HasStroke(this, aOuterObjectPaint)) {
     return false;
   }
 
-  gfxContextMatrixAutoSaveRestore matrixRestore(aContext);
-  aContext->IdentityMatrix();
-
+  const nsStyleSVG *style = GetStyleSVG();
   nsSVGUtils::SetupCairoStrokeHitGeometry(this, aContext, aOuterObjectPaint);
   float opacity = nsSVGUtils::GetOpacity(style->mStrokeOpacitySource,
                                          style->mStrokeOpacity,
@@ -1169,11 +1172,11 @@ CompressIndex(int index, const nsTextFragment*fragment)
   if (fragment->Is2b()) {
     const PRUnichar *data=fragment->Get2b();
     while(*data && index) {
-      if (XP_IS_SPACE_W(*data)){
+      if (dom::IsSpaceCharacter(*data)){
         do {
           ++data;
           --index;
-        }while(XP_IS_SPACE_W(*data) && index);
+        }while(dom::IsSpaceCharacter(*data) && index);
       }
       else {
         ++data;
@@ -1185,11 +1188,11 @@ CompressIndex(int index, const nsTextFragment*fragment)
   else {
     const char *data=fragment->Get1b();
     while(*data && index) {
-      if (XP_IS_SPACE_W(*data)){
+      if (dom::IsSpaceCharacter(*data)){
         do {
           ++data;
           --index;
-        }while(XP_IS_SPACE_W(*data) && index);
+        }while(dom::IsSpaceCharacter(*data) && index);
       }
       else {
         ++data;
@@ -1301,8 +1304,8 @@ nsSVGGlyphFrame::SetGlyphPosition(gfxPoint *aPosition, bool aForceGlobalTransfor
 
   nsTArray<float> xList, yList;
   GetEffectiveXY(strLength, xList, yList);
-  uint32_t xCount = NS_MIN(xList.Length(), strLength);
-  uint32_t yCount = NS_MIN(yList.Length(), strLength);
+  uint32_t xCount = std::min(xList.Length(), strLength);
+  uint32_t yCount = std::min(yList.Length(), strLength);
 
   // move aPosition to the last glyph position
   gfxFloat x = aPosition->x;
@@ -1331,14 +1334,14 @@ nsSVGGlyphFrame::SetGlyphPosition(gfxPoint *aPosition, bool aForceGlobalTransfor
   nsTArray<float> dxList, dyList;
   GetEffectiveDxDy(strLength, dxList, dyList);
 
-  uint32_t dxcount = NS_MIN(dxList.Length(), strLength);
+  uint32_t dxcount = std::min(dxList.Length(), strLength);
   if (dxcount > 0) {
     mPosition.x += dxList[0] * pathScale;
   }
   for (uint32_t i = 0; i < dxcount; i++) {
     aPosition->x += dxList[i] * pathScale;
   }
-  uint32_t dycount = NS_MIN(dyList.Length(), strLength);
+  uint32_t dycount = std::min(dyList.Length(), strLength);
   if (dycount > 0) {
     mPosition.y += dyList[0]* pathScale;
   }
@@ -1349,7 +1352,7 @@ nsSVGGlyphFrame::SetGlyphPosition(gfxPoint *aPosition, bool aForceGlobalTransfor
 
 nsresult
 nsSVGGlyphFrame::GetStartPositionOfChar(uint32_t charnum,
-                                        nsIDOMSVGPoint **_retval)
+                                        nsISupports **_retval)
 {
   *_retval = nullptr;
 
@@ -1363,7 +1366,7 @@ nsSVGGlyphFrame::GetStartPositionOfChar(uint32_t charnum,
 
 nsresult
 nsSVGGlyphFrame::GetEndPositionOfChar(uint32_t charnum,
-                                      nsIDOMSVGPoint **_retval)
+                                      nsISupports **_retval)
 {
   *_retval = nullptr;
 
@@ -1482,12 +1485,12 @@ nsSVGGlyphFrame::GetEffectiveXY(int32_t strLength, nsTArray<float> &aX, nsTArray
   nsTArray<float> x, y;
   static_cast<nsSVGTextContainerFrame *>(mParent)->GetEffectiveXY(x, y);
 
-  int32_t xCount = NS_MAX((int32_t)(x.Length() - mStartIndex), 0);
-  xCount = NS_MIN(xCount, strLength);
+  int32_t xCount = std::max((int32_t)(x.Length() - mStartIndex), 0);
+  xCount = std::min(xCount, strLength);
   aX.AppendElements(x.Elements() + mStartIndex, xCount);
 
-  int32_t yCount = NS_MAX((int32_t)(y.Length() - mStartIndex), 0);
-  yCount = NS_MIN(yCount, strLength);
+  int32_t yCount = std::max((int32_t)(y.Length() - mStartIndex), 0);
+  yCount = std::min(yCount, strLength);
   aY.AppendElements(y.Elements() + mStartIndex, yCount);
 }
 
@@ -1503,12 +1506,12 @@ nsSVGGlyphFrame::GetEffectiveDxDy(int32_t strLength, nsTArray<float> &aDx, nsTAr
   nsTArray<float> dx, dy;
   static_cast<nsSVGTextContainerFrame *>(mParent)->GetEffectiveDxDy(dx, dy);
 
-  int32_t dxCount = NS_MAX((int32_t)(dx.Length() - mStartIndex), 0);
-  dxCount = NS_MIN(dxCount, strLength);
+  int32_t dxCount = std::max((int32_t)(dx.Length() - mStartIndex), 0);
+  dxCount = std::min(dxCount, strLength);
   aDx.AppendElements(dx.Elements() + mStartIndex, dxCount);
 
-  int32_t dyCount = NS_MAX((int32_t)(dy.Length() - mStartIndex), 0);
-  dyCount = NS_MIN(dyCount, strLength);
+  int32_t dyCount = std::max((int32_t)(dy.Length() - mStartIndex), 0);
+  dyCount = std::min(dyCount, strLength);
   aDy.AppendElements(dy.Elements() + mStartIndex, dyCount);
 }
 
@@ -1528,8 +1531,8 @@ nsSVGGlyphFrame::GetEffectiveRotate(int32_t strLength, nsTArray<float> &aRotate)
   nsTArray<float> rotate;
   static_cast<nsSVGTextContainerFrame *>(mParent)->GetEffectiveRotate(rotate);
 
-  int32_t rotateCount = NS_MAX((int32_t)(rotate.Length() - mStartIndex), 0);
-  rotateCount = NS_MIN(rotateCount, strLength);
+  int32_t rotateCount = std::max((int32_t)(rotate.Length() - mStartIndex), 0);
+  rotateCount = std::min(rotateCount, strLength);
   if (rotateCount > 0) {
     aRotate.AppendElements(rotate.Elements() + mStartIndex, rotateCount);
   } else if (!rotate.IsEmpty()) {
@@ -1608,11 +1611,9 @@ nsSVGGlyphFrame::GetSubStringLength(uint32_t charnum, uint32_t fragmentChars)
 }
 
 int32_t
-nsSVGGlyphFrame::GetCharNumAtPosition(nsIDOMSVGPoint *point)
+nsSVGGlyphFrame::GetCharNumAtPosition(nsISVGPoint *point)
 {
-  float xPos, yPos;
-  point->GetX(&xPos);
-  point->GetY(&yPos);
+  float xPos = point->X(), yPos = point->Y();
 
   nsRefPtr<gfxContext> tmpCtx = MakeTmpCtx();
   CharacterIterator iter(this, false);
@@ -1824,8 +1825,8 @@ nsSVGGlyphFrame::EnsureTextRun(float *aDrawScale, float *aMetricsScale,
       textRunSize = PRECISE_SIZE;
     } else {
       textRunSize = size*contextScale;
-      textRunSize = NS_MAX(textRunSize, double(CLAMP_MIN_SIZE));
-      textRunSize = NS_MIN(textRunSize, double(CLAMP_MAX_SIZE));
+      textRunSize = std::max(textRunSize, double(CLAMP_MIN_SIZE));
+      textRunSize = std::min(textRunSize, double(CLAMP_MAX_SIZE));
     }
 
     const nsFont& font = fontData->mFont;

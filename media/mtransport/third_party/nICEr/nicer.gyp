@@ -177,11 +177,9 @@
 		     '../nrappkit/src/port/win32/include'
 		 ],
               }],
-
-              
-              ## Linux
-              [ 'OS == "linux"', {
-                'cflags': [
+              ## Linux/Android
+              [ '(OS == "linux") or (OS=="android")', {
+                'cflags_mozilla': [
                     '-Wall',
                     '-Wno-parentheses',
                     '-Wno-strict-prototypes',
@@ -206,8 +204,14 @@
 		 
 		 'sources': [
 		 ],
-              }]
-          ]
+              }],
+              ['moz_widget_toolkit_gonk==1', {
+                'defines' : [
+                  'WEBRTC_GONK',
+                  'NO_REG_RPC',
+                ],
+             }],
+          ],
       }]
 }
 

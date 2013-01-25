@@ -4,13 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "nsCache.h"
 #include "nsDiskCacheMap.h"
 #include "nsDiskCacheBinding.h"
 #include "nsDiskCacheEntry.h"
 #include "nsDiskCacheDevice.h"
 #include "nsCacheService.h"
-
-#include "nsCache.h"
 
 #include <string.h>
 #include "nsPrintfCString.h"
@@ -19,6 +18,7 @@
 #include "nsSerializationHelper.h"
 
 #include "mozilla/Telemetry.h"
+#include <algorithm>
 
 using namespace mozilla;
 
@@ -1206,7 +1206,7 @@ nsDiskCacheMap::NotifyCapacityChange(uint32_t capacity)
   // Heuristic 2. we don't want more than 32MB reserved to store the record
   //              map in memory.
   const int32_t RECORD_COUNT_LIMIT = 32 * 1024 * 1024 / sizeof(nsDiskCacheRecord);
-  int32_t maxRecordCount = NS_MIN(int32_t(capacity), RECORD_COUNT_LIMIT);
+  int32_t maxRecordCount = std::min(int32_t(capacity), RECORD_COUNT_LIMIT);
   if (mMaxRecordCount < maxRecordCount) {
     // We can only grow
     mMaxRecordCount = maxRecordCount;

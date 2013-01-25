@@ -9,6 +9,9 @@
 #define String_h_
 
 #include "mozilla/Attributes.h"
+#include "mozilla/GuardObjects.h"
+
+#include "js/CharacterEncoding.h"
 
 #include "jsapi.h"
 #include "jsatom.h"
@@ -17,17 +20,19 @@
 
 #include "gc/Barrier.h"
 #include "gc/Heap.h"
+#include "gc/Root.h"
 
-class JSString;
+ForwardDeclareJS(String);
 class JSDependentString;
 class JSUndependedString;
 class JSExtensibleString;
 class JSExternalString;
-class JSLinearString;
+ForwardDeclareJS(LinearString);
 class JSStableString;
-class JSInlineString;
+ForwardDeclareJS(InlineString);
 class JSRope;
-class JSAtom;
+ForwardDeclareJS(FlatString);
+ForwardDeclareJS(Atom);
 
 namespace js {
 
@@ -234,7 +239,7 @@ class JSString : public js::gc::Cell
      * representable by a JSString. An allocation overflow is reported if false
      * is returned.
      */
-    static inline bool validateLength(JSContext *cx, size_t length);
+    static inline bool validateLength(JSContext *maybecx, size_t length);
 
     static void staticAsserts() {
         JS_STATIC_ASSERT(JS_BITS_PER_WORD >= 32);
@@ -441,8 +446,12 @@ class JSRope : public JSString
     void init(JSString *left, JSString *right, size_t length);
 
   public:
-    static inline JSRope *new_(JSContext *cx, js::HandleString left,
-                               js::HandleString right, size_t length);
+    template <js::AllowGC allowGC>
+    static inline JSRope *
+    newStringMaybeAllowGC(JSContext *cx,
+                          typename js::MaybeRooted<JSString*, allowGC>::HandleType left,
+                          typename js::MaybeRooted<JSString*, allowGC>::HandleType right,
+                          size_t length);
 
     inline JSString *leftChild() const {
         JS_ASSERT(isRope());
@@ -473,6 +482,11 @@ class JSLinearString : public JSString
     const jschar *chars() const {
         JS_ASSERT(JSString::isLinear());
         return d.u1.chars;
+    }
+
+    JS::TwoByteChars range() const {
+        JS_ASSERT(JSString::isLinear());
+        return JS::TwoByteChars(d.u1.chars, length());
     }
 };
 
@@ -552,6 +566,12 @@ class JSStableString : public JSFlatString
     JS::StableCharPtr chars() const {
         JS_ASSERT(!JSString::isInline());
         return JS::StableCharPtr(d.u1.chars, length());
+    }
+
+    JS_ALWAYS_INLINE
+    JS::StableTwoByteChars range() const {
+        JS_ASSERT(!JSString::isInline());
+        return JS::StableTwoByteChars(d.u1.chars, length());
     }
 };
 
@@ -637,6 +657,7 @@ class JSInlineString : public JSFlatString
 
   public:
     static inline JSInlineString *new_(JSContext *cx);
+    static inline JSInlineString *tryNew_(JSContext *cx);
 
     inline jschar *init(size_t length);
 
@@ -653,11 +674,11 @@ JS_STATIC_ASSERT(sizeof(JSInlineString) == sizeof(JSString));
 
 class JSShortString : public JSInlineString
 {
-    /* This can be any value that is a multiple of Cell::CellSize. */
+    /* This can be any value that is a multiple of CellSize. */
     static const size_t INLINE_EXTENSION_CHARS = sizeof(JSString::Data) / sizeof(jschar);
 
     static void staticAsserts() {
-        JS_STATIC_ASSERT(INLINE_EXTENSION_CHARS % js::gc::Cell::CellSize == 0);
+        JS_STATIC_ASSERT(INLINE_EXTENSION_CHARS % js::gc::CellSize == 0);
         JS_STATIC_ASSERT(MAX_SHORT_LENGTH + 1 ==
                          (sizeof(JSShortString) -
                           offsetof(JSShortString, d.inlineStorage)) / sizeof(jschar));
@@ -668,6 +689,7 @@ class JSShortString : public JSInlineString
 
   public:
     static inline JSShortString *new_(JSContext *cx);
+    static inline JSShortString *tryNew_(JSContext *cx);
 
     static const size_t MAX_SHORT_LENGTH = JSString::NUM_INLINE_CHARS +
                                            INLINE_EXTENSION_CHARS
@@ -822,7 +844,7 @@ class PropertyName : public JSAtom
 
 JS_STATIC_ASSERT(sizeof(PropertyName) == sizeof(JSString));
 
-static JS_ALWAYS_INLINE jsid
+static JS_ALWAYS_INLINE RawId
 NameToId(PropertyName *name)
 {
     return NON_INTEGER_ATOM_TO_JSID(name);
@@ -835,17 +857,17 @@ class AutoNameVector : public AutoVectorRooter<PropertyName *>
     typedef AutoVectorRooter<PropertyName *> BaseType;
   public:
     explicit AutoNameVector(JSContext *cx
-                            JS_GUARD_OBJECT_NOTIFIER_PARAM)
+                            MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
         : AutoVectorRooter<PropertyName *>(cx, NAMEVECTOR)
     {
-        JS_GUARD_OBJECT_NOTIFIER_INIT;
+        MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     }
 
     HandlePropertyName operator[](size_t i) const {
         return HandlePropertyName::fromMarkedLocation(&BaseType::operator[](i));
     }
 
-    JS_DECL_USE_GUARD_OBJECT_NOTIFIER
+    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 } /* namespace js */
@@ -855,6 +877,7 @@ class AutoNameVector : public AutoVectorRooter<PropertyName *>
 JS_ALWAYS_INLINE const jschar *
 JSString::getChars(JSContext *cx)
 {
+    JS::AutoAssertNoGC nogc;
     if (JSLinearString *str = ensureLinear(cx))
         return str->chars();
     return NULL;
@@ -863,6 +886,7 @@ JSString::getChars(JSContext *cx)
 JS_ALWAYS_INLINE const jschar *
 JSString::getCharsZ(JSContext *cx)
 {
+    JS::AutoAssertNoGC nogc;
     if (JSFlatString *str = ensureFlat(cx))
         return str->chars();
     return NULL;
@@ -871,6 +895,7 @@ JSString::getCharsZ(JSContext *cx)
 JS_ALWAYS_INLINE JSLinearString *
 JSString::ensureLinear(JSContext *cx)
 {
+    JS::AutoAssertNoGC nogc;
     return isLinear()
            ? &asLinear()
            : asRope().flatten(cx);
@@ -879,6 +904,7 @@ JSString::ensureLinear(JSContext *cx)
 JS_ALWAYS_INLINE JSFlatString *
 JSString::ensureFlat(JSContext *cx)
 {
+    JS::AutoAssertNoGC nogc;
     return isFlat()
            ? &asFlat()
            : isDependent()
@@ -889,6 +915,7 @@ JSString::ensureFlat(JSContext *cx)
 JS_ALWAYS_INLINE JSStableString *
 JSString::ensureStable(JSContext *maybecx)
 {
+    JS::AutoAssertNoGC nogc;
     if (isRope()) {
         JSFlatString *flat = asRope().flatten(maybecx);
         if (!flat)

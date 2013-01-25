@@ -69,6 +69,8 @@ public:
     return this;
   }
 
+  void UpdateRenderBounds(gfx::IntRect aRegion);
+
   void BeginTransaction();
 
   void BeginTransactionWithTarget(gfxContext* aTarget);

@@ -83,7 +83,6 @@ pointer_match(const T *a, const T *b)
  * - XXXbe patrol
  * - Fuse objects and their JSXML* private data into single GC-things
  * - fix function::foo vs. x.(foo == 42) collision using proper namespacing
- * - JSCLASS_DOCUMENT_OBSERVER support -- live two-way binding to Gecko's DOM!
  */
 
 /*
@@ -1856,10 +1855,6 @@ ToXML(JSContext *cx, jsval v)
         }
 
         clasp = obj->getClass();
-        if (clasp->flags & JSCLASS_DOCUMENT_OBSERVER) {
-            JS_ASSERT(0);
-        }
-
         if (clasp != &StringClass &&
             clasp != &NumberClass &&
             clasp != &BooleanClass) {
@@ -1938,10 +1933,6 @@ ToXMLList(JSContext *cx, jsval v)
         }
 
         clasp = obj->getClass();
-        if (clasp->flags & JSCLASS_DOCUMENT_OBSERVER) {
-            JS_ASSERT(0);
-        }
-
         if (clasp != &StringClass &&
             clasp != &NumberClass &&
             clasp != &BooleanClass) {
@@ -4724,10 +4715,9 @@ xml_lookupGeneric(JSContext *cx, HandleObject obj, HandleId id,
         objp.set(NULL);
         propp.set(NULL);
     } else {
-        Shape *shape =
-            js_AddNativeProperty(cx, obj, id, GetProperty, PutProperty,
-                                 SHAPE_INVALID_SLOT, JSPROP_ENUMERATE,
-                                 0, 0);
+        RootedShape shape(cx, js_AddNativeProperty(cx, obj, id, GetProperty, PutProperty,
+                                                   SHAPE_INVALID_SLOT, JSPROP_ENUMERATE,
+                                                   0, 0));
         if (!shape)
             return JS_FALSE;
 
@@ -4756,13 +4746,12 @@ xml_lookupElement(JSContext *cx, HandleObject obj, uint32_t index, MutableHandle
         return true;
     }
 
-    jsid id;
+    RootedId id(cx);
     if (!IndexToId(cx, index, &id))
         return false;
 
-    Shape *shape =
-        js_AddNativeProperty(cx, obj, id, GetProperty, PutProperty, SHAPE_INVALID_SLOT,
-                             JSPROP_ENUMERATE, 0, 0);
+    RootedShape shape(cx, js_AddNativeProperty(cx, obj, id, GetProperty, PutProperty,
+                                               SHAPE_INVALID_SLOT, JSPROP_ENUMERATE, 0, 0));
     if (!shape)
         return false;
 
@@ -4806,7 +4795,7 @@ xml_defineElement(JSContext *cx, HandleObject obj, uint32_t index, HandleValue v
                   PropertyOp getter, StrictPropertyOp setter, unsigned attrs)
 {
     RootedId id(cx);
-    if (!IndexToId(cx, index, id.address()))
+    if (!IndexToId(cx, index, &id))
         return false;
     return xml_defineGeneric(cx, obj, id, v, getter, setter, attrs);
 }
@@ -4843,7 +4832,7 @@ static JSBool
 xml_getElement(JSContext *cx, HandleObject obj, HandleObject receiver, uint32_t index, MutableHandleValue vp)
 {
     RootedId id(cx);
-    if (!IndexToId(cx, index, id.address()))
+    if (!IndexToId(cx, index, &id))
         return false;
     return xml_getGeneric(cx, obj, receiver, id, vp);
 }
@@ -4872,7 +4861,7 @@ static JSBool
 xml_setElement(JSContext *cx, HandleObject obj, uint32_t index, MutableHandleValue vp, JSBool strict)
 {
     RootedId id(cx);
-    if (!IndexToId(cx, index, id.address()))
+    if (!IndexToId(cx, index, &id))
         return false;
     return xml_setGeneric(cx, obj, id, vp, strict);
 }
@@ -4906,7 +4895,7 @@ static JSBool
 xml_getElementAttributes(JSContext *cx, HandleObject obj, uint32_t index, unsigned *attrsp)
 {
     RootedId id(cx);
-    if (!IndexToId(cx, index, id.address()))
+    if (!IndexToId(cx, index, &id))
         return false;
     return xml_getGenericAttributes(cx, obj, id, attrsp);
 }
@@ -4944,7 +4933,7 @@ static JSBool
 xml_setElementAttributes(JSContext *cx, HandleObject obj, uint32_t index, unsigned *attrsp)
 {
     RootedId id(cx);
-    if (!IndexToId(cx, index, id.address()))
+    if (!IndexToId(cx, index, &id))
         return false;
     return xml_setGenericAttributes(cx, obj, id, attrsp);
 }
@@ -5467,7 +5456,7 @@ xml_appendChild(JSContext *cx, unsigned argc, jsval *vp)
     JSXML *vxml = (JSXML *) vobj->getPrivate();
     JS_ASSERT(vxml->xml_class == JSXML_CLASS_LIST);
 
-    if (!IndexToId(cx, vxml->xml_kids.length, name.address()))
+    if (!IndexToId(cx, vxml->xml_kids.length, &name))
         return JS_FALSE;
     *vp = (argc != 0) ? vp[2] : JSVAL_VOID;
 
@@ -5539,10 +5528,14 @@ ValueToIdForXML(JSContext *cx, jsval v, jsid *idp)
 {
     if (JSVAL_IS_INT(v)) {
         int32_t i = JSVAL_TO_INT(v);
-        if (INT_FITS_IN_JSID(i))
+        if (INT_FITS_IN_JSID(i)) {
             *idp = INT_TO_JSID(i);
-        else if (!ValueToId(cx, v, idp))
-            return JS_FALSE;
+        } else {
+            RootedId id(cx);
+            if (!ValueToId(cx, v, &id))
+                return JS_FALSE;
+            *idp = id;
+        }
     } else if (JSVAL_IS_STRING(v)) {
         JSAtom *atom = AtomizeString(cx, JSVAL_TO_STRING(v));
         if (!atom)
@@ -5896,9 +5889,15 @@ xml_hasOwnProperty(JSContext *cx, unsigned argc, jsval *vp)
     }
 
     RootedId id(cx);
-    if (!ValueToId(cx, name, id.address()))
+    if (!ValueToId(cx, name, &id))
         return false;
-    return js_HasOwnPropertyHelper(cx, baseops::LookupProperty, obj, id, args.rval());
+
+    RootedObject obj2(cx);
+    RootedShape prop(cx);
+    if (!js_HasOwnProperty(cx, baseops::LookupProperty, obj, id, &obj2, &prop))
+        return false;
+    args.rval().setBoolean(!!prop);
+    return true;
 }
 
 /* XML and XMLList */
@@ -7133,8 +7132,7 @@ XML(JSContext *cx, unsigned argc, Value *vp)
     if (IsConstructing(vp) && !JSVAL_IS_PRIMITIVE(v)) {
         vobj = JSVAL_TO_OBJECT(v);
         clasp = vobj->getClass();
-        if (clasp == &XMLClass ||
-            (clasp->flags & JSCLASS_DOCUMENT_OBSERVER)) {
+        if (clasp == &XMLClass) {
             copy = DeepCopy(cx, xml, NULL, 0);
             if (!copy)
                 return JS_FALSE;

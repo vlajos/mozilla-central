@@ -11,6 +11,7 @@
 #include "nsStyleConsts.h"
 
 #include "nsMathMLmspaceFrame.h"
+#include <algorithm>
 
 
 //
@@ -109,7 +110,7 @@ nsMathMLmspaceFrame::Reflow(nsPresContext*          aPresContext,
   // XXXfredw Negative spaces are not implemented. See bug 717546
 
   mBoundingMetrics = nsBoundingMetrics();
-  mBoundingMetrics.width = NS_MAX(0, mWidth);
+  mBoundingMetrics.width = std::max(0, mWidth);
   mBoundingMetrics.ascent = mHeight;
   mBoundingMetrics.descent = mDepth;
   mBoundingMetrics.leftBearing = 0;
@@ -123,5 +124,17 @@ nsMathMLmspaceFrame::Reflow(nsPresContext*          aPresContext,
 
   aStatus = NS_FRAME_COMPLETE;
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowState, aDesiredSize);
+  return NS_OK;
+}
+
+/* virtual */ nsresult
+nsMathMLmspaceFrame::MeasureForWidth(nsRenderingContext& aRenderingContext,
+                                     nsHTMLReflowMetrics& aDesiredSize)
+{
+  ProcessAttributes(PresContext());
+  mBoundingMetrics = nsBoundingMetrics();
+  mBoundingMetrics.width = std::max(0, mWidth);
+  aDesiredSize.width = mBoundingMetrics.width;
+  aDesiredSize.mBoundingMetrics = mBoundingMetrics;
   return NS_OK;
 }

@@ -42,12 +42,12 @@ mailing address.
 
 #include "nsGIFDecoder2.h"
 #include "nsIInputStream.h"
-#include "imgIContainerObserver.h"
 #include "RasterImage.h"
 
 #include "gfxColor.h"
 #include "gfxPlatform.h"
 #include "qcms.h"
+#include <algorithm>
 
 namespace mozilla {
 namespace image {
@@ -72,7 +72,7 @@ namespace image {
 //////////////////////////////////////////////////////////////////////
 // GIF Decoder Implementation
 
-nsGIFDecoder2::nsGIFDecoder2(RasterImage &aImage, imgIDecoderObserver* aObserver)
+nsGIFDecoder2::nsGIFDecoder2(RasterImage &aImage, imgDecoderObserver* aObserver)
   : Decoder(aImage, aObserver)
   , mCurrentRow(-1)
   , mLastFlushedRow(-1)
@@ -219,9 +219,7 @@ nsresult nsGIFDecoder2::BeginImageFrame(uint16_t aDepth)
     // Otherwise, the area may never be refreshed and the placeholder will remain
     // on the screen. (Bug 37589)
     if (mGIFStruct.y_offset > 0) {
-      int32_t imgWidth;
-      mImage.GetWidth(&imgWidth);
-      nsIntRect r(0, 0, imgWidth, mGIFStruct.y_offset);
+      nsIntRect r(0, 0, mGIFStruct.screen_width, mGIFStruct.y_offset);
       PostInvalidation(r);
     }
   }
@@ -338,16 +336,8 @@ uint32_t nsGIFDecoder2::OutputRow()
     uint8_t *from = rowp + mGIFStruct.width;
     uint32_t *to = ((uint32_t*)rowp) + mGIFStruct.width;
     uint32_t *cmap = mColormap;
-    if (mColorMask == 0xFF) {
-      for (uint32_t c = mGIFStruct.width; c > 0; c--) {
-        *--to = cmap[*--from];
-      }
-    } else {
-      // Make sure that pixels within range of colormap.
-      uint8_t mask = mColorMask;
-      for (uint32_t c = mGIFStruct.width; c > 0; c--) {
-        *--to = cmap[(*--from) & mask];
-      }
+    for (uint32_t c = mGIFStruct.width; c > 0; c--) {
+      *--to = cmap[*--from];
     }
   
     // check for alpha (only for first frame)
@@ -467,7 +457,7 @@ nsGIFDecoder2::DoLzw(const uint8_t *q)
       if (oldcode == -1) {
         if (code >= MAX_BITS)
           return false;
-        *rowp++ = suffix[code];
+        *rowp++ = suffix[code] & mColorMask; // ensure index is within colormap
         if (rowp == rowend)
           OUTPUT_ROW();
 
@@ -517,7 +507,7 @@ nsGIFDecoder2::DoLzw(const uint8_t *q)
 
       /* Copy the decoded data out to the scanline buffer. */
       do {
-        *rowp++ = *--stackp;
+        *rowp++ = *--stackp & mColorMask; // ensure index is within colormap
         if (rowp == rowend)
           OUTPUT_ROW();
       } while (stackp > stack);
@@ -606,7 +596,7 @@ nsGIFDecoder2::WriteInternal(const char *aBuffer, uint32_t aCount)
                (mGIFStruct.bytes_in_hold) ? mGIFStruct.hold : nullptr;
   if (p) {
     // Add what we have sofar to the block
-    uint32_t l = NS_MIN(len, mGIFStruct.bytes_to_consume);
+    uint32_t l = std::min(len, mGIFStruct.bytes_to_consume);
     memcpy(p+mGIFStruct.bytes_in_hold, buf, l);
 
     if (l < mGIFStruct.bytes_to_consume) {
@@ -794,17 +784,17 @@ nsGIFDecoder2::WriteInternal(const char *aBuffer, uint32_t aCount)
         switch (*q) {
         case GIF_GRAPHIC_CONTROL_LABEL:
           mGIFStruct.state = gif_control_extension;
-          mGIFStruct.bytes_to_consume = NS_MAX(mGIFStruct.bytes_to_consume, 4u);
+          mGIFStruct.bytes_to_consume = std::max(mGIFStruct.bytes_to_consume, 4u);
           break;
 
         case GIF_APPLICATION_EXTENSION_LABEL:
           mGIFStruct.state = gif_application_extension;
-          mGIFStruct.bytes_to_consume = NS_MAX(mGIFStruct.bytes_to_consume, 11u);
+          mGIFStruct.bytes_to_consume = std::max(mGIFStruct.bytes_to_consume, 11u);
           break;
 
         case GIF_PLAIN_TEXT_LABEL:
           mGIFStruct.state = gif_skip_block;
-          mGIFStruct.bytes_to_consume = NS_MAX(mGIFStruct.bytes_to_consume, 12u);
+          mGIFStruct.bytes_to_consume = std::max(mGIFStruct.bytes_to_consume, 12u);
           break;
 
         case GIF_COMMENT_LABEL:

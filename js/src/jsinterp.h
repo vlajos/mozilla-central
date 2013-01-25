@@ -22,7 +22,7 @@ namespace js {
 
 /*
  * Announce to the debugger that the thread has entered a new JavaScript frame,
- * |fp|. Call whatever hooks have been registered to observe new frames, and
+ * |frame|. Call whatever hooks have been registered to observe new frames, and
  * return a JSTrapStatus code indication how execution should proceed:
  *
  * - JSTRAP_CONTINUE: Continue execution normally.
@@ -35,18 +35,18 @@ namespace js {
  *   exception.
  *
  * - JSTRAP_RETURN: Return from the new frame immediately. ScriptDebugPrologue
- *   has set |cx->fp()|'s return value appropriately.
+ *   has set |frame|'s return value appropriately.
  */
 extern JSTrapStatus
-ScriptDebugPrologue(JSContext *cx, StackFrame *fp);
+ScriptDebugPrologue(JSContext *cx, AbstractFramePtr frame);
 
 /*
- * Announce to the debugger that the thread has exited a JavaScript frame, |fp|.
+ * Announce to the debugger that the thread has exited a JavaScript frame, |frame|.
  * If |ok| is true, the frame is returning normally; if |ok| is false, the frame
  * is throwing an exception or terminating.
  *
  * Call whatever hooks have been registered to observe frame exits. Change cx's
- * current exception and |fp|'s return value to reflect the changes in behavior
+ * current exception and |frame|'s return value to reflect the changes in behavior
  * the hooks request, if any. Return the new error/success value.
  *
  * This function may be called twice for the same outgoing frame; only the
@@ -56,7 +56,26 @@ ScriptDebugPrologue(JSContext *cx, StackFrame *fp);
  * alternative path, containing its own call to ScriptDebugEpilogue.)
  */
 extern bool
-ScriptDebugEpilogue(JSContext *cx, StackFrame *fp, bool ok);
+ScriptDebugEpilogue(JSContext *cx, AbstractFramePtr frame, bool ok);
+
+/*
+ * Announce to the debugger that an exception has been thrown and propagated
+ * to |frame|. Call whatever hooks have been registered to observe this and
+ * return a JSTrapStatus code indication how execution should proceed:
+ *
+ * - JSTRAP_CONTINUE: Continue throwing the current exception.
+ *
+ * - JSTRAP_THROW: Throw another value. DebugExceptionUnwind has set |cx|'s
+ *   pending exception to the new value.
+ *
+ * - JSTRAP_ERROR: Terminate execution. DebugExceptionUnwind has cleared |cx|'s
+ *   pending exception.
+ *
+ * - JSTRAP_RETURN: Return from |frame|. DebugExceptionUnwind has cleared
+ *   |cx|'s pending exception and set |frame|'s return value.
+ */
+extern JSTrapStatus
+DebugExceptionUnwind(JSContext *cx, AbstractFramePtr frame, jsbytecode *pc);
 
 /*
  * For a given |call|, convert null/undefined |this| into the global object for
@@ -67,6 +86,9 @@ ScriptDebugEpilogue(JSContext *cx, StackFrame *fp, bool ok);
 extern bool
 BoxNonStrictThis(JSContext *cx, const CallReceiver &call);
 
+extern bool
+BoxNonStrictThis(JSContext *cx, MutableHandleValue thisv, bool *modified);
+
 /*
  * Ensure that fp->thisValue() is the correct value of |this| for the scripted
  * call represented by |fp|. ComputeThis is necessary because fp->thisValue()
@@ -74,7 +96,7 @@ BoxNonStrictThis(JSContext *cx, const CallReceiver &call);
  * an optimization to avoid global-this computation).
  */
 inline bool
-ComputeThis(JSContext *cx, StackFrame *fp);
+ComputeThis(JSContext *cx, AbstractFramePtr frame);
 
 enum MaybeConstruct {
     NO_CONSTRUCT = INITIAL_NONE,
@@ -157,7 +179,7 @@ InvokeConstructor(JSContext *cx, const Value &fval, unsigned argc, Value *argv, 
  */
 extern bool
 ExecuteKernel(JSContext *cx, HandleScript script, JSObject &scopeChain, const Value &thisv,
-              ExecuteType type, StackFrame *evalInFrame, Value *result);
+              ExecuteType type, AbstractFramePtr evalInFrame, Value *result);
 
 /* Execute a script with the given scopeChain as global code. */
 extern bool
@@ -169,7 +191,8 @@ enum InterpMode
     JSINTERP_NORMAL    = 0, /* interpreter is running normally */
     JSINTERP_REJOIN    = 1, /* as normal, but the frame has already started */
     JSINTERP_SKIP_TRAP = 2, /* as REJOIN, but skip trap at first opcode */
-    JSINTERP_BAILOUT   = 3  /* interpreter is running from an Ion bailout */
+    JSINTERP_BAILOUT   = 3, /* interpreter is running from an Ion bailout */
+    JSINTERP_RETHROW   = 4  /* as BAILOUT, but unwind all frames */
 };
 
 enum InterpretStatus
@@ -346,28 +369,34 @@ SetObjectElement(JSContext *cx, HandleObject obj, HandleValue index, HandleValue
                  JSBool strict);
 
 bool
-AddValues(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue lhs, HandleValue rhs,
+AddValues(JSContext *cx, HandleScript script, jsbytecode *pc,
+          MutableHandleValue lhs, MutableHandleValue rhs,
           Value *res);
 
 bool
-SubValues(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue lhs, HandleValue rhs,
+SubValues(JSContext *cx, HandleScript script, jsbytecode *pc,
+          MutableHandleValue lhs, MutableHandleValue rhs,
           Value *res);
 
 bool
-MulValues(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue lhs, HandleValue rhs,
+MulValues(JSContext *cx, HandleScript script, jsbytecode *pc,
+          MutableHandleValue lhs, MutableHandleValue rhs,
           Value *res);
 
 bool
-DivValues(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue lhs, HandleValue rhs,
+DivValues(JSContext *cx, HandleScript script, jsbytecode *pc,
+          MutableHandleValue lhs, MutableHandleValue rhs,
           Value *res);
 
 bool
-ModValues(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue lhs, HandleValue rhs,
+ModValues(JSContext *cx, HandleScript script, jsbytecode *pc,
+          MutableHandleValue lhs, MutableHandleValue rhs,
           Value *res);
 
 bool
-UrshValues(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue lhs, HandleValue rhs,
-          Value *res);
+UrshValues(JSContext *cx, HandleScript script, jsbytecode *pc,
+           MutableHandleValue lhs, MutableHandleValue rhs,
+           Value *res);
 
 template <bool strict>
 bool
@@ -376,6 +405,12 @@ SetProperty(JSContext *cx, HandleObject obj, HandleId id, const Value &value);
 template <bool strict>
 bool
 DeleteProperty(JSContext *ctx, HandleValue val, HandlePropertyName name, JSBool *bv);
+
+bool
+DefFunOperation(JSContext *cx, HandleScript script, HandleObject scopeChain, HandleFunction funArg);
+
+bool
+GetAndClearException(JSContext *cx, MutableHandleValue res);
 
 }  /* namespace js */
 

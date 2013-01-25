@@ -31,6 +31,7 @@
 #include "ImageContainer.h"
 #include "ImageLayers.h"
 #include "nsContentList.h"
+#include <algorithm>
 
 using namespace mozilla;
 using namespace mozilla::layers;
@@ -145,7 +146,7 @@ CorrectForAspectRatio(const gfxRect& aRect, const nsIntSize& aRatio)
                "Nothing to draw");
   // Choose scale factor that scales aRatio to just fit into aRect
   gfxFloat scale =
-    NS_MIN(aRect.Width()/aRatio.width, aRect.Height()/aRatio.height);
+    std::min(aRect.Width()/aRatio.width, aRect.Height()/aRatio.height);
   gfxSize scaledRatio(scale*aRatio.width, scale*aRatio.height);
   gfxPoint topLeft((aRect.Width() - scaledRatio.width)/2,
                    (aRect.Height() - scaledRatio.height)/2);
@@ -187,6 +188,9 @@ nsVideoFrame::BuildLayer(nsDisplayListBuilder* aBuilder,
                       presContext->AppUnitsToGfxUnits(area.height));
   r = CorrectForAspectRatio(r, videoSize);
   r.Round();
+  if (r.IsEmpty()) {
+    return nullptr;
+  }
   gfxIntSize scaleHint(static_cast<int32_t>(r.Width()),
                        static_cast<int32_t>(r.Height()));
   container->SetScaleHint(scaleHint);
@@ -267,7 +271,7 @@ nsVideoFrame::Reflow(nsPresContext*           aPresContext,
 
       if (ShouldDisplayPoster() && posterHeight && posterWidth) {
         gfxFloat scale =
-          NS_MIN(static_cast<float>(computedArea.width)/nsPresContext::CSSPixelsToAppUnits(static_cast<float>(posterWidth)),
+          std::min(static_cast<float>(computedArea.width)/nsPresContext::CSSPixelsToAppUnits(static_cast<float>(posterWidth)),
                  static_cast<float>(computedArea.height)/nsPresContext::CSSPixelsToAppUnits(static_cast<float>(posterHeight)));
         gfxSize scaledRatio = gfxSize(scale*posterWidth, scale*posterHeight);
         scaledPosterSize.width = nsPresContext::CSSPixelsToAppUnits(static_cast<float>(scaledRatio.width));
@@ -357,7 +361,7 @@ public:
     }
     nsHTMLMediaElement* elem =
       static_cast<nsHTMLMediaElement*>(mFrame->GetContent());
-    return elem->IsPotentiallyPlaying() ? LAYER_ACTIVE : LAYER_INACTIVE;
+    return elem->IsPotentiallyPlaying() ? LAYER_ACTIVE_FORCE : LAYER_INACTIVE;
   }
 };
 
@@ -415,7 +419,7 @@ nsVideoFrame::GetType() const
 a11y::AccType
 nsVideoFrame::AccessibleType()
 {
-  return a11y::eHTMLMediaAccessible;
+  return a11y::eHTMLMediaType;
 }
 #endif
 

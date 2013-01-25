@@ -21,8 +21,11 @@
 
 {
   'conditions': [
-    ['OS=="android"', {
+    ['OS=="android" or moz_widget_toolkit_gonk==1', {
       'cflags!': [
+        '-mfpu=vfpv3-d16',
+      ],
+      'cflags_mozilla!': [
         '-mfpu=vfpv3-d16',
       ],
       'cflags': [
@@ -30,6 +33,11 @@
         '-mfloat-abi=softfp',
         '-flax-vector-conversions',
       ],
+      'cflags_mozilla': [
+        '-mfpu=neon',
+        '-mfloat-abi=softfp',
+        '-flax-vector-conversions',
+      ]
     }],
   ],
 }

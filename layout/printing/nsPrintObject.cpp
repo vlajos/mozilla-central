@@ -20,7 +20,7 @@
 nsPrintObject::nsPrintObject() :
   mContent(nullptr), mFrameType(eFrame), mParent(nullptr),
   mHasBeenPrinted(false), mDontPrint(true), mPrintAsIs(false),
-  mSharedPresShell(false), mInvisible(false), mDidCreateDocShell(false),
+  mInvisible(false), mDidCreateDocShell(false),
   mShrinkRatio(1.0), mZoomRatio(1.0)
 {
   MOZ_COUNT_CTOR(nsPrintObject);
@@ -100,13 +100,14 @@ nsPrintObject::Init(nsIDocShell* aDocShell, nsIDOMDocument* aDoc,
 void 
 nsPrintObject::DestroyPresentation()
 {
-  mPresContext = nullptr;
   if (mPresShell) {
     mPresShell->EndObservingDocument();
     nsAutoScriptBlocker scriptBlocker;
-    mPresShell->Destroy();
+    nsCOMPtr<nsIPresShell> shell = mPresShell;
+    mPresShell = nullptr;
+    shell->Destroy();
   }
-  mPresShell   = nullptr;
+  mPresContext = nullptr;
   mViewManager = nullptr;
 }
 

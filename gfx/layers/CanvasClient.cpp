@@ -69,12 +69,12 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   // the content type won't be used
   mTextureClient->EnsureTextureClient(aSize, gfxASurface::CONTENT_COLOR);
 
-  gl::TextureImage::TextureShareType flags;
+  gl::GLContext::SharedTextureShareType flags;
   // if process type is default, then it is single-process (non-e10s)
   if (XRE_GetProcessType() == GeckoProcessType_Default)
-    flags = gl::TextureImage::ThreadShared;
+    flags = gl::GLContext::SameProcess;
   else
-    flags = gl::TextureImage::ProcessShared;
+    flags = gl::GLContext::CrossProcess;
 
   SharedTextureHandle handle = mTextureClient->LockHandle(aLayer->mGLContext, flags);
 

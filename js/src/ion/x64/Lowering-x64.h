@@ -21,7 +21,7 @@ class LIRGeneratorX64 : public LIRGeneratorX86Shared
     { }
 
   protected:
-    void lowerUntypedPhiInput(MPhi *phi, uint32 inputPosition, LBlock *block, size_t lirIndex);
+    void lowerUntypedPhiInput(MPhi *phi, uint32_t inputPosition, LBlock *block, size_t lirIndex);
     bool defineUntypedPhi(MPhi *phi, size_t lirIndex);
 
     // Adds a use at operand |n| of a value-typed insturction.
@@ -38,7 +38,6 @@ class LIRGeneratorX64 : public LIRGeneratorX86Shared
     bool lowerForFPU(LMathD *ins, MDefinition *mir, MDefinition *lhs, MDefinition *rhs);
 
     bool lowerConstantDouble(double d, MInstruction *ins);
-    bool lowerDivI(MDiv *div);
 
   public:
     bool visitConstant(MConstant *ins);

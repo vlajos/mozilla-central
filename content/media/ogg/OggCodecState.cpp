@@ -3,16 +3,19 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include <string.h>
+
+#include "mozilla/DebugOnly.h"
+#include "mozilla/StandardInteger.h"
+
 #include "nsDebug.h"
 #include "OggCodecState.h"
 #include "OggDecoder.h"
-#include <string.h>
 #include "nsTraceRefcnt.h"
 #include "VideoUtils.h"
 #include "MediaDecoderReader.h"
-
-#include "mozilla/StandardInteger.h"
-#include "mozilla/Util.h" // DebugOnly
+#include <algorithm>
 
 namespace mozilla {
 
@@ -194,7 +197,7 @@ void OggCodecState::ReleasePacket(ogg_packet* aPacket) {
   delete aPacket;
 }
 
-void PacketQueue::Append(ogg_packet* aPacket) {
+void OggPacketQueue::Append(ogg_packet* aPacket) {
   nsDeque::Push(aPacket);
 }
 
@@ -289,7 +292,7 @@ bool TheoraState::Init() {
   // maximum, or zero sized.
   nsIntSize frame(mInfo.frame_width, mInfo.frame_height);
   nsIntRect picture(mInfo.pic_x, mInfo.pic_y, mInfo.pic_width, mInfo.pic_height);
-  if (!nsVideoInfo::ValidateVideoRegion(frame, picture, frame)) {
+  if (!VideoInfo::ValidateVideoRegion(frame, picture, frame)) {
     return mActive = false;
   }
 
@@ -499,7 +502,7 @@ void TheoraState::ReconstructTheoraGranulepos()
       // (frame - keyframeno) will overflow the "offset" segment of the
       // granulepos, so we take "keyframe" to be the max possible offset
       // frame instead.
-      ogg_int64_t k = NS_MAX(frame - (((ogg_int64_t)1 << shift) - 1), version_3_2_1);
+      ogg_int64_t k = std::max(frame - (((ogg_int64_t)1 << shift) - 1), version_3_2_1);
       granulepos = (k << shift) + (frame - k);
     }
     // Theora 3.2.1+ granulepos store frame number [1..N], so granulepos
@@ -803,7 +806,7 @@ nsresult VorbisState::ReconstructVorbisGranulepos()
   }
 
   mPrevVorbisBlockSize = vorbis_packet_blocksize(&mInfo, last);
-  mPrevVorbisBlockSize = NS_MAX(static_cast<long>(0), mPrevVorbisBlockSize);
+  mPrevVorbisBlockSize = std::max(static_cast<long>(0), mPrevVorbisBlockSize);
   mGranulepos = last->granulepos;
 
   return NS_OK;
@@ -932,7 +935,7 @@ bool OpusState::DecodeHeader(ogg_packet* aPacket)
 #ifdef MOZ_SAMPLE_TYPE_FLOAT32
       mGain = static_cast<float>(pow(10,0.05*gain_dB));
 #else
-      mGain_Q16 = static_cast<int32_t>(NS_MIN(65536*pow(10,0.05*gain_dB)+0.5,
+      mGain_Q16 = static_cast<int32_t>(std::min(65536*pow(10,0.05*gain_dB)+0.5,
                                               static_cast<double>(INT32_MAX)));
 #endif
       mChannelMapping = aPacket->packet[18];

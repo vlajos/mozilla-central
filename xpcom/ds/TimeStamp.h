@@ -11,7 +11,6 @@
 
 #include "prinrval.h"
 #include "nsDebug.h"
-#include "prlong.h"
 
 namespace IPC {
 template <typename T> struct ParamTraits;
@@ -82,6 +81,18 @@ public:
   TimeDuration& operator-=(const TimeDuration& aOther) {
     mValue -= aOther.mValue;
     return *this;
+  }
+  TimeDuration operator*(const double aMultiplier) const {
+    return TimeDuration::FromTicks(mValue * int64_t(aMultiplier));
+  }
+  TimeDuration operator*(const int32_t aMultiplier) const {
+    return TimeDuration::FromTicks(mValue * int64_t(aMultiplier));
+  }
+  TimeDuration operator*(const uint32_t aMultiplier) const {
+    return TimeDuration::FromTicks(mValue * int64_t(aMultiplier));
+  }
+  TimeDuration operator*(const int64_t aMultiplier) const {
+    return TimeDuration::FromTicks(mValue * int64_t(aMultiplier));
   }
   double operator/(const TimeDuration& aOther) {
     return static_cast<double>(mValue) / aOther.mValue;

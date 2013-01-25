@@ -78,6 +78,13 @@ LayerManagerComposite::Destroy()
   }
 }
 
+void
+LayerManagerComposite::UpdateRenderBounds(gfx::IntRect aRect)
+{
+  NS_WARNING("UpdateRenderBounds not implemented!");
+  // see http://hg.mozilla.org/mozilla-central/rev/c55e10ab852d
+}
+
 
 void
 LayerManagerComposite::BeginTransaction()

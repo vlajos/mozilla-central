@@ -45,8 +45,6 @@ const char* kUssdReceivedTopic     = "mobile-connection-ussd-received";
 const char* kDataErrorTopic        = "mobile-connection-data-error";
 const char* kIccCardLockErrorTopic = "mobile-connection-icccardlock-error";
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(MobileConnection)
-
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(MobileConnection,
                                                   nsDOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -167,7 +165,7 @@ MobileConnection::Observe(nsISupports* aSubject,
     NS_ENSURE_TRUE(ok, NS_ERROR_FAILURE);
 
     nsRefPtr<USSDReceivedEvent> event =
-      USSDReceivedEvent::Create(dict.message, dict.sessionEnded);
+      USSDReceivedEvent::Create(dict.mMessage, dict.mSessionEnded);
     NS_ASSERTION(event, "This should never fail!");
 
     nsresult rv = event->Dispatch(ToIDOMEventTarget(), USSDRECEIVED_EVENTNAME);

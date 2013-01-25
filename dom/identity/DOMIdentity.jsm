@@ -11,7 +11,7 @@ this.EXPORTED_SYMBOLS = ["DOMIdentity"];
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/IdentityUtils.jsm");
+Cu.import("resource://gre/modules/identity/IdentityUtils.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "IdentityService",
 #ifdef MOZ_B2G_VERSION
@@ -99,14 +99,19 @@ function RPWatchContext(aOptions, aTargetMM) {
   // default for no loggedInUser is undefined, not null
   this.loggedInUser = aOptions.loggedInUser;
 
+  // Maybe internal
+  this._internal = aOptions._internal;
+
   this._mm = aTargetMM;
 }
 
 RPWatchContext.prototype = {
-  doLogin: function RPWatchContext_onlogin(aAssertion) {
+  doLogin: function RPWatchContext_onlogin(aAssertion, aMaybeInternalParams) {
     log("doLogin: " + this.id);
-    let message = new IDDOMMessage({id: this.id});
-    message.assertion = aAssertion;
+    let message = new IDDOMMessage({id: this.id, assertion: aAssertion});
+    if (aMaybeInternalParams) {
+      message._internalParams = aMaybeInternalParams;
+    }
     this._mm.sendAsyncMessage("Identity:RP:Watch:OnLogin", message);
   },
 
@@ -120,6 +125,12 @@ RPWatchContext.prototype = {
     log("doReady: " + this.id);
     let message = new IDDOMMessage({id: this.id});
     this._mm.sendAsyncMessage("Identity:RP:Watch:OnReady", message);
+  },
+
+  doCancel: function RPWatchContext_oncancel() {
+    log("doCancel: " + this.id);
+    let message = new IDDOMMessage({id: this.id});
+    this._mm.sendAsyncMessage("Identity:RP:Watch:OnCancel", message);
   },
 
   doError: function RPWatchContext_onerror(aMessage) {

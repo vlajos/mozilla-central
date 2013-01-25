@@ -51,6 +51,9 @@ DeviceRootActor.prototype.disconnect = function DRA_disconnect() {
  * until at least the next listTabs request.
  */
 DeviceRootActor.prototype.onListTabs = function DRA_onListTabs() {
+  let actorPool = new ActorPool(this.conn);
+
+#ifndef MOZ_WIDGET_GONK
   let actor = this._tabActors.get(this.browser);
   if (!actor) {
     actor = new DeviceTabActor(this.conn, this.browser);
@@ -58,9 +61,8 @@ DeviceRootActor.prototype.onListTabs = function DRA_onListTabs() {
     actor.parentID = this.actorID;
     this._tabActors.set(this.browser, actor);
   }
-
-  let actorPool = new ActorPool(this.conn);
   actorPool.addActor(actor);
+#endif
 
   this._createExtraActors(DebuggerServer.globalActorFactories, actorPool);
 
@@ -75,7 +77,11 @@ DeviceRootActor.prototype.onListTabs = function DRA_onListTabs() {
   let response = {
     'from': 'root',
     'selected': 0,
+#ifndef MOZ_WIDGET_GONK
     'tabs': [actor.grip()]
+#else
+    'tabs': []
+#endif
   };
   this._appendExtraActors(response);
   return response;
@@ -103,64 +109,26 @@ function DeviceTabActor(connection, browser) {
 
 DeviceTabActor.prototype = new BrowserTabActor();
 
-DeviceTabActor.prototype.grip = function DTA_grip() {
-  dbg_assert(!this.exited,
-             'grip() should not be called on exited browser actor.');
-  dbg_assert(this.actorID,
-             'tab should have an actorID.');
+Object.defineProperty(DeviceTabActor.prototype, "title", {
+  get: function() {
+    return this.browser.title;
+  },
+  enumerable: true,
+  configurable: false
+});
 
-  let response = {
-    'actor': this.actorID,
-    'title': this.browser.title,
-    'url': this.browser.document.documentURI
-  };
+Object.defineProperty(DeviceTabActor.prototype, "url", {
+  get: function() {
+    return this.browser.document.documentURI;
+  },
+  enumerable: true,
+  configurable: false
+});
 
-  // Walk over tab actors added by extensions and add them to a new ActorPool.
-  let actorPool = new ActorPool(this.conn);
-  this._createExtraActors(DebuggerServer.tabActorFactories, actorPool);
-  if (!actorPool.isEmpty()) {
-    this._tabActorPool = actorPool;
-    this.conn.addActorPool(this._tabActorPool);
-  }
-
-  this._appendExtraActors(response);
-  return response;
-};
-
-/**
- * Creates a thread actor and a pool for context-lifetime actors. It then sets
- * up the content window for debugging.
- */
-DeviceTabActor.prototype._pushContext = function DTA_pushContext() {
-  dbg_assert(!this._contextPool, "Can't push multiple contexts");
-
-  this._contextPool = new ActorPool(this.conn);
-  this.conn.addActorPool(this._contextPool);
-
-  this.threadActor = new ThreadActor(this, this.browser.wrappedJSObject);
-  this._contextPool.addActor(this.threadActor);
-};
-
-// Protocol Request Handlers
-
-/**
- * Prepare to enter a nested event loop by disabling debuggee events.
- */
-DeviceTabActor.prototype.preNest = function DTA_preNest() {
-  let windowUtils = this.browser
-                        .QueryInterface(Ci.nsIInterfaceRequestor)
-                        .getInterface(Ci.nsIDOMWindowUtils);
-  windowUtils.suppressEventHandling(true);
-  windowUtils.suspendTimeouts();
-};
-
-/**
- * Prepare to exit a nested event loop by enabling debuggee events.
- */
-DeviceTabActor.prototype.postNest = function DTA_postNest(aNestData) {
-  let windowUtils = this.browser
-                        .QueryInterface(Ci.nsIInterfaceRequestor)
-                        .getInterface(Ci.nsIDOMWindowUtils);
-  windowUtils.resumeTimeouts();
-  windowUtils.suppressEventHandling(false);
-};
+Object.defineProperty(DeviceTabActor.prototype, "contentWindow", {
+  get: function() {
+    return this.browser;
+  },
+  enumerable: true,
+  configurable: false
+});
