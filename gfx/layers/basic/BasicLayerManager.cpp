@@ -1238,7 +1238,6 @@ BasicShadowLayerManager::ForwardTransaction()
         MOZ_LAYERS_LOG(("[LayersForwarder] TextureSwap"));
 
         const OpTextureSwap& ots = reply.get_OpTextureSwap();
-        BasicShadowableLayer* layer = GetBasicShadowable(ots);
 
         PTextureChild* textureChild = ots.textureChild();
         MOZ_ASSERT(textureChild);
