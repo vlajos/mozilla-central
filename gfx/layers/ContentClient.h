@@ -37,8 +37,8 @@ public:
   virtual BufferType GetType() = 0;
 
   virtual void Clear() { ThebesLayerBuffer::Clear(); }
-  virtual PaintState BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
-                                uint32_t aFlags)
+  PaintState BeginPaintBuffer(ThebesLayer* aLayer, ContentType aContentType,
+                              uint32_t aFlags)
   { return ThebesLayerBuffer::BeginPaint(aLayer, aContentType, aFlags); }
   virtual void DrawTo(ThebesLayer* aLayer, gfxContext* aTarget, float aOpacity,
                       gfxASurface* aMask, const gfxMatrix* aMaskTransform)
@@ -109,8 +109,8 @@ public:
    * None of the underlying buffer attributes (rect, rotation)
    * are affected by mapping/unmapping.
    */
-  virtual void BeginPaint();
-  virtual void EndPaint();
+  virtual void BeginPaint() MOZ_OVERRIDE;
+  virtual void EndPaint() MOZ_OVERRIDE;
 
   virtual void Updated(ShadowableLayer* aLayer,
                        const nsIntRegion& aRegionToDraw,
