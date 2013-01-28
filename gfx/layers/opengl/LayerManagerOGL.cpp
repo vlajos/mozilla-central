@@ -159,14 +159,9 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
     if (mComposer2D && mComposer2D->TryRender(mRoot, mWorldMatrix)) {
       needGLRender = false;
 
-    #ifdef MOZ_WIDGET_GONK // TODO[nical] fix the fps stuff with non-OMTC
-      if (sDrawFPS) {
-        if (!mFPS) {
-          mFPS = new FPSState();
-        }
-        double fps = mFPS->mCompositionFps.AddFrameAndGetFps(TimeStamp::Now());
-        printf_stderr("HWComposer: FPS is %g\n", fps);
-      }
+    #ifdef MOZ_WIDGET_GONK
+      mCompositor->AddFrameAndGetFps(TimeStamp::Now());
+
       // This lets us reftest and screenshot content rendered by the
       // 2d composer.
       if (mTarget) {

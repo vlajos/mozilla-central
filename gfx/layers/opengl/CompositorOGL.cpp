@@ -1507,6 +1507,24 @@ CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
   aTarget->Paint();
 }
 
+double
+CompositorOGL::AddFrameAndGetFps(const TimeStamp& timestamp)
+{
+  if (sDrawFPS) {
+    if (!mFPS) {
+      mFPS = new FPSState();
+    }
+    double fps = mFPS->mCompositionFps.AddFrameAndGetFps(timestamp);
+
+    // FIXME [bjacob] copied this from existing code (landed in Bug 804852)
+    // but having a printf_stderr in a performance counter that will trigger a android log call
+    // looks fishy.
+    printf_stderr("HWComposer: FPS is %g\n", fps);
+
+    return fps;
+  }
+}
+
 void
 CompositorOGL::NotifyShadowTreeTransaction()
 {
