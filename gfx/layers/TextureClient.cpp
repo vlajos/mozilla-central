@@ -242,7 +242,11 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
     }
     break;
   case BUFFER_UNKNOWN:
-    return nullptr;    
+    return nullptr;
+  default:
+    // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
+    // at least we'll known if we run into them.
+    MOZ_NOT_REACHED("unhandled aCompositableHostType");
   }
 
   NS_ASSERTION(result, "Failed to create ImageClient");
