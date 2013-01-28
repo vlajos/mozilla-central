@@ -11,8 +11,7 @@ template<typename Self>
 class SurfaceDeallocator : public ISurfaceDeallocator {
 public:
   void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE {
-    Self* self = static_cast<Self*>(this);
-
+    // FIXME [bjacob] this function is empty???
   }
   void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {
     Self* self = static_cast<Self*>(this);
