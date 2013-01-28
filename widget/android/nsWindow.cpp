@@ -40,6 +40,7 @@ using mozilla::unused;
 #include "Layers.h"
 #include "BasicLayers.h"
 #include "LayerManagerOGL.h"
+#include "LayerManagerComposite.h"
 #include "GLContext.h"
 #include "GLContextProvider.h"
 
@@ -705,6 +706,7 @@ nsWindow::GetLayerManager(PLayersChild*, LayersBackend, LayerManagerPersistence,
         if (sLayerManager) {
             return sLayerManager;
         }
+        //TODO[nrc] check that this does the right thing
         CreateCompositor();
         if (mLayerManager) {
             // for OMTC create a single layer manager and compositor that will be
@@ -1014,6 +1016,7 @@ nsWindow::DrawTo(gfxASurface *targetSurface, const nsIntRect &invalidRect)
         bool painted = false;
         nsIntRegion region = invalidRect;
 
+        //TODO[nrc]
         switch (GetLayerManager(nullptr)->GetBackendType()) {
             case mozilla::layers::LAYERS_BASIC: {
 
@@ -2335,8 +2338,8 @@ float
 nsWindow::ComputeRenderIntegrity()
 {
     if (sCompositorParent) {
-        mozilla::layers::LayerManagerOGL* manager =
-          static_cast<mozilla::layers::LayerManagerOGL*>(sCompositorParent->GetLayerManager());
+        mozilla::layers::LayerManagerComposite* manager =
+          static_cast<mozilla::layers::LayerManagerComposite*>(sCompositorParent->GetLayerManager());
         if (manager) {
             return manager->ComputeRenderIntegrity();
         }
