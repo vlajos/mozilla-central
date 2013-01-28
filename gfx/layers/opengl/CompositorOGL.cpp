@@ -1075,7 +1075,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
   MaskType maskType;
   EffectMask* effectMask;
-  TextureSourceOGL* sourceMask;
+  TextureSourceOGL* sourceMask = nullptr;
   gfx::Matrix4x4 maskQuadTransform;
   if (aEffectChain.mEffects[EFFECT_MASK]) {
     effectMask = static_cast<EffectMask*>(aEffectChain.mEffects[EFFECT_MASK].get());
