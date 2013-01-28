@@ -1520,6 +1520,8 @@ CompositorOGL::AddFrameAndGetFps(const TimeStamp& timestamp)
 
     return fps;
   }
+
+  return 0.;
 }
 
 void
