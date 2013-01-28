@@ -161,14 +161,6 @@ LayerManagerOGL::EndTransaction(DrawThebesLayerCallback aCallback,
 
     #ifdef MOZ_WIDGET_GONK
       mCompositor->AddFrameAndGetFps(TimeStamp::Now());
-
-      // This lets us reftest and screenshot content rendered by the
-      // 2d composer.
-      if (mTarget) {
-        MakeCurrent();
-        CopyToTarget(mTarget);
-        gl()->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
-      }
     #endif
       MOZ_ASSERT(!needGLRender);
     }
