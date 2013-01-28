@@ -304,7 +304,6 @@ protected:
       aManager->RestoreViewport();
       if (!aManager->CompositingDisabled()) {
         EffectChain effectChain;
-        MaskType maskType = MaskNone;
         if (aContainer->GetMaskLayer()) {
           bool is3D = !aContainer->GetTransform().CanDraw2D();
           LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(), effectChain, is3D);
