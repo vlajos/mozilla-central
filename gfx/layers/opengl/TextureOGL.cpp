@@ -117,9 +117,8 @@ TextureImageAsTextureHostOGL::Lock(const gfx::Filter& aFilter)
     // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
     // at least we'll known if we run into them.
     MOZ_NOT_REACHED("unhandled program type");
+    return nullptr;
   }
-  NS_RUNTIMEABORT("Shader type not yet supported");
-  return nullptr;
 }
 
 void
