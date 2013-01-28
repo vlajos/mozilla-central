@@ -728,10 +728,7 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
       } else {
         result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
       }
-#ifdef MOZ_WIDGET_GONK
-    } else if (aImageType == BUFFER_DIRECT_EXTERNAL) {
-      result = new DirectExternalTextureHost(mGLContext);
-#endif
+    // FIXME [bjacob] this is where we need to hook up gralloc for B2G
     } else {
       result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
     }
