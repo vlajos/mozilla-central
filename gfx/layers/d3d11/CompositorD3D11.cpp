@@ -384,10 +384,10 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
-  } else if (aEffectChain.mEffects[EFFECT_RGB]) {
-    EffectRGB *rgbEffect = static_cast<EffectRGB*>(aEffectChain.mEffects[EFFECT_RGB].get());
+  } else if (aEffectChain.mEffects[EFFECT_RGBX]) {
+    EffectRGBX *rgbEffect = static_cast<EffectRGBX*>(aEffectChain.mEffects[EFFECT_RGBX].get());
 
-    TextureSourceD3D11 *source = rgbEffect->mRGBTexture->AsSourceD3D11();
+    TextureSourceD3D11 *source = rgbEffect->mRGBXTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));

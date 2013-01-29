@@ -179,7 +179,7 @@ TextureHostD3D11::Lock(const gfx::Filter& aFilter)
   if (mHasAlpha) {
     return new EffectRGBA(this, true, FILTER_LINEAR);
   } else {
-    return new EffectRGB(this, true, FILTER_LINEAR);
+    return new EffectRGBX(this, true, FILTER_LINEAR);
   }
 }
 
