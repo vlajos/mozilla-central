@@ -706,7 +706,6 @@ nsWindow::GetLayerManager(PLayersChild*, LayersBackend, LayerManagerPersistence,
         if (sLayerManager) {
             return sLayerManager;
         }
-        //TODO[nrc] check that this does the right thing
         CreateCompositor();
         if (mLayerManager) {
             // for OMTC create a single layer manager and compositor that will be
@@ -1016,7 +1015,6 @@ nsWindow::DrawTo(gfxASurface *targetSurface, const nsIntRect &invalidRect)
         bool painted = false;
         nsIntRegion region = invalidRect;
 
-        //TODO[nrc]
         switch (GetLayerManager(nullptr)->GetBackendType()) {
             case mozilla::layers::LAYERS_BASIC: {
 
