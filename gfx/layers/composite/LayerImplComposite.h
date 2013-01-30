@@ -227,6 +227,15 @@ protected:
       bool surfaceCopyNeeded = false;
       gfx::IntRect surfaceRect = gfx::IntRect(visibleRect.x, visibleRect.y, visibleRect.width,
                                               visibleRect.height);
+      // we're about to create a framebuffer backed by textures to use as an intermediate
+      // surface. What to do if its size (as given by framebufferRect) would exceed the
+      // maximum texture size supported by the GL? The present code chooses the compromise
+      // of just clamping the framebuffer's size to the max supported size.
+      // This gives us a lower resolution rendering of the intermediate surface (children layers).
+      // See bug 827170 for a discussion.
+      int32_t maxTextureSize = compositor->GetMaxTextureSize();
+      surfaceRect.width = std::min(maxTextureSize, surfaceRect.width);
+      surfaceRect.height = std::min(maxTextureSize, surfaceRect.height);
       if (aContainer->GetEffectiveVisibleRegion().GetNumRects() == 1 && 
           (aContainer->GetContentFlags() & Layer::CONTENT_OPAQUE))
       {
@@ -242,10 +251,13 @@ protected:
         // not safe.
         if (HasOpaqueAncestorLayer(aContainer) &&
             transform3D.Is2D(&transform) && !transform.HasNonIntegerTranslation()) {
-          surfaceCopyNeeded = true;
+          mode = gfxPlatform::GetPlatform()->UsesSubpixelAATextRendering() ?
+                                              INIT_MODE_COPY : INIT_MODE_CLEAR;
+          surfaceCopyNeeded = (mode == INIT_MODE_COPY);
           surfaceRect.x += transform.x0;
           surfaceRect.y += transform.y0;
-          aContainer->mSupportsComponentAlphaChildren = true;
+          aContainer->mSupportsComponentAlphaChildren
+            = gfxPlatform::GetPlatform()->UsesSubpixelAATextRendering();
         }
       }
 

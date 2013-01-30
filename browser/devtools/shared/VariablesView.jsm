@@ -21,6 +21,11 @@ XPCOMUtils.defineLazyModuleGetter(this,
 this.EXPORTED_SYMBOLS = ["VariablesView", "create"];
 
 /**
+ * Debugger localization strings.
+ */
+const STR = Services.strings.createBundle(DBG_STRINGS_URI);
+
+/**
  * A tree view for inspecting scopes, objects and properties.
  * Iterable via "for (let [id, scope] in instance) { }".
  * Requires the devtools common.css and debugger.css skin stylesheets.
@@ -143,6 +148,97 @@ VariablesView.prototype = {
       }
     }.bind(this), aTimeout);
   },
+
+  /**
+   * Specifies if this view may be emptied lazily.
+   * @see VariablesView.prototype.empty
+   */
+  lazyEmpty: false,
+
+  /**
+   * Specifies if nodes in this view may be added lazily.
+   * @see Scope.prototype._lazyAppend
+   */
+  lazyAppend: true,
+
+  /**
+   * Function called each time a variable or property's value is changed via
+   * user interaction. If null, then value changes are disabled.
+   *
+   * This property is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  eval: null,
+
+  /**
+   * Function called each time a variable or property's name is changed via
+   * user interaction. If null, then name changes are disabled.
+   *
+   * This property is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  switch: null,
+
+  /**
+   * Function called each time a variable or property is deleted via
+   * user interaction. If null, then deletions are disabled.
+   *
+   * This property is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  delete: null,
+
+  /**
+   * The tooltip text shown on a variable or property's value if an |eval|
+   * function is provided, in order to change the variable or property's value.
+   *
+   * This flag is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  editableValueTooltip: STR.GetStringFromName("variablesEditableValueTooltip"),
+
+  /**
+   * The tooltip text shown on a variable or property's name if a |switch|
+   * function is provided, in order to change the variable or property's name.
+   *
+   * This flag is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  editableNameTooltip: STR.GetStringFromName("variablesEditableNameTooltip"),
+
+  /**
+   * The tooltip text shown on a variable or property's delete button if a
+   * |delete| function is provided, in order to delete the variable or property.
+   *
+   * This flag is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  deleteButtonTooltip: STR.GetStringFromName("variablesCloseButtonTooltip"),
+
+  /**
+   * Specifies if the configurable, enumerable or writable tooltip should be
+   * shown whenever a variable or property descriptor is available.
+   *
+   * This flag is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  descriptorTooltip: true,
+
+  /**
+   * Specifies the context menu attribute set on variables and properties.
+   *
+   * This flag is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  contextMenuId: "",
+
+  /**
+   * The separator label between the variables or properties name and value.
+   *
+   * This flag is applied recursively onto each scope in this view and
+   * affects only the child nodes when they're created.
+   */
+  separatorStr: STR.GetStringFromName("variablesSeparatorLabel"),
 
   /**
    * Specifies if enumerable properties and variables should be displayed.
@@ -477,19 +573,14 @@ VariablesView.prototype = {
   _document: null,
   _window: null,
 
-  eval: null,
-  switch: null,
-  delete: null,
-  lazyEmpty: false,
-  lazyAppend: true,
   _store: null,
   _prevHierarchy: null,
   _currHierarchy: null,
+  _enumVisible: true,
+  _nonEnumVisible: true,
   _emptyTimeout: null,
   _searchTimeout: null,
   _searchFunction: null,
-  _enumVisible: true,
-  _nonEnumVisible: true,
   _parent: null,
   _list: null,
   _searchboxNode: null,
@@ -511,6 +602,8 @@ VariablesView.prototype = {
  *        Additional options or flags for this scope.
  */
 function Scope(aView, aName, aFlags = {}) {
+  this.ownerView = aView;
+
   this.expand = this.expand.bind(this);
   this.toggle = this.toggle.bind(this);
   this._openEnum = this._openEnum.bind(this);
@@ -518,10 +611,17 @@ function Scope(aView, aName, aFlags = {}) {
   this._batchAppend = this._batchAppend.bind(this);
   this._batchItems = [];
 
-  this.ownerView = aView;
+  // Inherit properties and flags from the parent view. You can override
+  // each of these directly onto any scope, variable or property instance.
   this.eval = aView.eval;
   this.switch = aView.switch;
   this.delete = aView.delete;
+  this.editableValueTooltip = aView.editableValueTooltip;
+  this.editableNameTooltip = aView.editableNameTooltip;
+  this.deleteButtonTooltip = aView.deleteButtonTooltip;
+  this.descriptorTooltip = aView.descriptorTooltip;
+  this.contextMenuId = aView.contextMenuId;
+  this.separatorStr = aView.separatorStr;
 
   this._store = new Map();
   this._init(aName.trim(), aFlags);
@@ -632,12 +732,12 @@ Scope.prototype = {
     // even if they were already displayed before. In this case, show a throbber
     // to suggest that this scope is expanding.
     if (!this._isExpanding &&
-         this._store.size > LAZY_APPEND_BATCH && this._variablesView.lazyAppend) {
+         this._variablesView.lazyAppend && this._store.size > LAZY_APPEND_BATCH) {
       this._isExpanding = true;
 
-      // Start spinning a throbber in this scope's title.
+      // Start spinning a throbber in this scope's title and allow a few
+      // milliseconds for it to be painted.
       this._startThrobber();
-      // Allow the trobber to be painted.
       this.window.setTimeout(this.expand, LAZY_EXPAND_DELAY);
       return;
     }
@@ -698,7 +798,7 @@ Scope.prototype = {
    * Shows the scope's title header.
    */
   showHeader: function S_showHeader() {
-    if (this._isHeaderVisible) {
+    if (this._isHeaderVisible || !this._nameString) {
       return;
     }
     this._target.removeAttribute("non-header");
@@ -789,6 +889,18 @@ Scope.prototype = {
   set twisty(aFlag) aFlag ? this.showArrow() : this.hideArrow(),
 
   /**
+   * Gets the expand lock state.
+   * @return boolean
+   */
+  get locked() this._locked,
+
+  /**
+   * Sets the expand lock state.
+   * @param boolean aFlag
+   */
+  set locked(aFlag) this._locked = aFlag,
+
+  /**
    * Adds an event listener for a certain event on this scope's title.
    * @param string aName
    * @param function aCallback
@@ -807,36 +919,6 @@ Scope.prototype = {
   removeEventListener: function S_removeEventListener(aName, aCallback, aCapture) {
     this._title.removeEventListener(aName, aCallback, aCapture);
   },
-
-  /**
-   * Specifies if the configurable/enumerable/writable tooltip should be shown
-   * whenever a variable or property descriptor is available.
-   * This flag applies non-recursively to the current scope.
-   */
-  showDescriptorTooltip: true,
-
-  /**
-   * Specifies if editing variable or property names is allowed.
-   * This flag applies non-recursively to the current scope.
-   */
-  allowNameInput: false,
-
-  /**
-   * Specifies if editing variable or property values is allowed.
-   * This flag applies non-recursively to the current scope.
-   */
-  allowValueInput: true,
-
-  /**
-   * Specifies if removing variables or properties values is allowed.
-   * This flag applies non-recursively to the current scope.
-   */
-  allowDeletion: false,
-
-  /**
-   * Specifies the context menu attribute set on variables and properties.
-   */
-  contextMenu: "",
 
   /**
    * Gets the id associated with this item.
@@ -1029,7 +1111,7 @@ Scope.prototype = {
     for (let [, variable] of this._store) {
       variable._enumVisible = aFlag;
 
-      if (!this.expanded) {
+      if (!this._isExpanded) {
         continue;
       }
       if (aFlag) {
@@ -1048,7 +1130,7 @@ Scope.prototype = {
     for (let [, variable] of this._store) {
       variable._nonEnumVisible = aFlag;
 
-      if (!this.expanded) {
+      if (!this._isExpanded) {
         continue;
       }
       if (aFlag) {
@@ -1173,6 +1255,13 @@ Scope.prototype = {
   eval: null,
   switch: null,
   delete: null,
+  editableValueTooltip: "",
+  editableNameTooltip: "",
+  deleteButtonTooltip: "",
+  descriptorTooltip: true,
+  contextMenuId: "",
+  separatorStr: "",
+
   _store: null,
   _fetched: false,
   _retrieved: false,
@@ -1219,7 +1308,7 @@ function Variable(aScope, aName, aDescriptor) {
   this._onValueInputKeyPress = this._onValueInputKeyPress.bind(this);
 
   Scope.call(this, aScope, aName, this._initialDescriptor = aDescriptor);
-  this._setGrip(aDescriptor.value);
+  this.setGrip(aDescriptor.value);
   this._symbolicName = aName;
   this._absoluteName = aScope.name + "[\"" + aName + "\"]";
 }
@@ -1371,22 +1460,34 @@ create({ constructor: Variable, proto: Scope.prototype }, {
   },
 
   /**
+   * Gets this variable's path to the topmost scope.
+   * For example, a symbolic name may look like "arguments['0']['foo']['bar']".
+   * @return string
+   */
+  get symbolicName() this._symbolicName,
+
+  /**
    * Returns this variable's value from the descriptor if available.
+   * @return any
    */
   get value() this._initialDescriptor.value,
 
   /**
    * Returns this variable's getter from the descriptor if available.
+   * @return object
    */
   get getter() this._initialDescriptor.get,
 
   /**
    * Returns this variable's getter from the descriptor if available.
+   * @return object
    */
   get setter() this._initialDescriptor.set,
 
   /**
-   * Sets the specific grip for this variable.
+   * Sets the specific grip for this variable (applies the text content and
+   * class name to the value label).
+   *
    * The grip should contain the value or the type & class, as defined in the
    * remote debugger protocol. For convenience, undefined and null are
    * both considered types.
@@ -1400,24 +1501,19 @@ create({ constructor: Variable, proto: Scope.prototype }, {
    *             - { type: "null" }
    *             - { type: "object", class: "Object" }
    */
-  _setGrip: function V__setGrip(aGrip) {
+  setGrip: function V_setGrip(aGrip) {
+    // Don't allow displaying grip information if there's no name available.
+    if (!this._nameString) {
+      return;
+    }
+
     if (aGrip === undefined) {
       aGrip = { type: "undefined" };
     }
     if (aGrip === null) {
       aGrip = { type: "null" };
     }
-    this._applyGrip(aGrip);
-  },
 
-  /**
-   * Applies the necessary text content and class name to a value node based
-   * on a grip.
-   *
-   * @param any aGrip
-   *        @see Variable._setGrip
-   */
-  _applyGrip: function V__applyGrip(aGrip) {
     let prevGrip = this._valueGrip;
     if (prevGrip) {
       this._valueLabel.classList.remove(VariablesView.getClass(prevGrip));
@@ -1441,11 +1537,16 @@ create({ constructor: Variable, proto: Scope.prototype }, {
   _init: function V__init(aName, aDescriptor) {
     this._idString = generateId(this._nameString = aName);
     this._displayScope(aName, "variable");
-    this._displayVariable();
-    this._customizeVariable();
-    this._prepareTooltip();
-    this._setAttributes();
-    this._addEventListeners();
+
+    // Don't allow displaying variable information there's no name available.
+    if (this._nameString) {
+      this._displayVariable();
+      this._customizeVariable();
+      this._prepareTooltip();
+      this._setAttributes();
+      this._addEventListeners();
+    }
+
     this._onInit(this.ownerView._store.size < LAZY_APPEND_BATCH);
   },
 
@@ -1475,10 +1576,11 @@ create({ constructor: Variable, proto: Scope.prototype }, {
 
     let separatorLabel = this._separatorLabel = document.createElement("label");
     separatorLabel.className = "plain";
-    separatorLabel.setAttribute("value", this.ownerView.separator);
+    separatorLabel.setAttribute("value", this.ownerView.separatorStr);
 
     let valueLabel = this._valueLabel = document.createElement("label");
     valueLabel.className = "plain value";
+    valueLabel.setAttribute("crop", "center");
 
     this._title.appendChild(separatorLabel);
     this._title.appendChild(valueLabel);
@@ -1490,6 +1592,8 @@ create({ constructor: Variable, proto: Scope.prototype }, {
       this.hideArrow();
     }
     if (!isUndefined && (descriptor.get || descriptor.set)) {
+      // FIXME: editing getters and setters is not allowed yet. Bug 831794.
+      this.eval = null;
       this.addProperty("get", { value: descriptor.get });
       this.addProperty("set", { value: descriptor.set });
       this.expand();
@@ -1502,14 +1606,14 @@ create({ constructor: Variable, proto: Scope.prototype }, {
    * Adds specific nodes for this variable based on custom flags.
    */
   _customizeVariable: function V__customizeVariable() {
-    if (this.ownerView.allowDeletion) {
-      let closeNode = this._closeNode = this.document.createElement("toolbarbutton");
-      closeNode.className = "plain dbg-variable-delete devtools-closebutton";
-      closeNode.addEventListener("click", this._onClose.bind(this), false);
-      this._title.appendChild(closeNode);
+    if (this.ownerView.delete) {
+      let deleteNode = this._deleteNode = this.document.createElement("toolbarbutton");
+      deleteNode.className = "plain dbg-variable-delete devtools-closebutton";
+      deleteNode.addEventListener("click", this._onDelete.bind(this), false);
+      this._title.appendChild(deleteNode);
     }
-    if (this.ownerView.contextMenu) {
-      this._title.setAttribute("context", this.ownerView.contextMenu);
+    if (this.ownerView.contextMenuId) {
+      this._title.setAttribute("context", this.ownerView.contextMenuId);
     }
   },
 
@@ -1526,22 +1630,20 @@ create({ constructor: Variable, proto: Scope.prototype }, {
   _displayTooltip: function V__displayTooltip() {
     this._target.removeEventListener("mouseover", this._displayTooltip, false);
 
-    if (this.ownerView.showDescriptorTooltip) {
+    if (this.ownerView.descriptorTooltip) {
       let document = this.document;
 
       let tooltip = document.createElement("tooltip");
-      tooltip.id = "tooltip-" + this.id;
+      tooltip.id = "tooltip-" + this._idString;
 
       let configurableLabel = document.createElement("label");
-      configurableLabel.setAttribute("value", "configurable");
-
       let enumerableLabel = document.createElement("label");
-      enumerableLabel.setAttribute("value", "enumerable");
-
       let writableLabel = document.createElement("label");
+      configurableLabel.setAttribute("value", "configurable");
+      enumerableLabel.setAttribute("value", "enumerable");
       writableLabel.setAttribute("value", "writable");
 
-      tooltip.setAttribute("orient", "horizontal")
+      tooltip.setAttribute("orient", "horizontal");
       tooltip.appendChild(configurableLabel);
       tooltip.appendChild(enumerableLabel);
       tooltip.appendChild(writableLabel);
@@ -1549,14 +1651,14 @@ create({ constructor: Variable, proto: Scope.prototype }, {
       this._target.appendChild(tooltip);
       this._target.setAttribute("tooltip", tooltip.id);
     }
-    if (this.ownerView.allowNameInput) {
-      this._name.setAttribute("tooltiptext", L10N.getStr("variablesEditableNameTooltip"));
+    if (this.ownerView.eval) {
+      this._valueLabel.setAttribute("tooltiptext", this.ownerView.editableValueTooltip);
     }
-    if (this.ownerView.allowValueInput) {
-      this._valueLabel.setAttribute("tooltiptext", L10N.getStr("variablesEditableValueTooltip"));
+    if (this.ownerView.switch) {
+      this._name.setAttribute("tooltiptext", this.ownerView.editableNameTooltip);
     }
-    if (this.ownerView.allowDeletion) {
-      this._closeNode.setAttribute("tooltiptext", L10N.getStr("variablesCloseButtonTooltip"));
+    if (this.ownerView.delete) {
+      this._deleteNode.setAttribute("tooltiptext", this.ownerView.deleteButtonTooltip);
     }
   },
 
@@ -1565,27 +1667,25 @@ create({ constructor: Variable, proto: Scope.prototype }, {
    * and specifies if it's a 'this', '<exception>' or '__proto__' reference.
    */
   _setAttributes: function V__setAttributes() {
-    let name = this._nameString;
     let descriptor = this._initialDescriptor;
+    let name = this._nameString;
 
-    if (descriptor) {
-      if (!descriptor.configurable) {
-        this._target.setAttribute("non-configurable", "");
-      }
-      if (!descriptor.enumerable) {
-        this._target.setAttribute("non-enumerable", "");
-      }
-      if (!descriptor.writable) {
-        this._target.setAttribute("non-writable", "");
-      }
+    if (!descriptor.configurable) {
+      this._target.setAttribute("non-configurable", "");
+    }
+    if (!descriptor.enumerable) {
+      this._target.setAttribute("non-enumerable", "");
+    }
+    if (!descriptor.writable) {
+      this._target.setAttribute("non-writable", "");
     }
     if (name == "this") {
       this._target.setAttribute("self", "");
     }
-    if (name == "<exception>") {
+    else if (name == "<exception>") {
       this._target.setAttribute("exception", "");
     }
-    if (name == "__proto__") {
+    else if (name == "__proto__") {
       this._target.setAttribute("proto", "");
     }
   },
@@ -1671,7 +1771,7 @@ create({ constructor: Variable, proto: Scope.prototype }, {
       // Only allow left-click to trigger this event.
       return;
     }
-    if (!this.ownerView.allowNameInput || !this.switch) {
+    if (!this.ownerView.switch) {
       return;
     }
     this._activateInput(this._name, "element-name-input", {
@@ -1702,7 +1802,7 @@ create({ constructor: Variable, proto: Scope.prototype }, {
       // Only allow left-click to trigger this event.
       return;
     }
-    if (!this.ownerView.allowValueInput || !this.eval) {
+    if (!this.ownerView.eval) {
       return;
     }
     this._activateInput(this._valueLabel, "element-value-input", {
@@ -1744,7 +1844,7 @@ create({ constructor: Variable, proto: Scope.prototype }, {
     if (initialString != currentString) {
       this._disable();
       this._name.value = currentString;
-      this.switch(this, currentString);
+      this.ownerView.switch(this, currentString);
     }
   },
 
@@ -1759,7 +1859,7 @@ create({ constructor: Variable, proto: Scope.prototype }, {
 
     if (initialString != currentString) {
       this._disable();
-      this.eval(this._symbolicName + "=" + currentString);
+      this.ownerView.eval(this._symbolicName + "=" + currentString);
     }
   },
 
@@ -1794,13 +1894,13 @@ create({ constructor: Variable, proto: Scope.prototype }, {
   },
 
   /**
-   * The click listener for the close button.
+   * The click listener for the delete button.
    */
-  _onClose: function V__onClose() {
+  _onDelete: function V__onDelete() {
     this.hide();
 
-    if (this.delete) {
-      this.delete(this);
+    if (this.ownerView.delete) {
+      this.ownerView.delete(this);
     }
   },
 
@@ -1809,7 +1909,7 @@ create({ constructor: Variable, proto: Scope.prototype }, {
   _initialDescriptor: null,
   _separatorLabel: null,
   _valueLabel: null,
-  _closeNode: null,
+  _deleteNode: null,
   _tooltip: null,
   _valueGrip: null,
   _valueString: "",
@@ -1847,11 +1947,16 @@ create({ constructor: Property, proto: Variable.prototype }, {
   _init: function P__init(aName, aDescriptor) {
     this._idString = generateId(this._nameString = aName);
     this._displayScope(aName, "property");
-    this._displayVariable();
-    this._customizeVariable();
-    this._prepareTooltip();
-    this._setAttributes();
-    this._addEventListeners();
+
+    // Don't allow displaying property information there's no name available.
+    if (this._nameString) {
+      this._displayVariable();
+      this._customizeVariable();
+      this._prepareTooltip();
+      this._setAttributes();
+      this._addEventListeners();
+    }
+
     this._onInit(this.ownerView._store.size < LAZY_APPEND_BATCH);
   },
 
@@ -1990,9 +2095,9 @@ VariablesView.isPrimitive = function VV_isPrimitive(aDescriptor) {
     return true;
   }
 
-  // For convenience, undefined and null are both considered types.
+  // For convenience, undefined, null and long strings are considered primitives.
   let type = grip.type;
-  if (type == "undefined" || type == "null") {
+  if (type == "undefined" || type == "null" || type == "longString") {
     return true;
   }
 
@@ -2074,7 +2179,7 @@ VariablesView.getGrip = function VV_getGrip(aValue) {
  * Returns a custom formatted property string for a grip.
  *
  * @param any aGrip
- *        @see Variable._setGrip
+ *        @see Variable.setGrip
  * @param boolean aConciseFlag
  *        Return a concisely formatted property string.
  * @return string
@@ -2087,6 +2192,8 @@ VariablesView.getString = function VV_getString(aGrip, aConciseFlag) {
         return "undefined";
       case "null":
         return "null";
+      case "longString":
+        return "\"" + aGrip.initial + "\"";
       default:
         if (!aConciseFlag) {
           return "[" + aGrip.type + " " + aGrip.class + "]";
@@ -2109,7 +2216,7 @@ VariablesView.getString = function VV_getString(aGrip, aConciseFlag) {
  * Returns a custom class style for a grip.
  *
  * @param any aGrip
- *        @see Variable._setGrip
+ *        @see Variable.setGrip
  * @return string
  *         The custom class style.
  */
@@ -2120,6 +2227,8 @@ VariablesView.getClass = function VV_getClass(aGrip) {
         return "token-undefined";
       case "null":
         return "token-null";
+      case "longString":
+        return "token-string";
     }
   } else {
     switch (typeof aGrip) {
@@ -2133,31 +2242,6 @@ VariablesView.getClass = function VV_getClass(aGrip) {
   }
   return "token-other";
 };
-
-/**
- * Localization convenience methods.
- */
-let L10N = {
-  /**
-   * L10N shortcut function.
-   *
-   * @param string aName
-   * @return string
-   */
-  getStr: function L10N_getStr(aName) {
-    return this.stringBundle.GetStringFromName(aName);
-  }
-};
-
-XPCOMUtils.defineLazyGetter(L10N, "stringBundle", function() {
-  return Services.strings.createBundle(DBG_STRINGS_URI);
-});
-
-/**
- * The separator label between the variables or properties name and value.
- * This property applies non-recursively to the current scope.
- */
-Scope.prototype.separator = L10N.getStr("variablesSeparatorLabel");
 
 /**
  * A monotonically-increasing counter, that guarantees the uniqueness of scope,

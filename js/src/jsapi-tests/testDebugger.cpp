@@ -13,12 +13,13 @@
 static int callCount[2] = {0, 0};
 
 static void *
-callCountHook(JSContext *cx, JSStackFrame *fp, JSBool before, JSBool *ok, void *closure)
+callCountHook(JSContext *cx, JSAbstractFramePtr frame, bool isConstructing, JSBool before,
+              JSBool *ok, void *closure)
 {
     callCount[before]++;
 
     jsval thisv;
-    JS_GetFrameThis(cx, fp, &thisv);  // assert if fp is incomplete
+    frame.getThisValue(cx, &thisv); // assert if fp is incomplete
 
     return cx;  // any non-null value causes the hook to be called again after
 }
@@ -38,12 +39,13 @@ BEGIN_TEST(testDebugger_bug519719)
 END_TEST(testDebugger_bug519719)
 
 static void *
-nonStrictThisHook(JSContext *cx, JSStackFrame *fp, JSBool before, JSBool *ok, void *closure)
+nonStrictThisHook(JSContext *cx, JSAbstractFramePtr frame, bool isConstructing, JSBool before,
+                  JSBool *ok, void *closure)
 {
     if (before) {
         bool *allWrapped = (bool *) closure;
-        jsval thisv;
-        JS_GetFrameThis(cx, fp, &thisv);
+        js::RootedValue thisv(cx);
+        frame.getThisValue(cx, thisv.address());
         *allWrapped = *allWrapped && !JSVAL_IS_PRIMITIVE(thisv);
     }
     return NULL;
@@ -76,12 +78,13 @@ BEGIN_TEST(testDebugger_getThisNonStrict)
 END_TEST(testDebugger_getThisNonStrict)
 
 static void *
-strictThisHook(JSContext *cx, JSStackFrame *fp, JSBool before, JSBool *ok, void *closure)
+strictThisHook(JSContext *cx, JSAbstractFramePtr frame, bool isConstructing, JSBool before,
+               JSBool *ok, void *closure)
 {
     if (before) {
         bool *anyWrapped = (bool *) closure;
-        jsval thisv;
-        JS_GetFrameThis(cx, fp, &thisv);
+        js::RootedValue thisv(cx);
+        frame.getThisValue(cx, thisv.address());
         *anyWrapped = *anyWrapped || !JSVAL_IS_PRIMITIVE(thisv);
     }
     return NULL;
@@ -231,8 +234,8 @@ bool testIndirectEval(JS::HandleObject scope, const char *code)
         CHECK(JS_CallFunctionName(cx, scope, "eval", 1, argv, &v));
     }
 
-    jsval hitsv;
-    EVAL("hits", &hitsv);
+    js::RootedValue hitsv(cx);
+    EVAL("hits", hitsv.address());
     CHECK_SAME(hitsv, INT_TO_JSVAL(1));
     return true;
 }

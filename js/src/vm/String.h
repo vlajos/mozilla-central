@@ -417,7 +417,7 @@ class JSString : public js::gc::Cell
 
     static inline void writeBarrierPre(JSString *str);
     static inline void writeBarrierPost(JSString *str, void *addr);
-    static inline bool needWriteBarrierPre(JSCompartment *comp);
+    static inline bool needWriteBarrierPre(JS::Zone *zone);
     static inline void readBarrier(JSString *str);
 
     static inline js::ThingRootKind rootKind() { return js::THING_ROOT_STRING; }
@@ -447,11 +447,10 @@ class JSRope : public JSString
 
   public:
     template <js::AllowGC allowGC>
-    static inline JSRope *
-    newStringMaybeAllowGC(JSContext *cx,
-                          typename js::MaybeRooted<JSString*, allowGC>::HandleType left,
-                          typename js::MaybeRooted<JSString*, allowGC>::HandleType right,
-                          size_t length);
+    static inline JSRope *new_(JSContext *cx,
+                               typename js::MaybeRooted<JSString*, allowGC>::HandleType left,
+                               typename js::MaybeRooted<JSString*, allowGC>::HandleType right,
+                               size_t length);
 
     inline JSString *leftChild() const {
         JS_ASSERT(isRope());
@@ -560,6 +559,7 @@ class JSStableString : public JSFlatString
     void init(const jschar *chars, size_t length);
 
   public:
+    template <js::AllowGC allowGC>
     static inline JSStableString *new_(JSContext *cx, const jschar *chars, size_t length);
 
     JS_ALWAYS_INLINE
@@ -656,8 +656,8 @@ class JSInlineString : public JSFlatString
     static const size_t MAX_INLINE_LENGTH = NUM_INLINE_CHARS - 1;
 
   public:
+    template <js::AllowGC allowGC>
     static inline JSInlineString *new_(JSContext *cx);
-    static inline JSInlineString *tryNew_(JSContext *cx);
 
     inline jschar *init(size_t length);
 
@@ -688,8 +688,8 @@ class JSShortString : public JSInlineString
     jschar inlineStorageExtension[INLINE_EXTENSION_CHARS];
 
   public:
+    template <js::AllowGC allowGC>
     static inline JSShortString *new_(JSContext *cx);
-    static inline JSShortString *tryNew_(JSContext *cx);
 
     static const size_t MAX_SHORT_LENGTH = JSString::NUM_INLINE_CHARS +
                                            INLINE_EXTENSION_CHARS

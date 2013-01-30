@@ -222,7 +222,8 @@ IonBuilder::inlineArray(uint32_t argc, bool constructing)
             id = MConstant::New(Int32Value(i));
             current->add(id);
 
-            MStoreElement *store = MStoreElement::New(elements, id, argv[i + 1]);
+            MStoreElement *store = MStoreElement::New(elements, id, argv[i + 1],
+                                                      /* needsHoleCheck = */ false);
             current->add(store);
         }
 
@@ -256,9 +257,13 @@ IonBuilder::inlineArrayPopShift(MArrayPopShift::Mode mode, uint32_t argc, bool c
     // Inference's TypeConstraintCall generates the constraints that propagate
     // properties directly into the result type set.
     types::TypeObjectFlags unhandledFlags =
-        types::OBJECT_FLAG_NON_DENSE_ARRAY | types::OBJECT_FLAG_ITERATED;
+        types::OBJECT_FLAG_SPARSE_INDEXES |
+        types::OBJECT_FLAG_LENGTH_OVERFLOW |
+        types::OBJECT_FLAG_ITERATED;
 
     types::StackTypeSet *thisTypes = getInlineArgTypeSet(argc, 0);
+    if (thisTypes->getKnownClass() != &ArrayClass)
+        return InliningStatus_NotInlined;
     if (thisTypes->hasObjectFlags(cx, unhandledFlags))
         return InliningStatus_NotInlined;
     RootedScript script(cx, script_);
@@ -270,7 +275,7 @@ IonBuilder::inlineArrayPopShift(MArrayPopShift::Mode mode, uint32_t argc, bool c
         return InliningStatus_Error;
 
     types::StackTypeSet *returnTypes = getInlineReturnTypeSet();
-    bool needsHoleCheck = thisTypes->hasObjectFlags(cx, types::OBJECT_FLAG_NON_PACKED_ARRAY);
+    bool needsHoleCheck = thisTypes->hasObjectFlags(cx, types::OBJECT_FLAG_NON_PACKED);
     bool maybeUndefined = returnTypes->hasType(types::Type::UndefinedType());
 
     MArrayPopShift *ins = MArrayPopShift::New(argv[0], mode, needsHoleCheck, maybeUndefined);
@@ -297,8 +302,13 @@ IonBuilder::inlineArrayPush(uint32_t argc, bool constructing)
     // Inference's TypeConstraintCall generates the constraints that propagate
     // properties directly into the result type set.
     types::StackTypeSet *thisTypes = getInlineArgTypeSet(argc, 0);
-    if (thisTypes->hasObjectFlags(cx, types::OBJECT_FLAG_NON_DENSE_ARRAY))
+    if (thisTypes->getKnownClass() != &ArrayClass)
         return InliningStatus_NotInlined;
+    if (thisTypes->hasObjectFlags(cx, types::OBJECT_FLAG_SPARSE_INDEXES |
+                                  types::OBJECT_FLAG_LENGTH_OVERFLOW))
+    {
+        return InliningStatus_NotInlined;
+    }
     RootedScript script(cx, script_);
     if (types::ArrayPrototypeHasIndexedProperty(cx, script))
         return InliningStatus_NotInlined;
@@ -334,11 +344,21 @@ IonBuilder::inlineArrayConcat(uint32_t argc, bool constructing)
     types::StackTypeSet *thisTypes = getInlineArgTypeSet(argc, 0);
     types::StackTypeSet *argTypes = getInlineArgTypeSet(argc, 1);
 
-    if (thisTypes->hasObjectFlags(cx, types::OBJECT_FLAG_NON_DENSE_ARRAY))
+    if (thisTypes->getKnownClass() != &ArrayClass)
         return InliningStatus_NotInlined;
+    if (thisTypes->hasObjectFlags(cx, types::OBJECT_FLAG_SPARSE_INDEXES |
+                                  types::OBJECT_FLAG_LENGTH_OVERFLOW))
+    {
+        return InliningStatus_NotInlined;
+    }
 
-    if (argTypes->hasObjectFlags(cx, types::OBJECT_FLAG_NON_DENSE_ARRAY))
+    if (argTypes->getKnownClass() != &ArrayClass)
         return InliningStatus_NotInlined;
+    if (argTypes->hasObjectFlags(cx, types::OBJECT_FLAG_SPARSE_INDEXES |
+                                 types::OBJECT_FLAG_LENGTH_OVERFLOW))
+    {
+        return InliningStatus_NotInlined;
+    }
 
     // Watch out for indexed properties on the prototype.
     RootedScript script(cx, script_);
