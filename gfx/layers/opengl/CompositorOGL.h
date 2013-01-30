@@ -338,6 +338,11 @@ private:
    */
   void CopyToTarget(gfxContext *aTarget, const gfxMatrix& aWorldMatrix);
 
+  /**
+   * Records the passed frame timestamp and returns the current estimated FPS.
+   */
+  double AddFrameAndGetFps(const TimeStamp& timestamp);
+
   bool mDestroyed;
 
   nsAutoPtr<FPSState> mFPS;

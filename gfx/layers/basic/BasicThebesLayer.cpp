@@ -154,7 +154,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
       flags |= ThebesLayerBuffer::PAINT_NO_ROTATION;
     }
     PaintState state =
-      mContentClient->BeginPaint(this, contentType, flags);
+      mContentClient->BeginPaintBuffer(this, contentType, flags);
     mValidRegion.Sub(mValidRegion, state.mRegionToInvalidate);
 
     if (state.mContext) {

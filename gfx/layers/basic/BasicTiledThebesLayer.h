@@ -92,9 +92,9 @@ private:
    */
   void EndPaint(bool aFinish);
 
-  nsIntRegion mLowPrecisionValidRegion;
   BasicTiledLayerBuffer mTiledBuffer;
   BasicTiledLayerBuffer mLowPrecisionTiledBuffer;
+  nsIntRegion mLowPrecisionValidRegion;
   BasicTiledLayerPaintData mPaintData;
 };
 

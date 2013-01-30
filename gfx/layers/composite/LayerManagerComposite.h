@@ -203,12 +203,32 @@ public:
 
   TemporaryRef<CompositableHost> CreateCompositableHost(BufferType aType);
 
+  /**
+   * Calculates the 'completeness' of the rendering that intersected with the
+   * screen on the last render. This is only useful when progressive tile
+   * drawing is enabled, otherwise this will always return 1.0.
+   * This function's expense scales with the size of the layer tree and the
+   * complexity of individual layers' valid regions.
+   */
+  float ComputeRenderIntegrity();
+
 private:
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;
 
   /** Current root layer. */
   LayerComposite *RootLayer() const;
+ 
+  /**
+   * Recursive helper method for use by ComputeRenderIntegrity. Subtracts
+   * any incomplete rendering on aLayer from aScreenRegion. Any low-precision
+   * rendering is included in aLowPrecisionScreenRegion. aTransform is the
+   * accumulated transform of intermediate surfaces beneath aLayer.
+   */
+  static void ComputeRenderIntegrityInternal(Layer* aLayer,
+                                             nsIntRegion& aScreenRegion,
+                                             nsIntRegion& aLowPrecisionScreenRegion,
+                                             const gfx3DMatrix& aTransform);
 
   /**
    * Render the current layer tree to the active target.

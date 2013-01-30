@@ -104,8 +104,8 @@ class BasicShadowableCanvasLayer : public BasicCanvasLayer,
 public:
   BasicShadowableCanvasLayer(BasicShadowLayerManager* aManager) :
     BasicCanvasLayer(aManager),
-    mCanvasClient(nullptr),
-    mBufferIsOpaque(false)
+    mBufferIsOpaque(false),
+    mCanvasClient(nullptr)
   {
     MOZ_COUNT_CTOR(BasicShadowableCanvasLayer);
   }

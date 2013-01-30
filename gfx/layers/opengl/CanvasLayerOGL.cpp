@@ -84,14 +84,6 @@ MakeIOSurfaceTexture(void* aCGIOSurfaceContext, mozilla::gl::GLContext* aGL)
 
   return ioSurfaceTexture;
 }
-
-#else
-static GLuint
-MakeIOSurfaceTexture(void* aCGIOSurfaceContext, mozilla::gl::GLContext* aGL)
-{
-  NS_RUNTIMEABORT("Not implemented");
-  return 0;
-}
 #endif
 
 void
@@ -355,10 +347,4 @@ CanvasLayerOGL::CleanupResources()
     gl()->MakeCurrent();
     gl()->fDeleteTextures(1, &mTexture);
   }
-}
-
-static bool
-IsValidSharedTexDescriptor(const SurfaceDescriptor& aDescriptor)
-{
-  return aDescriptor.type() == SurfaceDescriptor::TSharedTextureDescriptor;
 }

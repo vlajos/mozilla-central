@@ -728,10 +728,7 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
       } else {
         result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
       }
-#ifdef MOZ_WIDGET_GONK
-    } else if (aImageType == BUFFER_DIRECT_EXTERNAL) {
-      result = new DirectExternalTextureHost(mGLContext);
-#endif
+    // FIXME [bjacob] this is where we need to hook up gralloc for B2G
     } else {
       result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
     }
@@ -1078,7 +1075,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
   MaskType maskType;
   EffectMask* effectMask;
-  TextureSourceOGL* sourceMask;
+  TextureSourceOGL* sourceMask = nullptr;
   gfx::Matrix4x4 maskQuadTransform;
   if (aEffectChain.mEffects[EFFECT_MASK]) {
     effectMask = static_cast<EffectMask*>(aEffectChain.mEffects[EFFECT_MASK].get());
@@ -1505,6 +1502,26 @@ CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
   aTarget->SetMatrix(glToCairoTransform);
   aTarget->SetSource(imageSurface);
   aTarget->Paint();
+}
+
+double
+CompositorOGL::AddFrameAndGetFps(const TimeStamp& timestamp)
+{
+  if (sDrawFPS) {
+    if (!mFPS) {
+      mFPS = new FPSState();
+    }
+    double fps = mFPS->mCompositionFps.AddFrameAndGetFps(timestamp);
+
+    // FIXME [bjacob] copied this from existing code (landed in Bug 804852)
+    // but having a printf_stderr in a performance counter that will trigger a android log call
+    // looks fishy.
+    printf_stderr("HWComposer: FPS is %g\n", fps);
+
+    return fps;
+  }
+
+  return 0.;
 }
 
 void
