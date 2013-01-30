@@ -11,6 +11,9 @@
 #include "mozilla/layers/Effects.h"
 
 namespace mozilla {
+
+using namespace gfx;
+
 namespace layers {
 
 void
@@ -60,11 +63,24 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   }
 
   mTextureHost->UpdateAsyncTexture();
-  if (Effect* effect = mTextureHost->Lock(aFilter)) {
-    aEffectChain.mEffects[effect->mType] = effect;
-  } else {
+
+  RefPtr<Effect> effect;
+  switch (mTextureHost->GetFormat()) {
+  case FORMAT_B8G8R8A8:
+    effect = new EffectBGRA(mTextureHost, true, aFilter);
+    break;
+  case FORMAT_B8G8R8X8:
+    effect = new EffectBGRX(mTextureHost, true, aFilter);
+    break;
+  default:
+    NS_RUNTIMEABORT("XXX - Bas - Implement me!!");
+  }
+
+  if (!mTextureHost->Lock()) {
     return;
   }
+  
+  aEffectChain.mEffects[effect->mType] = effect;
 
   TileIterator* it = mTextureHost->AsTextureSource()->AsTileIterator();
   if (it) {
@@ -101,6 +117,13 @@ ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aT
   mTextureHost = aTextureHost;
 }
 */
+
+YCbCrImageHost::YCbCrImageHost(LayerManagerComposite* aManager)
+  : ImageHost(aManager)
+{}
+YCbCrImageHost::~YCbCrImageHost()
+{}
+
 SurfaceDescriptor
 YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
                             const SurfaceDescriptor& aImage)
@@ -112,6 +135,8 @@ YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
 
   SurfaceDescriptor result;
   mTextureHost->Update(aImage, &result);
+
+  mTextureEffect = new EffectYCbCr(mTextureHost, FILTER_LINEAR);
   return result;
 }
 
@@ -129,12 +154,11 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
     return;
   }
   mTextureHost->UpdateAsyncTexture();
-  if (Effect* effect = mTextureHost->Lock(aFilter)) {
-    NS_ASSERTION(effect->mType == EFFECT_YCBCR, "expected YCbCr effect");
-    aEffectChain.mEffects[effect->mType] = effect;
-  } else {
+  if (!mTextureHost->Lock()) {
     return;
   }
+
+  aEffectChain.mEffects[mTextureEffect->mType] = mTextureEffect;
 
   gfx::Rect rect(0, 0, mPictureRect.width, mPictureRect.height);
   gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y, mPictureRect.width, mPictureRect.height);

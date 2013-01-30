@@ -13,6 +13,9 @@
 using namespace mozilla::gl;
 
 namespace mozilla {
+
+using namespace gfx;
+
 namespace layers {
 
 static void
@@ -90,12 +93,12 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 }
 
-Effect*
-TextureImageAsTextureHostOGL::Lock(const gfx::Filter& aFilter)
+bool
+TextureImageAsTextureHostOGL::Lock()
 {
   if (!mTexture) {
     NS_WARNING("TextureImageAsTextureHost to be composited without texture");
-    return nullptr;
+    return false;
   }
   NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
                 "Image layer has alpha image");
@@ -104,21 +107,24 @@ TextureImageAsTextureHostOGL::Lock(const gfx::Filter& aFilter)
     mTexture->EndUpdate();
   }
 
+  // XXX - Bas - Get YFlip data out!
   switch (mTexture->GetShaderProgramType()) {
+#if 0
   case gl::RGBXLayerProgramType :
     return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
-  case gl::BGRXLayerProgramType :
-    return new EffectBGRX(this, true, aFilter, mFlags & NeedsYFlip);
-  case gl::BGRALayerProgramType :
-    return new EffectBGRA(this, true, aFilter, mFlags & NeedsYFlip);
   case gl::RGBALayerProgramType :
     return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
+#endif
+  case gl::BGRXLayerProgramType :
+    mFormat = FORMAT_B8G8R8X8;
+  case gl::BGRALayerProgramType :
+    mFormat = FORMAT_B8G8R8A8;
   default:
     // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
     // at least we'll known if we run into them.
     MOZ_NOT_REACHED("unhandled program type");
-    return nullptr;
   }
+  return true;
 }
 
 void
@@ -159,13 +165,13 @@ TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 }
  
-Effect*
-TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
+bool
+TextureHostOGLShared::Lock()
 {
   GLContext::SharedHandleDetails handleDetails;
   if (!mGL->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
     NS_ERROR("Failed to get shared handle details");
-    return nullptr;
+    return false;
   }
 
   MakeTextureIfNeeded(mGL, mTextureHandle);
@@ -174,9 +180,11 @@ TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
   mGL->fBindTexture(handleDetails.mTarget, mTextureHandle);
   if (!mGL->AttachSharedHandle(mShareType, mSharedHandle)) {
     NS_ERROR("Failed to bind shared texture handle");
-    return nullptr;
+    return false;
   }
 
+#if 0
+  // XXX - Look into dealing with texture transform for RGBALayerExternal!!
   if (mFlags & UseOpaqueSurface) {
     return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerProgramType) {
@@ -189,6 +197,8 @@ TextureHostOGLShared::Lock(const gfx::Filter& aFilter)
     NS_RUNTIMEABORT("Shader type not yet supported");
     return nullptr;
   }
+#endif
+  return true;
 }
 
 void
@@ -253,10 +263,10 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 }
 
-Effect*
-YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
+bool
+YCbCrTextureHostOGL::Lock()
 {
-  return new EffectYCbCr(this, aFilter);
+  return true;
 }
 
 TiledTextureHost::~TiledTextureHost()
@@ -303,7 +313,7 @@ TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFla
   }
 
   GLenum type;
-  GetFormatAndTileForImageFormat(aReusableSurface->Format(), mFormat, type);
+  GetFormatAndTileForImageFormat(aReusableSurface->Format(), mGLFormat, type);
 
   const unsigned char* buf = aReusableSurface->GetReadOnlyData();
   mGL->fTexImage2D(LOCAL_GL_TEXTURE_2D, 0, mFormat,
@@ -312,24 +322,27 @@ TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFla
 
   gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryAllocated, mFormat,
                                           type, TILEDLAYERBUFFER_TILE_SIZE);
+
+  if (mGLFormat == LOCAL_GL_RGB) {
+    mFormat = FORMAT_B8G8R8X8;
+  } else {
+    mFormat = FORMAT_B8G8R8A8;
+  }
 }
 
-Effect*
-TiledTextureHost::Lock(const gfx::Filter& aFilter)
+bool
+TiledTextureHost::Lock()
 {
   if (!mTextureHandle) {
     NS_WARNING("TiledTextureHost not ready to be composited");
-    return nullptr;
+    return false;
   }
 
   //TODO[nrc] would be nice if we didn't need to do this
   mGL->MakeCurrent();
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
 
-  if (mFormat == LOCAL_GL_RGB) {
-    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
-  }
-  return new EffectBGRA(this, true, aFilter, mFlags & NeedsYFlip);
+  return true;
 }
 
 

@@ -80,9 +80,8 @@ protected:
 class YCbCrImageHost : public ImageHost
 {
 public:
-  YCbCrImageHost(LayerManagerComposite* aManager)
-    : ImageHost(aManager)
-  {}
+  YCbCrImageHost(LayerManagerComposite* aManager);
+  ~YCbCrImageHost();
 
   virtual BufferType GetType() { return BUFFER_YCBCR; }
 
@@ -106,6 +105,7 @@ public:
   }
 
 protected:
+  RefPtr<Effect> mTextureEffect;
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
 };

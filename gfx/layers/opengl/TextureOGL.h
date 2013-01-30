@@ -98,7 +98,7 @@ public:
     return !!mTexture;
   }
 
-  Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
 
   void Abort() MOZ_OVERRIDE;
 
@@ -193,7 +193,7 @@ public:
                           bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
 
-  Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
 
   TextureSource* AsTextureSource() MOZ_OVERRIDE {
     NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
@@ -284,7 +284,7 @@ public:
                           bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
 
-  virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE;
 
   GLenum GetWrapMode() const {
@@ -339,7 +339,7 @@ public:
                           bool* aIsInitialised = nullptr,
                           bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr);
-  virtual Effect* Lock(const gfx::Filter& aFilter);
+  virtual bool Lock();
   virtual void Unlock();
 
   virtual GLenum GetWrapMode() const {
@@ -395,7 +395,7 @@ public:
   ~TiledTextureHost();
 
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags) MOZ_OVERRIDE;
-  virtual Effect* Lock(const gfx::Filter& aFilter) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE {}
 
   virtual TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
@@ -424,7 +424,7 @@ private:
   }
 
   GLuint mTextureHandle;
-  GLenum mFormat;
+  GLenum mGLFormat;
   gl::GLContext* mGL;
 };
 

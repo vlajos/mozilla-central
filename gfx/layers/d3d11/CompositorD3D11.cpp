@@ -384,10 +384,10 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
-  } else if (aEffectChain.mEffects[EFFECT_RGBX]) {
-    EffectRGBX *rgbEffect = static_cast<EffectRGBX*>(aEffectChain.mEffects[EFFECT_RGBX].get());
+  } else if (aEffectChain.mEffects[EFFECT_BGRX]) {
+    EffectBGRX *rgbEffect = static_cast<EffectBGRX*>(aEffectChain.mEffects[EFFECT_BGRX].get());
 
-    TextureSourceD3D11 *source = rgbEffect->mRGBXTexture->AsSourceD3D11();
+    TextureSourceD3D11 *source = rgbEffect->mBGRXTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -399,10 +399,10 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
-  } else if (aEffectChain.mEffects[EFFECT_RGBA]) {
-    EffectRGBA *rgbEffect = static_cast<EffectRGBA*>(aEffectChain.mEffects[EFFECT_RGBA].get());
+  } else if (aEffectChain.mEffects[EFFECT_BGRA]) {
+    EffectBGRA *rgbEffect = static_cast<EffectBGRA*>(aEffectChain.mEffects[EFFECT_BGRA].get());
 
-    TextureSourceD3D11 *source = rgbEffect->mRGBATexture->AsSourceD3D11();
+    TextureSourceD3D11 *source = rgbEffect->mBGRATexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
