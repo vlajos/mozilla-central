@@ -35,7 +35,7 @@ ImageClientTexture::ImageClientTexture(ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer,
                                        TextureFlags aFlags)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, BUFFER_TEXTURE, aLayer, aFlags, true);
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, BUFFER_SINGLE, aLayer, aFlags, true);
 }
 
 bool

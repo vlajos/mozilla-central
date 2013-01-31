@@ -692,15 +692,13 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
 void
 CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {
-  //TODO[nrc] change this when you fix the fuck up
-  if (aId.imageType == BUFFER_DIRECT) {
-    aId.imageType = BUFFER_TEXTURE;
+  if (aId.memoryType & TEXTURE_DIRECT) {
+    aId.memoryType |= ~TEXTURE_DIRECT;
   }
 }
 
 TemporaryRef<TextureHost>
-CompositorOGL::CreateTextureHost(BufferType aImageType,
-                                 TextureHostType aTextureType,
+CompositorOGL::CreateTextureHost(TextureHostType aTextureType,
                                  uint32_t aTextureFlags,
                                  SurfaceDescriptorType aDescriptorType,
                                  ISurfaceDeallocator* aDeAllocator)
@@ -712,35 +710,29 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
   }
   BufferMode bufferMode = aTextureType & TEXTURE_BUFFERED ? BUFFER_BUFFERED
                                                           : BUFFER_NONE;
-  // TODO[nical] sort out the BufferType / TextureHostType madness going on here:
-  // we should not use the BufferType here, the necessary info should be in
-  // TextureHostType
-  switch (aDescriptorType) {
-    case SurfaceDescriptor::TYCbCrImage: {
-      result = new YCbCrTextureHostOGL(mGLContext/*, bufferMode, aDeAllocator*/); 
-      break;
-    }
-    default: {
+
+  if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
+    result = new YCbCrTextureHostOGL(mGLContext/*, bufferMode, aDeAllocator*/); 
+  } else {
 #if 0 // FIXME [bjacob] hook up b2g gralloc path here
 #ifdef MOZ_WIDGET_GONK
-      if (aImageType == BUFFER_DIRECT_EXTERNAL) {
-        result = new DirectExternalTextureHost(mGLContext);
-        break;
-      }
+    if ((aTextureType & TEXTURE_EXTERNAL) &&
+        (aTextureType & TEXTURE_DIRECT)) {
+      result = new DirectExternalTextureHost(mGLContext);
+    }
 #endif
 #endif
-      if (aImageType == BUFFER_TILED) {
-        result = new TiledTextureHost(mGLContext);
-      } else if (aTextureType & TEXTURE_SHARED) {
-        result = new TextureHostOGLShared(mGLContext,
-                                          bufferMode,
-                                          aDeAllocator);
-      } else {
-        result = new TextureImageAsTextureHostOGL(mGLContext,
-                                                  nullptr,
-                                                  bufferMode,
-                                                  aDeAllocator);
-      }
+    if (aTextureType & TEXTURE_TILE) {
+      result = new TiledTextureHost(mGLContext);
+    } else if (aTextureType & TEXTURE_SHARED) {
+      result = new TextureHostOGLShared(mGLContext,
+                                        bufferMode,
+                                        aDeAllocator);
+    } else {
+      result = new TextureImageAsTextureHostOGL(mGLContext,
+                                                nullptr,
+                                                bufferMode,
+                                                aDeAllocator);
     }
   }
 

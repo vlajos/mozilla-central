@@ -43,8 +43,7 @@ public:
   virtual void Destroy();
 
   virtual TemporaryRef<TextureHost>
-  CreateTextureHost(BufferType aImageType,
-                    TextureHostType aMemoryType,
+  CreateTextureHost(TextureHostType aMemoryType,
                     uint32_t aTextureFlags,
                     SurfaceDescriptorType aDescriptorType,
                     ISurfaceDeallocator* aDeAllocator) MOZ_OVERRIDE;

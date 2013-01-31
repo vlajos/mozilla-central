@@ -426,7 +426,7 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
     // XXX if this happens often we could fallback to a different kind of
     // texture host. But that involves the TextureParent too, so it is not
     // trivial.
-    NS_WARNING("Could not initialise texture host"):
+    NS_WARNING("Could not initialise texture host");
     *aNewFront = null_t();
     mInitialised = false;
 

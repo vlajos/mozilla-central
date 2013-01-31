@@ -382,8 +382,7 @@ public:
    * Create a new texture host of a kind specified by aIdentifier
    */
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(BufferType aImageType,
-                      TextureHostType aMemoryType,
+    CreateTextureHost(TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
                       SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator) = 0;

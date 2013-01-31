@@ -469,8 +469,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
           layer->Manager())->CreateCompositableHost(
             textureParent->GetTextureInfo().imageType);
       RefPtr<TextureHost> textureHost
-        = compositor->CreateTextureHost(info.imageType,
-                                        info.memoryType,
+        = compositor->CreateTextureHost(info.memoryType,
                                         info.textureFlags,
                                         SURFACEDESCRIPTOR_UNKNOWN,
                                         this);
@@ -508,8 +507,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       const TextureInfo& info = textureParent->GetTextureInfo();
       if (textureParent->SurfaceTypeChanged(descriptor.type())) {
         RefPtr<TextureHost> textureHost
-        = compositor->CreateTextureHost(info.imageType,
-                                        info.memoryType,
+        = compositor->CreateTextureHost(info.memoryType,
                                         info.textureFlags,
                                         descriptor.type(),
                                         this);

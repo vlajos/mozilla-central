@@ -119,7 +119,7 @@ public:
   }
 
 protected:
-  void EnsureImageHost(BufferType aType);
+  void EnsureImageHost();
 
   RefPtr<ImageHost> mImageHost;
   uint64_t mImageContainerID;

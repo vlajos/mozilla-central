@@ -234,8 +234,7 @@ public:
     TextureFlags flags = 0;
     if (!mTextureHost) {
       // convert placeholder tile to a real tile
-      mTextureHost = aCompositor->CreateTextureHost(BUFFER_TILED,
-                                                    TEXTURE_TILE,
+      mTextureHost = aCompositor->CreateTextureHost(TEXTURE_TILE,
                                                     0,
                                                     SURFACEDESCRIPTOR_UNKNOWN,
                                                     nullptr);

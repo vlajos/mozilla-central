@@ -12,14 +12,13 @@ namespace layers {
 enum BufferType
 {
   BUFFER_UNKNOWN,
-  BUFFER_DIRECT_EXTERNAL,
+  BUFFER_SINGLE,
   BUFFER_SHARED,
-  BUFFER_TEXTURE,
+  BUFFER_DIRECT,
   BUFFER_BRIDGE,
   BUFFER_CONTENT,
   BUFFER_CONTENT_DIRECT,
-  BUFFER_TILED,
-  BUFFER_DIRECT
+  BUFFER_TILED
 };
 
 typedef int32_t TextureHostType;
@@ -31,7 +30,7 @@ static const TextureHostType TEXTURE_DIRECT   = 1 << 3;
 static const TextureHostType TEXTURE_ASYNC    = 1 << 4;
 static const TextureHostType TEXTURE_EXTERNAL = 1 << 5;
 static const TextureHostType TEXTURE_DXGI     = 1 << 6; // TODO belongs here?
-static const TextureHostType TEXTURE_TILE     = 1 << 7; // TODO[nical] remove? No
+static const TextureHostType TEXTURE_TILE     = 1 << 7; 
 
 /**
  * Sent from the compositor to the drawing LayerManager, includes properties

@@ -36,8 +36,7 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     TextureInfo id = aTextureInfo;
     compositor()->FallbackTextureInfo(id);
     id.textureFlags = mTextureHost->GetFlags();
-    mTextureHost = compositor()->CreateTextureHost(id.imageType,
-                                                   id.memoryType,
+    mTextureHost = compositor()->CreateTextureHost(id.memoryType,
                                                    id.textureFlags,
                                                    SURFACEDESCRIPTOR_UNKNOWN,
                                                    mTextureHost->GetDeAllocator());
@@ -128,19 +127,18 @@ ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aT
 */
 
 void
-ImageHostBridge::EnsureImageHost(BufferType aType)
+ImageHostBridge::EnsureImageHost()
 {
   if (!mImageHost ||
-      mImageHost->GetType() != aType) {
-    RefPtr<CompositableHost> bufferHost = mManager->CreateCompositableHost(aType);
+      mImageHost->GetType() != BUFFER_SINGLE) {
+    RefPtr<CompositableHost> bufferHost = mManager->CreateCompositableHost(BUFFER_SINGLE);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
 
     TextureInfo id;
-    id.imageType = mImageHost->GetType();
-    id.memoryType = TEXTURE_SHMEM;
+    id.imageType = BUFFER_SINGLE;
+    id.memoryType = TEXTURE_SHMEM|TEXTURE_DIRECT|TEXTURE_EXTERNAL;
     id.textureFlags = NoFlags;
-    RefPtr<TextureHost> textureHost = mManager->GetCompositor()->CreateTextureHost(id.imageType,
-                                                                                   id.memoryType,
+    RefPtr<TextureHost> textureHost = mManager->GetCompositor()->CreateTextureHost(id.memoryType,
                                                                                    id.textureFlags,
                                                                                    SURFACEDESCRIPTOR_UNKNOWN,
                                                                                    nullptr); // TODO[nical] needs a ISurfaceDeallocator
@@ -154,18 +152,6 @@ ImageHostBridge::UpdateImage(const TextureInfo& aTextureInfo,
 {
   // The image data will be queried at render time
   return aImage;
-}
-
-// TODO[nical] we should not do this, we need a TextureHostType, not a BufferType instead
-BufferType
-BufferTypeForImageBridgeType(SurfaceDescriptor::Type aType)
-{
-  switch (aType) {
-  case SurfaceDescriptor::Tnull_t:
-    return BUFFER_UNKNOWN;
-  default:
-    return BUFFER_DIRECT_EXTERNAL;
-  }
 }
 
 void
@@ -185,11 +171,11 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
   if ((!mImageHost ||
        imgVersion != mImageVersion) &&
       (img = ImageContainerParent::GetSurfaceDescriptor(mImageContainerID))) {
-    EnsureImageHost(BufferTypeForImageBridgeType(img->type()));
+    EnsureImageHost();
     if (mImageHost) {
       TextureInfo textureId;
       textureId.imageType = mImageHost->GetType();
-      textureId.memoryType = TEXTURE_SHMEM;
+      textureId.memoryType = TEXTURE_SHMEM|TEXTURE_DIRECT|TEXTURE_EXTERNAL;
       mImageHost->UpdateImage(textureId, *img);
   
       mImageVersion = imgVersion;

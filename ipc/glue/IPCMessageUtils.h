@@ -1047,7 +1047,7 @@ template <>
 struct ParamTraits<mozilla::layers::BufferType>
   : public EnumSerializer<mozilla::layers::BufferType,
                           mozilla::layers::BUFFER_UNKNOWN,
-                          mozilla::layers::BUFFER_DIRECT
+                          mozilla::layers::BUFFER_TILED
 >
 {};
 

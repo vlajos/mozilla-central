@@ -138,7 +138,7 @@ bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
 bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface* surface)
 {
   BufferType type = CompositingFactory::TypeForImage(aImage);
-  if (type != BUFFER_TEXTURE) {
+  if (type != BUFFER_SINGLE) {
     return type == BUFFER_UNKNOWN;
   }
 
@@ -379,7 +379,7 @@ CompositingFactory::TypeForImage(Image* aImage) {
   if (aImage->GetFormat() == SHARED_TEXTURE) {
     return BUFFER_SHARED;
   }
-  return BUFFER_TEXTURE;
+  return BUFFER_SINGLE;
 }
 
 /* static */ TemporaryRef<ImageClient>
@@ -395,9 +395,8 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
     if (aParentBackend == LAYERS_OPENGL) {
       result = new ImageClientShared(aLayerForwarder, aLayer, aFlags);
     }
-    break;
-    // fall through to BUFFER_TEXTURE
-  case BUFFER_TEXTURE:
+    // fall through to BUFFER_SINGLE
+  case BUFFER_SINGLE:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
       result = new ImageClientTexture(aLayerForwarder, aLayer, aFlags);
     }

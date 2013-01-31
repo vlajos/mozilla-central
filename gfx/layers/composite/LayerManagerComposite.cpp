@@ -598,13 +598,13 @@ LayerManagerComposite::CreateCompositableHost(BufferType aType)
 #ifdef MOZ_WIDGET_GONK
   case BUFFER_DIRECT_EXTERNAL:
 #endif
+  case BUFFER_SHARED:
+  case BUFFER_DIRECT:
+  case BUFFER_SINGLE:
+    result = new ImageHostSingle(this, aType);
+    return result;
   case BUFFER_TILED:
     result = new TiledContentHost(mCompositor);
-    return result;
-  case BUFFER_SHARED:
-  case BUFFER_TEXTURE:
-  case BUFFER_DIRECT: //TODO[nrc] fuck up - should be using Texture id and we used buffer id :-(
-    result = new ImageHostSingle(this, aType);
     return result;
   case BUFFER_BRIDGE:
     result = new ImageHostBridge(this);
