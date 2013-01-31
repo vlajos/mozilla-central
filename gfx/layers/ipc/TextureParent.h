@@ -19,18 +19,27 @@ class TextureInfo;
 class TextureParent : public PTextureParent
 {
 public:
-    TextureParent(const TextureInfo& aInfo);
-    virtual ~TextureParent();
+  TextureParent(const TextureInfo& aInfo);
+  virtual ~TextureParent();
 
-    void SetTextureHost(TextureHost* aHost);
-    TextureHost* GetTextureHost() const;
+  void SetTextureHost(TextureHost* aHost);
 
-    const TextureInfo& GetTextureInfo() const {
-        return mTextureInfo;
-    }
+  TextureHost* GetTextureHost() const;
+  CompositableHost* GetCompositableHost() const;
+
+  const TextureInfo& GetTextureInfo() const {
+    return mTextureInfo;
+  }
+
+  bool SurfaceTypeChanged(SurfaceDescriptor::Type aNewSurfaceType);
+  void SetCurrentSurfaceType(SurfaceDescriptor::Type aNewSurfaceType);
+  SurfaceDescriptor::Type GetSurfaceType() const {
+    return mLastSurfaceType;
+  }
 private:
-    TextureInfo mTextureInfo;
-    RefPtr<TextureHost> mTextureHost;
+  TextureInfo mTextureInfo;
+  RefPtr<TextureHost> mTextureHost;
+  SurfaceDescriptor::Type mLastSurfaceType;
 };
 
 } // namespace

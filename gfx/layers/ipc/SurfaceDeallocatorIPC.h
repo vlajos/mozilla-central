@@ -12,6 +12,8 @@ class SurfaceDeallocator : public ISurfaceDeallocator {
 public:
   void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE {
     // FIXME [bjacob] this function is empty???
+    //Self* self = static_cast<Self*>(this);
+    NS_RUNTIMEABORT("TODO: DestroySharedSurface(gfxSharedImageSurface*) not implemented"); 
   }
   void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {
     Self* self = static_cast<Self*>(this);
@@ -29,6 +31,13 @@ public:
       return;
     }
   }
+  bool AllocateUnsafe(size_t aSize,
+                      ipc::SharedMemory::SharedMemoryType aType,
+                      ipc::Shmem* aShmem) MOZ_OVERRIDE {
+    Self* self = static_cast<Self*>(this);
+    return self->AllocUnsafeShmem(aSize, aType, aShmem);
+  }
+
 };
 
 } // namespace

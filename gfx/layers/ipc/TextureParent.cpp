@@ -7,28 +7,48 @@
 #include "mozilla/layers/Compositor.h"
 #include "CompositableHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "ShadowLayerParent.h"
+#include "LayerManagerComposite.h"
 
 namespace mozilla {
 namespace layers {
 
 TextureParent::TextureParent(const TextureInfo& aInfo)
-: mTextureInfo(aInfo)
+: mTextureInfo(aInfo), mLastSurfaceType(SurfaceDescriptor::Tnull_t)
 {
 }
 
 TextureParent::~TextureParent()
 {
-    mTextureHost = nullptr;
+  mTextureHost = nullptr;
 }
 
 void TextureParent::SetTextureHost(TextureHost* aHost)
 {
-    mTextureHost = aHost;
+  mTextureHost = aHost;
+}
+
+CompositableHost* TextureParent::GetCompositableHost() const
+{
+  ShadowLayerParent* layerParent
+    = static_cast<ShadowLayerParent*>(Manager());
+  LayerComposite* layer = layerParent->AsLayer()->AsLayerComposite();
+  return layer->GetCompositableHost();
 }
 
 TextureHost* TextureParent::GetTextureHost() const
 {
-    return mTextureHost;
+  return mTextureHost;
+}
+
+bool TextureParent::SurfaceTypeChanged(SurfaceDescriptor::Type aNewSurfaceType)
+{
+  return mLastSurfaceType != aNewSurfaceType;
+}
+
+void TextureParent::SetCurrentSurfaceType(SurfaceDescriptor::Type aNewSurfaceType)
+{
+  mLastSurfaceType = aNewSurfaceType;
 }
 
 

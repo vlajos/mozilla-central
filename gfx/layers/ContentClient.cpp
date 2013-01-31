@@ -106,7 +106,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
                                               mLayer, AllowRepeat, true).drop());
   } else {
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED_DXGI, GetType(),
+      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED|TEXTURE_DXGI, GetType(),
                                               mLayer, AllowRepeat, true).drop());
   }
 
@@ -443,7 +443,7 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
 {
   if (aTile.IsPlaceholderTile()) {
     RefPtr<TextureClient> textureClient =
-      mManager->CreateTextureClientFor(TEXTURE_TILED, BUFFER_TILED, mThebesLayer, true);
+      mManager->CreateTextureClientFor(TEXTURE_TILE, BUFFER_TILED, mThebesLayer, true);
     aTile.mTextureClient = static_cast<TextureClientTile*>(textureClient.get());
   }
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());

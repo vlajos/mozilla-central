@@ -601,9 +601,6 @@ LayerManagerComposite::CreateCompositableHost(BufferType aType)
 {
   RefPtr<CompositableHost> result;
   switch (aType) {
-  case BUFFER_YCBCR:
-    result = new YCbCrImageHost(this);
-    return result;
 #ifdef MOZ_WIDGET_GONK
   case BUFFER_DIRECT_EXTERNAL:
 #endif

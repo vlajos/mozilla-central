@@ -46,6 +46,7 @@ public:
   CreateTextureHost(BufferType aImageType,
                     TextureHostType aMemoryType,
                     uint32_t aTextureFlags,
+                    SurfaceDescriptorType aDescriptorType,
                     ISurfaceDeallocator* aDeAllocator) MOZ_OVERRIDE;
   
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE

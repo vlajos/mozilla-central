@@ -39,6 +39,7 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     mTextureHost = compositor()->CreateTextureHost(id.imageType,
                                                    id.memoryType,
                                                    id.textureFlags,
+                                                   SURFACEDESCRIPTOR_UNKNOWN,
                                                    mTextureHost->GetDeAllocator());
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
@@ -63,7 +64,6 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   }
 
   mTextureHost->UpdateAsyncTexture();
-
   RefPtr<Effect> effect;
   switch (mTextureHost->GetFormat()) {
   case FORMAT_B8G8R8A8:
@@ -72,7 +72,15 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   case FORMAT_B8G8R8X8:
     effect = new EffectBGRX(mTextureHost, true, aFilter);
     break;
-  default:
+/*
+  case FORMAT_R8G8B8X8: //  does not exist
+    effect = new EffectRGBX(mTextureHost, true, aFilter);
+    break;
+  case FORMAT_R8G8B8A8: //  does not exist
+    effect = new EffectRGBA(mTextureHost, true, aFilter);
+    break;
+*/
+  default: // TODO: crashes here on linux!
     NS_RUNTIMEABORT("XXX - Bas - Implement me!!");
   }
 
@@ -93,10 +101,12 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                             aOpacity, aTransform, aOffset);
     } while (it->NextTile());
   } else {
+    gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y,
+                         mPictureRect.width, mPictureRect.height);
     gfx::Rect rect(0, 0,
                    mTextureHost->AsTextureSource()->GetSize().width,
                    mTextureHost->AsTextureSource()->GetSize().height);
-    compositor()->DrawQuad(rect, nullptr, nullptr, &aClipRect, aEffectChain,
+    compositor()->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
                            aOpacity, aTransform, aOffset);
   }
 
@@ -118,61 +128,6 @@ ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aT
 }
 */
 
-YCbCrImageHost::YCbCrImageHost(LayerManagerComposite* aManager)
-  : ImageHost(aManager)
-{}
-YCbCrImageHost::~YCbCrImageHost()
-{}
-
-SurfaceDescriptor
-YCbCrImageHost::UpdateImage(const TextureInfo& aTextureInfo,
-                            const SurfaceDescriptor& aImage)
-{
-  NS_ASSERTION(aTextureInfo.imageType == BUFFER_YCBCR, "BufferType mismatch.");
-  NS_ASSERTION(aTextureInfo.memoryType == TEXTURE_SHMEM, "BufferType mismatch.");
-
-  mPictureRect = aImage.get_YCbCrImage().picture();
-
-  SurfaceDescriptor result;
-  mTextureHost->Update(aImage, &result);
-
-  mTextureEffect = new EffectYCbCr(mTextureHost, FILTER_LINEAR);
-  return result;
-}
-
-void
-YCbCrImageHost::Composite(EffectChain& aEffectChain,
-                          float aOpacity,
-                          const gfx::Matrix4x4& aTransform,
-                          const gfx::Point& aOffset,
-                          const gfx::Filter& aFilter,
-                          const gfx::Rect& aClipRect,
-                          const nsIntRegion* aVisibleRegion)
-{
-  if (!mTextureHost) {
-    NS_WARNING("YCbCrImageHost::Composite without TextureHost");
-    return;
-  }
-  mTextureHost->UpdateAsyncTexture();
-  if (!mTextureHost->Lock()) {
-    return;
-  }
-
-  aEffectChain.mEffects[mTextureEffect->mType] = mTextureEffect;
-
-  gfx::Rect rect(0, 0, mPictureRect.width, mPictureRect.height);
-  gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y, mPictureRect.width, mPictureRect.height);
-  compositor()->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
-
-  mTextureHost->Unlock();
-}
-
-void
-YCbCrImageHost::AddTextureHost(TextureHost* aTextureHost)
-{
-  mTextureHost = aTextureHost;
-}
-
 void
 ImageHostBridge::EnsureImageHost(BufferType aType)
 {
@@ -188,6 +143,7 @@ ImageHostBridge::EnsureImageHost(BufferType aType)
     RefPtr<TextureHost> textureHost = mManager->GetCompositor()->CreateTextureHost(id.imageType,
                                                                                    id.memoryType,
                                                                                    id.textureFlags,
+                                                                                   SURFACEDESCRIPTOR_UNKNOWN,
                                                                                    nullptr); // TODO[nical] needs a ISurfaceDeallocator
     mImageHost->AddTextureHost(textureHost);
   }
@@ -201,12 +157,11 @@ ImageHostBridge::UpdateImage(const TextureInfo& aTextureInfo,
   return aImage;
 }
 
+// TODO[nical] we should not do this, we need a TextureHostType, not a BufferType instead
 BufferType
 BufferTypeForImageBridgeType(SurfaceDescriptor::Type aType)
 {
   switch (aType) {
-  case SurfaceDescriptor::TYCbCrImage:
-    return BUFFER_YCBCR;
   case SurfaceDescriptor::Tnull_t:
     return BUFFER_UNKNOWN;
   default:

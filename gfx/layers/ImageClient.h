@@ -15,13 +15,13 @@ namespace layers {
 
 class ImageContainer;
 class ImageLayer;
+class PlanarYCbCrImage;
 
 // abstract. Used for image and canvas layers
 class ImageClient : public CompositableClient
 {
 public:
-  ImageClient()
-    : mLastPaintedImageSerial(0) {}
+  ImageClient();
   virtual ~ImageClient() {}
 
   /**
@@ -42,9 +42,25 @@ public:
    * Notify the compositor that this image client has been updated
    */
   virtual void Updated(ShadowableLayer* aLayer) = 0;
-  
+
+  virtual void UpdatePictureRect(nsIntRect aPictureRect);
+
+  /**
+   * Compositable will have it's own IPDL protocol but in the mean time we use the
+   * layer's communication channel. (TODO)
+   */
+  void SetCompositableChild(ShadowLayerForwarder* aFwd, ShadowableLayer* aLayer) {
+    mForwarder = aFwd;
+    mLayer = aLayer;
+  }
 protected:
   int32_t mLastPaintedImageSerial;
+  nsIntRect mPictureRect;
+  // TODO[nical]
+  // we need to keep this here until Compositable gets its own ipdl protocol
+  // in the mean time compositable-specific stuff goes through PLayers
+  ShadowLayerForwarder* mForwarder;
+  ShadowableLayer* mLayer;
 };
 
 class ImageClientTexture : public ImageClient
@@ -55,6 +71,9 @@ public:
                      TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
+  bool UpdateYCbCrImage(PlanarYCbCrImage* aImage, ImageLayer* aLayer);
+  bool UpdateRGBImage(Image* aImage, ImageLayer* aLayer, gfxASurface* aSurface);
+
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SurfaceDescriptor& aBuffer);
 

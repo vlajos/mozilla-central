@@ -11,6 +11,9 @@
 namespace mozilla {
 namespace layers {
 
+class TextureHost;
+class SurfaceDescriptor;
+
 class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
@@ -41,6 +44,10 @@ public:
   virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator) {}
 
   virtual LayerRenderState GetRenderState() = 0;
+
+  virtual void SetPictureRect(const nsIntRect& aPictureRect) {
+    NS_WARNING("If this code is reached it means this method should habe been overridden");
+  }
 
   /**
    * Adds a mask effect using this texture as the mask, if possible.

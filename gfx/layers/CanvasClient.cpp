@@ -27,7 +27,7 @@ CanvasClient2D::CanvasClient2D(ShadowLayerForwarder* aLayerForwarder,
                                ShadowableLayer* aLayer,
                                TextureFlags aFlags)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, BUFFER_DIRECT, aLayer, aFlags, true);
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_DIRECT, BUFFER_DIRECT, aLayer, aFlags, true);
 }
 
 void
@@ -52,7 +52,7 @@ CanvasClientWebGL::CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer, 
                                        TextureFlags aFlags)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED_BUFFERED,
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED | TEXTURE_BUFFERED,
                                                            BUFFER_SHARED,
                                                            aLayer, true, aFlags);
 }

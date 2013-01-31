@@ -182,6 +182,9 @@ class YCbCrTextureHostOGL : public TextureHost
 public:
   YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {
     MOZ_COUNT_CTOR(YCbCrTextureHostOGL);
+    mYTexture  = new Channel;
+    mCbTexture = new Channel;
+    mCrTexture = new Channel;
   }
 
   ~YCbCrTextureHostOGL() {
@@ -196,8 +199,7 @@ public:
   virtual bool Lock() MOZ_OVERRIDE;
 
   TextureSource* AsTextureSource() MOZ_OVERRIDE {
-    NS_WARNING("YCbCrTextureHostOGL does not have a primary TextureSource.");
-    return nullptr;
+    return this;
   }
 
   struct Channel : public TextureSourceOGL
@@ -226,25 +228,25 @@ public:
 
   TextureSource* GetSubSource(int index) MOZ_OVERRIDE {
     switch (index) {
-      case 0 : return &mYTexture;
-      case 1 : return &mCbTexture;
-      case 2 : return &mCrTexture;
+      case 0 : return mYTexture.get();
+      case 1 : return mCbTexture.get();
+      case 2 : return mCrTexture.get();
     }
     return nullptr;
   }
 
   gfx::IntSize GetSize() const {
-    if (!mYTexture.mTexImage) {
+    if (!mYTexture->mTexImage) {
       NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
       return gfx::IntSize(0,0);
     }
-    return mYTexture.GetSize();
+    return mYTexture->GetSize();
   }
 
 private:
-  Channel mYTexture;
-  Channel mCbTexture;
-  Channel mCrTexture;
+  RefPtr<Channel> mYTexture;
+  RefPtr<Channel> mCbTexture;
+  RefPtr<Channel> mCrTexture;
   gl::GLContext* mGL;
 };
 

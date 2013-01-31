@@ -117,8 +117,10 @@ TextureImageAsTextureHostOGL::Lock()
 #endif
   case gl::BGRXLayerProgramType :
     mFormat = FORMAT_B8G8R8X8;
+    break;
   case gl::BGRALayerProgramType :
     mFormat = FORMAT_B8G8R8A8;
+    break;
   default:
     // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
     // at least we'll known if we run into them.
@@ -219,44 +221,46 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
                              aImage.get_YCbCrImage().offset());
 
+
   gfxIntSize gfxSize = shmemImage.GetYSize();
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
+  nsIntRect picture = aImage.get_YCbCrImage().picture();
 
-  if (!mYTexture.mTexImage || mYTexture.mTexImage->GetSize() != gfxSize) {
-    mYTexture.mTexImage = mGL->CreateTextureImage(gfxSize,
+  if (!mYTexture->mTexImage || mYTexture->mTexImage->GetSize() != gfxSize) {
+    mYTexture->mTexImage = mGL->CreateTextureImage(gfxSize,
                                         gfxASurface::CONTENT_ALPHA,
                                         WrapMode(mGL, mFlags), // TODO check the flags
                                         FlagsToGLFlags(mFlags)).get();
   }
-  if (!mCbTexture.mTexImage || mCbTexture.mTexImage->GetSize() != gfxCbCrSize) {
-    mCbTexture.mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
+  if (!mCbTexture->mTexImage || mCbTexture->mTexImage->GetSize() != gfxCbCrSize) {
+    mCbTexture->mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
                                          gfxASurface::CONTENT_ALPHA,
                                          WrapMode(mGL, mFlags), // TODO check the flags
                                          FlagsToGLFlags(mFlags)).get();
   }
-  if (!mCrTexture.mTexImage || mCrTexture.mTexImage->GetSize() != gfxSize) {
-    mCrTexture.mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
+  if (!mCrTexture->mTexImage || mCrTexture->mTexImage->GetSize() != gfxSize) {
+    mCrTexture->mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
                                          gfxASurface::CONTENT_ALPHA,
                                          WrapMode(mGL, mFlags), // TODO check the flags
                                          FlagsToGLFlags(mFlags)).get();
   }
 
-  gfxImageSurface tempY(shmemImage.GetYData(),
-                        gfxSize, shmemImage.GetYStride(),
-                        gfxASurface::ImageFormatA8);
-  gfxImageSurface tempCb(shmemImage.GetCbData(),
-                         gfxCbCrSize, shmemImage.GetCbCrStride(),
-                         gfxASurface::ImageFormatA8);
-  gfxImageSurface tempCr(shmemImage.GetCrData(),
-                         gfxCbCrSize, shmemImage.GetCbCrStride(),
-                         gfxASurface::ImageFormatA8);
+  RefPtr<gfxImageSurface> tempY = new gfxImageSurface(shmemImage.GetYData(),
+                                      gfxSize, shmemImage.GetYStride(),
+                                      gfxASurface::ImageFormatA8);
+  RefPtr<gfxImageSurface> tempCb = new gfxImageSurface(shmemImage.GetCbData(),
+                                       gfxCbCrSize, shmemImage.GetCbCrStride(),
+                                       gfxASurface::ImageFormatA8);
+  RefPtr<gfxImageSurface> tempCr = new gfxImageSurface(shmemImage.GetCrData(),
+                                       gfxCbCrSize, shmemImage.GetCbCrStride(),
+                                       gfxASurface::ImageFormatA8);
 
   nsIntRegion yRegion(nsIntRect(0, 0, gfxSize.width, gfxSize.height));
   nsIntRegion cbCrRegion(nsIntRect(0, 0, gfxCbCrSize.width, gfxCbCrSize.height));
   
-  mYTexture.mTexImage->DirectUpdate(&tempY, yRegion);
-  mCbTexture.mTexImage->DirectUpdate(&tempCb, cbCrRegion);
-  mCrTexture.mTexImage->DirectUpdate(&tempCr, cbCrRegion);
+  mYTexture->mTexImage->DirectUpdate(tempY, yRegion);
+  mCbTexture->mTexImage->DirectUpdate(tempCb, cbCrRegion);
+  mCrTexture->mTexImage->DirectUpdate(tempCr, cbCrRegion);
 
   if (aIsInitialised) {
     *aIsInitialised = true;

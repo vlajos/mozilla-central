@@ -35,6 +35,5 @@ bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
   return true;
 }
 
-
 } // namespace
 } // namespace

@@ -298,6 +298,7 @@ TemporaryRef<TextureHost>
 CompositorD3D11::CreateTextureHost(BufferType aImageType,
                                    TextureHostType aMemoryType,
                                    uint32_t aTextureFlags,
+                                   SurfaceDescriptorType aDescriptorType,
                                    ISurfaceDeallocator* aDeAllocator)
 {
   return new TextureHostD3D11(BUFFER_NONE, aDeAllocator, mDevice);

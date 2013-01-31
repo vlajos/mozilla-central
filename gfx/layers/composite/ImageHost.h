@@ -20,8 +20,6 @@ public:
   virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
                                         const SurfaceDescriptor& aImage) = 0;
 
-  virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
-
   TextureHost* GetTextureHost() MOZ_OVERRIDE { return nullptr; }
 
 protected:
@@ -73,41 +71,8 @@ public:
 
 protected:
   RefPtr<TextureHost> mTextureHost;
-  BufferType mType;
-};
-
-// a YCbCr buffer which uses a single texture host
-class YCbCrImageHost : public ImageHost
-{
-public:
-  YCbCrImageHost(LayerManagerComposite* aManager);
-  ~YCbCrImageHost();
-
-  virtual BufferType GetType() { return BUFFER_YCBCR; }
-
-  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
-                                        const SurfaceDescriptor& aImage);
-
-  virtual void Composite(EffectChain& aEffectChain,
-                         float aOpacity,
-                         const gfx::Matrix4x4& aTransform,
-                         const gfx::Point& aOffset,
-                         const gfx::Filter& aFilter,
-                         const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr);
-
-  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
-  TextureHost* GetTextureHost() MOZ_OVERRIDE { return mTextureHost; }
-
-  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
-  {
-    return LayerRenderState();
-  }
-
-protected:
-  RefPtr<Effect> mTextureEffect;
-  RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
+  BufferType mType;
 };
 
 class ImageHostBridge : public ImageHost

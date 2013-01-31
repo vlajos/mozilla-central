@@ -21,6 +21,9 @@ class gfxImageSurface;
 class nsIWidget;
 class gfxReusableSurfaceWrapper;
 
+typedef int32_t SurfaceDescriptorType;
+static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
+
 namespace mozilla {
 namespace gfx {
 class DrawTarget;
@@ -382,6 +385,7 @@ public:
     CreateTextureHost(BufferType aImageType,
                       TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
+                      SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator) = 0;
 
   /**

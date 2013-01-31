@@ -9,6 +9,7 @@
 #define mozilla_layers_ShadowLayersChild_h
 
 #include "mozilla/layers/PLayersChild.h"
+#include "mozilla/layers/SurfaceDeallocatorIPC.h"
 
 namespace mozilla {
 namespace layers {

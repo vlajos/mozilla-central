@@ -1051,14 +1051,15 @@ struct ParamTraits<mozilla::layers::BufferType>
 >
 {};
 
+/*
 template <>
 struct ParamTraits<mozilla::layers::TextureHostType>
   : public EnumSerializer<mozilla::layers::TextureHostType,
                           mozilla::layers::TEXTURE_UNKNOWN,
-                          mozilla::layers::TEXTURE_BRIDGE
+                          mozilla::layers::TEXTURE_TILE
 >
 {};
-
+*/
 
 
 } /* namespace IPC */

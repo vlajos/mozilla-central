@@ -11,6 +11,8 @@
 #include "SharedTextureImage.h"
 #include "GLContext.h"
 #include "mozilla/layers/TextureChild.h"
+#include "BasicLayers.h" // for PaintContext
+#include "ShmemYCbCrImage.h"
 #include "gfxReusableSurfaceWrapper.h"
 #include "gfxPlatform.h"
 #ifdef XP_WIN
@@ -26,16 +28,14 @@ namespace layers {
 TextureClient::TextureClient(ShadowLayerForwarder* aLayerForwarder,
                              BufferType aBufferType)
   : mLayerForwarder(aLayerForwarder)
+  , mTextureChild(nullptr)
+  , mAllocator(nullptr)
 {
   mTextureInfo.imageType = aBufferType;
 }
 
 TextureClient::~TextureClient()
 {}
-
-void AwesomeTextureClient::ReleaseResources() {
-  mTextureChild->DestroySharedSurface(&mData);
-}
 
 void
 TextureClient::Updated(ShadowableLayer* aLayer)
@@ -65,6 +65,12 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
   mLayerForwarder->UpdateTextureRegion(this,
                                        ThebesBuffer(mDescriptor, aBufferRect, aBufferRotation),
                                        aUpdatedRegion);
+}
+
+void
+TextureClient::SetTextureChild(PTextureChild* aChild) {
+  mTextureChild = aChild;
+  mAllocator = static_cast<TextureChild*>(aChild);
 }
 
 
@@ -105,6 +111,146 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
   }
 }
 
+
+// --------- Autolock
+
+
+bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
+                                              gfxASurface* surface,
+                                              gfxASurface::gfxContentType contentType)
+{
+  if (aSize != surface->GetSize() ||
+      contentType != surface->GetContentType() ||
+      !IsSurfaceDescriptorValid(*mDescriptor)) {
+    if (IsSurfaceDescriptorValid(*mDescriptor)) {
+      mTextureClient->GetLayerForwarder()->DestroySharedSurface(mDescriptor);
+    }
+    if (!mTextureClient->GetLayerForwarder()->AllocBuffer(aSize,
+                                                          surface->GetContentType(),
+                                                          mDescriptor)) {
+      NS_WARNING("creating SurfaceDescriptor failed!");
+      return false;
+    }
+  }
+  return true;
+}
+
+bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface* surface)
+{
+  BufferType type = CompositingFactory::TypeForImage(aImage);
+  if (type != BUFFER_TEXTURE) {
+    return type == BUFFER_UNKNOWN;
+  }
+
+  nsRefPtr<gfxPattern> pat = new gfxPattern(surface);
+  if (!pat)
+    return true;
+
+  pat->SetFilter(aLayer->GetFilter());
+  gfxMatrix mat = pat->GetMatrix();
+  aLayer->ScaleMatrix(surface->GetSize(), mat);
+  pat->SetMatrix(mat);
+
+  gfxIntSize size = aImage->GetSize();
+
+  gfxASurface::gfxContentType contentType = gfxASurface::CONTENT_COLOR_ALPHA;
+  bool isOpaque = (aLayer->GetContentFlags() & Layer::CONTENT_OPAQUE);
+  if (surface) {
+    contentType = surface->GetContentType();
+  }
+  if (contentType != gfxASurface::CONTENT_ALPHA &&
+      isOpaque) {
+    contentType = gfxASurface::CONTENT_COLOR;
+  }
+  EnsureTextureClient(size, surface, contentType);
+
+  nsRefPtr<gfxContext> tmpCtx = mTextureClient->LockContext();
+  tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
+  PaintContext(pat,
+               nsIntRegion(nsIntRect(0, 0, size.width, size.height)),
+               1.0, tmpCtx, nullptr);
+
+  return true;
+}
+
+
+bool
+AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
+{
+  SurfaceDescriptor* descriptor = mTextureClient->LockSurfaceDescriptor();
+  MOZ_ASSERT(descriptor);
+
+  const PlanarYCbCrImage::Data *data = aImage->GetData();
+  NS_ASSERTION(data, "Must be able to retrieve yuv data from image!");
+  if (!data) {
+    return false;
+  }
+
+  if (!EnsureTextureClient(aImage)) {
+    return false;
+  }
+
+  ipc::Shmem& shmem = descriptor->get_YCbCrImage().data();
+
+  ShmemYCbCrImage shmemImage(shmem);
+  if (!shmemImage.CopyData(data->mYChannel, data->mCbChannel, data->mCrChannel,
+                           data->mYSize, data->mYStride,
+                           data->mCbCrSize, data->mCbCrStride,
+                           data->mYSkip, data->mCbSkip)) {
+    NS_WARNING("Failed to copy image data!");
+    return false;
+  }
+  return true;
+}
+
+bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
+  if (!aImage) {
+    return false;
+  }
+
+  const PlanarYCbCrImage::Data *data = aImage->GetData();
+  NS_ASSERTION(data, "Must be able to retrieve yuv data from image!");
+  if (!data) {
+    return false;
+  }
+
+  bool needsAllocation = false;
+  if (mDescriptor->type() != SurfaceDescriptor::TYCbCrImage) {
+    needsAllocation = true;
+  } else {
+    ipc::Shmem& shmem = mDescriptor->get_YCbCrImage().data();
+    ShmemYCbCrImage shmemImage(shmem);
+    if (shmemImage.GetYSize() != data->mYSize ||
+        shmemImage.GetCbCrSize() != data->mCbCrSize) {
+      needsAllocation = true;
+    }
+  }
+
+  if (!needsAllocation) {
+    return true;
+  }
+
+  mTextureClient->ReleaseResources();
+
+  ipc::SharedMemory::SharedMemoryType shmType = OptimalShmemType();
+  size_t size = ShmemYCbCrImage::ComputeMinBufferSize(data->mYSize,
+                                                      data->mCbCrSize);
+  ipc::Shmem shmem;
+  if (!mTextureClient->GetSurfaceAllocator()->AllocateUnsafe(size, shmType, &shmem)) {
+    return false;
+  }
+
+  ShmemYCbCrImage::InitializeBufferInfo(shmem.get<uint8_t>(),
+                                        data->mYSize,
+                                        data->mCbCrSize);
+
+
+  *mDescriptor = YCbCrImage(shmem, 0, data->GetPictureRect());
+
+  return true;
+}
+
+
 already_AddRefed<gfxContext>
 TextureClientShmem::LockContext()
 {
@@ -118,7 +264,7 @@ TextureClientShmem::GetSurface()
   if (!mSurface) {
     mSurface = ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE, mDescriptor);
   }
-  
+
   return mSurface.get();
 }
 
@@ -141,6 +287,26 @@ TextureClientShmem::LockImageSurface()
   return mSurfaceAsImage.get();
 }
 
+void
+TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,
+                                             gfxASurface::gfxContentType aType)
+{
+/*
+  if (aSize != mSize ||
+      aContentType != mContentType ||
+      !IsSurfaceDescriptorValid(mDescriptor)) {
+    if (IsSurfaceDescriptorValid(mDescriptor)) {
+      mLayerForwarder->DestroySharedSurface(&mDescriptor);
+    }
+    mContentType = aContentType;
+    mSize = aSize;
+
+    if (!mLayerForwarder->AllocBuffer(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
+      NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
+    }
+  }
+*/
+}
 
 TextureClientShared::~TextureClientShared()
 {
@@ -153,7 +319,7 @@ TextureClientSharedGL::TextureClientSharedGL(ShadowLayerForwarder* aLayerForward
                                              BufferType aBufferType)
   : TextureClientShared(aLayerForwarder, aBufferType)
 {
-  mTextureInfo.memoryType = TEXTURE_SHARED_BUFFERED;
+  mTextureInfo.memoryType = TEXTURE_SHARED|TEXTURE_BUFFERED;
 }
 
 TextureClientSharedGL::~TextureClientSharedGL()
@@ -250,7 +416,9 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
   }
 
   NS_ASSERTION(result, "Failed to create ImageClient");
-
+  if (result) {
+    result->SetCompositableChild(aLayerForwarder, aLayer);
+  }
   return result.forget();
 }
 
@@ -307,7 +475,7 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
 {
   RefPtr<TextureClient> result = nullptr;
   switch (aTextureHostType) {
-  case TEXTURE_SHARED_BUFFERED:
+  case TEXTURE_SHARED|TEXTURE_BUFFERED:
     if (aParentBackend == LAYERS_OPENGL) {
       result = new TextureClientSharedGL(aLayerForwarder, aCompositableHostType);
     }
@@ -322,10 +490,10 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
       result = new TextureClientShmem(aLayerForwarder, aCompositableHostType);
     }
     break;
-  case TEXTURE_BRIDGE:
+  case TEXTURE_ASYNC:
     result = new TextureClientBridge(aLayerForwarder, aCompositableHostType);
     break;
-  case TEXTURE_SHARED_DXGI:
+  case TEXTURE_SHARED|TEXTURE_DXGI:
 #ifdef XP_WIN
     result = new TextureClientD3D11(aLayerForwarder, aCompositableHostType);
     break;

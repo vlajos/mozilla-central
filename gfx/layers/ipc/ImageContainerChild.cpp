@@ -150,7 +150,7 @@ bool ImageContainerChild::CopyDataIntoSurfaceDescriptor(Image* src, SurfaceDescr
   if ((src->GetFormat() == PLANAR_YCBCR) && 
       (dest->type() == SurfaceDescriptor::TYCbCrImage)) {
     PlanarYCbCrImage *planarYCbCrImage = static_cast<PlanarYCbCrImage*>(src);
-    const PlanarYCbCrImage::Data *data =planarYCbCrImage->GetData();
+    const PlanarYCbCrImage::Data *data = planarYCbCrImage->GetData();
     NS_ASSERTION(data, "Must be able to retrieve yuv data from image!");
     YCbCrImage& yuv = dest->get_YCbCrImage();
 
@@ -201,20 +201,6 @@ SurfaceDescriptor* ImageContainerChild::AllocateSurfaceDescriptorFor(Image* imag
     if (!shmemImage.IsValid() || shmem.Size<uint8_t>() < size) {
       DeallocShmem(shmem);
       return nullptr;
-    }
-
-    for (int i = 0; i < data->mYSize.height; i++) {
-      memcpy(shmemImage.GetYData() + i * shmemImage.GetYStride(),
-             data->mYChannel + i * data->mYStride,
-             data->mYSize.width);
-    }
-    for (int i = 0; i < data->mCbCrSize.height; i++) {
-      memcpy(shmemImage.GetCbData() + i * shmemImage.GetCbCrStride(),
-             data->mCbChannel + i * data->mCbCrStride,
-             data->mCbCrSize.width);
-      memcpy(shmemImage.GetCrData() + i * shmemImage.GetCbCrStride(),
-             data->mCrChannel + i * data->mCbCrStride,
-             data->mCbCrSize.width);
     }
 
     ++mActiveImageCount;
