@@ -422,12 +422,18 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
                        &mInitialised, &needsReset);
   
-  //TODO[nrc] if !mInitialised should we fallback to a different texturehost?
   if (!mInitialised) {
-    // try falling back to a (hopefully) more reliable texture host
-    mTextureHost = nullptr; //TODO[nrc] hmm, which texture host? Probably basic shmem thing, waiting for nical to finish refactoring texture hosts
-    mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
-                         &mInitialised, &needsReset);
+    // XXX if this happens often we could fallback to a different kind of
+    // texture host. But that involves the TextureParent too, so it is not
+    // trivial.
+    NS_WARNING("Could not initialise texture host"):
+    *aNewFront = null_t();
+    mInitialised = false;
+
+    aNewValidRegionFront->SetEmpty();
+    *aNewBackResult = null_t();
+    *aUpdatedRegionBack = aUpdated;
+    return;
   }
 
   *aNewFront = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
