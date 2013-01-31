@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BasicThebesLayer.h"
+#include "BasicTiledThebesLayer.h"
 #include "gfxUtils.h"
 #include "nsIWidget.h"
 #include "RenderTrace.h"
