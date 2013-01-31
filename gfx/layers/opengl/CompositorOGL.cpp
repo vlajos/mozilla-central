@@ -721,11 +721,13 @@ CompositorOGL::CreateTextureHost(BufferType aImageType,
       break;
     }
     default: {
+#if 0 // FIXME [bjacob] hook up b2g gralloc path here
 #ifdef MOZ_WIDGET_GONK
       if (aImageType == BUFFER_DIRECT_EXTERNAL) {
         result = new DirectExternalTextureHost(mGLContext);
         break;
       }
+#endif
 #endif
       if (aImageType == BUFFER_TILED) {
         result = new TiledTextureHost(mGLContext);
