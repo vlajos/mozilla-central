@@ -594,6 +594,12 @@ ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHost
                                                                          aTextureHostType,
                                                                          aBufferType,
                                                                          this, aStrict);
+  // This is kind of gross, but tiled buffers do their own thing and don't want
+  // to create a corresponding texture client.
+  if (aBufferType == BUFFER_TILED) {
+    return client.forget();
+  }
+
   TextureChild* textureChild
     = static_cast<TextureChild*>(Shadow(aLayer)->SendPTextureConstructor(client->GetTextureInfo()));
   mTxn->AddEdit(OpAttachTexture(nullptr, Shadow(aLayer),

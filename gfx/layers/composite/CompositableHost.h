@@ -11,6 +11,17 @@
 namespace mozilla {
 namespace layers {
 
+// Some properties of a Layer required for tiling
+struct TiledLayerProperties
+{
+  nsIntRegion mVisibleRegion;
+  nsIntRegion mValidRegion;
+  gfxRect mDisplayPort;
+  gfxSize mEffectiveResolution;
+  gfxRect mCompositionBounds;
+  bool mRetainTiles;
+};
+
 class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
@@ -27,7 +38,8 @@ public:
                          const gfx::Point& aOffset,
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr) = 0;
+                         const nsIntRegion* aVisibleRegion = nullptr,
+                         TiledLayerProperties* aLayerProperties = nullptr) = 0;
 
   virtual void AddTextureHost(TextureHost* aTextureHost) = 0;
 

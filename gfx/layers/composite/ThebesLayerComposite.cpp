@@ -84,17 +84,6 @@ ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
     return;
   }
 
-  TiledLayerProperties tiledLayerProps;
-  if (mRequiresTiledProperties) {
-    // calculating these things can be a little expensive, so don't
-    // do them if we don't have to
-    tiledLayerProps.mVisibleRegion = GetEffectiveVisibleRegion();
-    tiledLayerProps.mDisplayPort = GetDisplayPort();
-    tiledLayerProps.mEffectiveResolution = GetEffectiveResolution();
-    tiledLayerProps.mCompositionBounds = GetCompositionBounds();
-    tiledLayerProps.mRetainTiles = !mIsFixedPosition;
-  }
-  
   mBuffer->UpdateThebes(aNewFront,
                         aUpdatedRegion,
                         aNewBack,
@@ -102,9 +91,7 @@ ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
                         mValidRegion,
                         aReadOnlyFront,
                         aNewBackValidRegion,
-                        aFrontUpdatedRegion,
-                        mRequiresTiledProperties ? &tiledLayerProps
-                                                 : nullptr);
+                        aFrontUpdatedRegion);
 
   // Save the current valid region of our front buffer, because if
   // we're double buffering, it's going to be the valid region for the
@@ -114,9 +101,6 @@ ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
   // empty, and that the first time Swap() is called we don't have a
   // valid front buffer that we're going to return to content.
   mValidRegionForNextBackBuffer = mValidRegion;
-
-  //XXX[nrc] This was for tiled layers only, but I don't think we need it
-  //mValidRegion = *aNewBackValidRegion;
 }
 
 void
@@ -188,13 +172,34 @@ ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
   EffectChain effectChain;
   LayerManagerComposite::AddMaskEffect(mMaskLayer, effectChain);
 
+  nsIntRegion visibleRegion = GetEffectiveVisibleRegion();
+
+  TiledLayerProperties tiledLayerProps;
+  if (mRequiresTiledProperties) {
+    // calculating these things can be a little expensive, so don't
+    // do them if we don't have to
+    tiledLayerProps.mVisibleRegion = visibleRegion;
+    tiledLayerProps.mDisplayPort = GetDisplayPort();
+    tiledLayerProps.mEffectiveResolution = GetEffectiveResolution();
+    tiledLayerProps.mCompositionBounds = GetCompositionBounds();
+    tiledLayerProps.mRetainTiles = !mIsFixedPosition;
+    tiledLayerProps.mValidRegion = mValidRegion;
+  }
+
   mBuffer->Composite(effectChain,
-                     GetEffectiveOpacity(), 
+                     GetEffectiveOpacity(),
                      transform,
                      gfx::Point(aOffset.x, aOffset.y),
                      gfx::FILTER_LINEAR,
                      clipRect,
-                     &GetEffectiveVisibleRegion());
+                     &visibleRegion,
+                     mRequiresTiledProperties ? &tiledLayerProps
+                                              : nullptr);
+
+
+  if (mRequiresTiledProperties) {
+    mValidRegion = tiledLayerProps.mValidRegion;
+  }
 }
 
 CompositableHost*

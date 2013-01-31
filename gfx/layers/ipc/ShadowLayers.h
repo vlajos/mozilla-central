@@ -586,6 +586,8 @@ public:
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
 
+  virtual void EnsureBuffer(BufferType aHostType) {}
+
 protected:
   ShadowLayer()
     : mAllocator(nullptr)

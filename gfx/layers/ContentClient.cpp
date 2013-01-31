@@ -349,7 +349,7 @@ BasicTiledLayerBuffer::LockCopyAndWrite()
   // TODO: Remove me once Bug 747811 lands.
   BasicTiledLayerBuffer *heapCopy = new BasicTiledLayerBuffer(*this);
   mManager->PaintedTiledLayerBuffer(mManager->Hold(mThebesLayer), heapCopy);
-  ClearPaintedRegion();    
+  ClearPaintedRegion();
 }
 
 void
@@ -430,7 +430,6 @@ BasicTiledLayerBuffer::PaintThebes(const nsIntRegion& aNewValidRegion,
 #endif
 
   mLastPaintOpaque = mThebesLayer->CanUseOpaqueSurface();
-  mThebesLayer = nullptr;
   mCallback = nullptr;
   mCallbackData = nullptr;
   mSinglePaintBuffer = nullptr;
@@ -449,7 +448,8 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
 
 
-  gfxASurface* writableSurface = aTile.mTextureClient->LockSurface();
+  //TODO[nrc] extra level of indirection means we don't keep the surface alive whilst locked :-(
+  gfxASurface* writableSurface = aTile.mTextureClient->LockImageSurface();
   // Bug 742100, this gfxContext really should live on the stack.
   nsRefPtr<gfxContext> ctxt = new gfxContext(writableSurface);
 
@@ -703,6 +703,20 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
   return true;
 }
 
+BasicTiledLayerBuffer
+BasicTiledLayerBuffer::DeepCopy() const
+{
+  BasicTiledLayerBuffer result = *this;
+
+  for (size_t i = 0; i < result.mRetainedTiles.Length(); i++) {
+    if (result.mRetainedTiles[i].IsPlaceholderTile()) continue;
+    
+    result.mRetainedTiles[i].mTextureClient =
+      new TextureClientTile(*result.mRetainedTiles[i].mTextureClient);
+  }
+
+  return result;
+}
 
 }
 }

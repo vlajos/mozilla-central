@@ -325,6 +325,9 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
   case TEXTURE_BRIDGE:
     result = new TextureClientBridge(aLayerForwarder, aCompositableHostType);
     break;
+  case TEXTURE_TILED:
+    result = new TextureClientTile(aLayerForwarder, aCompositableHostType);
+    break;
   case TEXTURE_SHARED_DXGI:
 #ifdef XP_WIN
     result = new TextureClientD3D11(aLayerForwarder, aCompositableHostType);

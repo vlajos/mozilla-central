@@ -79,12 +79,10 @@ LayerManagerComposite::Destroy()
 }
 
 void
-LayerManagerComposite::UpdateRenderBounds(gfx::IntRect aRect)
+LayerManagerComposite::UpdateRenderBounds(const nsIntRect& aRect)
 {
-  NS_WARNING("UpdateRenderBounds not implemented!");
-  // see http://hg.mozilla.org/mozilla-central/rev/c55e10ab852d
+  mRenderBounds = aRect;
 }
-
 
 void
 LayerManagerComposite::BeginTransaction()
@@ -236,14 +234,15 @@ LayerManagerComposite::Render()
   }
 
   nsIntRect clipRect;
+  Rect bounds(mRenderBounds.x, mRenderBounds.y, mRenderBounds.width, mRenderBounds.height);
   if (mRoot->GetClipRect()) {
     clipRect = *mRoot->GetClipRect();
     WorldTransformRect(clipRect);
     Rect rect(clipRect.x, clipRect.y, clipRect.width, clipRect.height);
-    mCompositor->BeginFrame(&rect, mWorldMatrix);
+    mCompositor->BeginFrame(&rect, mWorldMatrix, bounds);
   } else {
     gfx::Rect rect;
-    mCompositor->BeginFrame(nullptr, mWorldMatrix, &rect);
+    mCompositor->BeginFrame(nullptr, mWorldMatrix, bounds, &rect);
     clipRect = nsIntRect(rect.x, rect.y, rect.width, rect.height);
   }
 
@@ -506,12 +505,7 @@ LayerManagerComposite::CreateShadowThebesLayer()
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
-  //TODO[nrc] enable
-//#ifdef FORCE_BASICTILEDTHEBESLAYER
-//  return nsRefPtr<ShadowThebesLayer>(new TiledThebesLayerOGL(this)).forget();
-//#else
   return nsRefPtr<ThebesLayerComposite>(new ThebesLayerComposite(this)).forget();
-//#endif
 }
 
 already_AddRefed<ShadowContainerLayer>

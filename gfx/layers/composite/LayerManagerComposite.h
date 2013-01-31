@@ -69,7 +69,7 @@ public:
     return this;
   }
 
-  void UpdateRenderBounds(gfx::IntRect aRegion);
+  void UpdateRenderBounds(const nsIntRect& aRect);
 
   void BeginTransaction();
 
@@ -122,7 +122,8 @@ public:
 
   virtual LayersBackend GetBackendType()
   {
-    NS_ERROR("Shouldn't be called for composited layer manager");
+    //TODO[nrc] is being called!
+    MOZ_ASSERT(false, "Shouldn't be called for composited layer manager");
     return LAYERS_NONE;
   }
   virtual void GetBackendName(nsAString& name)
@@ -215,6 +216,7 @@ public:
 private:
   /** Region we're clipping our current drawing to. */
   nsIntRegion mClippingRegion;
+  nsIntRect mRenderBounds;
 
   /** Current root layer. */
   LayerComposite *RootLayer() const;

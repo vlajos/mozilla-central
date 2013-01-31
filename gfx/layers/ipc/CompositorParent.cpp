@@ -1048,14 +1048,7 @@ CompositorParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
   // Instruct the LayerManager to update its render bounds now. Since all the orientation
   // change, dimension change would be done at the stage, update the size here is free of
   // race condition.
-  if (LAYERS_OPENGL == mLayerManager->GetBackendType()) {
-    gfx::IntRect renderBounds;
-    renderBounds.x = aTargetConfig.clientBounds().x;
-    renderBounds.y = aTargetConfig.clientBounds().y;
-    renderBounds.width = aTargetConfig.clientBounds().width;
-    renderBounds.height = aTargetConfig.clientBounds().height;
-    mLayerManager->UpdateRenderBounds(renderBounds);
-  }
+  mLayerManager->UpdateRenderBounds(aTargetConfig.clientBounds());
 
   mTargetConfig = aTargetConfig;
   mIsFirstPaint = mIsFirstPaint || isFirstPaint;

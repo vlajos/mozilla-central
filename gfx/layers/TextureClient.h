@@ -228,6 +228,11 @@ protected:
 class TextureClientTile : public TextureClient
 {
 public:
+  TextureClientTile(const TextureClientTile& aOther)
+    : TextureClient(mLayerForwarder, mTextureInfo.imageType)
+    , mSurface(aOther.mSurface)
+  {}
+
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   virtual gfxImageSurface* LockImageSurface();
@@ -241,7 +246,9 @@ private:
   TextureClientTile(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
     : TextureClient(aLayerForwarder, aBufferType)
     , mSurface(nullptr)
-  {}
+  {
+    mTextureInfo.memoryType = TEXTURE_TILED;
+  }
 
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
 

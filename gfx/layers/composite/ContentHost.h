@@ -13,16 +13,6 @@
 namespace mozilla {
 namespace layers {
 
-// Some properties of a Layer required for tiling
-struct TiledLayerProperties
-{
-  nsIntRegion mVisibleRegion;
-  gfxRect mDisplayPort;
-  gfxSize mEffectiveResolution;
-  gfxRect mCompositionBounds;
-  bool mRetainTiles;
-};
-
 class ThebesBuffer;
 class OptionalThebesBuffer;
 
@@ -52,7 +42,8 @@ public:
                  const gfx::Point& aOffset,
                  const gfx::Filter& aFilter,
                  const gfx::Rect& aClipRect,
-                 const nsIntRegion* aVisibleRegion = nullptr);
+                 const nsIntRegion* aVisibleRegion = nullptr,
+                 TiledLayerProperties* aLayerProperties = nullptr);
 
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
 
@@ -89,8 +80,7 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack,
-                            TiledLayerProperties* aLayerProperties = nullptr) = 0;
+                            nsIntRegion* aUpdatedRegionBack) = 0;
 
   // Subclasses should implement this method if they support being used as a tiled buffer
   virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
@@ -122,7 +112,8 @@ public:
                          const gfx::Point& aOffset,
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr)
+                         const nsIntRegion* aVisibleRegion = nullptr,
+                         TiledLayerProperties* aLayerProperties = nullptr)
   {
     CompositingThebesLayerBuffer::Composite(aEffectChain,
                                             aOpacity,
@@ -191,8 +182,7 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack,
-                            TiledLayerProperties* aLayerProperties = nullptr);
+                            nsIntRegion* aUpdatedRegionBack);
 };
 
 // We're using resources owned by our texture as the front buffer.
@@ -214,8 +204,7 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack,
-                            TiledLayerProperties* aLayerProperties = nullptr);
+                            nsIntRegion* aUpdatedRegionBack);
 };
 
 class TiledTexture {
@@ -342,8 +331,7 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack,
-                            TiledLayerProperties* aLayerProperties = nullptr);
+                            nsIntRegion* aUpdatedRegionBack);
 
   const nsIntRegion& GetValidLowPrecisionRegion() const
   {
@@ -371,13 +359,14 @@ public:
                  const gfx::Point& aOffset,
                  const gfx::Filter& aFilter,
                  const gfx::Rect& aClipRect,
-                 const nsIntRegion* aVisibleRegion = nullptr);
+                 const nsIntRegion* aVisibleRegion = nullptr,
+                 TiledLayerProperties* aLayerProperties = nullptr);
 
   virtual BufferType GetType() { return BUFFER_TILED; }
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
 
-  virtual void AddTextureHost(TextureHost* aTextureHost) { NS_WARNING("Does nothing"); }
+  virtual void AddTextureHost(TextureHost* aTextureHost) { MOZ_ASSERT(false, "Does nothing"); }
 
 private:
   void ProcessUploadQueue(nsIntRegion* aNewValidRegion);
@@ -391,14 +380,13 @@ private:
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
                          const nsIntRegion& aMaskRegion,
-                         nsIntRect& visibleRect,
+                         nsIntRect aVisibleRect,
                          gfx::Matrix4x4 aTransform);
 
   void EnsureTileStore();
 
   RefPtr<Compositor> mCompositor;
 
-  nsIntRegion                  mValidRegion;
   nsIntRegion                  mRegionToUpload;
   nsIntRegion                  mLowPrecisionRegionToUpload;
   BasicTiledLayerBuffer        mMainMemoryTiledBuffer;

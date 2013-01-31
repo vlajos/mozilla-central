@@ -90,6 +90,8 @@ public:
     mClippingRegion = aClippingRegion;
   }
 
+  void UpdateRenderBounds(const nsIntRect& aRect);
+
   /**
    * LayerManager implementation.
    */

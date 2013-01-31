@@ -433,7 +433,7 @@ public:
    * Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          gfx::Rect *aClipRectOut = nullptr) = 0;
+                          const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut = nullptr) = 0;
 
   /**
    * Flush the current frame to the screen.

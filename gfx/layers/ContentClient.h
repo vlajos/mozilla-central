@@ -358,6 +358,15 @@ public:
                          LayerManager::DrawThebesLayerCallback aCallback,
                          void* aCallbackData);
 
+  /**
+   * Copy this buffer duplicating the texture hosts under the tiles
+   * XXX This has to go. It is a hack because we need to keep the
+   * surface wrappers alive whilst they are locked by the compositor.
+   * Once we properly implement the texture host/client architecture
+   * for tiled layers we shouldn't need this.
+   */
+  BasicTiledLayerBuffer DeepCopy() const;
+
 protected:
   BasicTiledLayerTile ValidateTile(BasicTiledLayerTile aTile,
                                    const nsIntPoint& aTileRect,

@@ -88,6 +88,12 @@ LayerManagerOGL::Destroy()
 }
 
 void
+LayerManagerOGL::UpdateRenderBounds(const nsIntRect& aRect)
+{
+  mRenderBounds = aRect;
+}
+
+void
 LayerManagerOGL::BeginTransaction()
 {
   mInTransaction = true;
@@ -303,14 +309,15 @@ LayerManagerOGL::Render()
   }
 
   nsIntRect clipRect;
+  Rect bounds(mRenderBounds.x, mRenderBounds.y, mRenderBounds.width, mRenderBounds.height);
   if (mRoot->GetClipRect()) {
     clipRect = *mRoot->GetClipRect();
     WorldTransformRect(clipRect);
     Rect rect(clipRect.x, clipRect.y, clipRect.width, clipRect.height);
-    mCompositor->BeginFrame(&rect, mWorldMatrix);
+    mCompositor->BeginFrame(&rect, mWorldMatrix, bounds);
   } else {
     gfx::Rect rect;
-    mCompositor->BeginFrame(nullptr, mWorldMatrix, &rect);
+    mCompositor->BeginFrame(nullptr, mWorldMatrix, bounds, &rect);
     clipRect = nsIntRect(rect.x, rect.y, rect.width, rect.height);
   }
 

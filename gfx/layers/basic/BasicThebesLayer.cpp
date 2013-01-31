@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BasicThebesLayer.h"
+#include "BasicTiledThebesLayer.h"
 #include "gfxUtils.h"
 #include "nsIWidget.h"
 #include "RenderTrace.h"
@@ -291,9 +292,9 @@ BasicShadowableThebesLayer::PaintBuffer(gfxContext* aContext,
   // The ContentClient assumes this layer is kept alive (e.g., in CreateBuffer),
   // so deleting this Hold for whatever reason will break things.
   contentClientRemote->Updated(BasicManager()->Hold(this),
-                              aRegionToDraw,
-                              mVisibleRegion,
-                              aDidSelfCopy);
+                               aRegionToDraw,
+                               mVisibleRegion,
+                               aDidSelfCopy);
 }
 
 void

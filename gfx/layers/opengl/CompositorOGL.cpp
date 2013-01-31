@@ -851,7 +851,7 @@ CalculatePOTSize(const gfx::IntSize& aSize, GLContext* gl)
 
 void
 CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          gfx::Rect *aClipRectOut)
+                          const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut)
 {
   if (mFrameInProgress) {
     EndFrame(aTransform);
@@ -861,12 +861,16 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
   if (mIsRenderingToEGLSurface) {
     rect = gfxRect(0, 0, mSurfaceSize.width, mSurfaceSize.height);
   } else {
-    nsIntRect intRect;
-    // FIXME/bug XXXXXX this races with rotation changes on the main
-    // thread, and undoes all the care we take with layers txns being
-    // sent atomically with rotation changes
-    mWidget->GetClientBounds(intRect);
-    rect = gfxRect(intRect);
+    rect = gfxRect(aRenderBounds.x, aRenderBounds.y, aRenderBounds.width, aRenderBounds.height);
+    // If render bounds is not updated explicitly, try to infer it from widget
+    if (rect.width == 0 || rect.height == 0) {
+      // FIXME/bug XXXXXX this races with rotation changes on the main
+      // thread, and undoes all the care we take with layers txns being
+      // sent atomically with rotation changes
+      nsIntRect intRect;
+      mWidget->GetClientBounds(intRect);
+      rect = gfxRect(intRect);
+    }
   }
 
   rect = aTransform.TransformBounds(rect);
@@ -1051,7 +1055,9 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
                         const gfx::Point &aOffset)
 {
   if (!mFrameInProgress) {
-    BeginFrame(aClipRect, gfxMatrix());
+    //TODO[nrc] is this sensible
+    //BeginFrame(aClipRect, gfxMatrix());
+    MOZ_ASSERT(false, "TODO[nrc]");
   }
 
   gfx::IntRect intSourceRect;

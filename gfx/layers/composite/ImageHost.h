@@ -59,7 +59,8 @@ public:
                          const gfx::Point& aOffset,
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr);
+                         const nsIntRegion* aVisibleRegion = nullptr,
+                         TiledLayerProperties* aLayerProperties = nullptr);
 
   virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {
@@ -95,7 +96,8 @@ public:
                          const gfx::Point& aOffset,
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr);
+                         const nsIntRegion* aVisibleRegion = nullptr,
+                         TiledLayerProperties* aLayerProperties = nullptr);
 
   void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
   TextureHost* GetTextureHost() MOZ_OVERRIDE { return mTextureHost; }
@@ -130,7 +132,8 @@ public:
                          const gfx::Point& aOffset,
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr);
+                         const nsIntRegion* aVisibleRegion = nullptr,
+                         TiledLayerProperties* aLayerProperties = nullptr);
 
   virtual void AddTextureHost(TextureHost* aTextureHost);
 

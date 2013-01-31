@@ -389,6 +389,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       ShadowLayerParent* shadow = AsShadowLayer(op);
 
       ShadowThebesLayer* shadowLayer = static_cast<ShadowThebesLayer*>(shadow->AsLayer());
+      shadowLayer->EnsureBuffer(BUFFER_TILED);
       TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
 
       NS_ASSERTION(tileComposer, "shadowLayer is not a tile composer");
@@ -462,6 +463,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       Compositor* compositor
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       const TextureInfo& info = textureParent->GetTextureInfo();
+      //TODO[nrc] we should be using layer::EnsureBuffer for this :-(
       RefPtr<CompositableHost> bufferHost
         = static_cast<LayerManagerComposite*>(
           layer->Manager())->CreateCompositableHost(

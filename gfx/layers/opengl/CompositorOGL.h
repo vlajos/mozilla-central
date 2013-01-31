@@ -214,7 +214,7 @@ private:
    * sets *aClipRectOut to the screen dimensions.
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          gfx::Rect *aClipRectOut = nullptr) MOZ_OVERRIDE;
+                          const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut = nullptr) MOZ_OVERRIDE;
 
   /**
    * Updates all layer programs with a new projection matrix.

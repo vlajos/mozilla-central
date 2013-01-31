@@ -21,7 +21,8 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
                                         const gfx::Point& aOffset,
                                         const gfx::Filter& aFilter,
                                         const gfx::Rect& aClipRect,
-                                        const nsIntRegion* aVisibleRegion)
+                                        const nsIntRegion* aVisibleRegion /* = nullptr */,
+                                        TiledLayerProperties* aLayerProperties /* = nullptr */)
 {
   NS_ASSERTION(aVisibleRegion, "Requires a visible region");
 
@@ -155,7 +156,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
                            tileScreenRect.width, tileScreenRect.height);
             gfx::Rect sourceRect(tileRegionRect.x, tileRegionRect.y,
                                  tileRegionRect.width, tileRegionRect.height);
-            gfx::Rect textureRect(texRect.x, texRect.y,
+            gfx::Rect textureRect(0, 0,
                                   texRect.width, texRect.height);
             mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
                                   aOpacity, aTransform, aOffset);
@@ -192,8 +193,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  const nsIntRegion& aOldValidRegionBack,
                                  OptionalThebesBuffer* aNewBackResult,
                                  nsIntRegion* aNewValidRegionFront,
-                                 nsIntRegion* aUpdatedRegionBack,
-                                 TiledLayerProperties* aLayerProperties)
+                                 nsIntRegion* aUpdatedRegionBack)
 {
   // updated is in screen coordinates. Convert it to buffer coordinates.
   nsIntRegion destRegion(aUpdated);
@@ -233,10 +233,8 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
                                 const nsIntRegion& aOldValidRegionBack,
                                 OptionalThebesBuffer* aNewBackResult,
                                 nsIntRegion* aNewValidRegionFront,
-                                nsIntRegion* aUpdatedRegionBack,
-                                TiledLayerProperties* aLayerProperties)
+                                nsIntRegion* aUpdatedRegionBack)
 {
-  printf("xxx ContentHostDirect::UpdateThebes\n");
   mBufferRect = aNewBack.rect();
   mBufferRotation = aNewBack.rotation();
 
@@ -338,14 +336,14 @@ TiledContentHost::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuf
 {
   if (mTiledBuffer->IsLowPrecision()) {
     mLowPrecisionMainMemoryTiledBuffer.ReadUnlock();
-    mLowPrecisionMainMemoryTiledBuffer = *mTiledBuffer;
+    mLowPrecisionMainMemoryTiledBuffer = mTiledBuffer->DeepCopy();
     mLowPrecisionRegionToUpload.Or(mLowPrecisionRegionToUpload,
                                    mLowPrecisionMainMemoryTiledBuffer.GetPaintedRegion());
     mLowPrecisionMainMemoryTiledBuffer.ClearPaintedRegion();
     mPendingLowPrecisionUpload = true;
   } else {
     mMainMemoryTiledBuffer.ReadUnlock();
-    mMainMemoryTiledBuffer = *mTiledBuffer;
+    mMainMemoryTiledBuffer = mTiledBuffer->DeepCopy();
     mRegionToUpload.Or(mRegionToUpload, mMainMemoryTiledBuffer.GetPaintedRegion());
     mMainMemoryTiledBuffer.ClearPaintedRegion();
     mPendingUpload = true;
@@ -442,18 +440,9 @@ TiledContentHost::UpdateThebes(const ThebesBuffer& aNewBack,
                                const nsIntRegion& aOldValidRegionBack,
                                OptionalThebesBuffer* aNewBackResult,
                                nsIntRegion* aNewValidRegionFront,
-                               nsIntRegion* aUpdatedRegionBack,
-                               TiledLayerProperties* aLayerProperties)
+                               nsIntRegion* aUpdatedRegionBack)
 {
-  MOZ_ASSERT(aLayerProperties, "aLayerProperties required for TiledContentHost");
-  mLayerProperties = *aLayerProperties;
-
-  EnsureTileStore();
-
-  ProcessUploadQueue(aNewValidRegionFront);
-  ProcessLowPrecisionUploadQueue();
-
-  mValidRegion = aOldValidRegionBack;
+  MOZ_ASSERT(false, "N/A for tiled layers");
 }
 
 void
@@ -463,14 +452,27 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
                             const gfx::Point& aOffset,
                             const gfx::Filter& aFilter,
                             const gfx::Rect& aClipRect,
-                            const nsIntRegion* aVisibleRegion /* = nullptr */)
+                            const nsIntRegion* aVisibleRegion /* = nullptr */,
+                            TiledLayerProperties* aLayerProperties /* = nullptr */)
 {
+  // moved from UpdateThebes
+  MOZ_ASSERT(aLayerProperties, "aLayerProperties required for TiledContentHost");
+  mLayerProperties = *aLayerProperties;
+
+  EnsureTileStore();
+
+  // note that ProcessUploadQueue updates the valid region which is then used by
+  // the RenderLayerBuffer calls below and then sent back to the layer.
+  ProcessUploadQueue(&mLayerProperties.mValidRegion);
+  ProcessLowPrecisionUploadQueue();
+
   // Render old tiles to fill in gaps we haven't had the time to render yet.
   if (mReusableTileStore) {
     mReusableTileStore->DrawTiles(this,
                                   mVideoMemoryTiledBuffer.GetValidRegion(),
                                   mVideoMemoryTiledBuffer.GetFrameResolution(),
-                                  aTransform, aOffset, aEffectChain, aOpacity, aFilter, aClipRect, mLayerProperties.mCompositionBounds);
+                                  aTransform, aOffset, aEffectChain, aOpacity, aFilter,
+                                  aClipRect, mLayerProperties.mCompositionBounds);
   }
 
   // Render valid tiles.
@@ -478,8 +480,9 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
 
   RenderLayerBuffer(mLowPrecisionVideoMemoryTiledBuffer,
                     mLowPrecisionVideoMemoryTiledBuffer.GetValidRegion(), aEffectChain, aOpacity,
-                    aOffset, aFilter, aClipRect, mValidRegion, visibleRect, aTransform);
-  RenderLayerBuffer(mVideoMemoryTiledBuffer, mValidRegion, aEffectChain, aOpacity, aOffset, aFilter, aClipRect, nsIntRegion(), visibleRect, aTransform);
+                    aOffset, aFilter, aClipRect, mLayerProperties.mValidRegion, visibleRect, aTransform);
+  RenderLayerBuffer(mVideoMemoryTiledBuffer, mLayerProperties.mValidRegion, aEffectChain, aOpacity, aOffset,
+                    aFilter, aClipRect, nsIntRegion(), visibleRect, aTransform);
 }
 
 
@@ -505,11 +508,11 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 
   nsIntRegionRectIterator it(aScreenRegion);
   for (const nsIntRect* rect = it.Next(); rect != nullptr; rect = it.Next()) {
+    gfx::Rect graphicsRect(rect->x, rect->y, rect->width, rect->height);
     gfx::Rect textureRect(rect->x - aTextureOffset.x, rect->y - aTextureOffset.y,
                           rect->width, rect->height);
-    gfx::Rect sourceRect(0, 0, rect->width, rect->height);
     gfx::Rect boundsRect(0, 0, aTextureBounds.width, aTextureBounds.height);
-    mCompositor->DrawQuad(textureRect, &sourceRect, &boundsRect,
+    mCompositor->DrawQuad(graphicsRect, &textureRect, &boundsRect,
                           &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
   }
 
@@ -525,7 +528,7 @@ TiledContentHost::RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
                                     const gfx::Filter& aFilter,
                                     const gfx::Rect& aClipRect,
                                     const nsIntRegion& aMaskRegion,
-                                    nsIntRect& visibleRect,
+                                    nsIntRect aVisibleRect,
                                     gfx::Matrix4x4 aTransform)
 {
   float resolution = aLayerBuffer.GetResolution();
@@ -537,25 +540,25 @@ TiledContentHost::RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
     const gfxSize& localResolution = mVideoMemoryTiledBuffer.GetFrameResolution();
     layerScale.width = layerResolution.width / localResolution.width;
     layerScale.height = layerResolution.height / localResolution.height;
-    visibleRect.ScaleRoundOut(layerScale.width, layerScale.height);
+    aVisibleRect.ScaleRoundOut(layerScale.width, layerScale.height);
   }
   aTransform.Scale(1/(resolution * layerScale.width),
-                  1/(resolution * layerScale.height), 1);
+                   1/(resolution * layerScale.height), 1);
 
   uint32_t rowCount = 0;
   uint32_t tileX = 0;
-  for (int32_t x = visibleRect.x; x < visibleRect.x + visibleRect.width;) {
+  for (int32_t x = aVisibleRect.x; x < aVisibleRect.x + aVisibleRect.width;) {
     rowCount++;
     int32_t tileStartX = aLayerBuffer.GetTileStart(x);
     int32_t w = aLayerBuffer.GetScaledTileLength() - tileStartX;
-    if (x + w > visibleRect.x + visibleRect.width)
-      w = visibleRect.x + visibleRect.width - x;
+    if (x + w > aVisibleRect.x + aVisibleRect.width)
+      w = aVisibleRect.x + aVisibleRect.width - x;
     int tileY = 0;
-    for (int32_t y = visibleRect.y; y < visibleRect.y + visibleRect.height;) {
+    for (int32_t y = aVisibleRect.y; y < aVisibleRect.y + aVisibleRect.height;) {
       int32_t tileStartY = aLayerBuffer.GetTileStart(y);
       int32_t h = aLayerBuffer.GetScaledTileLength() - tileStartY;
-      if (y + h > visibleRect.y + visibleRect.height)
-        h = visibleRect.y + visibleRect.height - y;
+      if (y + h > aVisibleRect.y + aVisibleRect.height)
+        h = aVisibleRect.y + aVisibleRect.height - y;
 
       TiledTexture tileTexture = aLayerBuffer.
         GetTile(nsIntPoint(aLayerBuffer.RoundDownToTileEdge(x),

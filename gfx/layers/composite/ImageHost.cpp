@@ -53,7 +53,8 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                            const gfx::Point& aOffset,
                            const gfx::Filter& aFilter,
                            const gfx::Rect& aClipRect,
-                           const nsIntRegion* aVisibleRegion)
+                           const nsIntRegion* aVisibleRegion,
+                           TiledLayerProperties* aLayerProperties)
 {
   if (!mTextureHost) {
     return;
@@ -122,7 +123,8 @@ YCbCrImageHost::Composite(EffectChain& aEffectChain,
                           const gfx::Point& aOffset,
                           const gfx::Filter& aFilter,
                           const gfx::Rect& aClipRect,
-                          const nsIntRegion* aVisibleRegion)
+                          const nsIntRegion* aVisibleRegion,
+                          TiledLayerProperties* aLayerProperties)
 {
   if (!mTextureHost) {
     NS_WARNING("YCbCrImageHost::Composite without TextureHost");
@@ -197,7 +199,8 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
                            const gfx::Point& aOffset,
                            const gfx::Filter& aFilter,
                            const gfx::Rect& aClipRect,
-                           const nsIntRegion* aVisibleRegion /* = nullptr */)
+                           const nsIntRegion* aVisibleRegion,
+                           TiledLayerProperties* aLayerProperties)
 {
   ImageContainerParent::SetCompositorIDForImage(mImageContainerID,
                                                 compositor()->GetCompositorID());
@@ -224,7 +227,8 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
                           aOffset,
                           aFilter,
                           aClipRect,
-                          aVisibleRegion);
+                          aVisibleRegion,
+                          aLayerProperties);
   }
 }
 

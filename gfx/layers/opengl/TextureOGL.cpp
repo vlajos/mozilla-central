@@ -261,11 +261,13 @@ YCbCrTextureHostOGL::Lock(const gfx::Filter& aFilter)
 
 TiledTextureHost::~TiledTextureHost()
 {
-  mGL->MakeCurrent();
-  mGL->fDeleteTextures(1, &mTextureHandle);
+  if (mTextureHandle) {
+    mGL->MakeCurrent();
+    mGL->fDeleteTextures(1, &mTextureHandle);
 
-  gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mFormat,
-                                          GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
+    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mFormat,
+                                            GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
+  }
 }
 
 static void
