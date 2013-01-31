@@ -634,7 +634,6 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
                             const nsIntRegion* aVisibleRegion /* = nullptr */,
                             TiledLayerProperties* aLayerProperties /* = nullptr */)
 {
-  // moved from UpdateThebes
   MOZ_ASSERT(aLayerProperties, "aLayerProperties required for TiledContentHost");
   mLayerProperties = *aLayerProperties;
 
@@ -679,11 +678,10 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 {
   MOZ_ASSERT(aTile.mTextureHost, "Trying to render a placeholder tile?");
 
-  // XXX - Bas - Fix using proper effect!
+  //TODO y flip
   RefPtr<Effect> effect;
-  
-  if (aTile.mTextureHost->GetFormat() == FORMAT_B8G8R8X8) {
-    effect = new EffectBGRX(aTile.mTextureHost, true, aFilter);
+  if (aTile.mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
+    effect = new EffectRGBX(aTile.mTextureHost, true, aFilter);
   } else {
     effect = new EffectBGRA(aTile.mTextureHost, true, aFilter);
   }

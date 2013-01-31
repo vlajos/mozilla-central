@@ -104,9 +104,11 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   case gl::RGBXLayerProgramType :
     mFormat = FORMAT_R8G8B8X8;
     //return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
+    break;
   case gl::RGBALayerProgramType :
     mFormat = FORMAT_R8G8B8A8;
     //return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
+    break;
   case gl::BGRXLayerProgramType :
     mFormat = FORMAT_B8G8R8X8;
     break;
@@ -282,7 +284,7 @@ TiledTextureHost::~TiledTextureHost()
     mGL->MakeCurrent();
     mGL->fDeleteTextures(1, &mTextureHandle);
 
-    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mFormat,
+    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mGLFormat,
                                             GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
   }
 }
@@ -317,7 +319,7 @@ TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFla
     mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
     // We're re-using a texture, but the format may change. Update the memory
     // reporter with a free and alloc (below) using the old and new formats.
-    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mFormat,
+    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mGLFormat,
                                             GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
   }
 
@@ -325,15 +327,15 @@ TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFla
   GetFormatAndTileForImageFormat(aReusableSurface->Format(), mGLFormat, type);
 
   const unsigned char* buf = aReusableSurface->GetReadOnlyData();
-  mGL->fTexImage2D(LOCAL_GL_TEXTURE_2D, 0, mFormat,
+  mGL->fTexImage2D(LOCAL_GL_TEXTURE_2D, 0, mGLFormat,
                    TILEDLAYERBUFFER_TILE_SIZE, TILEDLAYERBUFFER_TILE_SIZE, 0,
-                   mFormat, type, buf);
+                   mGLFormat, type, buf);
 
-  gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryAllocated, mFormat,
+  gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryAllocated, mGLFormat,
                                           type, TILEDLAYERBUFFER_TILE_SIZE);
 
   if (mGLFormat == LOCAL_GL_RGB) {
-    mFormat = FORMAT_B8G8R8X8;
+    mFormat = FORMAT_R8G8B8X8;
   } else {
     mFormat = FORMAT_B8G8R8A8;
   }

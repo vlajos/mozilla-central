@@ -15,7 +15,7 @@
 #include "cairo.h"
 #include <sstream>
 using mozilla::layers::Layer;
-static void DrawDebugOverlay(gfxImageSurface* imgSurf, int x, int y)
+static void DrawDebugOverlay(gfxASurface* imgSurf, int x, int y)
 {
   gfxContext c(imgSurf);
 
@@ -448,7 +448,6 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
 
 
-  //TODO[nrc] extra level of indirection means we don't keep the surface alive whilst locked :-(
   gfxASurface* writableSurface = aTile.mTextureClient->LockImageSurface();
   // Bug 742100, this gfxContext really should live on the stack.
   nsRefPtr<gfxContext> ctxt = new gfxContext(writableSurface);
@@ -491,7 +490,6 @@ BasicTiledLayerBuffer::ValidateTile(BasicTiledLayerTile aTile,
                                     const nsIntPoint& aTileOrigin,
                                     const nsIntRegion& aDirtyRegion)
 {
-
   SAMPLE_LABEL("BasicTiledLayerBuffer", "ValidateTile");
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS

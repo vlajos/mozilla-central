@@ -412,7 +412,7 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
   default:
     // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
     // at least we'll known if we run into them.
-    MOZ_NOT_REACHED("unhandled aCompositableHostType");
+    MOZ_NOT_REACHED("unhandled program type");
   }
 
   NS_ASSERTION(result, "Failed to create ImageClient");

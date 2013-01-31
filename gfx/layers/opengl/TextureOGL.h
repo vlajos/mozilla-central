@@ -422,7 +422,7 @@ private:
   GLenum GetTileType()
   {
     // Deduce the type that was assigned in GetFormatAndTileForImageFormat
-    return mFormat == LOCAL_GL_RGB ? LOCAL_GL_UNSIGNED_SHORT_5_6_5 : LOCAL_GL_UNSIGNED_BYTE;
+    return mGLFormat == LOCAL_GL_RGB ? LOCAL_GL_UNSIGNED_SHORT_5_6_5 : LOCAL_GL_UNSIGNED_BYTE;
   }
 
   GLuint mTextureHandle;

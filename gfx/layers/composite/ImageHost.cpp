@@ -73,16 +73,14 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   case FORMAT_B8G8R8X8:
     effect = new EffectBGRX(mTextureHost, true, aFilter);
     break;
-/*
-  case FORMAT_R8G8B8X8: //  does not exist
+  case FORMAT_R8G8B8X8:
     effect = new EffectRGBX(mTextureHost, true, aFilter);
     break;
-  case FORMAT_R8G8B8A8: //  does not exist
+  case FORMAT_R8G8B8A8:
     effect = new EffectRGBA(mTextureHost, true, aFilter);
     break;
-*/
-  default: // TODO: crashes here on linux!
-    NS_RUNTIMEABORT("XXX - Bas - Implement me!!");
+  default:
+    MOZ_NOT_REACHED("unhandled program type");
   }
 
   if (!mTextureHost->Lock()) {
