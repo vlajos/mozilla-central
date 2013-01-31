@@ -111,7 +111,7 @@ TextureImageAsTextureHostOGL::Lock()
   switch (mTexture->GetShaderProgramType()) {
   case gl::RGBXLayerProgramType :
     //TODO[bas] this one at least is required
-    mFormat = FORMAT_R8G8B8X8;
+    //mFormat = FORMAT_R8G8B8X8;
     //return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
   //case gl::RGBALayerProgramType :
     //mFormat = FORMAT_R8G8B8A8;
