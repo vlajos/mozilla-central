@@ -355,6 +355,9 @@ public:
   
   static void PlatformSyncBeforeUpdate();
 
+  static already_AddRefed<gfxASurface>
+  OpenDescriptor(OpenMode aMode, const SurfaceDescriptor& aSurface);
+
 protected:
   ShadowLayerForwarder();
 
@@ -398,9 +401,6 @@ private:
                                    OpenMode aMode,
                                    gfxIntSize* aSize,
                                    gfxASurface** aSurface);
-
-  static already_AddRefed<gfxASurface>
-  OpenDescriptor(OpenMode aMode, const SurfaceDescriptor& aSurface);
 
   static already_AddRefed<gfxASurface>
   PlatformOpenDescriptor(OpenMode aMode, const SurfaceDescriptor& aDescriptor);
@@ -577,6 +577,7 @@ public:
   }
 
   virtual void SetCompositableHost(CompositableHost* aHost) {}
+  virtual CompositableHost* GetCompositableHost() { return nullptr; };
 
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }

@@ -172,15 +172,11 @@ TextureHostD3D11::AsTextureSource()
   return this;
 }
 
-Effect*
-TextureHostD3D11::Lock(const gfx::Filter& aFilter)
+bool
+TextureHostD3D11::Lock()
 {
   LockTexture();
-  if (mHasAlpha) {
-    return new EffectRGBA(this, true, FILTER_LINEAR);
-  } else {
-    return new EffectRGB(this, true, FILTER_LINEAR);
-  }
+  return true;
 }
 
 void
@@ -210,14 +206,16 @@ TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialis
     mDevice->CreateTexture2D(&desc, &initData, byRef(mTexture));
 
     if (surf->Format() == gfxImageSurface::ImageFormatRGB24) {
-      mHasAlpha = false;
+      mFormat = FORMAT_B8G8R8X8;
+    } else {
+      mFormat = FORMAT_B8G8R8A8;
     }
 
     mNeedsLock = false;
   } else if (aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
     mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
                                 __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTexture));
-    mHasAlpha = true;
+    mFormat = FORMAT_B8G8R8A8;
     mNeedsLock = true;
   }
 

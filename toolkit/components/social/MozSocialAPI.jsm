@@ -228,7 +228,8 @@ function getChromeWindow(contentWin) {
 }
 
 function isWindowGoodForChats(win) {
-  return win.SocialChatBar && win.SocialChatBar.isAvailable;
+  return win.SocialChatBar
+         && win.SocialChatBar.isAvailable;
 }
 
 function findChromeWindowForChats(preferredWindow) {

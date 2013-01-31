@@ -27,7 +27,6 @@
 #include "jsfun.h"
 #include "jsnum.h"
 #include "jsopcode.h"
-#include "jsscope.h"
 #include "jsscript.h"
 #include "jsautooplen.h"        // generated headers last
 
@@ -37,14 +36,15 @@
 #include "frontend/TokenStream.h"
 #include "vm/Debugger.h"
 #include "vm/RegExpObject.h"
+#include "vm/Shape.h"
 
 #include "jsatominlines.h"
-#include "jsscopeinlines.h"
 #include "jsscriptinlines.h"
 
 #include "frontend/ParseMaps-inl.h"
 #include "frontend/ParseNode-inl.h"
 #include "frontend/SharedContext-inl.h"
+#include "vm/Shape-inl.h"
 
 /* Allocation chunk counts, must be powers of two in general. */
 #define BYTECODE_CHUNK_LENGTH  1024    /* initial bytecode chunk length */
@@ -1501,6 +1501,9 @@ CheckSideEffects(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool *answe
              */
             for (pn2 = pn->pn_head; pn2; pn2 = pn2->pn_next)
                 ok &= CheckSideEffects(cx, bce, pn2, answer);
+        } else if (pn->isKind(PNK_GENEXP)) {
+            /* Generator-expressions are harmless if the result is ignored. */
+            *answer = false;
         } else {
             /*
              * All invocation operations (construct: PNK_NEW, call: PNK_CALL)
@@ -3742,7 +3745,7 @@ ParseNode::getConstantValue(JSContext *cx, bool strictChecks, Value *vp)
                 RootedId id(cx);
                 if (idvalue.isInt32() && INT_FITS_IN_JSID(idvalue.toInt32()))
                     id = INT_TO_JSID(idvalue.toInt32());
-                else if (!InternNonIntElementId(cx, obj, idvalue, &id))
+                else if (!InternNonIntElementId<CanGC>(cx, obj, idvalue, &id))
                     return false;
                 if (!JSObject::defineGeneric(cx, obj, id, value, NULL, NULL, JSPROP_ENUMERATE))
                     return false;
@@ -5393,10 +5396,15 @@ EmitCallOrNew(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t top)
          * will just cause the inner scripts to be repeatedly cloned.
          */
         JS_ASSERT(!bce->emittingRunOnceLambda);
-        bce->emittingRunOnceLambda = true;
-        if (!EmitTree(cx, bce, pn2))
-            return false;
-        bce->emittingRunOnceLambda = false;
+        if (bce->checkSingletonContext()) {
+            bce->emittingRunOnceLambda = true;
+            if (!EmitTree(cx, bce, pn2))
+                return false;
+            bce->emittingRunOnceLambda = false;
+        } else {
+            if (!EmitTree(cx, bce, pn2))
+                return false;
+        }
         callop = false;
         break;
       default:
@@ -5406,7 +5414,8 @@ EmitCallOrNew(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t top)
         break;
     }
     if (!callop) {
-        if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
+        JSOp thisop = pn->isKind(PNK_GENEXP) ? JSOP_THIS : JSOP_UNDEFINED;
+        if (Emit1(cx, bce, thisop) < 0)
             return false;
         if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
             return false;
@@ -6419,6 +6428,7 @@ frontend::EmitTree(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
       case PNK_NEW:
       case PNK_CALL:
+      case PNK_GENEXP:
         ok = EmitCallOrNew(cx, bce, pn, top);
         break;
 

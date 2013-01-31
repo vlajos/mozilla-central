@@ -2709,14 +2709,14 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
                builder.unaryExpression(op, expr, &pn->pn_pos, dst);
       }
 
+#if JS_HAS_GENERATOR_EXPRS
+      case PNK_GENEXP:
+        return generatorExpression(pn->generatorExpr(), dst);
+#endif
+
       case PNK_NEW:
       case PNK_CALL:
       {
-#if JS_HAS_GENERATOR_EXPRS
-        if (pn->isGeneratorExpr())
-            return generatorExpression(pn->generatorExpr(), dst);
-#endif
-
         ParseNode *next = pn->pn_head;
         JS_ASSERT(pn->pn_pos.encloses(next->pn_pos));
 
@@ -3395,7 +3395,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
         return JS_FALSE;
     }
 
-    RootedString src(cx, ToString(cx, JS_ARGV(cx, vp)[0]));
+    RootedString src(cx, ToString<CanGC>(cx, JS_ARGV(cx, vp)[0]));
     if (!src)
         return JS_FALSE;
 
@@ -3434,7 +3434,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
                 return JS_FALSE;
 
             if (!prop.isNullOrUndefined()) {
-                RootedString str(cx, ToString(cx, prop));
+                RootedString str(cx, ToString<CanGC>(cx, prop));
                 if (!str)
                     return JS_FALSE;
 

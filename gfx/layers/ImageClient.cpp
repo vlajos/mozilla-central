@@ -8,9 +8,28 @@
 #include "BasicLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "SharedTextureImage.h"
+#include "ImageContainer.h" // For PlanarYCbCrImage
 
 namespace mozilla {
 namespace layers {
+
+ImageClient::ImageClient()
+: mLastPaintedImageSerial(0)
+, mForwarder(nullptr)
+, mLayer(nullptr)
+{}
+
+void
+ImageClient::UpdatePictureRect(nsIntRect aRect)
+{
+  if (mPictureRect == aRect) {
+    return;
+  }
+  mPictureRect = aRect;
+  MOZ_ASSERT(mForwarder);
+  MOZ_ASSERT(mLayer);
+  mForwarder->UpdatePictureRect(mLayer, aRect);
+}
 
 ImageClientTexture::ImageClientTexture(ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer,
@@ -34,45 +53,25 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
     return true;
   }
 
-  BufferType type = CompositingFactory::TypeForImage(autoLock.GetImage());
-  if (type != BUFFER_TEXTURE) {
-    return type == BUFFER_UNKNOWN;
+  if (image->GetFormat() == PLANAR_YCBCR) {
+    AutoLockYCbCrClient clientLock(mTextureClient);
+    PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
+    if (!clientLock.Update(ycbcr)) {
+      return false;
+    }
+    UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
+  } else {
+    AutoLockShmemClient clientLock(mTextureClient);
+    if (!clientLock.Update(image, aLayer, surface)) {
+      return false;
+    }
+    UpdatePictureRect(nsIntRect(0, 0,
+                                image->GetSize().width,
+                                image->GetSize().height));
   }
-
-  nsRefPtr<gfxPattern> pat = new gfxPattern(surface);
-  if (!pat)
-    return true;
-
-  pat->SetFilter(aLayer->GetFilter());
-  gfxMatrix mat = pat->GetMatrix();
-  aLayer->ScaleMatrix(surface->GetSize(), mat);
-  pat->SetMatrix(mat);
-
-  gfxIntSize size = autoLock.GetSize();
-
-  gfxASurface::gfxContentType contentType = gfxASurface::CONTENT_COLOR_ALPHA;
-  bool isOpaque = (aLayer->GetContentFlags() & Layer::CONTENT_OPAQUE);
-  if (surface) {
-    contentType = surface->GetContentType();
-  }
-  if (contentType != gfxASurface::CONTENT_ALPHA &&
-      isOpaque) {
-    contentType = gfxASurface::CONTENT_COLOR;
-  }
-  mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height), contentType);
-
-  nsRefPtr<gfxContext> tmpCtx = mTextureClient->LockContext();
-  tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
-  PaintContext(pat,
-               nsIntRegion(nsIntRect(0, 0, size.width, size.height)),
-               1.0, tmpCtx, nullptr);
-
-  mTextureClient->Unlock();
-  
   mLastPaintedImageSerial = image->GetSerial();
   return true;
 }
-
 
 void
 ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
@@ -130,7 +129,7 @@ ImageClientBridge::ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
                                      ShadowableLayer* aLayer,
                                      TextureFlags aFlags)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_BRIDGE, BUFFER_BRIDGE, aLayer, aFlags, true);
+  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_ASYNC, BUFFER_BRIDGE, aLayer, aFlags, true);
 }
 
 bool

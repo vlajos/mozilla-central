@@ -25,7 +25,6 @@
 #include "jslock.h"
 #include "jsnum.h"
 #include "jsopcode.h"
-#include "jsscope.h"
 #include "jsscript.h"
 
 #include "gc/Marking.h"
@@ -36,6 +35,7 @@
 #include "ion/IonCode.h"
 #include "methodjit/Retcon.h"
 #include "vm/Debugger.h"
+#include "vm/Shape.h"
 #include "vm/Xdr.h"
 
 #include "jsinferinlines.h"
@@ -49,6 +49,8 @@
 using namespace js;
 using namespace js::gc;
 using namespace js::frontend;
+
+typedef Rooted<GlobalObject *> RootedGlobalObject;
 
 /* static */ unsigned
 Bindings::argumentsVarIndex(JSContext *cx, InternalBindingsHandle bindings)
@@ -1212,7 +1214,7 @@ ScriptSource::substring(JSContext *cx, uint32_t start, uint32_t stop)
                 return NULL;
             }
             decompressed[length_] = 0;
-            cached = js_NewString(cx, decompressed, length_);
+            cached = js_NewString<CanGC>(cx, decompressed, length_);
             if (!cached) {
                 js_free(decompressed);
                 return NULL;
@@ -1227,7 +1229,7 @@ ScriptSource::substring(JSContext *cx, uint32_t start, uint32_t stop)
 #else
     chars = data.source;
 #endif
-    return js_NewStringCopyN(cx, chars + start, stop - start);
+    return js_NewStringCopyN<CanGC>(cx, chars + start, stop - start);
 }
 
 bool
@@ -2368,7 +2370,7 @@ js::CloneFunctionScript(JSContext *cx, HandleFunction original, HandleFunction c
     clone->setScript(cscript);
     cscript->setFunction(clone);
 
-    GlobalObject *global = script->compileAndGo ? &script->global() : NULL;
+    RootedGlobalObject global(cx, script->compileAndGo ? &script->global() : NULL);
 
     script = clone->nonLazyScript();
     CallNewScriptHook(cx, script, clone);
@@ -2599,7 +2601,7 @@ JSScript::markChildren(JSTracer *trc)
     // JSScript::Create(), but not yet finished initializing it with
     // fullyInitFromEmitter() or fullyInitTrivial().
 
-    JS_ASSERT_IF(trc->runtime->gcStrictCompartmentChecking, compartment()->isCollecting());
+    JS_ASSERT_IF(trc->runtime->gcStrictCompartmentChecking, zone()->isCollecting());
 
     for (uint32_t i = 0; i < natoms; ++i) {
         if (atoms[i])

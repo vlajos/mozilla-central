@@ -74,7 +74,6 @@ public:
                    ID3D11Device *aDevice)
     : TextureHost(aBuffering, aDeallocator)
     , mDevice(aDevice)
-    , mHasAlpha(true)
     , mNeedsLock(false)
   {
   }
@@ -87,7 +86,7 @@ public:
 
   virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
-  virtual Effect *Lock(const gfx::Filter& aFilter);
+  virtual bool Lock();
   virtual void Unlock();
 
 protected:
@@ -98,7 +97,6 @@ private:
   void ReleaseTexture();
 
   RefPtr<ID3D11Device> mDevice;
-  bool mHasAlpha;
   bool mNeedsLock;
 };
 

@@ -21,6 +21,9 @@ class gfxImageSurface;
 class nsIWidget;
 class gfxReusableSurfaceWrapper;
 
+typedef int32_t SurfaceDescriptorType;
+static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
+
 namespace mozilla {
 namespace gfx {
 class DrawTarget;
@@ -165,6 +168,8 @@ public:
    */
   virtual TextureSource* AsTextureSource() = 0;
 
+  virtual gfx::SurfaceFormat GetFormat() { return mFormat; }
+
   /**
    * Update the texture host from a SurfaceDescriptor, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The
@@ -187,7 +192,7 @@ public:
    * Lock the texture host for compositing, returns an effect that should
    * be used to composite this texture.
    */
-  virtual Effect* Lock(const gfx::Filter& aFilter) { return nullptr; }
+  virtual bool Lock() { return false; }
 
   /**
    * Unlock the texture host after compositing
@@ -307,6 +312,7 @@ protected:
   TextureFlags mFlags;
   BufferMode mBufferMode;
   SurfaceDescriptor* mBuffer;
+  gfx::SurfaceFormat mFormat;
 
   // ImageBridge
   uint64_t mAsyncContainerID;
@@ -379,6 +385,7 @@ public:
     CreateTextureHost(BufferType aImageType,
                       TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
+                      SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator) = 0;
 
   /**

@@ -8,12 +8,11 @@
 #define TILEDLAYERBUFFER_TILE_SIZE 256
 
 // Debug defines
-//TODO[nrc] undo the comments
-//#ifdef MOZ_ANDROID_OMTC
+#ifdef MOZ_ANDROID_OMTC
   // This needs to go away as we enabled tiled
   // layers everywhere.
   #define FORCE_BASICTILEDTHEBESLAYER
-//#endif
+#endif
 //#define GFX_TILEDLAYER_DEBUG_OVERLAY
 //#define GFX_TILEDLAYER_PREF_WARNINGS
 

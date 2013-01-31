@@ -472,6 +472,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
         = compositor->CreateTextureHost(info.imageType,
                                         info.memoryType,
                                         info.textureFlags,
+                                        SURFACEDESCRIPTOR_UNKNOWN,
                                         this);
 
       textureHost->SetCompositorID(compositor->GetCompositorID());
@@ -499,10 +500,30 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       Layer* layer = GetLayerFromOpPaint(op);
       ShadowLayer* shadowLayer = layer->AsShadowLayer();
 
-      RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
+      Compositor* compositor
+        = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+
+      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
+      const SurfaceDescriptor& descriptor = op.image();
+      const TextureInfo& info = textureParent->GetTextureInfo();
+      if (textureParent->SurfaceTypeChanged(descriptor.type())) {
+        RefPtr<TextureHost> textureHost
+        = compositor->CreateTextureHost(info.imageType,
+                                        info.memoryType,
+                                        info.textureFlags,
+                                        descriptor.type(),
+                                        this);
+        textureHost->SetCompositorID(compositor->GetCompositorID());
+        textureParent->SetTextureHost(textureHost.get());
+        textureHost->SetTextureParent(textureParent);
+        // here we probably need something more specific like SwapTextureHost
+        layer->AsLayerComposite()->GetCompositableHost()->AddTextureHost(textureHost);
+      }
+      textureParent->SetCurrentSurfaceType(descriptor.type());
       TextureHost* host = AsTextureHost(op);
       shadowLayer->SetAllocator(this);
       SurfaceDescriptor newBack;
+      RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
       host->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
  
@@ -538,11 +559,9 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
     case Edit::TOpUpdatePictureRect: {
       const OpUpdatePictureRect& op = edit.get_OpUpdatePictureRect();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
-      ShadowImageLayer* image =
-        static_cast<ShadowImageLayer*>(shadow->AsLayer());
-
-      image->SetPictureRect(op.picture());
+      CompositableHost* compositable = AsShadowLayer(op)->AsLayer()->AsShadowLayer()->GetCompositableHost();
+      MOZ_ASSERT(compositable);
+      compositable->SetPictureRect(op.picture());
       break;
     }
     default:

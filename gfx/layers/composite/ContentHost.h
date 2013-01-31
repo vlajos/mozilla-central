@@ -92,15 +92,13 @@ public:
 };
 
 class ContentHost : public AContentHost
-                  , protected CompositingThebesLayerBuffer
 {
 public:
+  typedef ThebesLayerBuffer::ContentType ContentType;
+  typedef ThebesLayerBuffer::PaintState PaintState;
 
-  ContentHost(Compositor* aCompositor)
-    : CompositingThebesLayerBuffer(aCompositor)
-  {
-    mInitialised = false;
-  }
+  ContentHost(Compositor* aCompositor);
+  ~ContentHost();
 
   void Release() { AContentHost::Release(); }
   void AddRef() { AContentHost::AddRef(); }
@@ -113,16 +111,7 @@ public:
                          const gfx::Filter& aFilter,
                          const gfx::Rect& aClipRect,
                          const nsIntRegion* aVisibleRegion = nullptr,
-                         TiledLayerProperties* aLayerProperties = nullptr)
-  {
-    CompositingThebesLayerBuffer::Composite(aEffectChain,
-                                            aOpacity,
-                                            aTransform,
-                                            aOffset,
-                                            aFilter,
-                                            aClipRect,
-                                            aVisibleRegion);
-  }
+                         TiledLayerProperties* aLayerProperties = nullptr);
 
   // CompositingThebesLayerBuffer implementation
   virtual PaintState BeginPaint(ContentType aContentType, uint32_t) {
@@ -154,13 +143,23 @@ public:
   void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
   TextureHost* GetTextureHost() MOZ_OVERRIDE;
 
+  void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
+
 protected:
   virtual nsIntPoint GetOriginOffset() {
     return mBufferRect.TopLeft() - mBufferRotation;
   }
 
+  bool PaintWillResample() { return mPaintWillResample; }
+
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
+  bool mPaintWillResample;
+  bool mInitialised;
+  RefPtr<Compositor> mCompositor;
+  RefPtr<TextureHost> mTextureHost;
+  RefPtr<TextureHost> mTextureHostOnWhite;
+  RefPtr<Effect> mTextureEffect;
 };
 
 // We can directly texture the drawn surface.  Use that as our new
@@ -235,7 +234,11 @@ public:
     TextureFlags flags = 0;
     if (!mTextureHost) {
       // convert placeholder tile to a real tile
-      mTextureHost = aCompositor->CreateTextureHost(BUFFER_TILED, TEXTURE_TILED, 0, nullptr);
+      mTextureHost = aCompositor->CreateTextureHost(BUFFER_TILED,
+                                                    TEXTURE_TILE,
+                                                    0,
+                                                    SURFACEDESCRIPTOR_UNKNOWN,
+                                                    nullptr);
       flags |= NewTile;
     }
 

@@ -1334,7 +1334,6 @@ BasicShadowLayerManager::ProgressiveUpdateCallback(bool aHasPendingNewThebesCont
   return false;
 }
 
-
 BasicShadowableLayer::~BasicShadowableLayer()
 {
   if (HasShadow()) {

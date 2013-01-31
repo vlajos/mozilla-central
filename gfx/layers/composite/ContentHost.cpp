@@ -12,6 +12,9 @@
 #include "gfxPlatform.h"
 
 namespace mozilla {
+
+  using namespace gfx;
+
 namespace layers {
 
 void
@@ -31,6 +34,8 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   }
 
   mTextureHost->UpdateAsyncTexture();
+
+#if 0
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
       mTextureHostOnWhite->UpdateAsyncTexture();
@@ -48,6 +53,10 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   } else {
     return;
   }
+#else
+  // XXX - Bas - Disabled as per new Lock API.
+  return;
+#endif
 
   nsIntRegion tmpRegion;
   const nsIntRegion* renderRegion;
@@ -171,6 +180,17 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   mTextureHost->Unlock();
 }
 
+ContentHost::ContentHost(Compositor* aCompositor)
+  : mCompositor(aCompositor)
+  , mPaintWillResample(false)
+  , mInitialised(false)
+{
+}
+
+ContentHost::~ContentHost()
+{
+}
+
 void 
 ContentHost::AddTextureHost(TextureHost* aTextureHost)
 {
@@ -185,6 +205,144 @@ ContentHost::GetTextureHost()
   return mTextureHost.get();
 }
 
+void
+ContentHost::Composite(EffectChain& aEffectChain,
+                       float aOpacity,
+                       const gfx::Matrix4x4& aTransform,
+                       const Point& aOffset,
+                       const Filter& aFilter,
+                       const Rect& aClipRect,
+                       const nsIntRegion* aVisibleRegion)
+{
+  NS_ASSERTION(aVisibleRegion, "Requires a visible region");
+
+  if (!mTextureHost->Lock()) {
+    return;
+  }
+
+  aEffectChain.mEffects[mTextureEffect->mType] = mTextureEffect;
+
+  nsIntRegion tmpRegion;
+  const nsIntRegion* renderRegion;
+  if (PaintWillResample()) {
+    // If we're resampling, then the texture image will contain exactly the
+    // entire visible region's bounds, and we should draw it all in one quad
+    // to avoid unexpected aliasing.
+    tmpRegion = aVisibleRegion->GetBounds();
+    renderRegion = &tmpRegion;
+  } else {
+    renderRegion = aVisibleRegion;
+  }
+
+  nsIntRegion region(*renderRegion);
+  nsIntPoint origin = GetOriginOffset();
+  region.MoveBy(-origin);           // translate into TexImage space, buffer origin might not be at texture (0,0)
+
+  // Figure out the intersecting draw region
+  TextureSource* source = mTextureHost->AsTextureSource();
+  MOZ_ASSERT(source);
+  gfx::IntSize texSize = source->GetSize();
+  nsIntRect textureRect = nsIntRect(0, 0, texSize.width, texSize.height);
+  textureRect.MoveBy(region.GetBounds().TopLeft());
+  nsIntRegion subregion;
+  subregion.And(region, textureRect);
+  if (subregion.IsEmpty()) {
+    // Region is empty, nothing to draw
+    mTextureHost->Unlock();
+    return;
+  }
+
+  nsIntRegion screenRects;
+  nsIntRegion regionRects;
+
+  // Collect texture/screen coordinates for drawing
+  nsIntRegionRectIterator iter(subregion);
+  while (const nsIntRect* iterRect = iter.Next()) {
+    nsIntRect regionRect = *iterRect;
+    nsIntRect screenRect = regionRect;
+    screenRect.MoveBy(origin);
+
+    screenRects.Or(screenRects, screenRect);
+    regionRects.Or(regionRects, regionRect);
+  }
+
+  TileIterator* tileIter = source->AsTileIterator();
+  TileIterator* iterOnWhite = nullptr;
+  if (tileIter) {
+    tileIter->BeginTileIteration();
+  }
+
+  if (mTextureHostOnWhite) {
+    iterOnWhite = mTextureHostOnWhite->AsTextureSource()->AsTileIterator();
+    NS_ASSERTION((!tileIter) || tileIter->GetTileCount() == iterOnWhite->GetTileCount(),
+                 "Tile count mismatch on component alpha texture");
+    if (iterOnWhite) {
+      iterOnWhite->BeginTileIteration();
+    }
+  }
+
+  bool usingTiles = (tileIter && tileIter->GetTileCount() > 1);
+  do {
+    if (iterOnWhite) {
+      NS_ASSERTION(iterOnWhite->GetTileRect() == tileIter->GetTileRect(), "component alpha textures should be the same size.");
+    }
+
+    nsIntRect texRect = tileIter ? tileIter->GetTileRect()
+                                 : nsIntRect(0, 0,
+                                             texSize.width,
+                                             texSize.height);
+
+    // Draw texture. If we're using tiles, we do repeating manually, as texture
+    // repeat would cause each individual tile to repeat instead of the
+    // compound texture as a whole. This involves drawing at most 4 sections,
+    // 2 for each axis that has texture repeat.
+    for (int y = 0; y < (usingTiles ? 2 : 1); y++) {
+      for (int x = 0; x < (usingTiles ? 2 : 1); x++) {
+        nsIntRect currentTileRect(texRect);
+        currentTileRect.MoveBy(x * texSize.width, y * texSize.height);
+
+        nsIntRegionRectIterator screenIter(screenRects);
+        nsIntRegionRectIterator regionIter(regionRects);
+
+        const nsIntRect* screenRect;
+        const nsIntRect* regionRect;
+        while ((screenRect = screenIter.Next()) &&
+               (regionRect = regionIter.Next())) {
+            nsIntRect tileScreenRect(*screenRect);
+            nsIntRect tileRegionRect(*regionRect);
+
+            // When we're using tiles, find the intersection between the tile
+            // rect and this region rect. Tiling is then handled by the
+            // outer for-loops and modifying the tile rect.
+            if (usingTiles) {
+                tileScreenRect.MoveBy(-origin);
+                tileScreenRect = tileScreenRect.Intersect(currentTileRect);
+                tileScreenRect.MoveBy(origin);
+
+                if (tileScreenRect.IsEmpty())
+                  continue;
+
+                tileRegionRect = regionRect->Intersect(currentTileRect);
+                tileRegionRect.MoveBy(-currentTileRect.TopLeft());
+            }
+            gfx::Rect rect(tileScreenRect.x, tileScreenRect.y,
+                           tileScreenRect.width, tileScreenRect.height);
+            gfx::Rect sourceRect(tileRegionRect.x, tileRegionRect.y,
+                                 tileRegionRect.width, tileRegionRect.height);
+            gfx::Rect textureRect(texRect.x, texRect.y,
+                                  texRect.width, texRect.height);
+            mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
+                                  aOpacity, aTransform, aOffset);
+        }
+      }
+    }
+
+    if (iterOnWhite)
+        iterOnWhite->NextTile();
+  } while (usingTiles && tileIter->NextTile());
+
+  mTextureHost->Unlock();
+}
 void
 ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  const nsIntRegion& aUpdated,
@@ -223,6 +381,12 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   *aNewValidRegionFront = aOldValidRegionBack;
   *aNewBackResult = null_t();
   aUpdatedRegionBack->SetEmpty();
+
+  if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
+    mTextureEffect = new EffectBGRA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  } else {
+    mTextureEffect = new EffectBGRX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  }
 }
 
 void
@@ -270,6 +434,12 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
                             aUpdated);
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
+
+  if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
+    mTextureEffect = new EffectBGRA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  } else {
+    mTextureEffect = new EffectBGRX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  }
 }
 
 void
@@ -500,7 +670,15 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 {
   MOZ_ASSERT(aTile.mTextureHost, "Trying to render a placeholder tile?");
 
-  if (Effect* effect = aTile.mTextureHost->Lock(aFilter)) {
+  // XXX - Bas - Fix using proper effect!
+  RefPtr<Effect> effect;
+  
+  if (aTile.mTextureHost->GetFormat() == FORMAT_B8G8R8X8) {
+    effect = new EffectBGRX(aTile.mTextureHost, true, aFilter);
+  } else {
+    effect = new EffectBGRA(aTile.mTextureHost, true, aFilter);
+  }
+  if (aTile.mTextureHost->Lock()) {
     aEffectChain.mEffects[effect->mType] = effect;
   } else {
     return;

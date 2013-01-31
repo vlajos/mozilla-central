@@ -24,55 +24,8 @@ namespace layers {
 
 class TextureChild;
 class ContentClient;
+class PlanarYCbCrImage;
 
-//TODO[nical] remove
-class AwesomeTextureClient
-{
-public:
-  AwesomeTextureClient() {
-    MOZ_COUNT_CTOR(AwesomeTextureClient);
-  }
-
-  virtual ~AwesomeTextureClient() {
-    MOZ_ASSERT(!IsLocked());
-    MOZ_COUNT_DTOR(AwesomeTextureClient);
-  }
-
-  virtual SurfaceDescriptor* Lock() {
-    return &mData;
-  }
-
-  virtual void Unlock() {};
-
-  virtual bool IsLocked() {
-    return false;
-  };
-
-  void AddToTransaction(ShadowLayerForwarder* aFwd);
-
-  virtual void Set(const SurfaceDescriptor& aImage) {
-    if (mData.type() != SurfaceDescriptor::T__None) {
-      ReleaseResources();
-    }
-    mData = aImage;
-  }
-
-  virtual bool Allocate(SurfaceDescriptor::Type aType, gfx::IntSize aSize);
-
-  virtual void ReleaseResources();
-
-  void SetTextureChild(TextureChild* aChild) {
-    mTextureChild = aChild;
-  }
-  TextureChild* GetTextureChild() const {
-    return mTextureChild;
-  }
-
-protected:
-  SurfaceDescriptor mData;
-  //TextureInfo mTextureInfo;
-  TextureChild* mTextureChild;
-};
 
 /* This class allows texture clients to draw into textures through Azure or
  * thebes and applies locking semantics to allow GPU or CPU level
@@ -106,13 +59,15 @@ public:
    * object that can be used for drawing to. Once the user is finished
    * with the object it should call Unlock.
    */
+  // these will be removed
   virtual already_AddRefed<gfxContext> LockContext()  { return nullptr; }
   virtual TemporaryRef<gfx::DrawTarget> LockDT() { return nullptr; } 
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual SharedTextureHandle LockHandle(GLContext* aGL, GLContext::SharedTextureShareType aFlags) { return 0; }
+  // only this one should remain (and be called just "Lock")
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
-
+  virtual void ReleaseResources() {}
   /**
    * This unlocks the current DrawableTexture and allows the host to composite
    * it directly.
@@ -134,21 +89,69 @@ public:
                              const nsIntPoint& aBufferRotation);
   virtual void Destroyed(ShadowableLayer* aLayer);
 
-  void SetTextureChild(PTextureChild* aTextureChild) {
-    mTextureChild = aTextureChild;
-  }
+  void SetTextureChild(PTextureChild* aTextureChild);
   PTextureChild* GetTextureChild() const {
     return mTextureChild;
   }
+
+  ShadowLayerForwarder* GetLayerForwarder() const {
+    return mLayerForwarder;
+  }
+/*
+  void SetSurfaceAllocator(ISurfaceDeallocator* aAllocator) {
+    mAllocator = aAllocator;
+  }
+*/
+  ISurfaceDeallocator* GetSurfaceAllocator() const {
+    return mAllocator;
+  }
+
 protected:
   TextureClient(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
 
+  ISurfaceDeallocator* mAllocator;
   ShadowLayerForwarder* mLayerForwarder;
   // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
   // the reference here.
   SurfaceDescriptor mDescriptor;
   TextureInfo mTextureInfo;
   PTextureChild* mTextureChild;
+};
+
+class AutoLockTextureClient
+{
+public:
+  AutoLockTextureClient(TextureClient* aTexture) {
+    mTextureClient = aTexture;
+    mDescriptor = aTexture->LockSurfaceDescriptor();
+  }
+
+  virtual ~AutoLockTextureClient() {
+    mTextureClient->Unlock();
+  }
+protected:
+  TextureClient* mTextureClient;
+  SurfaceDescriptor* mDescriptor;
+};
+
+class AutoLockYCbCrClient : public AutoLockTextureClient
+{
+public:
+  AutoLockYCbCrClient(TextureClient* aTexture) : AutoLockTextureClient(aTexture) {}
+  bool Update(PlanarYCbCrImage* aImage);
+protected:
+  bool EnsureTextureClient(PlanarYCbCrImage* aImage);
+};
+
+class AutoLockShmemClient : public AutoLockTextureClient
+{
+public:
+  AutoLockShmemClient(TextureClient* aTexture) : AutoLockTextureClient(aTexture) {}
+  bool Update(Image* aImage, ImageLayer* aLayer, gfxASurface* surface);
+protected:
+  bool EnsureTextureClient(nsIntSize aSize,
+                           gfxASurface* surface,
+                           gfxASurface::gfxContentType contentType);
 };
 
 class TextureClientShmem : public TextureClient
@@ -174,6 +177,12 @@ private:
   gfx::IntSize mSize;
 
   friend class CompositingFactory;
+};
+
+class TextureClientShmemYCbCr : public TextureClient
+{
+public:
+  void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
 };
 
 // this class is just a place holder really

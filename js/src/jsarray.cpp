@@ -30,7 +30,6 @@
 #include "jslock.h"
 #include "jsnum.h"
 #include "jsobj.h"
-#include "jsscope.h"
 #include "jswrapper.h"
 #include "methodjit/MethodJIT.h"
 #include "methodjit/StubCalls.h"
@@ -40,6 +39,7 @@
 #include "vm/ArgumentsObject.h"
 #include "vm/ForkJoin.h"
 #include "vm/NumericConversions.h"
+#include "vm/Shape.h"
 #include "vm/StringBuffer.h"
 #include "vm/ThreadPool.h"
 
@@ -49,11 +49,11 @@
 #include "jscntxtinlines.h"
 #include "jsinterpinlines.h"
 #include "jsobjinlines.h"
-#include "jsscopeinlines.h"
 #include "jsstrinlines.h"
 
 #include "vm/ArgumentsObject-inl.h"
 #include "vm/ObjectImpl-inl.h"
+#include "vm/Shape-inl.h"
 #include "vm/Stack-inl.h"
 
 using namespace js;
@@ -167,7 +167,7 @@ DoubleIndexToId(JSContext *cx, double index, MutableHandleId id)
     if (index == uint32_t(index))
         return IndexToId(cx, uint32_t(index), id);
 
-    return ValueToId(cx, DoubleValue(index), id);
+    return ValueToId<CanGC>(cx, DoubleValue(index), id);
 }
 
 /*
@@ -720,7 +720,7 @@ array_join_sub(JSContext *cx, CallArgs &args, bool locale)
     // Steps 4 and 5
     RootedString sepstr(cx, NULL);
     if (!locale && args.hasDefined(0)) {
-        sepstr = ToString(cx, args[0]);
+        sepstr = ToString<CanGC>(cx, args[0]);
         if (!sepstr)
             return false;
     }
@@ -953,7 +953,7 @@ InitArrayElements(JSContext *cx, HandleObject obj, uint32_t start, uint32_t coun
     double index = MAX_ARRAY_INDEX + 1;
     do {
         value = *vector++;
-        if (!ValueToId(cx, DoubleValue(index), &id) ||
+        if (!ValueToId<CanGC>(cx, DoubleValue(index), &id) ||
             !JSObject::setGeneric(cx, obj, obj, id, &value, true)) {
             return false;
         }
@@ -1415,6 +1415,8 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
                 result = vec.begin() + n;
             }
         } else {
+            /* array.sort() cannot currently be used from parallel code */
+            JS_ASSERT(!ForkJoinSlice::InParallelSection());
             FastInvokeGuard fig(cx, fval);
             if (!MergeSort(vec.begin(), n, vec.begin() + n,
                            SortComparatorFunction(cx, fval, fig))) {
@@ -1738,7 +1740,7 @@ TryReuseArrayType(JSObject *obj, JSObject *nobj)
      * and has the same prototype.
      */
     JS_ASSERT(nobj->isArray());
-    JS_ASSERT(nobj->getProto()->hasNewType(nobj->type()));
+    JS_ASSERT(nobj->getProto()->hasNewType(&ArrayClass, nobj->type()));
 
     if (obj->isArray() && !obj->hasSingletonType() && obj->getProto() == nobj->getProto())
         nobj->setType(obj->type());
@@ -2203,6 +2205,7 @@ array_map(JSContext *cx, unsigned argc, Value *vp)
 
     /* Step 8. */
     RootedValue kValue(cx);
+    JS_ASSERT(!ForkJoinSlice::InParallelSection());
     FastInvokeGuard fig(cx, ObjectValue(*callable));
     InvokeArgsGuard &ag = fig.args();
     while (k < len) {
@@ -2283,6 +2286,7 @@ array_filter(JSContext *cx, unsigned argc, Value *vp)
     uint32_t to = 0;
 
     /* Step 9. */
+    JS_ASSERT(!ForkJoinSlice::InParallelSection());
     FastInvokeGuard fig(cx, ObjectValue(*callable));
     InvokeArgsGuard &ag = fig.args();
     RootedValue kValue(cx);
@@ -2445,7 +2449,7 @@ js_InitArrayClass(JSContext *cx, HandleObject obj)
     if (!proto)
         return NULL;
 
-    RootedTypeObject type(cx, proto->getNewType(cx));
+    RootedTypeObject type(cx, proto->getNewType(cx, &ArrayClass));
     if (!type)
         return NULL;
 
@@ -2467,7 +2471,7 @@ js_InitArrayClass(JSContext *cx, HandleObject obj)
      * arrays in JSON and script literals and allows setDenseArrayElement to
      * be used without updating the indexed type set for such default arrays.
      */
-    if (!JSObject::setNewTypeUnknown(cx, arrayProto))
+    if (!JSObject::setNewTypeUnknown(cx, &ArrayClass, arrayProto))
         return NULL;
 
     if (!LinkConstructorAndPrototype(cx, ctor, arrayProto))
@@ -2536,7 +2540,7 @@ NewArray(JSContext *cx, uint32_t length, RawObject protoArg)
     if (!proto && !FindProto(cx, &ArrayClass, &proto))
         return NULL;
 
-    RootedTypeObject type(cx, proto->getNewType(cx));
+    RootedTypeObject type(cx, proto->getNewType(cx, &ArrayClass));
     if (!type)
         return NULL;
 

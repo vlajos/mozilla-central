@@ -764,8 +764,9 @@ SmsDatabaseService.prototype = {
 
   saveSendingMessage: function saveSendingMessage(
       aReceiver, aBody, aDeliveryStatus, aDate, aCallback) {
-    let sender = this.mRIL.rilContext.icc
-               ? this.mRIL.rilContext.icc.msisdn
+    let rilContext = this.mRIL.rilContext;
+    let sender = rilContext.icc
+               ? rilContext.icc.msisdn
                : null;
 
     // Workaround an xpconnect issue with undefined string objects.
@@ -775,18 +776,21 @@ SmsDatabaseService.prototype = {
     }
 
     let receiver = aReceiver;
-    if (receiver) {
-      let parsedNumber = PhoneNumberUtils.parse(receiver.toString());
-      receiver = (parsedNumber && parsedNumber.internationalNumber)
-                 ? parsedNumber.internationalNumber
-                 : receiver;
-    }
 
-    if (sender) {
-      let parsedNumber = PhoneNumberUtils.parse(sender.toString());
-      sender = (parsedNumber && parsedNumber.internationalNumber)
-               ? parsedNumber.internationalNumber
-               : sender;
+    if (rilContext.voice.network.mcc === rilContext.icc.mcc) {
+      if (receiver) {
+        let parsedNumber = PhoneNumberUtils.parse(receiver.toString());
+        receiver = (parsedNumber && parsedNumber.internationalNumber)
+                   ? parsedNumber.internationalNumber
+                   : receiver;
+      }
+
+      if (sender) {
+        let parsedNumber = PhoneNumberUtils.parse(sender.toString());
+        sender = (parsedNumber && parsedNumber.internationalNumber)
+                 ? parsedNumber.internationalNumber
+                 : sender;
+      }
     }
 
     let message = {
@@ -1430,11 +1434,9 @@ SmsDatabaseService.prototype = {
   }
 };
 
-XPCOMUtils.defineLazyGetter(SmsDatabaseService.prototype, "mRIL", function () {
-    return Cc["@mozilla.org/telephony/system-worker-manager;1"]
-              .getService(Ci.nsIInterfaceRequestor)
-              .getInterface(Ci.nsIRadioInterfaceLayer);
-});
+XPCOMUtils.defineLazyServiceGetter(SmsDatabaseService.prototype, "mRIL",
+                                   "@mozilla.org/ril;1",
+                                   "nsIRadioInterfaceLayer");
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SmsDatabaseService]);
 

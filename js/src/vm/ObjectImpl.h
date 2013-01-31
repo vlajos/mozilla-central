@@ -289,10 +289,10 @@ struct PropDesc {
     bool checkGetter(JSContext *cx);
     bool checkSetter(JSContext *cx);
 
-    bool unwrapDebuggerObjectsInto(JSContext *cx, Debugger *dbg, JSObject *obj,
+    bool unwrapDebuggerObjectsInto(JSContext *cx, Debugger *dbg, HandleObject obj,
                                    PropDesc *unwrapped) const;
 
-    bool wrapInto(JSContext *cx, JSObject *obj, const jsid &id, jsid *wrappedId,
+    bool wrapInto(JSContext *cx, HandleObject obj, const jsid &id, jsid *wrappedId,
                   PropDesc *wrappedDesc) const;
 
     class AutoRooter : private AutoGCRooter
@@ -935,8 +935,8 @@ class ObjectElements
     /* 'length' property of array objects, unused for other objects. */
     uint32_t length;
 
-    /* :XXX: bug 586842 store state about sparse slots. */
-    uint32_t unused;
+    /* If non-zero, integer elements should be converted to doubles. */
+    uint32_t convertDoubleElements;
 
     void staticAsserts() {
         MOZ_STATIC_ASSERT(sizeof(ObjectElements) == VALUES_PER_HEADER * sizeof(Value),
@@ -946,7 +946,7 @@ class ObjectElements
   public:
 
     ObjectElements(uint32_t capacity, uint32_t length)
-      : capacity(capacity), initializedLength(0), length(length)
+      : capacity(capacity), initializedLength(0), length(length), convertDoubleElements(0)
     {}
 
     HeapSlot *elements() { return (HeapSlot *)(uintptr_t(this) + sizeof(ObjectElements)); }
@@ -963,6 +963,11 @@ class ObjectElements
     static int offsetOfLength() {
         return (int)offsetof(ObjectElements, length) - (int)sizeof(ObjectElements);
     }
+    static int offsetOfConvertDoubleElements() {
+        return (int)offsetof(ObjectElements, convertDoubleElements) - (int)sizeof(ObjectElements);
+    }
+
+    static bool ConvertElementsToDoubles(JSContext *cx, uintptr_t elements);
 
     static const size_t VALUES_PER_HEADER = 2;
 };
@@ -1072,6 +1077,10 @@ class ObjectImpl : public gc::Cell
   public:
     JSObject * getProto() const {
         return type_->proto;
+    }
+
+    Class *getClass() const {
+        return type_->clasp;
     }
 
     inline bool isExtensible() const;
@@ -1205,23 +1214,14 @@ class ObjectImpl : public gc::Cell
     /* Compute dynamicSlotsCount() for this object. */
     inline uint32_t numDynamicSlots() const;
 
-    UnrootedShape nativeLookup(JSContext *cx, HandleId id);
+    UnrootedShape nativeLookup(JSContext *cx, jsid id);
     inline UnrootedShape nativeLookup(JSContext *cx, PropertyId pid);
     inline UnrootedShape nativeLookup(JSContext *cx, PropertyName *name);
 
-    UnrootedShape nativeLookupNoAllocation(jsid id);
-    inline UnrootedShape nativeLookupNoAllocation(PropertyId pid);
-    inline UnrootedShape nativeLookupNoAllocation(PropertyName *name);
+    inline bool nativeContains(JSContext *cx, jsid id);
+    inline bool nativeContains(JSContext *cx, PropertyName* name);
+    inline bool nativeContains(JSContext *cx, Shape* shape);
 
-    inline bool nativeContains(JSContext *cx, Handle<jsid> id);
-    inline bool nativeContains(JSContext *cx, Handle<PropertyName*> name);
-    inline bool nativeContains(JSContext *cx, Handle<Shape*> shape);
-
-    inline bool nativeContainsNoAllocation(jsid id);
-    inline bool nativeContainsNoAllocation(PropertyName *name);
-    inline bool nativeContainsNoAllocation(Shape &shape);
-
-    inline Class *getClass() const;
     inline JSClass *getJSClass() const;
     inline bool hasClass(const Class *c) const;
     inline const ObjectOps *getOps() const;

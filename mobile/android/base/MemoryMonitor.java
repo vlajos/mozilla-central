@@ -150,10 +150,18 @@ class MemoryMonitor extends BroadcastReceiver {
 
         // TODO hook in memory-reduction stuff for different levels here
         if (level >= MEMORY_PRESSURE_MEDIUM) {
-            if (GeckoApp.checkLaunchState(GeckoApp.LaunchState.GeckoRunning)) {
+            if (GeckoThread.checkLaunchState(GeckoThread.LaunchState.GeckoRunning)) {
                 GeckoAppShell.onLowMemory();
             }
-            GeckoAppShell.geckoEventSync();
+
+            if (level >= MEMORY_PRESSURE_HIGH) {
+                // We need to wait on Gecko here, because this is normally called
+                // from Activity.onLowMemory. If we haven't reduced memory usage
+                // enough when we return from that, Android will kill us.
+                // Activity.onTrimMemory is more of a suggestion.
+                GeckoAppShell.geckoEventSync();
+            }
+
             Favicons.getInstance().clearMemCache();
         }
     }
@@ -208,7 +216,7 @@ class MemoryMonitor extends BroadcastReceiver {
         @Override
         public void run() {
             // this might get run right on startup, if so wait 10 seconds and try again
-            if (!GeckoApp.checkLaunchState(GeckoApp.LaunchState.GeckoRunning)) {
+            if (!GeckoThread.checkLaunchState(GeckoThread.LaunchState.GeckoRunning)) {
                 GeckoAppShell.getHandler().postDelayed(this, 10000);
                 return;
             }

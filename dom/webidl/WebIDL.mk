@@ -22,6 +22,7 @@ webidl_files = \
   CanvasRenderingContext2D.webidl \
   CaretPosition.webidl \
   CDATASection.webidl \
+  CFStateChangeEvent.webidl \
   CharacterData.webidl \
   ClientRectList.webidl \
   Comment.webidl \
@@ -40,6 +41,7 @@ webidl_files = \
   DOMStringMap.webidl \
   DOMTokenList.webidl \
   DOMTransaction.webidl \
+  DummyBinding.webidl \
   DynamicsCompressorNode.webidl \
   Element.webidl \
   EventHandler.webidl \
@@ -97,6 +99,7 @@ webidl_files = \
   ProcessingInstruction.webidl \
   Rect.webidl \
   RGBColor.webidl \
+  RTCIceServer.webidl \
   Screen.webidl \
   SVGAElement.webidl \
   SVGAltGlyphElement.webidl \
@@ -130,6 +133,8 @@ webidl_files = \
   SVGLinearGradientElement.webidl \
   SVGLineElement.webidl \
   SVGLocatableElement.webidl \
+  SVGMarkerElement.webidl \
+  SVGMaskElement.webidl \
   SVGMatrix.webidl \
   SVGMetadataElement.webidl \
   SVGMPathElement.webidl \
@@ -174,6 +179,7 @@ webidl_files = \
   ValidityState.webidl \
   WebSocket.webidl \
   UndoManager.webidl \
+  USSDReceivedEvent.webidl \
   XMLHttpRequest.webidl \
   XMLHttpRequestEventTarget.webidl \
   XMLHttpRequestUpload.webidl \
@@ -190,12 +196,6 @@ endif
 ifdef MOZ_WEBRTC
 webidl_files += \
   MediaStreamList.webidl \
-  $(NULL)
-endif
-
-ifdef MOZ_B2G_RIL
-webidl_files += \
-  USSDReceivedEvent.webidl \
   $(NULL)
 endif
 

@@ -753,6 +753,10 @@ nsBaseWidget::AutoUseBasicLayerManager::~AutoUseBasicLayerManager()
 bool
 nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
 {
+  // TODO[nical] this is just a convenience for the gfx work, it should not be merged to central
+#ifdef MOZ_WIDGET_GTK2
+  return true;
+#endif
 #if defined(XP_WIN) || defined(ANDROID) || (MOZ_PLATFORM_MAEMO > 5) || \
     defined(MOZ_GL_PROVIDER) || defined(XP_MACOSX)
   bool accelerateByDefault = true;
@@ -860,8 +864,7 @@ void nsBaseWidget::CreateCompositor()
   mozilla::layers::LayersBackend backendHint = mozilla::layers::LAYERS_D3D11;
   //mUseLayersAcceleration ? mozilla::layers::LAYERS_D3D11 : mozilla::layers::LAYERS_BASIC;
 #else
-  mozilla::layers::LayersBackend backendHint =
-    mUseLayersAcceleration ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
+  mozilla::layers::LayersBackend backendHint = mozilla::layers::LAYERS_OPENGL;
 #endif
   shadowManager = mCompositorChild->SendPLayersConstructor(
     backendHint, 0, &textureFactoryIdentifier);

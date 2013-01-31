@@ -18,6 +18,7 @@ TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocat
   , mAsyncContainerID(0)
   , mAsyncTextureVersion(0)
   , mCompositorID(0)
+  , mFormat(gfx::FORMAT_UNKNOWN)
 
 {
   if (aBufferMode != BUFFER_NONE) {

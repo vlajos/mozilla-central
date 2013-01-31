@@ -1238,6 +1238,7 @@ NS_IMETHODIMP nsHTMLMediaElement::MozLoadFrom(nsIDOMHTMLMediaElement* aOther)
     ChangeDelayLoadStatus(false);
     return rv;
   }
+  mMimeType = other->mMimeType;
 
   SetPlaybackRate(mDefaultPlaybackRate);
   DispatchAsyncEvent(NS_LITERAL_STRING("loadstart"));
@@ -3585,6 +3586,13 @@ void nsHTMLMediaElement::UpdateAudioChannelPlayingState()
         return;
       }
       mAudioChannelAgent->Init(mAudioChannelType, this);
+
+      nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(OwnerDoc());
+      if (domDoc) {
+        bool hidden = false;
+        domDoc->GetHidden(&hidden);
+        mAudioChannelAgent->SetVisibilityState(!hidden);
+      }
     }
 
     if (mPlayingThroughTheAudioChannel) {

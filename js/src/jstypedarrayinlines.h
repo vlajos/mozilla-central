@@ -28,7 +28,7 @@ js::ArrayBufferObject::setElementsHeader(js::ObjectElements *header, uint32_t by
     header->capacity = bytes / sizeof(js::Value);
     header->initializedLength = bytes;
     header->length = 0;
-    header->unused = 0;
+    header->convertDoubleElements = 0;
 }
 
 inline uint32_t
@@ -225,7 +225,7 @@ DataViewObject::create(JSContext *cx, uint32_t byteOffset, uint32_t byteLength,
         return NULL;
 
     if (proto) {
-        types::TypeObject *type = proto->getNewType(cx);
+        types::TypeObject *type = proto->getNewType(cx, &DataViewClass);
         if (!type)
             return NULL;
         obj->setType(type);

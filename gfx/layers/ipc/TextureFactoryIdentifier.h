@@ -12,7 +12,6 @@ namespace layers {
 enum BufferType
 {
   BUFFER_UNKNOWN,
-  BUFFER_YCBCR,
   BUFFER_DIRECT_EXTERNAL,
   BUFFER_SHARED,
   BUFFER_TEXTURE,
@@ -23,17 +22,16 @@ enum BufferType
   BUFFER_DIRECT
 };
 
-enum TextureHostType
-{
-  TEXTURE_UNKNOWN,
-  TEXTURE_SHMEM,
-  TEXTURE_SHMEM_YCBCR, // TODO[nical]
-  TEXTURE_SHARED,
-  TEXTURE_SHARED_BUFFERED, // webgl
-  TEXTURE_SHARED_DXGI,
-  TEXTURE_TILED,
-  TEXTURE_BRIDGE
-};
+typedef int32_t TextureHostType;
+static const TextureHostType TEXTURE_UNKNOWN  = 0;
+static const TextureHostType TEXTURE_SHMEM    = 0;
+static const TextureHostType TEXTURE_BUFFERED = 1 << 0;
+static const TextureHostType TEXTURE_SHARED   = 1 << 2;
+static const TextureHostType TEXTURE_DIRECT   = 1 << 3;
+static const TextureHostType TEXTURE_ASYNC    = 1 << 4;
+static const TextureHostType TEXTURE_EXTERNAL = 1 << 5;
+static const TextureHostType TEXTURE_DXGI     = 1 << 6; // TODO belongs here?
+static const TextureHostType TEXTURE_TILE     = 1 << 7; // TODO[nical] remove?
 
 /**
  * Sent from the compositor to the drawing LayerManager, includes properties

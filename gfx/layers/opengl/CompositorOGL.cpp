@@ -700,46 +700,46 @@ CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 
 TemporaryRef<TextureHost>
 CompositorOGL::CreateTextureHost(BufferType aImageType,
-                                 TextureHostType aMemoryType,
+                                 TextureHostType aTextureType,
                                  uint32_t aTextureFlags,
+                                 SurfaceDescriptorType aDescriptorType,
                                  ISurfaceDeallocator* aDeAllocator)
 {
   RefPtr<TextureHost> result = nullptr;
-  switch (aMemoryType) {
-  case TEXTURE_SHARED:
-    result = new TextureHostOGLShared(mGLContext);
-    break;
-  case TEXTURE_SHARED_BUFFERED:
-    result = new TextureHostOGLShared(mGLContext, BUFFER_BUFFERED, aDeAllocator);
-    break;
-  case TEXTURE_SHMEM_YCBCR:
-    result = new YCbCrTextureHostOGL(mGLContext);
-    break;
-  case TEXTURE_SHMEM:
-    //TODO[nrc] fuck up
-    if (aImageType == BUFFER_YCBCR) {
-      result = new YCbCrTextureHostOGL(mGLContext);
-    } else if (aImageType == BUFFER_CONTENT_DIRECT) {
-      //TODO[nrc] should probably use the below path with fallback, but check
-      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_BUFFERED, aDeAllocator);
-    } else if (aImageType == BUFFER_DIRECT) {
-      if (ShadowLayerManager::SupportsDirectTexturing()) {
-        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_BUFFERED, aDeAllocator);
-      } else {
-        result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
-      }
-    // FIXME [bjacob] this is where we need to hook up gralloc for B2G
-    } else {
-      result = new TextureImageAsTextureHostOGL(mGLContext, nullptr, BUFFER_NONE);
+  if ((aTextureType & TEXTURE_DIRECT) 
+       && ShadowLayerManager::SupportsDirectTexturing()) {
+    aTextureType &= TEXTURE_SHARED;
+  }
+  BufferMode bufferMode = aTextureType & TEXTURE_BUFFERED ? BUFFER_BUFFERED
+                                                          : BUFFER_NONE;
+  // TODO[nical] sort out the BufferType / TextureHostType madness going on here:
+  // we should not use the BufferType here, the necessary info should be in
+  // TextureHostType
+  switch (aDescriptorType) {
+    case SurfaceDescriptor::TYCbCrImage: {
+      result = new YCbCrTextureHostOGL(mGLContext/*, bufferMode, aDeAllocator*/); 
+      break;
     }
-    break;
-  case TEXTURE_TILED:
-    result = new TiledTextureHost(mGLContext);
-    break;
-  case TEXTURE_UNKNOWN:
-  default:
-    NS_WARNING("Unknown texture type");
-    return nullptr;
+    default: {
+#ifdef MOZ_WIDGET_GONK
+      if (aImageType == BUFFER_DIRECT_EXTERNAL) {
+        result = new DirectExternalTextureHost(mGLContext);
+        break;
+      }
+#endif
+      if (aImageType == BUFFER_TILED) {
+        result = new TiledTextureHost(mGLContext);
+      } else if (aTextureType & TEXTURE_SHARED) {
+        result = new TextureHostOGLShared(mGLContext,
+                                          bufferMode,
+                                          aDeAllocator);
+      } else {
+        result = new TextureImageAsTextureHostOGL(mGLContext,
+                                                  nullptr,
+                                                  bufferMode,
+                                                  aDeAllocator);
+      }
+    }
   }
 
   NS_ASSERTION(result, "Result should have been created.");
@@ -1290,7 +1290,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     ShaderProgramOGL *program = GetProgram(YCbCrLayerProgramType, maskType);
 
     program->Activate();
-    program->SetYCbCrTextureUnits(0, 1, 2);
+    program->SetYCbCrTextureUnits(Y, Cb, Cr);
     program->SetLayerOpacity(aOpacity);
     program->SetLayerTransform(aTransform);
     program->SetRenderOffset(aOffset.x, aOffset.y);
