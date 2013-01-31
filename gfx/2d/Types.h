@@ -34,9 +34,10 @@ enum SurfaceFormat
 {
   FORMAT_B8G8R8A8,
   FORMAT_B8G8R8X8,
+  FORMAT_R8G8B8A8,
+  FORMAT_R8G8B8X8,
   FORMAT_R5G6B5,
   FORMAT_A8,
-  // TODO are we missing formats here ? RGBX, BGRX ?
   FORMAT_UNKNOWN
 };
 

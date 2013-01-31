@@ -383,7 +383,11 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   *aNewBackResult = null_t();
   aUpdatedRegionBack->SetEmpty();
 
-  if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
+  if (mTextureHost->GetFormat() == FORMAT_R8G8B8A8) {
+    mTextureEffect = new EffectRGBA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  } else if (mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
+    mTextureEffect = new EffectRGBX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  } else if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
     mTextureEffect = new EffectBGRA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
   } else {
     mTextureEffect = new EffectBGRX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
@@ -436,7 +440,11 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 
-  if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
+  if (mTextureHost->GetFormat() == FORMAT_R8G8B8A8) {
+    mTextureEffect = new EffectRGBA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  } else if (mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
+    mTextureEffect = new EffectRGBX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
+  } else if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
     mTextureEffect = new EffectBGRA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
   } else {
     mTextureEffect = new EffectBGRX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);

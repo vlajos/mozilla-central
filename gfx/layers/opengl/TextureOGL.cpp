@@ -91,15 +91,7 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
-}
 
-bool
-TextureImageAsTextureHostOGL::Lock()
-{
-  if (!mTexture) {
-    NS_WARNING("TextureImageAsTextureHost to be composited without texture");
-    return false;
-  }
   NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
                 "Image layer has alpha image");
 
@@ -110,11 +102,10 @@ TextureImageAsTextureHostOGL::Lock()
   // XXX - Bas - Get YFlip data out!
   switch (mTexture->GetShaderProgramType()) {
   case gl::RGBXLayerProgramType :
-    //TODO[bas] this one at least is required
-    //mFormat = FORMAT_R8G8B8X8;
+    mFormat = FORMAT_R8G8B8X8;
     //return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
-  //case gl::RGBALayerProgramType :
-    //mFormat = FORMAT_R8G8B8A8;
+  case gl::RGBALayerProgramType :
+    mFormat = FORMAT_R8G8B8A8;
     //return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
   case gl::BGRXLayerProgramType :
     mFormat = FORMAT_B8G8R8X8;
@@ -127,6 +118,16 @@ TextureImageAsTextureHostOGL::Lock()
     // at least we'll known if we run into them.
     MOZ_NOT_REACHED("unhandled program type");
   }
+}
+
+bool
+TextureImageAsTextureHostOGL::Lock()
+{
+  if (!mTexture) {
+    NS_WARNING("TextureImageAsTextureHost to be composited without texture");
+    return false;
+  }
+
   return true;
 }
 
@@ -186,8 +187,9 @@ TextureHostOGLShared::Lock()
     return false;
   }
 
+  //TODO we need to do something here, like set mFormat and we need to move this to UpdateImpl
 #if 0
-  // XXX - Look into dealing with texture transform for RGBALayerExternal!!
+  // TODO[bas] - Look into dealing with texture transform for RGBALayerExternal!!
   if (mFlags & UseOpaqueSurface) {
     return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
   } else if (handleDetails.mProgramType == gl::RGBALayerProgramType) {
