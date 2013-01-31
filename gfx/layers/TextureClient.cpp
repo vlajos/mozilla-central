@@ -493,7 +493,7 @@ CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
   case TEXTURE_ASYNC:
     result = new TextureClientBridge(aLayerForwarder, aCompositableHostType);
     break;
-  case TEXTURE_TILED:
+  case TEXTURE_TILE:
     result = new TextureClientTile(aLayerForwarder, aCompositableHostType);
     break;
   case TEXTURE_SHARED|TEXTURE_DXGI:

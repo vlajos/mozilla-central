@@ -256,7 +256,7 @@ private:
     : TextureClient(aLayerForwarder, aBufferType)
     , mSurface(nullptr)
   {
-    mTextureInfo.memoryType = TEXTURE_TILED;
+    mTextureInfo.memoryType = TEXTURE_TILE;
   }
 
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;

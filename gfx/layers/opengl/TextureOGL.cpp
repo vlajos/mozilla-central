@@ -109,12 +109,13 @@ TextureImageAsTextureHostOGL::Lock()
 
   // XXX - Bas - Get YFlip data out!
   switch (mTexture->GetShaderProgramType()) {
-#if 0
   case gl::RGBXLayerProgramType :
-    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
-  case gl::RGBALayerProgramType :
-    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
-#endif
+    //TODO[bas] this one at least is required
+    mFormat = FORMAT_R8G8B8X8;
+    //return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
+  //case gl::RGBALayerProgramType :
+    //mFormat = FORMAT_R8G8B8A8;
+    //return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
   case gl::BGRXLayerProgramType :
     mFormat = FORMAT_B8G8R8X8;
     break;

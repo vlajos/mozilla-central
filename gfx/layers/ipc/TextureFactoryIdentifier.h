@@ -31,7 +31,7 @@ static const TextureHostType TEXTURE_DIRECT   = 1 << 3;
 static const TextureHostType TEXTURE_ASYNC    = 1 << 4;
 static const TextureHostType TEXTURE_EXTERNAL = 1 << 5;
 static const TextureHostType TEXTURE_DXGI     = 1 << 6; // TODO belongs here?
-static const TextureHostType TEXTURE_TILE     = 1 << 7; // TODO[nical] remove?
+static const TextureHostType TEXTURE_TILE     = 1 << 7; // TODO[nical] remove? No
 
 /**
  * Sent from the compositor to the drawing LayerManager, includes properties

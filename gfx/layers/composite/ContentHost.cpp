@@ -212,7 +212,8 @@ ContentHost::Composite(EffectChain& aEffectChain,
                        const Point& aOffset,
                        const Filter& aFilter,
                        const Rect& aClipRect,
-                       const nsIntRegion* aVisibleRegion)
+                       const nsIntRegion* aVisibleRegion,
+                       TiledLayerProperties* aLayerProperties)
 {
   NS_ASSERTION(aVisibleRegion, "Requires a visible region");
 
