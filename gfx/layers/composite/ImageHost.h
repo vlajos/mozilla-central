@@ -65,6 +65,11 @@ public:
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
 
+  virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE
+  {
+    mPictureRect = aPictureRect;
+  }
+
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
   {
     return mTextureHost->GetRenderState();

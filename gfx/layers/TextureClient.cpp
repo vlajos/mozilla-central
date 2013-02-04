@@ -28,8 +28,8 @@ namespace layers {
 TextureClient::TextureClient(ShadowLayerForwarder* aLayerForwarder,
                              BufferType aBufferType)
   : mLayerForwarder(aLayerForwarder)
-  , mTextureChild(nullptr)
   , mAllocator(nullptr)
+  , mTextureChild(nullptr)
 {
   mTextureInfo.imageType = aBufferType;
 }

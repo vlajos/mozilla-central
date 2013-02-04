@@ -78,6 +78,9 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   case FORMAT_R8G8B8A8:
     effect = new EffectRGBA(mTextureHost, true, aFilter);
     break;
+  case FORMAT_YUV:
+    effect = new EffectYCbCr(mTextureHost, aFilter);
+    break;
   default:
     MOZ_NOT_REACHED("unhandled program type");
   }

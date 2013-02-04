@@ -103,11 +103,9 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   switch (mTexture->GetShaderProgramType()) {
   case gl::RGBXLayerProgramType :
     mFormat = FORMAT_R8G8B8X8;
-    //return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
     break;
   case gl::RGBALayerProgramType :
     mFormat = FORMAT_R8G8B8A8;
-    //return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
     break;
   case gl::BGRXLayerProgramType :
     mFormat = FORMAT_B8G8R8X8;

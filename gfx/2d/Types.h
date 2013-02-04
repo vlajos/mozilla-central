@@ -38,6 +38,7 @@ enum SurfaceFormat
   FORMAT_R8G8B8X8,
   FORMAT_R5G6B5,
   FORMAT_A8,
+  FORMAT_YUV,
   FORMAT_UNKNOWN
 };
 

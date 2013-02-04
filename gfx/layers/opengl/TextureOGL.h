@@ -186,6 +186,7 @@ public:
     mYTexture  = new Channel;
     mCbTexture = new Channel;
     mCrTexture = new Channel;
+    mFormat = gfx::FORMAT_YUV;
   }
 
   ~YCbCrTextureHostOGL()

@@ -58,8 +58,7 @@ public:
   virtual LayerRenderState GetRenderState() = 0;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {
-    //TODO[nical] this is getting hit
-    NS_WARNING("If this code is reached it means this method should habe been overridden");
+    NS_RUNTIMEABORT("If this code is reached it means this method should habe been overridden");
   }
 
   /**

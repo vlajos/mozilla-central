@@ -154,12 +154,12 @@ protected:
 
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
-  bool mPaintWillResample;
-  bool mInitialised;
   RefPtr<Compositor> mCompositor;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
   RefPtr<Effect> mTextureEffect;
+  bool mPaintWillResample;
+  bool mInitialised;
 };
 
 // We can directly texture the drawn surface.  Use that as our new
