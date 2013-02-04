@@ -292,9 +292,9 @@ void
 ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
                                     const SurfaceDescriptor& aImage)
 {
-  printf("ShadowLayerForwarder::UpdateTexture %p : %i\n", aTexture, aImage.type());
   if (aImage.type() == SurfaceDescriptor::T__None) {
     printf("[debug] STOP\n");
+    //TODO do something? return?
   }
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture, aImage));
 }

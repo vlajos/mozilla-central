@@ -1049,7 +1049,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
                         const gfx::Point &aOffset)
 {
   if (!mFrameInProgress) {
-    //TODO[nrc] is this sensible
+    //TODO[nrc] is this sensible?
     //BeginFrame(aClipRect, gfxMatrix());
     MOZ_ASSERT(false, "TODO[nrc]");
   }
@@ -1248,7 +1248,8 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskTextureUnit(1);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
-    BindAndDrawQuad(program, flipped);
+    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
+                                   source->GetWrapMode(), flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,

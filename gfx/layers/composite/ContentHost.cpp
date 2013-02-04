@@ -344,6 +344,7 @@ ContentHost::Composite(EffectChain& aEffectChain,
 
   mTextureHost->Unlock();
 }
+
 void
 ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  const nsIntRegion& aUpdated,

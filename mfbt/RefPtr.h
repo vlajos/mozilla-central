@@ -45,17 +45,13 @@ class RefCounted
 {
     friend class RefPtr<T>;
 
-#ifdef DEBUG
-    static const int dead = 0xffffdead;
-#endif
   protected:
     RefCounted() : refCnt(0) { }
-    ~RefCounted() { MOZ_ASSERT(refCnt == dead); }
+    ~RefCounted() { MOZ_ASSERT(refCnt == 0xffffdead); }
 
   public:
     // Compatibility with nsRefPtr.
     void AddRef() {
-      MOZ_ASSERT(refCnt >= 0);
       ++refCnt;
     }
 
@@ -63,7 +59,7 @@ class RefCounted
       MOZ_ASSERT(refCnt > 0);
       if (0 == --refCnt) {
 #ifdef DEBUG
-        refCnt = dead;
+        refCnt = 0xffffdead;
 #endif
         delete static_cast<T*>(this);
       }
@@ -79,7 +75,7 @@ class RefCounted
     }
 
   private:
-    int refCnt;
+    unsigned int refCnt;
 };
 
 /**

@@ -26,7 +26,7 @@ namespace layers {
  * released. At the moment the teardown sequence happens in the middle of 
  * the nsBaseWidget's destructor, meaning that a givent moment we must be
  * able to easily find and release all the GL resources.
- * The point is: be careful about the ownership model and lemit the number 
+ * The point is: be careful about the ownership model and limit the number 
  * of objects sharing references to GL resources to make the tear down 
  * sequence as simple as possible. 
  */
@@ -180,14 +180,16 @@ protected:
 class YCbCrTextureHostOGL : public TextureHost
 {
 public:
-  YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL) {
+  YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL)
+  {
     MOZ_COUNT_CTOR(YCbCrTextureHostOGL);
     mYTexture  = new Channel;
     mCbTexture = new Channel;
     mCrTexture = new Channel;
   }
 
-  ~YCbCrTextureHostOGL() {
+  ~YCbCrTextureHostOGL()
+  {
     MOZ_COUNT_DTOR(YCbCrTextureHostOGL);
   }
 
@@ -198,27 +200,34 @@ public:
 
   virtual bool Lock() MOZ_OVERRIDE;
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE {
+  TextureSource* AsTextureSource() MOZ_OVERRIDE
+  {
     return this;
   }
 
   struct Channel : public TextureSourceOGL
-                 , public TextureSource {
-    TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
+                 , public TextureSource
+  {
+    TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
+    {
       return this;
     }
     RefPtr<gl::TextureImage> mTexImage;
 
-    void BindTexture(GLenum aUnit) MOZ_OVERRIDE {
+    void BindTexture(GLenum aUnit) MOZ_OVERRIDE
+    {
       mTexImage->BindTexture(aUnit);
     }
-    virtual bool IsValid() const MOZ_OVERRIDE {
+    virtual bool IsValid() const MOZ_OVERRIDE
+    {
       return !!mTexImage;
     }
-    virtual gfx::IntSize GetSize() const MOZ_OVERRIDE {
+    virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
+    {
       return gfx::IntSize(mTexImage->GetSize().width, mTexImage->GetSize().height);
     }
-    virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
+    virtual GLenum GetWrapMode() const MOZ_OVERRIDE
+    {
       return mTexImage->GetWrapMode();
     }
 
@@ -226,7 +235,8 @@ public:
 
   // TextureSource implementation
 
-  TextureSource* GetSubSource(int index) MOZ_OVERRIDE {
+  TextureSource* GetSubSource(int index) MOZ_OVERRIDE
+  {
     switch (index) {
       case 0 : return mYTexture.get();
       case 1 : return mCbTexture.get();
@@ -235,7 +245,8 @@ public:
     return nullptr;
   }
 
-  gfx::IntSize GetSize() const {
+  gfx::IntSize GetSize() const
+  {
     if (!mYTexture->mTexImage) {
       NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
       return gfx::IntSize(0,0);
@@ -268,7 +279,8 @@ public:
     mGL = aGL;
   }
 
-  virtual ~SharedTextureAsTextureHostOGL() {
+  virtual ~SharedTextureAsTextureHostOGL()
+  {
     mGL->MakeCurrent();
     mGL->ReleaseSharedHandle(mShareType,
                                              mSharedHandle);
@@ -277,7 +289,8 @@ public:
     }
   }
 
-  virtual GLuint GetTextureHandle() {
+  virtual GLuint GetTextureHandle()
+  {
     return mTextureHandle;
   }
 
@@ -289,10 +302,12 @@ public:
   virtual bool Lock() MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE;
 
-  GLenum GetWrapMode() const {
+  GLenum GetWrapMode() const
+  {
     return mWrapMode;
   }
-  void SetWrapMode(GLenum aMode) {
+  void SetWrapMode(GLenum aMode)
+  {
     mWrapMode = aMode;
   }
 
