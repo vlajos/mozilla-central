@@ -342,12 +342,12 @@ BasicTiledLayerBuffer::GetContentType() const
 void
 BasicTiledLayerBuffer::LockCopyAndWrite()
 {
-  ReadLock();
   // Create a heap copy owned and released by the compositor. This is needed
   // since we're sending this over an async message and content needs to be
   // be able to modify the tiled buffer in the next transaction.
   // TODO: Remove me once Bug 747811 lands.
-  BasicTiledLayerBuffer *heapCopy = new BasicTiledLayerBuffer(*this);
+  BasicTiledLayerBuffer *heapCopy = new BasicTiledLayerBuffer(this->DeepCopy());
+  ReadLock();
   mManager->PaintedTiledLayerBuffer(mManager->Hold(mThebesLayer), heapCopy);
   ClearPaintedRegion();
 }
@@ -675,6 +675,8 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
 
     // There's no further work to be done, return if nothing has been
     // drawn, or give what has been drawn to the shadow layer to upload.
+    //TODO[nrc] it doesn't look to me that this is what is happening, if we
+    //drew on a previous iteration but not this one we return false, but probably mean true
     if (regionToPaint.IsEmpty()) {
       if (repeat) {
         break;

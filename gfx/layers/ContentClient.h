@@ -360,7 +360,7 @@ public:
 
   /**
    * Copy this buffer duplicating the texture hosts under the tiles
-   * XXX This has to go. It is a hack because we need to keep the
+   * XXX This should go. It is a hack because we need to keep the
    * surface wrappers alive whilst they are locked by the compositor.
    * Once we properly implement the texture host/client architecture
    * for tiled layers we shouldn't need this.

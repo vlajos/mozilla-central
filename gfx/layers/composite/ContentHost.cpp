@@ -13,7 +13,7 @@
 
 namespace mozilla {
 
-  using namespace gfx;
+using namespace gfx;
 
 namespace layers {
 
@@ -522,14 +522,14 @@ TiledContentHost::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuf
 {
   if (mTiledBuffer->IsLowPrecision()) {
     mLowPrecisionMainMemoryTiledBuffer.ReadUnlock();
-    mLowPrecisionMainMemoryTiledBuffer = mTiledBuffer->DeepCopy();
+    mLowPrecisionMainMemoryTiledBuffer = *mTiledBuffer;
     mLowPrecisionRegionToUpload.Or(mLowPrecisionRegionToUpload,
                                    mLowPrecisionMainMemoryTiledBuffer.GetPaintedRegion());
     mLowPrecisionMainMemoryTiledBuffer.ClearPaintedRegion();
     mPendingLowPrecisionUpload = true;
   } else {
     mMainMemoryTiledBuffer.ReadUnlock();
-    mMainMemoryTiledBuffer = mTiledBuffer->DeepCopy();
+    mMainMemoryTiledBuffer = *mTiledBuffer;
     mRegionToUpload.Or(mRegionToUpload, mMainMemoryTiledBuffer.GetPaintedRegion());
     mMainMemoryTiledBuffer.ClearPaintedRegion();
     mPendingUpload = true;
