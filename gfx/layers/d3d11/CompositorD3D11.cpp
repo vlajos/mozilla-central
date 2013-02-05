@@ -295,8 +295,7 @@ CompositorD3D11::GetMaxTextureSize() const
 }
 
 TemporaryRef<TextureHost>
-CompositorD3D11::CreateTextureHost(BufferType aImageType,
-                                   TextureHostType aMemoryType,
+CompositorD3D11::CreateTextureHost(TextureHostType aMemoryType,
                                    uint32_t aTextureFlags,
                                    SurfaceDescriptorType aDescriptorType,
                                    ISurfaceDeallocator* aDeAllocator)
@@ -423,7 +422,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
 
 void
 CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                            gfx::Rect *aClipRectOut)
+                            const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut)
 {
   VerifyBufferSize();
   UpdateRenderTarget();

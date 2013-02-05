@@ -56,8 +56,7 @@ public:
   virtual void MakeCurrent(bool) { }
 
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(BufferType aImageType,
-                      TextureHostType aMemoryType,
+    CreateTextureHost(TextureHostType aMemoryType,
                       uint32_t aTextureFlags,
                       SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator);
@@ -84,7 +83,7 @@ public:
    * Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-    gfx::Rect *aClipRectOut = nullptr);
+    const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut = nullptr);
 
   /**
    * Flush the current frame to the screen.
