@@ -40,11 +40,12 @@ ImageLayerComposite::SetCompositableHost(CompositableHost* aHost)
 }
 
 void
-ImageLayerComposite::EnsureImageHost(BufferType aHostType)
+ImageLayerComposite::EnsureImageHost(CompositableType aHostType)
 {
   if (!mImageHost ||
       mImageHost->GetType() != aHostType) {
-    RefPtr<CompositableHost> bufferHost = mCompositeManager->CreateCompositableHost(aHostType);
+    RefPtr<CompositableHost> bufferHost
+      = CompositableHost::Create(aHostType, mCompositeManager->GetCompositor());
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
   }
 }

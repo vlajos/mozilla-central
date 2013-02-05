@@ -519,27 +519,27 @@ public:
    * to create a corresponding buffer or texture host.
    */
   static TemporaryRef<ImageClient> CreateImageClient(LayersBackend aBackendType,
-                                                     BufferType aImageHostType,
+                                                     CompositableType aImageHostType,
                                                      ShadowLayerForwarder* aLayerForwarder,
                                                      ShadowableLayer* aLayer,
                                                      TextureFlags aFlags);
   static TemporaryRef<CanvasClient> CreateCanvasClient(LayersBackend aBackendType,
-                                                       BufferType aImageHostType,
+                                                       CompositableType aImageHostType,
                                                        ShadowLayerForwarder* aLayerForwarder,
                                                        ShadowableLayer* aLayer,
                                                        TextureFlags aFlags);
   static TemporaryRef<ContentClient> CreateContentClient(LayersBackend aBackendType,
-                                                         BufferType aImageHostType,
+                                                         CompositableType aImageHostType,
                                                          ShadowLayerForwarder* aLayerForwarder,
                                                          ShadowableLayer* aLayer,
                                                          TextureFlags aFlags);
   static TemporaryRef<TextureClient> CreateTextureClient(LayersBackend aBackendType,
                                                          TextureHostType aTextureHostType,
-                                                         BufferType aImageHostType,
+                                                         CompositableType aImageHostType,
                                                          ShadowLayerForwarder* aLayerForwarder,
                                                          bool aStrict = false); 
 
-  static BufferType TypeForImage(Image* aImage);
+  static CompositableType TypeForImage(Image* aImage);
 };
 
 }

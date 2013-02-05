@@ -9,15 +9,15 @@
 namespace mozilla {
 namespace layers {
 
-enum BufferType
+enum CompositableType
 {
   BUFFER_UNKNOWN,
   BUFFER_SINGLE,
-  BUFFER_SHARED,
-  BUFFER_DIRECT,
+  BUFFER_SHARED, // TODO: is that relevent to compositable? 
+  BUFFER_DIRECT, // TODO: is that relevent to compositable?
   BUFFER_BRIDGE,
   BUFFER_CONTENT,
-  BUFFER_CONTENT_DIRECT,
+  BUFFER_CONTENT_DIRECT, // TODO: is that relevent to compositable?
   BUFFER_TILED
 };
 
@@ -34,7 +34,7 @@ static const TextureHostType TEXTURE_TILE     = 1 << 7;
 
 /**
  * Sent from the compositor to the drawing LayerManager, includes properties
- * of the compositor and should (in the future) include information (BufferType)
+ * of the compositor and should (in the future) include information (CompositableType)
  * about what kinds of buffer and texture clients to create.
  */
 struct TextureFactoryIdentifier
@@ -51,7 +51,7 @@ struct TextureFactoryIdentifier
  */
 struct TextureInfo
 {
-  BufferType imageType;
+  CompositableType compositableType;
   TextureHostType memoryType;
   uint32_t textureFlags;
 };

@@ -75,7 +75,7 @@ public:
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
 private:
-  void EnsureImageHost(BufferType aHostType);
+  void EnsureImageHost(CompositableType aHostType);
 
   RefPtr<ImageHost> mImageHost;
 };

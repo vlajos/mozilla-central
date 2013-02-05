@@ -32,7 +32,10 @@ public:
 
   virtual ~CompositableHost() {}
 
-  virtual BufferType GetType() = 0;
+  static TemporaryRef<CompositableHost> Create(CompositableType aType,
+                                               Compositor* aCompositor);
+
+  virtual CompositableType GetType() = 0;
 
   // composite the contents of this buffer host to the compositor's surface
   virtual void Composite(EffectChain& aEffectChain,

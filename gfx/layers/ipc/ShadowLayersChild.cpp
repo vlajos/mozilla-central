@@ -51,7 +51,7 @@ ShadowLayersChild::AllocPLayer()
 {
   // we always use the "power-user" ctor
   NS_RUNTIMEABORT("not reached");
-  return NULL;
+  return nullptr;
 }
 
 bool

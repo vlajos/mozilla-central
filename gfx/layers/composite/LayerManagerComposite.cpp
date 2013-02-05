@@ -590,36 +590,5 @@ LayerManagerComposite::CreateDrawTarget(const IntSize &aSize,
   return LayerManager::CreateDrawTarget(aSize, aFormat);
 }
 
-TemporaryRef<CompositableHost>
-LayerManagerComposite::CreateCompositableHost(BufferType aType)
-{
-  RefPtr<CompositableHost> result;
-  switch (aType) {
-#ifdef MOZ_WIDGET_GONK
-  case BUFFER_DIRECT_EXTERNAL:
-#endif
-  case BUFFER_SHARED:
-  case BUFFER_DIRECT:
-  case BUFFER_SINGLE:
-    result = new ImageHostSingle(this, aType);
-    return result;
-  case BUFFER_TILED:
-    result = new TiledContentHost(mCompositor);
-    return result;
-  case BUFFER_BRIDGE:
-    result = new ImageHostBridge(this);
-    return result;
-  case BUFFER_CONTENT:
-    result = new ContentHostTexture(mCompositor);
-    return result;
-  case BUFFER_CONTENT_DIRECT:
-    result = new ContentHostDirect(mCompositor);
-    return result;
-  default:
-    NS_ERROR("Unknown BufferType");
-    return nullptr;
-  }
-}
-
 } /* layers */
 } /* mozilla */

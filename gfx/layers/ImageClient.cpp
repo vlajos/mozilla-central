@@ -104,7 +104,7 @@ ImageClientShared::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
     return true;
   }
 
-  BufferType type = CompositingFactory::TypeForImage(autoLock.GetImage());
+  CompositableType type = CompositingFactory::TypeForImage(autoLock.GetImage());
   if (type != BUFFER_SHARED) {
     return type == BUFFER_UNKNOWN;
   }

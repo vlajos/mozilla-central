@@ -40,6 +40,11 @@ public:
                       ShadowableLayer* aLayer,
                       TextureFlags aFlags);
 
+  CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_SINGLE;
+  }
+
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);
 };
 
@@ -51,6 +56,11 @@ public:
   CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
                     ShadowableLayer* aLayer,
                     TextureFlags aFlags);
+
+  CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_SHARED;
+  }
 
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);
 };

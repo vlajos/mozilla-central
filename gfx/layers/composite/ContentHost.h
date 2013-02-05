@@ -172,7 +172,7 @@ public:
     : ContentHost(aCompositor)
   {}
 
-  virtual BufferType GetType() { return BUFFER_CONTENT_DIRECT; }
+  virtual CompositableType GetType() { return BUFFER_CONTENT_DIRECT; }
 
   virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
@@ -194,7 +194,7 @@ public:
     : ContentHost(aCompositor)
   {}
 
-  virtual BufferType GetType() { return BUFFER_CONTENT; }
+  virtual CompositableType GetType() { return BUFFER_CONTENT; }
 
   virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
@@ -364,7 +364,7 @@ public:
                  const nsIntRegion* aVisibleRegion = nullptr,
                  TiledLayerProperties* aLayerProperties = nullptr);
 
-  virtual BufferType GetType() { return BUFFER_TILED; }
+  virtual CompositableType GetType() { return BUFFER_TILED; }
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
 

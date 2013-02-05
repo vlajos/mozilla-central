@@ -60,7 +60,7 @@ public:
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
 private:
-  void EnsureImageHost(BufferType aHostType);
+  void EnsureImageHost(CompositableType aHostType);
 
   // A ShadowImageLayer should use only one of the ImageHost
   // or ImageBridge mechanisms at one time

@@ -27,6 +27,7 @@ using mozilla::TimeStamp;
 using mozilla::ScreenRotation;
 using nsCSSProperty;
 using mozilla::dom::ScreenOrientation;
+using mozilla::layers::CompositableType;
 
 /**
  * The layers protocol is spoken between thread contexts that manage

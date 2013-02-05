@@ -9,7 +9,6 @@ include protocol PLayers;
 include protocol PTexture; 
 include "mozilla/layers/TextureFactoryIdentifier.h";
 
-using mozilla::layers::BufferType;
 using mozilla::layers::TextureInfo;
 
 namespace mozilla {

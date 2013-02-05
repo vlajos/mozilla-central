@@ -585,18 +585,18 @@ ShadowLayerForwarder::DestroySharedSurface(SurfaceDescriptor* aSurface)
 
 TemporaryRef<TextureClient>
 ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHostType,
-                                             const BufferType& aBufferType,
+                                             const CompositableType& aCompositableType,
                                              ShadowableLayer* aLayer,
                                              TextureFlags aFlags,
                                              bool aStrict /* = false */)
 {
   RefPtr<TextureClient> client = CompositingFactory::CreateTextureClient(mParentBackend,
                                                                          aTextureHostType,
-                                                                         aBufferType,
+                                                                         aCompositableType,
                                                                          this, aStrict);
   // This is kind of gross, but tiled buffers do their own thing and don't want
   // to create a corresponding texture client.
-  if (aBufferType == BUFFER_TILED) {
+  if (aCompositableType == BUFFER_TILED) {
     return client.forget();
   }
 
@@ -611,34 +611,34 @@ ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHost
 }
 
 TemporaryRef<ImageClient>
-ShadowLayerForwarder::CreateImageClientFor(const BufferType& aBufferType,
+ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositableType,
                                            ShadowableLayer* aLayer,
                                            TextureFlags aFlags)
 {
   RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(mParentBackend,
-                                                                     aBufferType,
+                                                                     aCompositableType,
                                                                      this, aLayer, aFlags);
   return client.forget();
 }
 
 TemporaryRef<CanvasClient>
-ShadowLayerForwarder::CreateCanvasClientFor(const BufferType& aBufferType,
+ShadowLayerForwarder::CreateCanvasClientFor(const CompositableType& aCompositableType,
                                             ShadowableLayer* aLayer,
                                             TextureFlags aFlags)
 {
   RefPtr<CanvasClient> client = CompositingFactory::CreateCanvasClient(mParentBackend,
-                                                                       aBufferType,
+                                                                       aCompositableType,
                                                                        this, aLayer, aFlags);
   return client.forget();
 }
 
 TemporaryRef<ContentClient>
-ShadowLayerForwarder::CreateContentClientFor(const BufferType& aBufferType,
+ShadowLayerForwarder::CreateContentClientFor(const CompositableType& aCompositableType,
                                              ShadowableLayer* aLayer,
                                              TextureFlags aFlags)
 {
   RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(mParentBackend,
-                                                                         aBufferType,
+                                                                         aCompositableType,
                                                                          this, aLayer, aFlags);
   return client.forget();
 }

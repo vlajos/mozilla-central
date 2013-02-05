@@ -118,13 +118,13 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
 void
 ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  NS_ASSERTION((aTextureInfo.imageType == BUFFER_TEXTURE &&
+  NS_ASSERTION((aTextureInfo.compositableType == BUFFER_TEXTURE &&
                 aTextureInfo.memoryType == TEXTURE_SHMEM) ||
-               (aTextureInfo.imageType == BUFFER_SHARED &&
+               (aTextureInfo.compositableType == BUFFER_SHARED &&
                 aTextureInfo.memoryType == TEXTURE_SHARED) ||
-               (aTextureInfo.imageType == BUFFER_DIRECT_EXTERNAL &&
+               (aTextureInfo.compositableType == BUFFER_DIRECT_EXTERNAL &&
                 aTextureInfo.memoryType == TEXTURE_SHMEM),
-               "BufferType mismatch.");
+               "CompositableType mismatch.");
   mTextureHost = aTextureHost;
 }
 */
@@ -134,17 +134,17 @@ ImageHostBridge::EnsureImageHost()
 {
   if (!mImageHost ||
       mImageHost->GetType() != BUFFER_SINGLE) {
-    RefPtr<CompositableHost> bufferHost = mManager->CreateCompositableHost(BUFFER_SINGLE);
+    RefPtr<CompositableHost> bufferHost = CompositableHost::Create(BUFFER_SINGLE, nullptr);
     mImageHost = static_cast<ImageHost*>(bufferHost.get());
 
     TextureInfo id;
-    id.imageType = BUFFER_SINGLE;
+    id.compositableType = BUFFER_SINGLE;
     id.memoryType = TEXTURE_SHMEM|TEXTURE_DIRECT|TEXTURE_EXTERNAL;
     id.textureFlags = NoFlags;
-    RefPtr<TextureHost> textureHost = mManager->GetCompositor()->CreateTextureHost(id.memoryType,
-                                                                                   id.textureFlags,
-                                                                                   SURFACEDESCRIPTOR_UNKNOWN,
-                                                                                   nullptr); // TODO[nical] needs a ISurfaceDeallocator
+    RefPtr<TextureHost> textureHost = mCompositor->CreateTextureHost(id.memoryType,
+                                                                     id.textureFlags,
+                                                                     SURFACEDESCRIPTOR_UNKNOWN,
+                                                                     nullptr); // TODO[nical] needs a ISurfaceDeallocator
     mImageHost->AddTextureHost(textureHost);
   }
 }
@@ -177,7 +177,7 @@ ImageHostBridge::Composite(EffectChain& aEffectChain,
     EnsureImageHost();
     if (mImageHost) {
       TextureInfo textureId;
-      textureId.imageType = mImageHost->GetType();
+      textureId.compositableType = mImageHost->GetType();
       textureId.memoryType = TEXTURE_SHMEM|TEXTURE_DIRECT|TEXTURE_EXTERNAL;
       mImageHost->UpdateImage(textureId, *img);
   

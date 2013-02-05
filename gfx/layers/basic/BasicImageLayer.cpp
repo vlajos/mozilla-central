@@ -220,7 +220,7 @@ private:
     return static_cast<BasicShadowLayerManager*>(mManager);
   }
 
-  BufferType GetImageClientType()
+  CompositableType GetImageClientType()
   {
     if (mContainer->IsAsync()) {
       return BUFFER_BRIDGE;

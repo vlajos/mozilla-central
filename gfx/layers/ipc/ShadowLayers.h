@@ -339,17 +339,17 @@ public:
    * Create texture or buffer clients, see comments in CompositingFactory
    */
   TemporaryRef<TextureClient> CreateTextureClientFor(const TextureHostType& aTextureHostType,
-                                                     const BufferType& aBufferType,
+                                                     const CompositableType& aCompositableType,
                                                      ShadowableLayer* aLayer,
                                                      TextureFlags aFlags,
                                                      bool aStrict = false);
-  TemporaryRef<ImageClient> CreateImageClientFor(const BufferType& aBufferType,
+  TemporaryRef<ImageClient> CreateImageClientFor(const CompositableType& aCompositableType,
                                                  ShadowableLayer* aLayer,
                                                  TextureFlags aFlags);
-  TemporaryRef<CanvasClient> CreateCanvasClientFor(const BufferType& aBufferType,
+  TemporaryRef<CanvasClient> CreateCanvasClientFor(const CompositableType& aCompositableType,
                                                    ShadowableLayer* aLayer,
                                                    TextureFlags aFlags);
-  TemporaryRef<ContentClient> CreateContentClientFor(const BufferType& aBufferType,
+  TemporaryRef<ContentClient> CreateContentClientFor(const CompositableType& aCompositableType,
                                                      ShadowableLayer* aLayer,
                                                      TextureFlags aFlags);
   
@@ -587,7 +587,7 @@ public:
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
 
-  virtual void EnsureBuffer(BufferType aHostType) {}
+  virtual void EnsureBuffer(CompositableType aHostType) {}
 
 protected:
   ShadowLayer()

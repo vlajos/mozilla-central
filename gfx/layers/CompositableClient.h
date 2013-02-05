@@ -13,8 +13,15 @@ class CompositableClient : public RefCounted<CompositableClient>
 {
 public:
   virtual ~CompositableClient() {}
+  virtual CompositableType GetType() const
+  {
+    NS_WARNING("This method should be overridden");
+    return BUFFER_UNKNOWN;
+  }
+
 };
 
-}
-}
+} // namespace
+} // namespace
+
 #endif

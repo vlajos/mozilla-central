@@ -23,26 +23,26 @@ public:
   TextureHost* GetTextureHost() MOZ_OVERRIDE { return nullptr; }
 
 protected:
-  ImageHost(LayerManagerComposite* aManager)
-    : mManager(aManager)
+  ImageHost(Compositor* aCompositor)
+  : mCompositor(aCompositor)
   {
   }
 
-  Compositor *compositor() const { return mManager->GetCompositor(); }
+  Compositor* compositor() const { return mCompositor; }
 
-  RefPtr<LayerManagerComposite> mManager;
+  RefPtr<Compositor> mCompositor;
 };
 
 class ImageHostSingle : public ImageHost
 {
 public:
-  ImageHostSingle(LayerManagerComposite* aManager, BufferType aType)
-    : ImageHost(aManager)
+  ImageHostSingle(Compositor* aCompositor, CompositableType aType)
+    : ImageHost(aCompositor)
     , mTextureHost(nullptr)
     , mType(aType)
   {}
 
-  virtual BufferType GetType() { return mType; }
+  virtual CompositableType GetType() { return mType; }
 
   virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
                                         const SurfaceDescriptor& aImage);
@@ -78,19 +78,19 @@ public:
 protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
-  BufferType mType;
+  CompositableType mType;
 };
 
 class ImageHostBridge : public ImageHost
 {
 public:
-  ImageHostBridge(LayerManagerComposite* aManager)
-    : ImageHost(aManager)
+  ImageHostBridge(Compositor* aCompositor)
+    : ImageHost(aCompositor)
     , mImageContainerID(0)
     , mImageVersion(0)
   {}
 
-  virtual BufferType GetType() { return BUFFER_BRIDGE; }
+  virtual CompositableType GetType() { return BUFFER_BRIDGE; }
 
   virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
                                         const SurfaceDescriptor& aImage);

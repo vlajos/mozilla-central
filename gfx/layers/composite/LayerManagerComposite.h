@@ -202,8 +202,6 @@ public:
     return mCompositor->GetWidgetSize();
   }
 
-  TemporaryRef<CompositableHost> CreateCompositableHost(BufferType aType);
-
   /**
    * Calculates the 'completeness' of the rendering that intersected with the
    * screen on the last render. This is only useful when progressive tile

@@ -465,9 +465,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       const TextureInfo& info = textureParent->GetTextureInfo();
       //TODO[nrc] we should be using layer::EnsureBuffer for this :-(
       RefPtr<CompositableHost> bufferHost
-        = static_cast<LayerManagerComposite*>(
-          layer->Manager())->CreateCompositableHost(
-            textureParent->GetTextureInfo().imageType);
+        = CompositableHost::Create(textureParent->GetTextureInfo().compositableType, compositor);
       RefPtr<TextureHost> textureHost
         = compositor->CreateTextureHost(info.memoryType,
                                         info.textureFlags,

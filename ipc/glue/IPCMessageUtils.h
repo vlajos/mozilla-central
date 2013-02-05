@@ -1030,37 +1030,26 @@ struct ParamTraits<mozilla::layers::TextureInfo>
   
   static void Write(Message* aMsg, const paramType& aParam)
   {
-    WriteParam(aMsg, aParam.imageType);
+    WriteParam(aMsg, aParam.compositableType);
     WriteParam(aMsg, aParam.memoryType);
     WriteParam(aMsg, aParam.textureFlags);
   }
 
   static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
   {
-    return ReadParam(aMsg, aIter, &aResult->imageType) &&
+    return ReadParam(aMsg, aIter, &aResult->compositableType) &&
            ReadParam(aMsg, aIter, &aResult->memoryType) &&
-           ReadParam(aMsg, aIter, &aResult->textureFlags); // &&
+           ReadParam(aMsg, aIter, &aResult->textureFlags);
   }
 };
 
 template <>
-struct ParamTraits<mozilla::layers::BufferType>
-  : public EnumSerializer<mozilla::layers::BufferType,
+struct ParamTraits<mozilla::layers::CompositableType>
+  : public EnumSerializer<mozilla::layers::CompositableType,
                           mozilla::layers::BUFFER_UNKNOWN,
                           mozilla::layers::BUFFER_TILED
 >
 {};
-
-/*
-template <>
-struct ParamTraits<mozilla::layers::TextureHostType>
-  : public EnumSerializer<mozilla::layers::TextureHostType,
-                          mozilla::layers::TEXTURE_UNKNOWN,
-                          mozilla::layers::TEXTURE_TILE
->
-{};
-*/
-
 
 } /* namespace IPC */
 

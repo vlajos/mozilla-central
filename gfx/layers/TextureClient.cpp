@@ -26,12 +26,12 @@ namespace layers {
 
 
 TextureClient::TextureClient(ShadowLayerForwarder* aLayerForwarder,
-                             BufferType aBufferType)
+                             CompositableType aCompositableType)
   : mLayerForwarder(aLayerForwarder)
   , mAllocator(nullptr)
   , mTextureChild(nullptr)
 {
-  mTextureInfo.imageType = aBufferType;
+  mTextureInfo.compositableType = aCompositableType;
 }
 
 TextureClient::~TextureClient()
@@ -74,8 +74,8 @@ TextureClient::SetTextureChild(PTextureChild* aChild) {
 }
 
 
-TextureClientShmem::TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
-  : TextureClient(aLayerForwarder, aBufferType)
+TextureClientShmem::TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
+  : TextureClient(aLayerForwarder, aCompositableType)
   , mSurface(nullptr)
   , mSurfaceAsImage(nullptr)
 {
@@ -137,7 +137,7 @@ bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
 
 bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface* surface)
 {
-  BufferType type = CompositingFactory::TypeForImage(aImage);
+  CompositableType type = CompositingFactory::TypeForImage(aImage);
   if (type != BUFFER_SINGLE) {
     return type == BUFFER_UNKNOWN;
   }
@@ -316,8 +316,8 @@ TextureClientShared::~TextureClientShared()
 }
 
 TextureClientSharedGL::TextureClientSharedGL(ShadowLayerForwarder* aLayerForwarder,
-                                             BufferType aBufferType)
-  : TextureClientShared(aLayerForwarder, aBufferType)
+                                             CompositableType aCompositableType)
+  : TextureClientShared(aLayerForwarder, aCompositableType)
 {
   mTextureInfo.memoryType = TEXTURE_SHARED|TEXTURE_BUFFERED;
 }
@@ -364,13 +364,13 @@ TextureClientSharedGL::Unlock()
 }
 
 TextureClientBridge::TextureClientBridge(ShadowLayerForwarder* aLayerForwarder,
-                                         BufferType aBufferType)
-  : TextureClient(aLayerForwarder, aBufferType)
+                                         CompositableType aCompositableType)
+  : TextureClient(aLayerForwarder, aCompositableType)
 {
   mTextureInfo.memoryType = TEXTURE_SHMEM;
 }
 
-/* static */ BufferType
+/* static */ CompositableType
 CompositingFactory::TypeForImage(Image* aImage) {
   if (!aImage) {
     return BUFFER_UNKNOWN;
@@ -384,7 +384,7 @@ CompositingFactory::TypeForImage(Image* aImage) {
 
 /* static */ TemporaryRef<ImageClient>
 CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
-                                      BufferType aCompositableHostType,
+                                      CompositableType aCompositableHostType,
                                       ShadowLayerForwarder* aLayerForwarder,
                                       ShadowableLayer* aLayer,
                                       TextureFlags aFlags)
@@ -423,7 +423,7 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
 
 /* static */ TemporaryRef<CanvasClient>
 CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
-                                       BufferType aCompositableHostType,
+                                       CompositableType aCompositableHostType,
                                        ShadowLayerForwarder* aLayerForwarder,
                                        ShadowableLayer* aLayer,
                                        TextureFlags aFlags)
@@ -442,7 +442,7 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
 
 /* static */ TemporaryRef<ContentClient>
 CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
-                                        BufferType aCompositableHostType,
+                                        CompositableType aCompositableHostType,
                                         ShadowLayerForwarder* aLayerForwarder,
                                         ShadowableLayer* aLayer,
                                         TextureFlags aFlags)
@@ -468,7 +468,7 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
 /* static */ TemporaryRef<TextureClient>
 CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
                                         TextureHostType aTextureHostType,
-                                        BufferType aCompositableHostType,
+                                        CompositableType aCompositableHostType,
                                         ShadowLayerForwarder* aLayerForwarder,
                                         bool aStrict /* = false */)
 {

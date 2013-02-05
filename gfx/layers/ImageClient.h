@@ -24,6 +24,11 @@ public:
   ImageClient();
   virtual ~ImageClient() {}
 
+  virtual CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_SINGLE; // TODO[nical] maybe not always true, check
+  }
+
   /**
    * Update this ImageClient from aContainer in aLayer
    * returns false if this is the wrong kind of ImageClient for aContainer.

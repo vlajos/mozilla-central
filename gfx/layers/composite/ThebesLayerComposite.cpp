@@ -28,7 +28,7 @@ namespace layers {
 /*void
 TiledThebesLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  EnsureBuffer(aTextureInfo.imageType);
+  EnsureBuffer(aTextureInfo.compositableType);
 
   mBuffer->AddTextureHost(aTextureInfo, aTextureHost);
 }*/
@@ -51,11 +51,12 @@ ThebesLayerComposite::SetCompositableHost(CompositableHost* aHost)
 }
 
 void
-ThebesLayerComposite::EnsureBuffer(BufferType aHostType)
+ThebesLayerComposite::EnsureBuffer(CompositableType aHostType)
 {
   if (!mBuffer ||
       mBuffer->GetType() != aHostType) {
-    RefPtr<CompositableHost> bufferHost = mCompositeManager->CreateCompositableHost(aHostType);
+    RefPtr<CompositableHost> bufferHost
+      = CompositableHost::Create(aHostType, mCompositeManager->GetCompositor());
 #ifdef FORCE_BASICTILEDTHEBESLAYER
     NS_ASSERTION(bufferHost->GetType() == BUFFER_TILED, "bad buffer type");
 #else

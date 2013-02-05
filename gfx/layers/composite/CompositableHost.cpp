@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "CompositableHost.h"
+#include "ImageHost.h"
+#include "ContentHost.h"
 #include "mozilla/layers/ImageContainerParent.h"
 #include "Effects.h"
 
@@ -34,6 +36,39 @@ bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
   aEffects.mEffects[EFFECT_MASK] = effect;
   return true;
 }
+
+// static
+TemporaryRef<CompositableHost>
+CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
+{
+  RefPtr<CompositableHost> result;
+  switch (aType) {
+#ifdef MOZ_WIDGET_GONK
+  case BUFFER_DIRECT_EXTERNAL:
+#endif
+  case BUFFER_SHARED:
+  case BUFFER_DIRECT:
+  case BUFFER_SINGLE:
+    result = new ImageHostSingle(aCompositor, aType);
+    return result;
+  case BUFFER_TILED:
+    result = new TiledContentHost(aCompositor);
+    return result;
+  case BUFFER_BRIDGE:
+    result = new ImageHostBridge(aCompositor);
+    return result;
+  case BUFFER_CONTENT:
+    result = new ContentHostTexture(aCompositor);
+    return result;
+  case BUFFER_CONTENT_DIRECT:
+    result = new ContentHostDirect(aCompositor);
+    return result;
+  default:
+    NS_ERROR("Unknown CompositableType");
+    return nullptr;
+  }
+}
+
 
 } // namespace
 } // namespace

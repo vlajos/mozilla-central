@@ -300,7 +300,8 @@ CompositorD3D11::CreateTextureHost(TextureHostType aMemoryType,
                                    SurfaceDescriptorType aDescriptorType,
                                    ISurfaceDeallocator* aDeAllocator)
 {
-  return new TextureHostD3D11(BUFFER_NONE, aDeAllocator, mDevice);
+  RefPtr<TextureHost> result = new TextureHostD3D11(BUFFER_NONE, aDeAllocator, mDevice);
+  return result.forget();
 }
 
 TemporaryRef<CompositingRenderTarget>

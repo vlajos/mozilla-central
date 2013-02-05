@@ -31,10 +31,13 @@ public:
   {}
   virtual ~ContentClient() {}
 
+  CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_CONTENT;
+  }
+
   typedef ThebesLayerBuffer::PaintState PaintState;
   typedef ThebesLayerBuffer::ContentType ContentType;
-
-  virtual BufferType GetType() = 0;
 
   virtual void Clear() { ThebesLayerBuffer::Clear(); }
   PaintState BeginPaintBuffer(ThebesLayer* aLayer, ContentType aContentType,
@@ -73,7 +76,7 @@ public:
                                                      const nsIntSize& aSize,
 
                                                      uint32_t aFlags);
-  virtual BufferType GetType() MOZ_OVERRIDE
+  virtual CompositableType GetType() const MOZ_OVERRIDE
   {
     MOZ_ASSERT(false, "Should not be called on non-remote ContentClient");
     return BUFFER_UNKNOWN;
@@ -160,6 +163,11 @@ public:
   {}
   ~ContentClientDirect();
 
+  CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_CONTENT_DIRECT;
+  }
+
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
                                                      uint32_t aFlags)
@@ -174,8 +182,6 @@ public:
                               const nsIntPoint& aBufferRotation) MOZ_OVERRIDE;
 
   virtual void SyncFrontBufferToBackBuffer();
-
-  virtual BufferType GetType() { return BUFFER_CONTENT_DIRECT; }
 
 private:
   ContentClientDirect(gfxASurface* aBuffer,
@@ -219,7 +225,11 @@ public:
 
   virtual void SyncFrontBufferToBackBuffer(); 
 
-  virtual BufferType GetType() { return BUFFER_CONTENT; }
+  virtual CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_CONTENT;
+  }
+
 protected:
   nsIntRect mBackBufferRect;
   nsIntPoint mBackBufferRectRotation;

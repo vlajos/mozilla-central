@@ -61,7 +61,7 @@ public:
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
-  virtual void EnsureBuffer(BufferType aHostType) MOZ_OVERRIDE;
+  virtual void EnsureBuffer(CompositableType aHostType) MOZ_OVERRIDE;
 
 private:
   gfxRect GetDisplayPort();

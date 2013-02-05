@@ -107,10 +107,10 @@ public:
   }
 
 protected:
-  TextureClient(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
+  TextureClient(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
 
-  ISurfaceDeallocator* mAllocator;
   ShadowLayerForwarder* mLayerForwarder;
+  ISurfaceDeallocator* mAllocator;
   // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
   // the reference here.
   SurfaceDescriptor mDescriptor;
@@ -166,7 +166,7 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
 private:
-  TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
+  TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
 
   gfxASurface* GetSurface();
 
@@ -194,8 +194,8 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
 
 protected:
-  TextureClientShared(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
-    : TextureClient(aLayerForwarder, aBufferType)
+  TextureClientShared(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
+    : TextureClient(aLayerForwarder, aCompositableType)
   {
     mTextureInfo.memoryType = TEXTURE_SHARED;
   }
@@ -212,7 +212,7 @@ public:
   virtual void Unlock();
 
 protected:
-  TextureClientSharedGL(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
+  TextureClientSharedGL(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
 
   gl::GLContext* mGL;
   gfx::IntSize mSize;
@@ -229,7 +229,7 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
 
 protected:
-  TextureClientBridge(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType);
+  TextureClientBridge(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
 
   friend class CompositingFactory;
 };
@@ -238,7 +238,7 @@ class TextureClientTile : public TextureClient
 {
 public:
   TextureClientTile(const TextureClientTile& aOther)
-    : TextureClient(mLayerForwarder, mTextureInfo.imageType)
+    : TextureClient(mLayerForwarder, mTextureInfo.compositableType)
     , mSurface(aOther.mSurface)
   {}
 
@@ -252,8 +252,8 @@ public:
   }
 
 private:
-  TextureClientTile(ShadowLayerForwarder* aLayerForwarder, BufferType aBufferType)
-    : TextureClient(aLayerForwarder, aBufferType)
+  TextureClientTile(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
+    : TextureClient(aLayerForwarder, aCompositableType)
     , mSurface(nullptr)
   {
     mTextureInfo.memoryType = TEXTURE_TILE;
