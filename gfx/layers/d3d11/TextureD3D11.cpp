@@ -51,7 +51,7 @@ TextureClientD3D11::TextureClientD3D11(ShadowLayerForwarder* aLayerForwarder, Bu
   : TextureClient(aLayerForwarder, aBufferType)
 {
   mTextureInfo.imageType = aBufferType;
-  mTextureInfo.memoryType = TEXTURE_SHARED_DXGI;
+  mTextureInfo.memoryType = TEXTURE_DXGI;
 }
 
 void
