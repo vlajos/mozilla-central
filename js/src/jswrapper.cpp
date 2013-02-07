@@ -43,15 +43,8 @@ Wrapper::New(JSContext *cx, JSObject *obj, JSObject *proto, JSObject *parent,
 {
     JS_ASSERT(parent);
 
-    AutoMarkInDeadCompartment amd(cx->compartment);
+    AutoMarkInDeadZone amd(cx->zone());
 
-#if JS_HAS_XML_SUPPORT
-    if (obj->isXML()) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
-                             JSMSG_CANT_WRAP_XML_OBJECT);
-        return NULL;
-    }
-#endif
     return NewProxyObject(cx, handler, ObjectValue(*obj), proto, parent,
                           obj->isCallable() ? obj : NULL, NULL);
 }
@@ -59,14 +52,6 @@ Wrapper::New(JSContext *cx, JSObject *obj, JSObject *proto, JSObject *parent,
 JSObject *
 Wrapper::Renew(JSContext *cx, JSObject *existing, JSObject *obj, Wrapper *handler)
 {
-#if JS_HAS_XML_SUPPORT
-    if (obj->isXML()) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
-                             JSMSG_CANT_WRAP_XML_OBJECT);
-        return NULL;
-    }
-#endif
-
     JS_ASSERT(!obj->isCallable());
     return RenewProxyObject(cx, existing, handler, ObjectValue(*obj));
 }
@@ -967,7 +952,7 @@ NukeSlot(JSObject *wrapper, uint32_t slot, Value v)
     Value old = wrapper->getSlot(slot);
     if (old.isMarkable()) {
         Cell *cell = static_cast<Cell *>(old.toGCThing());
-        AutoMarkInDeadCompartment amd(cell->compartment());
+        AutoMarkInDeadZone amd(cell->zone());
         wrapper->setReservedSlot(slot, v);
     } else {
         wrapper->setReservedSlot(slot, v);
@@ -1140,7 +1125,7 @@ JS_FRIEND_API(bool)
 js::RecomputeWrappers(JSContext *cx, const CompartmentFilter &sourceFilter,
                       const CompartmentFilter &targetFilter)
 {
-    AutoMaybeTouchDeadCompartments agc(cx);
+    AutoMaybeTouchDeadZones agc(cx);
 
     AutoWrapperVector toRecompute(cx);
 

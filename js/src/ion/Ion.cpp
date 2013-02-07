@@ -331,7 +331,7 @@ IonCode::New(JSContext *cx, uint8_t *code, uint32_t bufferSize, JSC::ExecutableP
 {
     AssertCanGC();
 
-    IonCode *codeObj = gc::NewGCThing<IonCode, CanGC>(cx, gc::FINALIZE_IONCODE, sizeof(IonCode));
+    IonCode *codeObj = gc::NewGCThing<IonCode, CanGC>(cx, gc::FINALIZE_IONCODE, sizeof(IonCode), gc::DefaultHeap);
     if (!codeObj) {
         pool->release();
         return NULL;
@@ -349,9 +349,6 @@ IonCode::copyFrom(MacroAssembler &masm)
     *(IonCode **)(code_ - sizeof(IonCode *)) = this;
     insnSize_ = masm.instructionsSize();
     masm.executableCopy(code_);
-
-    dataSize_ = masm.dataSize();
-    masm.processDeferredData(this, code_ + dataOffset());
 
     jumpRelocTableBytes_ = masm.jumpRelocationTableBytes();
     masm.copyJumpRelocationTable(code_ + jumpRelocTableOffset());
@@ -1469,7 +1466,7 @@ ion::CanEnter(JSContext *cx, JSScript *script, AbstractFramePtr fp,
     if (isConstructing && fp.thisValue().isPrimitive()) {
         RootedScript scriptRoot(cx, script);
         RootedObject callee(cx, &fp.callee());
-        RootedObject obj(cx, js_CreateThisForFunction(cx, callee, newType));
+        RootedObject obj(cx, CreateThisForFunction(cx, callee, newType));
         if (!obj)
             return Method_Skipped;
         fp.thisValue().setObject(*obj);

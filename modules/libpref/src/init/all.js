@@ -28,6 +28,10 @@ pref("general.useragent.compatMode.firefox", false);
 // overrides by default, don't initialize UserAgentOverrides.jsm.
 pref("general.useragent.site_specific_overrides", true);
 
+// This pref controls whether or not to enable UA overrides in the
+// product code that end users use (as opposed to testing code).
+pref("general.useragent.enable_overrides", false);
+
 pref("general.config.obscure_value", 13); // for MCD .cfg files
 
 pref("general.warnOnAboutConfig", true);
@@ -151,7 +155,7 @@ pref("media.cache_size", 512000);
 pref("media.volume_scale", "1.0");
 
 #ifdef MOZ_WMF
-pref("media.windows-media-foundation.enabled", false);
+pref("media.windows-media-foundation.enabled", true);
 #endif
 #ifdef MOZ_RAW
 pref("media.raw.enabled", true);
@@ -350,9 +354,6 @@ pref("browser.frames.enabled", true);
 
 // Number of characters to consider emphasizing for rich autocomplete results
 pref("toolkit.autocomplete.richBoundaryCutoff", 200);
-
-// Variable controlling logging for osfile.
-pref("toolkit.osfile.log", false);
 
 pref("toolkit.scrollbox.smoothScroll", true);
 pref("toolkit.scrollbox.scrollIncrement", 20);
@@ -743,8 +744,6 @@ pref("javascript.options.ion.parallel_compilation", true);
 pref("javascript.options.pccounts.content", false);
 pref("javascript.options.pccounts.chrome",  false);
 pref("javascript.options.methodjit_always", false);
-pref("javascript.options.xml.content", false);
-pref("javascript.options.xml.chrome", false);
 pref("javascript.options.jit_hardening", true);
 pref("javascript.options.typeinference", true);
 // This preference limits the memory usage of javascript.
@@ -3778,6 +3777,17 @@ pref("toolkit.zoomManager.zoomValues", ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2
  */
 pref("browser.zoom.reflowOnZoom", false);
 
+/**
+ * Controls whether or not the reflow-on-zoom behavior happens on page load.
+ * This can be enabled in conjunction with the above preference (reflowOnZoom),
+ * but has no effect if browser.zoom.reflowOnZoom is disabled.
+ *
+ * Note that this should be turned off only in cases where debugging of the
+ * reflow-on-zoom feature is necessary, and enabling the feature during
+ * a page load inhbits this debugging.
+ */
+pref("browser.zoom.reflowZoom.reflowTextOnPageLoad", true);
+
 // Image-related prefs
 // The maximum size, in bytes, of the decoded images we cache
 pref("image.cache.size", 5242880);
@@ -3867,7 +3877,13 @@ pref("layers.acceleration.disabled", false);
 #endif
 
 // Whether to force acceleration on, ignoring blacklists.
+#ifdef ANDROID
+// bug 838603 -- on Android, accidentally blacklisting OpenGL layers
+// means a startup crash for everyone.
+pref("layers.acceleration.force-enabled", true);
+#else
 pref("layers.acceleration.force-enabled", false);
+#endif
 
 pref("layers.acceleration.draw-fps", false);
 

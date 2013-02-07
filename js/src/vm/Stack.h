@@ -312,6 +312,9 @@ class AbstractFramePtr
     inline void *maybeHookData() const;
     inline void setHookData(void *data) const;
     inline void setReturnValue(const Value &rval) const;
+
+    inline void popBlock(JSContext *cx) const;
+    inline void popWith(JSContext *cx) const;
 };
 
 class NullFramePtr : public AbstractFramePtr
@@ -701,9 +704,8 @@ class StackFrame
     /*
      * With
      *
-     * Entering/leaving a with (or E4X filter) block pushes/pops an object 
-     * on the scope chain. Pushing uses pushOnScopeChain, popping should use
-     * popWith.
+     * Entering/leaving a |with| block pushes/pops an object on the scope chain.
+     * Pushing uses pushOnScopeChain, popping should use popWith.
      */
 
     void popWith(JSContext *cx);

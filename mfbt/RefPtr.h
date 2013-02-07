@@ -40,6 +40,12 @@ template<typename T> OutParamRef<T> byRef(RefPtr<T>&);
  * state distinguishes use-before-ref (refcount==0) from
  * use-after-destroy (refcount==0xffffdead).
  */
+#ifdef DEBUG
+namespace detail {
+static const int DEAD = 0xffffdead;
+}
+#endif
+
 template<typename T>
 class RefCounted
 {
@@ -47,7 +53,7 @@ class RefCounted
 
   protected:
     RefCounted() : refCnt(0) { }
-    ~RefCounted() { MOZ_ASSERT(refCnt == 0xffffdead); }
+    ~RefCounted() { MOZ_ASSERT(refCnt == detail::DEAD); }
 
   public:
     // Compatibility with nsRefPtr.
@@ -59,7 +65,11 @@ class RefCounted
       MOZ_ASSERT(refCnt > 0);
       if (0 == --refCnt) {
 #ifdef DEBUG
+<<<<<<< local
         refCnt = 0xffffdead;
+=======
+        refCnt = detail::DEAD;
+>>>>>>> other
 #endif
         delete static_cast<T*>(this);
       }
