@@ -287,15 +287,11 @@ ShadowLayerForwarder::AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID)
   mTxn->AddEdit(OpAttachAsyncTexture(nullptr, aTexture, aID));
 }
 
-
 void
 ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
                                     const SurfaceDescriptor& aImage)
 {
-  if (aImage.type() == SurfaceDescriptor::T__None) {
-    printf("[debug] STOP\n");
-    //TODO do something? return?
-  }
+  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture, aImage));
 }
 
