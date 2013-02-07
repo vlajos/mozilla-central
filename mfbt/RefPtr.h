@@ -65,11 +65,7 @@ class RefCounted
       MOZ_ASSERT(refCnt > 0);
       if (0 == --refCnt) {
 #ifdef DEBUG
-<<<<<<< local
-        refCnt = 0xffffdead;
-=======
         refCnt = detail::DEAD;
->>>>>>> other
 #endif
         delete static_cast<T*>(this);
       }
