@@ -237,7 +237,6 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   bool canReuseBuffer;
   nsIntRect destBufferRect;
 
-  // TODO Assuming this is really bad.
   nsRefPtr<TextureImage> texImage = mTextureHost
                                     ? static_cast<TextureImageAsTextureHostOGL*>(mTextureHost.get())->GetTextureImage()
                                     : nullptr;

@@ -218,7 +218,6 @@ public:
   GLintptr QuadVBOTexCoordOffset() { return mCompositor->QuadVBOTexCoordOffset(); }
   GLintptr QuadVBOFlippedTexCoordOffset() { return mCompositor->QuadVBOFlippedTexCoordOffset(); }
 
-// TODO[nical:merge] next 4 methods only declared here, impl moved to cpp so check what they do
   void BindQuadVBO() {
     mCompositor->BindQuadVBO();
   }

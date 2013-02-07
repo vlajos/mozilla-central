@@ -1001,7 +1001,7 @@ public:
    * Dynamic cast to a LayerComposite.  Return null if this is not a
    * ShadowableLayer.  Can be used anytime.
    */
-  virtual LayerComposite* AsLayerComposite() {return nullptr; }
+  virtual LayerComposite* AsLayerComposite() { return nullptr; }
 
   // These getters can be used anytime.  They return the effective
   // values that should be used when drawing this layer to screen,

@@ -576,18 +576,11 @@ public:
     mShadowTransform = aMatrix;
   }
 
-  virtual void SetCompositableHost(CompositableHost* aHost) {}
-  virtual CompositableHost* GetCompositableHost() { return nullptr; };
-
   // These getters can be used anytime.
   float GetShadowOpacity() { return mShadowOpacity; }
   const nsIntRect* GetShadowClipRect() { return mUseShadowClipRect ? &mShadowClipRect : nullptr; }
   const nsIntRegion& GetShadowVisibleRegion() { return mShadowVisibleRegion; }
   const gfx3DMatrix& GetShadowTransform() { return mShadowTransform; }
-
-  virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
-
-  virtual void EnsureBuffer(CompositableType aHostType) {}
 
 protected:
   ShadowLayer()

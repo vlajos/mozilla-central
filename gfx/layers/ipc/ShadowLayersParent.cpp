@@ -388,13 +388,13 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       const OpPaintTiledLayerBuffer& op = edit.get_OpPaintTiledLayerBuffer();
       ShadowLayerParent* shadow = AsShadowLayer(op);
 
-      ShadowThebesLayer* shadowLayer = static_cast<ShadowThebesLayer*>(shadow->AsLayer());
-      shadowLayer->EnsureBuffer(BUFFER_TILED);
-      TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
+      LayerComposite* compositeLayer = shadow->AsLayer()->AsLayerComposite();
+      compositeLayer->EnsureBuffer(BUFFER_TILED);
+      TiledLayerComposer* tileComposer = compositeLayer->AsTiledLayerComposer();
 
-      NS_ASSERTION(tileComposer, "shadowLayer is not a tile composer");
+      NS_ASSERTION(tileComposer, "compositeLayer is not a tile composer");
 
-      BasicTiledLayerBuffer* p = (BasicTiledLayerBuffer*)op.tiledLayerBuffer();
+      BasicTiledLayerBuffer* p = reinterpret_cast<BasicTiledLayerBuffer*>(op.tiledLayerBuffer());
       tileComposer->PaintedTiledLayerBuffer(p);
       break;
     }
@@ -459,13 +459,14 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
       Layer* layer = layerParent->AsLayer();
       MOZ_ASSERT(layer);
+      LayerComposite* layerComposite = layer->AsLayerComposite();
+      MOZ_ASSERT(layerComposite);
 
       Compositor* compositor
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       const TextureInfo& info = textureParent->GetTextureInfo();
-      //TODO[nrc] we should be using layer::EnsureBuffer for this :-(
-      RefPtr<CompositableHost> bufferHost
-        = CompositableHost::Create(textureParent->GetTextureInfo().compositableType, compositor);
+      layerComposite->EnsureBuffer(textureParent->GetTextureInfo().compositableType);
+
       RefPtr<TextureHost> textureHost
         = compositor->CreateTextureHost(info.memoryType,
                                         info.textureFlags,
@@ -475,9 +476,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       textureHost->SetCompositorID(compositor->GetCompositorID());
       textureParent->SetTextureHost(textureHost.get());
       textureHost->SetTextureParent(textureParent);
-      bufferHost->AddTextureHost(textureHost);
+      layerComposite->GetCompositableHost()->AddTextureHost(textureHost);
 
-      layer->AsShadowLayer()->SetCompositableHost(bufferHost.get());
       layer->AsShadowLayer()->SetAllocator(this);
       break;
     }
@@ -555,7 +555,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
     case Edit::TOpUpdatePictureRect: {
       const OpUpdatePictureRect& op = edit.get_OpUpdatePictureRect();
-      CompositableHost* compositable = AsShadowLayer(op)->AsLayer()->AsShadowLayer()->GetCompositableHost();
+      CompositableHost* compositable = AsShadowLayer(op)->AsLayer()->AsLayerComposite()->GetCompositableHost();
       MOZ_ASSERT(compositable);
       compositable->SetPictureRect(op.picture());
       break;

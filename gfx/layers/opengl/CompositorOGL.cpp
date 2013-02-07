@@ -847,9 +847,8 @@ void
 CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
                           const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut)
 {
-  if (mFrameInProgress) {
-    EndFrame(aTransform);
-  }
+  MOZ_ASSERT(!mFrameInProgress, "frame still in progress (should have called EndFrame or AbortFrame");
+
   mFrameInProgress = true;
   gfxRect rect;
   if (mIsRenderingToEGLSurface) {
@@ -1048,11 +1047,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset)
 {
-  if (!mFrameInProgress) {
-    //TODO[nrc] is this sensible?
-    //BeginFrame(aClipRect, gfxMatrix());
-    MOZ_ASSERT(false, "TODO[nrc]");
-  }
+  MOZ_ASSERT(mFrameInProgress, "frame not started");
 
   gfx::IntRect intSourceRect;
   if (aSourceRect) {
