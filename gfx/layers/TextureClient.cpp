@@ -245,7 +245,7 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
                                         data->mCbCrSize);
 
 
-  *mDescriptor = YCbCrImage(shmem, 0, data->GetPictureRect());
+  *mDescriptor = YCbCrImage(shmem, 0);
 
   return true;
 }

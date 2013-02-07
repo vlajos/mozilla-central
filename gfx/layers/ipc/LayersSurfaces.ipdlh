@@ -59,12 +59,10 @@ struct SurfaceDescriptorGralloc {
 struct YCbCrImage {
   Shmem data;
   size_t offset;
-  nsIntRect picture; // TODO[nical] remove (use OpUpdatePictureRect instead)
 };
 
 struct RGBImage {
   Shmem data;
-  nsIntRect picture; // TODO[nical] remove (use OpUpdatePictureRect instead)
   uint32_t rgbFormat;
 };
 

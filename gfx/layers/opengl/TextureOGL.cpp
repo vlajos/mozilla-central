@@ -227,7 +227,6 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
 
   gfxIntSize gfxSize = shmemImage.GetYSize();
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
-  nsIntRect picture = aImage.get_YCbCrImage().picture();
 
   if (!mYTexture->mTexImage || mYTexture->mTexImage->GetSize() != gfxSize) {
     mYTexture->mTexImage = mGL->CreateTextureImage(gfxSize,
