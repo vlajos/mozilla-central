@@ -74,7 +74,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   nsRefPtr<gfxASurface> targetSurface = aContext->CurrentSurface();
 
   if (!mContentClient) {
-    mContentClient = new ContentClientBasic(BasicManager());
+    mContentClient = new ContentClientBasic(nullptr,BasicManager()); // TODO[nical] use a forwarder!
   }
 
   nsTArray<ReadbackProcessor::Update> readbackUpdates;
@@ -264,6 +264,9 @@ BasicShadowableThebesLayer::PaintThebes(gfxContext* aContext,
     if (!mContentClient) {
       return;
     }
+    mContentClient->Connect();
+    mContentClient->GetForwarder()->Attach(mContentClient, this);
+    MOZ_ASSERT(mContentClient->GetForwarder());
   }
   
   AutoPaintClient autoPaint(mContentClient);
@@ -279,6 +282,13 @@ BasicShadowableThebesLayer::PaintBuffer(gfxContext* aContext,
                                         LayerManager::DrawThebesLayerCallback aCallback,
                                         void* aCallbackData)
 {
+  ContentClientRemote* contentClientRemote = static_cast<ContentClientRemote*>(mContentClient.get());
+  if (!mContentClient->GetIPDLActor()) {
+    mContentClient->Connect();
+    mContentClient->GetForwarder()->Attach(mContentClient, this);
+    MOZ_ASSERT(mContentClient->GetIPDLActor());
+  }
+  MOZ_ASSERT(contentClientRemote->GetIPDLActor());
   Base::PaintBuffer(aContext,
                     aRegionToDraw, aExtendedRegionToDraw, aRegionToInvalidate,
                     aDidSelfCopy,
@@ -287,7 +297,6 @@ BasicShadowableThebesLayer::PaintBuffer(gfxContext* aContext,
     return;
   }
 
-  ContentClientRemote* contentClientRemote = static_cast<ContentClientRemote*>(mContentClient.get());
   // Hold(this) ensures this layer is kept alive through the current transaction
   // The ContentClient assumes this layer is kept alive (e.g., in CreateBuffer),
   // so deleting this Hold for whatever reason will break things.

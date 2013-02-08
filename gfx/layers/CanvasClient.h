@@ -18,6 +18,10 @@ class BasicCanvasLayer;
 class CanvasClient : public CompositableClient
 {
 public:
+  CanvasClient(CompositableForwarder* aFwd)
+  : CompositableClient(aFwd)
+  {}
+
   virtual ~CanvasClient() {}
 
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer) = 0;
@@ -36,9 +40,8 @@ protected:
 class CanvasClient2D : public CanvasClient
 {
 public:
-  CanvasClient2D(ShadowLayerForwarder* aLayerForwarder,
-                      ShadowableLayer* aLayer,
-                      TextureFlags aFlags);
+  CanvasClient2D(CompositableForwarder* aLayerForwarder,
+                 TextureFlags aFlags);
 
   CompositableType GetType() const MOZ_OVERRIDE
   {
@@ -53,8 +56,7 @@ public:
 class CanvasClientWebGL : public CanvasClient
 {
 public:
-  CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
-                    ShadowableLayer* aLayer,
+  CanvasClientWebGL(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
   CompositableType GetType() const MOZ_OVERRIDE

@@ -30,6 +30,7 @@ class TextureImage;
 
 namespace layers {
 
+class CompositableClient;
 class Edit;
 class EditReply;
 class OptionalThebesBuffer;
@@ -52,6 +53,7 @@ class CanvasSurface;
 class BasicTiledLayerBuffer;
 class TextureClientShmem;
 class ContentClientRemote;
+class CompositableChild;
 
 enum BufferCapabilities {
   DEFAULT_BUFFER_CAPS = 0,
@@ -66,6 +68,81 @@ enum OpenMode {
   OPEN_READ_ONLY,
   OPEN_READ_WRITE
 };
+
+//interface
+// TODO[nical] move this to a better place
+class CompositableForwarder
+{
+  friend class AutoOpenSurface;
+  friend class TextureClientShmem;
+public:
+  virtual LayersBackend GetCompositorBackendType() = 0;
+
+  /**
+   * Setup the IPDL actor for aCompositable to be part of layers
+   * transactions.
+   */
+  virtual void Connect(CompositableClient* aCompositable) = 0;
+
+  /**
+   * Adds an edit in the layers transaction in order to attach
+   * the corresponding compositable and layer on the compositor side.
+   * Connect must have been called on aCompositable beforehand.
+   */
+  virtual void Attach(CompositableClient* aCompositable,
+                      ShadowableLayer* aLayer) = 0;
+
+  /**
+   * Communicate to the compositor that the texture identified by aLayer
+   * and aIdentifier has been updated to aImage.
+   */
+  virtual void UpdateTexture(TextureClient* aTexture,
+                             const SurfaceDescriptor& aImage) = 0;
+
+  /**
+   * Communicate to the compositor that aRegion in the texture identified by aLayer
+   * and aIdentifier has been updated to aThebesBuffer.
+   */
+  virtual void UpdateTextureRegion(TextureClient* aTexture,
+                                   const ThebesBuffer& aThebesBuffer,
+                                   const nsIntRegion& aUpdatedRegion) = 0;
+
+  /**
+   * Communicate the picture rect of a YUV image in aLayer to the compositor
+   */
+  virtual void UpdatePictureRect(CompositableClient* aCompositable,
+                                 const nsIntRect& aRect) = 0;
+
+  /**
+   * The specified layer is destroying its buffers.
+   * |aBackBufferToDestroy| is deallocated when this transaction is
+   * posted to the parent.  During the parent-side transaction, the
+   * shadow is told to destroy its front buffer.  This can happen when
+   * a new front/back buffer pair have been created because of a layer
+   * resize, e.g.
+   */
+  virtual void DestroyedThebesBuffer(ShadowableLayer* aThebes,
+                                     const SurfaceDescriptor& aBackBufferToDestroy) = 0;
+
+  /**
+   * Shmem (gfxSharedImageSurface) buffers are available on all
+   * platforms, but they may not be optimal.
+   *
+   * In the absence of platform-specific buffers these fall back to
+   * Shmem/gfxSharedImageSurface.
+   */
+  virtual bool AllocBuffer(const gfxIntSize& aSize,
+                           gfxASurface::gfxContentType aContent,
+                           SurfaceDescriptor* aBuffer) = 0;
+
+  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
+                                   gfxASurface::gfxContentType aContent,
+                                   uint32_t aCaps,
+                                   SurfaceDescriptor* aBuffer) = 0;
+
+  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
+};
+
 
 /**
  * We want to share layer trees across thread contexts and address
@@ -108,7 +185,7 @@ enum OpenMode {
  * the same way in both regimes (so far).
  */
 
-class ShadowLayerForwarder
+class ShadowLayerForwarder : public CompositableForwarder
 {
   friend class AutoOpenSurface;
   friend class TextureClientShmem;
@@ -117,6 +194,20 @@ public:
   typedef gfxASurface::gfxContentType gfxContentType;
 
   virtual ~ShadowLayerForwarder();
+
+  /**
+   * Setup the IPDL actor for aCompositable to be part of layers
+   * transactions.
+   */
+  void Connect(CompositableClient* aCompositable);
+
+  /**
+   * Adds an edit in the layers transaction in order to attach
+   * the corresponding compositable and layer on the compositor side.
+   * Connect must have been called on aCompositable beforehand.
+   */
+  void Attach(CompositableClient* aCompositable,
+              ShadowableLayer* aLayer);
 
   /**
    * Begin recording a transaction to be forwarded atomically to a
@@ -216,6 +307,7 @@ public:
                                BasicTiledLayerBuffer* aTiledLayerBuffer);
 
   /**
+   * TODO[nical] remove
    * Notify the compositor that a texture will be updated asynchronously
    * through ImageBridge, using an ID to connect the protocols on the 
    * compositor side.
@@ -223,10 +315,17 @@ public:
   void AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID);
 
   /**
+   * Notify the compositor that a compositable will be updated asynchronously
+   * through ImageBridge, using an ID to connect the protocols on the 
+   * compositor side.
+   */
+  void AttachAsyncCompositable(PLayersChild* aLayer, uint64_t aID);
+
+  /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
    */
-  void UpdateTexture(PTextureChild* aTexture,
+  void UpdateTexture(TextureClient* aTexture,
                      const SurfaceDescriptor& aImage);
 
   /**
@@ -238,9 +337,9 @@ public:
                            const nsIntRegion& aUpdatedRegion);
 
   /**
-   * Communicate the picture rect of a YUV image in aLayer to the compositor
+   * Communicate the picture rect of an image to the compositor
    */
-  void UpdatePictureRect(ShadowableLayer* aLayer,
+  void UpdatePictureRect(CompositableClient* aCompositable,
                          const nsIntRect& aRect);
 
   /**
@@ -321,7 +420,13 @@ public:
    */
   PLayerChild* ConstructShadowFor(ShadowableLayer* aLayer);
 
+  // TODO[nical] remove
   LayersBackend GetParentBackendType()
+  {
+    return mParentBackend;
+  }
+
+  LayersBackend GetCompositorBackendType() MOZ_OVERRIDE
   {
     return mParentBackend;
   }
@@ -338,11 +443,13 @@ public:
   /**
    * Create texture or buffer clients, see comments in CompositingFactory
    */
+/*
   TemporaryRef<TextureClient> CreateTextureClientFor(const TextureHostType& aTextureHostType,
                                                      const CompositableType& aCompositableType,
-                                                     ShadowableLayer* aLayer,
+                                                     CompositableClient* aCompositable,
                                                      TextureFlags aFlags,
                                                      bool aStrict = false);
+*/
   TemporaryRef<ImageClient> CreateImageClientFor(const CompositableType& aCompositableType,
                                                  ShadowableLayer* aLayer,
                                                  TextureFlags aFlags);
@@ -472,6 +579,10 @@ public:
   {
     NS_ASSERTION(mCompositor, "No compositor");
     mCompositor->SetCompositorID(aID);
+  }
+
+  Compositor* GetCompositor() const {
+    return mCompositor;
   }
 
 protected:

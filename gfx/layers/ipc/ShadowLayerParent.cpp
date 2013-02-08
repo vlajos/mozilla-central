@@ -31,12 +31,6 @@ ShadowLayerParent::Bind(Layer* layer)
   mLayer = layer;
 }
 
-bool
-ShadowLayerParent::DeallocPTexture(PTextureParent* tc) {
-  delete tc;
-  return true;
-}
-
 void
 ShadowLayerParent::Destroy()
 {
@@ -83,11 +77,6 @@ ShadowLayerParent::ActorDestroy(ActorDestroyReason why)
 
   mLayer = NULL;
 }
-
-PTextureParent* ShadowLayerParent::AllocPTexture(const TextureInfo& textureInfo) {
-  return new TextureParent(textureInfo);
-}
-
 
 } // namespace layers
 } // namespace mozilla

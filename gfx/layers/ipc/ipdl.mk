@@ -4,6 +4,7 @@
 
 IPDLSRCS = \
   LayersSurfaces.ipdlh \
+  PCompositable.ipdl \
   PCompositor.ipdl \
   PGrallocBuffer.ipdl \
   PImageBridge.ipdl \

@@ -5,23 +5,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-include protocol PCompositable;
-include LayersSurfaces;
+include protocol PLayers;
+include protocol PImageBridge;
+include protocol PTexture;
+include "mozilla/layers/TextureFactoryIdentifier.h";
+
+using mozilla::layers::TextureInfo;
 
 namespace mozilla {
 namespace layers {
 
-/**
- * TODO[nical] comment
- */
-
-async protocol PTexture
+async protocol PCompositable
 {
-  manager PCompositable;
-
+    manager PLayers or PImageBridge;
+    manages PTexture;
 parent:
-  async __delete__();
+    async PTexture(TextureInfo info);
+    async __delete__();
 };
-
-}
-}
+    
+} // namespace
+} // namespace

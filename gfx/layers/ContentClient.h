@@ -26,8 +26,9 @@ class ContentClient : public CompositableClient
                     , protected ThebesLayerBuffer
 {
 public:
-  ContentClient()
-    : ThebesLayerBuffer(ContainsVisibleBounds)
+  ContentClient(CompositableForwarder* aForwarder)
+  : CompositableClient(aForwarder)
+  , ThebesLayerBuffer(ContainsVisibleBounds)
   {}
   virtual ~ContentClient() {}
 
@@ -70,7 +71,7 @@ public:
 class ContentClientBasic : public ContentClient
 {
 public:
-  ContentClientBasic(BasicLayerManager* aManager);
+  ContentClientBasic(CompositableForwarder* aForwarder, BasicLayerManager* aManager);
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
@@ -91,11 +92,9 @@ class ContentClientRemote : public ContentClient
   using ThebesLayerBuffer::BufferRect;
   using ThebesLayerBuffer::BufferRotation;
 public:
-  ContentClientRemote(ShadowLayerForwarder* aLayerForwarder,
-                      ShadowableLayer* aLayer,
+  ContentClientRemote(CompositableForwarder* aForwarder,
                       TextureFlags aFlags)
-    : mLayerForwarder(aLayerForwarder)
-    , mLayer(aLayer)
+    : ContentClient(aForwarder)
     , mTextureClient(nullptr)
     , mIsNewBuffer(false)
   {}
@@ -140,10 +139,7 @@ protected:
   virtual nsIntRegion GetUpdatedRegion(const nsIntRegion& aRegionToDraw,
                                        const nsIntRegion& aVisibleRegion,
                                        bool aDidSelfCopy);
-
-  ShadowLayerForwarder* mLayerForwarder;
-  ShadowableLayer* mLayer;
-
+  
   RefPtr<TextureClient> mTextureClient;
   // keep a record of texture clients we have created and need to keep
   // around, then unlock when we are done painting
@@ -156,10 +152,9 @@ protected:
 class ContentClientDirect : public ContentClientRemote
 {
 public:
-  ContentClientDirect(ShadowLayerForwarder* aLayerForwarder,
-                      ShadowableLayer* aLayer,
+  ContentClientDirect(CompositableForwarder* aFwd,
                       TextureFlags aFlags)
-    : ContentClientRemote(aLayerForwarder, aLayer, aFlags)
+  : ContentClientRemote(aFwd, aFlags)
   {}
   ~ContentClientDirect();
 
@@ -188,7 +183,7 @@ private:
                       const nsIntRect& aRect, const nsIntPoint& aRotation)
     // The size policy doesn't really matter here; this constructor is
     // intended to be used for creating temporaries
-    : ContentClientRemote(nullptr, nullptr, NoFlags)
+    : ContentClientRemote(nullptr, NoFlags)
   {
     SetBuffer(aBuffer, aRect, aRotation);
   }
@@ -206,10 +201,9 @@ private:
 class ContentClientTexture : public ContentClientRemote
 {
 public:
-  ContentClientTexture(ShadowLayerForwarder* aLayerForwarder,
-                       ShadowableLayer* aLayer,
+  ContentClientTexture(CompositableForwarder* aFwd,
                        TextureFlags aFlags)
-    : ContentClientRemote(aLayerForwarder, aLayer, aFlags)
+    : ContentClientRemote(aFwd, aFlags)
   {}
 
   virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,

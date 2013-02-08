@@ -29,7 +29,7 @@
 #include "nsRegion.h"
 #include "gfxASurface.h"
 #include "jsapi.h"
-#include "LayersTypes.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "FrameMetrics.h"
 #include "nsCSSProperty.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h"

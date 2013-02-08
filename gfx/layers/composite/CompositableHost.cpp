@@ -7,6 +7,7 @@
 #include "ImageHost.h"
 #include "ContentHost.h"
 #include "mozilla/layers/ImageContainerParent.h"
+#include "mozilla/layers/TextureParent.h"
 #include "Effects.h"
 
 namespace mozilla {
@@ -71,6 +72,27 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
   }
 }
 
+PTextureParent*
+CompositableParent::AllocPTexture(const TextureInfo& aInfo)
+{
+  return new TextureParent(aInfo, this);
+}
+
+bool
+CompositableParent::DeallocPTexture(PTextureParent* aActor)
+{
+  delete aActor;
+  return true;
+}
+
+
+CompositableParent::CompositableParent(CompositableParentManager* aMgr,
+                                       CompositableType aType)
+: mManager(aMgr)
+, mType(aType)
+{
+  mHost = CompositableHost::Create(aType, aMgr->GetCompositor());
+}
 
 } // namespace
 } // namespace

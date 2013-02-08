@@ -37,6 +37,11 @@ public:
   PImageContainerParent* AllocPImageContainer(uint64_t* aID) MOZ_OVERRIDE;
   // Overriden from PImageBridgeParent.
   bool DeallocPImageContainer(PImageContainerParent* toDealloc) MOZ_OVERRIDE;
+
+  PCompositableParent* AllocPCompositable(uint64_t*) MOZ_OVERRIDE { return nullptr; } // TODO[nical]
+  bool DeallocPCompositable(PCompositableParent* aActor) MOZ_OVERRIDE { return false; }
+
+
   // Overriden from PImageBridgeParent.
   bool RecvStop() MOZ_OVERRIDE;
 

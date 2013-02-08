@@ -121,7 +121,9 @@ public:
 
   virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {
-    mTextureHost->SetDeAllocator(aDeAllocator);
+    if (mTextureHost) {
+      mTextureHost->SetDeAllocator(aDeAllocator);
+    }
   }
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE

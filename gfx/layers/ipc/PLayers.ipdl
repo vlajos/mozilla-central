@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include LayersSurfaces;
+include protocol PCompositable;
 include protocol PCompositor;
 include protocol PGrallocBuffer;
 include protocol PLayer;
@@ -55,15 +56,16 @@ struct OpCreateColorLayer      { PLayer layer; };
 struct OpCreateCanvasLayer     { PLayer layer; };
 struct OpCreateRefLayer        { PLayer layer; };
 
-struct OpAttachTexture {
+struct OpAttachCompositable {
   PLayer layer;
-  PTexture texture;
+  PCompositable compositable;
 };
 
-struct OpAttachAsyncTexture {
-  PTexture texture;
+struct OpAttachAsyncCompositable {
+  PCompositable compositable;
   uint64_t containerID;
 };
+
 
 struct ThebesBuffer {
   SurfaceDescriptor buffer;
@@ -269,7 +271,7 @@ struct OpPaintTextureRegion {
 };
 
 struct OpUpdatePictureRect {
-  PLayer layer;
+  PCompositable compositable;
   nsIntRect picture;
 };
 
@@ -298,8 +300,9 @@ union Edit {
 
   OpPaintTexture;
   OpPaintTextureRegion;
-  OpAttachTexture;
-  OpAttachAsyncTexture;
+
+  OpAttachCompositable;
+  OpAttachAsyncCompositable;
 };
 
 
@@ -345,6 +348,7 @@ sync protocol PLayers {
   manager PRenderFrame or PCompositor;
   manages PGrallocBuffer;
   manages PLayer;
+  manages PCompositable;
 
 parent:
   /**
@@ -355,6 +359,7 @@ parent:
   sync PGrallocBuffer(gfxIntSize size, gfxContentType content)
     returns (MaybeMagicGrallocBufferHandle handle);
   async PLayer();
+  async PCompositable(CompositableType aType);
 
   // The isFirstPaint flag can be used to indicate that this is the first update
   // for a particular document.

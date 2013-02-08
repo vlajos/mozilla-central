@@ -8,7 +8,7 @@
 
 #include "gfxUtils.h"
 #include "LayerManagerComposite.h"
-#include "LayersTypes.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "gfx2DGlue.h"
 #include "mozilla/layers/Effects.h"
 

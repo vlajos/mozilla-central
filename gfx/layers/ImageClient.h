@@ -21,7 +21,7 @@ class PlanarYCbCrImage;
 class ImageClient : public CompositableClient
 {
 public:
-  ImageClient();
+  ImageClient(CompositableForwarder* aFwd);
   virtual ~ImageClient() {}
 
   virtual CompositableType GetType() const MOZ_OVERRIDE
@@ -50,29 +50,15 @@ public:
 
   virtual void UpdatePictureRect(nsIntRect aPictureRect);
 
-  /**
-   * Compositable will have it's own IPDL protocol but in the mean time we use the
-   * layer's communication channel. (TODO)
-   */
-  void SetCompositableChild(ShadowLayerForwarder* aFwd, ShadowableLayer* aLayer) {
-    mForwarder = aFwd;
-    mLayer = aLayer;
-  }
 protected:
   int32_t mLastPaintedImageSerial;
   nsIntRect mPictureRect;
-  // TODO[nical]
-  // we need to keep this here until Compositable gets its own ipdl protocol
-  // in the mean time compositable-specific stuff goes through PLayers
-  ShadowLayerForwarder* mForwarder;
-  ShadowableLayer* mLayer;
 };
 
 class ImageClientTexture : public ImageClient
 {
 public:
-  ImageClientTexture(ShadowLayerForwarder* aLayerForwarder,
-                     ShadowableLayer* aLayer,
+  ImageClientTexture(CompositableForwarder* aFwd,
                      TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
@@ -85,13 +71,13 @@ public:
   virtual void Updated(ShadowableLayer* aLayer);
 private:
   RefPtr<TextureClient> mTextureClient;
+  TextureFlags mFlags;  
 };
 
 class ImageClientShared : public ImageClient
 {
 public:
-  ImageClientShared(ShadowLayerForwarder* aLayerForwarder,
-                    ShadowableLayer* aLayer,
+  ImageClientShared(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
@@ -108,8 +94,7 @@ private:
 class ImageClientBridge : public ImageClient
 {
 public:
-  ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
-                    ShadowableLayer* aLayer,
+  ImageClientBridge(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);

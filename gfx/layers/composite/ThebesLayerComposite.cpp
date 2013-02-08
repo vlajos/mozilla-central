@@ -341,6 +341,5 @@ ThebesLayerComposite::GetCompositionBounds()
   return compositionBounds;
 }
 
-
 } /* layers */
 } /* mozilla */

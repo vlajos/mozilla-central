@@ -55,9 +55,10 @@ public:
 
   virtual void CleanupResources();
 
-  CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
-
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
+
+  // container layers don't use a compositable
+  CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 };
 
 class CompositeRefLayer : public ShadowRefLayer,
@@ -91,9 +92,11 @@ public:
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
 
-  virtual void CleanupResources();
+  virtual void CleanupResources() MOZ_OVERRIDE;
 
-    CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
+  // ref layers don't use a compositable
+  CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
+
 };
 
 } /* layers */

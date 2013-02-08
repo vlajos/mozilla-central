@@ -13,10 +13,9 @@
 namespace mozilla {
 namespace layers {
 
-ImageClient::ImageClient()
-: mLastPaintedImageSerial(0)
-, mForwarder(nullptr)
-, mLayer(nullptr)
+ImageClient::ImageClient(CompositableForwarder* aFwd)
+: CompositableClient(aFwd)
+, mLastPaintedImageSerial(0)
 {}
 
 void
@@ -27,22 +26,21 @@ ImageClient::UpdatePictureRect(nsIntRect aRect)
   }
   mPictureRect = aRect;
   MOZ_ASSERT(mForwarder);
-  MOZ_ASSERT(mLayer);
-  mForwarder->UpdatePictureRect(mLayer, aRect);
+  GetForwarder()->UpdatePictureRect(this, aRect);
 }
 
-ImageClientTexture::ImageClientTexture(ShadowLayerForwarder* aLayerForwarder,
-                                       ShadowableLayer* aLayer,
+ImageClientTexture::ImageClientTexture(CompositableForwarder* aFwd,
                                        TextureFlags aFlags)
+: ImageClient(aFwd)
+, mFlags(aFlags)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, BUFFER_SINGLE, aLayer, aFlags, true);
 }
 
 bool
 ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 {
   if (!mTextureClient) {
-    return true;
+    mTextureClient = CreateTextureClient(TEXTURE_SHMEM, mFlags, true);
   }
 
   nsRefPtr<gfxASurface> surface;
@@ -86,11 +84,11 @@ ImageClientTexture::Updated(ShadowableLayer* aLayer)
   mTextureClient->Updated(aLayer);
 }
 
-ImageClientShared::ImageClientShared(ShadowLayerForwarder* aLayerForwarder,
-                                     ShadowableLayer* aLayer, 
+ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
+: ImageClient(aFwd)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED, BUFFER_SHARED, aLayer, true, aFlags);
+  //mTextureClient = CreateTextureClient(TEXTURE_SHARED, true, aFlags);
 }
 
 bool
@@ -125,11 +123,10 @@ ImageClientShared::Updated(ShadowableLayer* aLayer)
   mTextureClient->Updated(aLayer);
 }
 
-ImageClientBridge::ImageClientBridge(ShadowLayerForwarder* aLayerForwarder,
-                                     ShadowableLayer* aLayer,
+ImageClientBridge::ImageClientBridge(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
+: ImageClient(aFwd)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_ASYNC, BUFFER_BRIDGE, aLayer, aFlags, true);
 }
 
 bool

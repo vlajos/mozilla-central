@@ -58,10 +58,10 @@ static void DrawDebugOverlay(gfxASurface* imgSurf, int x, int y)
 namespace mozilla {
 namespace layers {
 
-ContentClientBasic::ContentClientBasic(BasicLayerManager* aManager)
-  : mManager(aManager)
+ContentClientBasic::ContentClientBasic(CompositableForwarder* aForwarder,
+                                       BasicLayerManager* aManager)
+: ContentClient(aForwarder), mManager(aManager)
 {}
-
 
 already_AddRefed<gfxASurface>
 ContentClientBasic::CreateBuffer(ContentType aType,
@@ -97,17 +97,17 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   mOldTextures.AppendElement(mTextureClient);
 
   if (mTextureClient) {
-    mTextureClient->Destroyed(mLayer);
+    mTextureClient->Destroyed(this);
   }
 
-  if (mLayerForwarder->GetParentBackendType() != LAYERS_D3D11) {
+  if (GetForwarder()->GetCompositorBackendType() != LAYERS_D3D11) {
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
-                                              mLayer, AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHMEM,
+                          AllowRepeat, true).drop());
   } else {
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED|TEXTURE_DXGI, GetType(),
-                                              mLayer, AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHARED|TEXTURE_DXGI,
+                          AllowRepeat, true).drop());
   }
 
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
@@ -235,8 +235,8 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
     AutoOpenSurface roFrontBuffer(OPEN_READ_ONLY, roFront.buffer());
     nsIntSize size = roFrontBuffer.Size();
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
-                                              mLayer, AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHMEM,
+                          AllowRepeat, true).drop());
     mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height),
                                         roFrontBuffer.ContentType());
   }
@@ -442,7 +442,7 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
 {
   if (aTile.IsPlaceholderTile()) {
     RefPtr<TextureClient> textureClient =
-      mManager->CreateTextureClientFor(TEXTURE_TILE, BUFFER_TILED, mThebesLayer, true);
+      mThebesLayer->GetCompositableClient()->CreateTextureClient(TEXTURE_TILE, 0, true); // TODO[nical] check that
     aTile.mTextureClient = static_cast<TextureClientTile*>(textureClient.get());
   }
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());

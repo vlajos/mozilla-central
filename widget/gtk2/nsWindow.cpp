@@ -68,7 +68,7 @@
 #include "nsIStringBundle.h"
 #include "nsGfxCIID.h"
 #include "nsIObserverService.h"
-#include "LayersTypes.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "nsIIdleServiceInternal.h"
 #include "nsIPropertyBag2.h"
 
