@@ -100,6 +100,8 @@ ContentClientRemote::CreateBuffer(ContentType aType,
     mTextureClient->Destroyed(mLayer);
   }
 
+  // TODO[nrc] this logic should be in CreateTextureClientFor, content stuff
+  // not know about backend types
   if (mLayerForwarder->GetParentBackendType() != LAYERS_D3D11) {
     mTextureClient = static_cast<TextureClientShmem*>(
       mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
