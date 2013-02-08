@@ -435,8 +435,7 @@ public:
    * currently set textures to sample from. This area may not refer directly
    * to pixels depending on the effect.
    */
-  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
-                        const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
+  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
                         const EffectChain &aEffectChain,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset) = 0;

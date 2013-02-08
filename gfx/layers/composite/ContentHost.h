@@ -15,6 +15,7 @@ namespace layers {
 
 class ThebesBuffer;
 class OptionalThebesBuffer;
+struct TexturedEffect;
 
 // Base class for Thebes layer buffers, used by main thread and off-main thread
 // compositing. This is the only place we use *Hosts/*Clients for main thread
@@ -159,7 +160,7 @@ protected:
   RefPtr<Compositor> mCompositor;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
-  RefPtr<Effect> mTextureEffect;
+  RefPtr<TexturedEffect> mTextureEffect;
   bool mPaintWillResample;
   bool mInitialised;
 };

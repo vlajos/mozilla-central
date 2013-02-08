@@ -167,8 +167,12 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
                                  tileRegionRect.width, tileRegionRect.height);
             gfx::Rect textureRect(0, 0,
                                   texRect.width, texRect.height);
+
+#if 0
+            // XXX - Bas - Needs to be fixed for new lock API. Not used.
             mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
                                   aOpacity, aTransform, aOffset);
+#endif
         }
       }
     }
@@ -328,12 +332,12 @@ ContentHost::Composite(EffectChain& aEffectChain,
             }
             gfx::Rect rect(tileScreenRect.x, tileScreenRect.y,
                            tileScreenRect.width, tileScreenRect.height);
-            gfx::Rect sourceRect(tileRegionRect.x, tileRegionRect.y,
-                                 tileRegionRect.width, tileRegionRect.height);
-            gfx::Rect textureRect(texRect.x, texRect.y,
-                                  texRect.width, texRect.height);
-            mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
-                                  aOpacity, aTransform, aOffset);
+
+            mTextureEffect->mTextureCoords = Rect(Float(tileRegionRect.x) / texRect.width,
+                                                  Float(tileRegionRect.y) / texRect.height,
+                                                  Float(tileRegionRect.width) / texRect.width,
+                                                  Float(tileRegionRect.height) / texRect.height);
+            mCompositor->DrawQuad(rect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
         }
       }
     }
@@ -686,7 +690,7 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
   MOZ_ASSERT(aTile.mTextureHost, "Trying to render a placeholder tile?");
 
   //TODO y flip
-  RefPtr<Effect> effect;
+  RefPtr<TexturedEffect> effect;
   if (aTile.mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
     effect = new EffectRGBX(aTile.mTextureHost, true, aFilter);
   } else {
@@ -700,12 +704,15 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 
   nsIntRegionRectIterator it(aScreenRegion);
   for (const nsIntRect* rect = it.Next(); rect != nullptr; rect = it.Next()) {
-    gfx::Rect graphicsRect(rect->x, rect->y, rect->width, rect->height);
-    gfx::Rect textureRect(rect->x - aTextureOffset.x, rect->y - aTextureOffset.y,
-                          rect->width, rect->height);
-    gfx::Rect boundsRect(0, 0, aTextureBounds.width, aTextureBounds.height);
-    mCompositor->DrawQuad(graphicsRect, &textureRect, &boundsRect,
-                          &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+    Rect graphicsRect(rect->x, rect->y, rect->width, rect->height);
+    Rect textureRect(rect->x - aTextureOffset.x, rect->y - aTextureOffset.y,
+                     rect->width, rect->height);
+
+    effect->mTextureCoords = Rect(textureRect.x / aTextureBounds.width,
+                                  textureRect.y / aTextureBounds.height,
+                                  textureRect.width / aTextureBounds.width,
+                                  textureRect.height / aTextureBounds.height);
+    mCompositor->DrawQuad(graphicsRect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
   }
 
   aTile.mTextureHost->Unlock();

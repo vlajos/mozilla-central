@@ -64,7 +64,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   }
 
   mTextureHost->UpdateAsyncTexture();
-  RefPtr<Effect> effect;
+  RefPtr<TexturedEffect> effect;
   switch (mTextureHost->GetFormat()) {
   case FORMAT_B8G8R8A8:
     effect = new EffectBGRA(mTextureHost, true, aFilter);
@@ -97,18 +97,20 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     do {
       nsIntRect tileRect = it->GetTileRect();
       gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
-      gfx::Rect sourceRect(0, 0, tileRect.width, tileRect.height);
-      compositor()->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
-                            aOpacity, aTransform, aOffset);
+      compositor()->DrawQuad(rect, &aClipRect, aEffectChain,
+                             aOpacity, aTransform, aOffset);
     } while (it->NextTile());
   } else {
-    gfx::Rect sourceRect(mPictureRect.x, mPictureRect.y,
-                         mPictureRect.width, mPictureRect.height);
     gfx::Rect rect(0, 0,
                    mTextureHost->AsTextureSource()->GetSize().width,
                    mTextureHost->AsTextureSource()->GetSize().height);
-    compositor()->DrawQuad(rect, &sourceRect, nullptr, &aClipRect, aEffectChain,
-                           aOpacity, aTransform, aOffset);
+    effect->mTextureCoords = Rect(Float(mPictureRect.x) / rect.width,
+                                  Float(mPictureRect.y) / rect.height,
+                                  Float(mPictureRect.width) / rect.width,
+                                  Float(mPictureRect.height) / rect.height);
+
+    compositor()->DrawQuad(rect, &aClipRect, aEffectChain,
+                          aOpacity, aTransform, aOffset);
   }
 
   mTextureHost->Unlock();

@@ -8,6 +8,9 @@
 #include "mozilla/layers/TextureChild.h"
 #include "mozilla/layers/ShadowLayersChild.h"
 #include "mozilla/layers/ShadowLayers.h" // for CompositabeForwarder
+#ifdef XP_WIN
+#include "mozilla/layers/TextureD3D11.h"
+#endif
 
 namespace mozilla {
 namespace layers {

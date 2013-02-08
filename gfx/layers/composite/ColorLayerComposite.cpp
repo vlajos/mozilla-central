@@ -30,7 +30,7 @@ RenderColorLayer(ColorLayer* aLayer, Compositor *aCompositor,
   gfx::Matrix4x4 transform;
   ToMatrix4x4(aLayer->GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-  aCompositor->DrawQuad(rect, nullptr, nullptr, &clipRect, effects, opacity,
+  aCompositor->DrawQuad(rect, &clipRect, effects, opacity,
                         transform, gfx::Point(aOffset.x, aOffset.y));
 }
 
