@@ -279,8 +279,10 @@ ContentClientDirect::SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
     gfxUtils::ClipToRegion(destCtx, aUpdateRegion);
   }
 
-  ContentClientDirect srcBuffer(aSource, aRect, aRotation);
-  srcBuffer.DrawBufferWithRotation(destCtx, 1.0, nullptr, nullptr);
+  // FIXME [bjacob] only putting this on the heap to work around impossibility to
+  // put RefCounted objects on the stack
+  RefPtr<ContentClientDirect> srcBuffer = new ContentClientDirect(aSource, aRect, aRotation);
+  srcBuffer->DrawBufferWithRotation(destCtx, 1.0, nullptr, nullptr);
 }
 
 void
