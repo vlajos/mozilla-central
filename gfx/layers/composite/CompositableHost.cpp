@@ -7,6 +7,7 @@
 #include "ImageHost.h"
 #include "ContentHost.h"
 #include "mozilla/layers/ImageContainerParent.h"
+#include "mozilla/layers/TextureParent.h"
 #include "Effects.h"
 
 namespace mozilla {
@@ -43,8 +44,10 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
 {
   RefPtr<CompositableHost> result;
   switch (aType) {
+#if 0 // FIXME [bjacob] reenable that
 #ifdef MOZ_WIDGET_GONK
   case BUFFER_DIRECT_EXTERNAL:
+#endif
 #endif
   case BUFFER_SHARED:
   case BUFFER_DIRECT:
@@ -53,9 +56,6 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
     return result;
   case BUFFER_TILED:
     result = new TiledContentHost(aCompositor);
-    return result;
-  case BUFFER_BRIDGE:
-    result = new ImageHostBridge(aCompositor);
     return result;
   case BUFFER_CONTENT:
     result = new ContentHostTexture(aCompositor);
@@ -69,6 +69,27 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
   }
 }
 
+PTextureParent*
+CompositableParent::AllocPTexture(const TextureInfo& aInfo)
+{
+  return new TextureParent(aInfo, this);
+}
+
+bool
+CompositableParent::DeallocPTexture(PTextureParent* aActor)
+{
+  delete aActor;
+  return true;
+}
+
+
+CompositableParent::CompositableParent(CompositableParentManager* aMgr,
+                                       CompositableType aType)
+: mManager(aMgr)
+, mType(aType)
+{
+  mHost = CompositableHost::Create(aType, aMgr->GetCompositor());
+}
 
 } // namespace
 } // namespace

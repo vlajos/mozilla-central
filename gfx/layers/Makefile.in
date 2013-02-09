@@ -50,7 +50,6 @@ EXPORTS = \
         LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
-        LayersTypes.h \
         LayerManagerOGLShaders.h \
         LayerManagerOGL.h \
         LayerManagerOGLProgram.h \
@@ -160,6 +159,7 @@ EXPORTS_mozilla/layers =\
         ImageContainerParent.h \
         ImageHost.h \
         ISurfaceDeallocator.h \
+        LayersTypes.h \
         SurfaceDeallocatorIPC.h \
         ShadowLayers.h \
         ShadowLayersChild.h \
@@ -181,6 +181,7 @@ CPPSRCS += \
         AsyncPanZoomController.cpp \
         Axis.cpp \
         CanvasClient.cpp \
+        CompositableClient.cpp \
         Compositor.cpp \
         CompositorOGL.cpp \
         CompositorCocoaWidgetHelper.cpp \

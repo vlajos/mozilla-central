@@ -47,7 +47,7 @@ private:
 class TextureClientD3D11 : public TextureClient
 {
 public:
-  TextureClientD3D11(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
+  TextureClientD3D11(CompositableForwarder* aCompositableForwarder, CompositableType aCompositableType);
 
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 

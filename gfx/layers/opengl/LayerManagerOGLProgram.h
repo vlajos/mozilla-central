@@ -13,7 +13,7 @@
 #include "nsString.h"
 #include "GLContextTypes.h"
 #include "gfx3DMatrix.h"
-#include "LayersTypes.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "gfxColor.h"
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/RefPtr.h"

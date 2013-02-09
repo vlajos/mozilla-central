@@ -17,6 +17,7 @@
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/PLayersParent.h"
 #include "mozilla/layers/TextureChild.h"
+#include "mozilla/layers/CompositableClient.h"
 #include "ShadowLayers.h"
 #include "ShadowLayerChild.h"
 #include "gfxipc/ShadowLayerUtils.h"
@@ -215,7 +216,7 @@ ShadowLayerForwarder::DestroyedThebesBuffer(ShadowableLayer* aThebes,
 void
 ShadowLayerForwarder::Mutated(ShadowableLayer* aMutant)
 {
-  mTxn->AddMutant(aMutant);
+mTxn->AddMutant(aMutant);
 }
 
 void
@@ -282,17 +283,13 @@ ShadowLayerForwarder::PaintedTiledLayerBuffer(ShadowableLayer* aLayer,
 }
 
 void
-ShadowLayerForwarder::AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID)
-{
-  mTxn->AddEdit(OpAttachAsyncTexture(nullptr, aTexture, aID));
-}
-
-void
-ShadowLayerForwarder::UpdateTexture(PTextureChild* aTexture,
+ShadowLayerForwarder::UpdateTexture(TextureClient* aTexture,
                                     const SurfaceDescriptor& aImage)
 {
   MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
-  mTxn->AddPaint(OpPaintTexture(nullptr, aTexture, aImage));
+  MOZ_ASSERT(aTexture);
+  MOZ_ASSERT(aTexture->GetIPDLActor());
+  mTxn->AddPaint(OpPaintTexture(nullptr, aTexture->GetIPDLActor(), aImage));
 }
 
 void
@@ -300,16 +297,18 @@ ShadowLayerForwarder::UpdateTextureRegion(TextureClient* aTexture,
                                           const ThebesBuffer& aThebesBuffer,
                                           const nsIntRegion& aUpdatedRegion)
 {
-  mTxn->AddPaint(OpPaintTextureRegion(nullptr, aTexture->GetTextureChild(),
+  MOZ_ASSERT(aTexture);
+  MOZ_ASSERT(aTexture->GetIPDLActor());
+  mTxn->AddPaint(OpPaintTextureRegion(nullptr, aTexture->GetIPDLActor(),
                                       aThebesBuffer,
                                       aUpdatedRegion));
 }
 
 void
-ShadowLayerForwarder::UpdatePictureRect(ShadowableLayer* aLayer,
+ShadowLayerForwarder::UpdatePictureRect(CompositableClient* aCompositable,
                                         const nsIntRect& aRect)
 {
-  mTxn->AddNoSwapPaint(OpUpdatePictureRect(nullptr, Shadow(aLayer), aRect));
+  mTxn->AddNoSwapPaint(OpUpdatePictureRect(nullptr, aCompositable->GetIPDLActor(), aRect));
 }
 
 void 
@@ -578,13 +577,13 @@ ShadowLayerForwarder::DestroySharedSurface(SurfaceDescriptor* aSurface)
     DestroySharedShmemSurface(aSurface, mShadowManager);
   }
 }
-
+/*
 TemporaryRef<TextureClient>
 ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHostType,
                                              const CompositableType& aCompositableType,
-                                             ShadowableLayer* aLayer,
+                                             CompositableClient* aCompositable,
                                              TextureFlags aFlags,
-                                             bool aStrict /* = false */)
+                                             bool aStrict)
 {
   RefPtr<TextureClient> client = CompositingFactory::CreateTextureClient(mParentBackend,
                                                                          aTextureHostType,
@@ -597,15 +596,13 @@ ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHost
   }
 
   TextureChild* textureChild
-    = static_cast<TextureChild*>(Shadow(aLayer)->SendPTextureConstructor(client->GetTextureInfo()));
-  mTxn->AddEdit(OpAttachTexture(nullptr, Shadow(aLayer),
-                                nullptr, textureChild));
+    = static_cast<TextureChild*>(aCompositable->GetIPDLActor()->SendPTextureConstructor(client->GetTextureInfo()));
   client->SetTextureChild(textureChild);
-  textureChild->SetClients(client, aLayer->GetCompositableClient());
+  textureChild->SetClients(client, aCompositable);
 
   return client.forget();
 }
-
+*/
 TemporaryRef<ImageClient>
 ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositableType,
                                            ShadowableLayer* aLayer,
@@ -613,7 +610,7 @@ ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositable
 {
   RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(mParentBackend,
                                                                      aCompositableType,
-                                                                     this, aLayer, aFlags);
+                                                                     this, aFlags);
   return client.forget();
 }
 
@@ -624,7 +621,7 @@ ShadowLayerForwarder::CreateCanvasClientFor(const CompositableType& aCompositabl
 {
   RefPtr<CanvasClient> client = CompositingFactory::CreateCanvasClient(mParentBackend,
                                                                        aCompositableType,
-                                                                       this, aLayer, aFlags);
+                                                                       this, aFlags);
   return client.forget();
 }
 
@@ -635,7 +632,7 @@ ShadowLayerForwarder::CreateContentClientFor(const CompositableType& aCompositab
 {
   RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(mParentBackend,
                                                                          aCompositableType,
-                                                                         this, aLayer, aFlags);
+                                                                         this, aFlags);
   return client.forget();
 }
 
@@ -806,6 +803,35 @@ AutoOpenSurface::GetAsImage()
     mSurfaceAsImage = Get()->GetAsImageSurface();
   }
   return mSurfaceAsImage.get();
+}
+
+void
+ShadowLayerForwarder::Connect(CompositableClient* aCompositable)
+{
+  printf("ShadowLayerForwarder::Connect(Compositable)\n");
+  MOZ_ASSERT(aCompositable);
+  CompositableChild* child = static_cast<CompositableChild*>(
+    mShadowManager->SendPCompositableConstructor(aCompositable->GetType()));
+  MOZ_ASSERT(child);
+  aCompositable->SetIPDLActor(child);
+  child->SetClient(aCompositable);
+}
+
+void ShadowLayerForwarder::Attach(CompositableClient* aCompositable,
+                                  ShadowableLayer* aLayer)
+{
+  MOZ_ASSERT(aCompositable);
+  MOZ_ASSERT(aLayer);
+  mTxn->AddEdit(OpAttachCompositable(nullptr, Shadow(aLayer),
+                                     nullptr, aCompositable->GetIPDLActor()));
+}
+
+void ShadowLayerForwarder::AttachAsyncCompositable(uint64_t aCompositableID,
+                                                   ShadowableLayer* aLayer)
+{
+  MOZ_ASSERT(aLayer);
+  mTxn->AddEdit(OpAttachAsyncCompositable(nullptr, Shadow(aLayer),
+                                          aCompositableID));
 }
 
 } // namespace layers

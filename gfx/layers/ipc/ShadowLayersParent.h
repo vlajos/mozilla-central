@@ -11,6 +11,7 @@
 #include "mozilla/layers/PLayersParent.h"
 #include "ShadowLayers.h"
 #include "ShadowLayersManager.h"
+#include "CompositableHost.h" // for CompositableParentManager
 
 namespace mozilla {
 
@@ -24,7 +25,7 @@ class Layer;
 class ShadowLayerManager;
 
 class ShadowLayersParent : public PLayersParent,
-                           public ISurfaceDeallocator
+                           public CompositableParentManager
 {
   typedef mozilla::layout::RenderFrameParent RenderFrameParent;
   typedef InfallibleTArray<Edit> EditArray;
@@ -72,6 +73,11 @@ protected:
 
   virtual PLayerParent* AllocPLayer() MOZ_OVERRIDE;
   virtual bool DeallocPLayer(PLayerParent* actor) MOZ_OVERRIDE;
+
+  virtual PCompositableParent* AllocPCompositable(const CompositableType& aType) MOZ_OVERRIDE;
+  virtual bool DeallocPCompositable(PCompositableParent* actor) MOZ_OVERRIDE;
+
+  virtual Compositor* GetCompositor() MOZ_OVERRIDE;
 
 private:
   nsRefPtr<ShadowLayerManager> mLayerManager;

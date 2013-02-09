@@ -24,13 +24,9 @@ public:
 
 protected:
   ImageHost(Compositor* aCompositor)
-  : mCompositor(aCompositor)
+  : CompositableHost(aCompositor)
   {
   }
-
-  Compositor* compositor() const { return mCompositor; }
-
-  RefPtr<Compositor> mCompositor;
 };
 
 class ImageHostSingle : public ImageHost
@@ -75,62 +71,20 @@ public:
     return mTextureHost->GetRenderState();
   }
 
+  virtual void CleanupResources() MOZ_OVERRIDE
+  {
+    if (mTextureHost) {
+      mTextureHost->CleanupResources();
+    }
+  }
+
 protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
   CompositableType mType;
 };
 
-class ImageHostBridge : public ImageHost
-{
-public:
-  ImageHostBridge(Compositor* aCompositor)
-    : ImageHost(aCompositor)
-    , mImageContainerID(0)
-    , mImageVersion(0)
-  {}
-
-  virtual CompositableType GetType() { return BUFFER_BRIDGE; }
-
-  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
-                                        const SurfaceDescriptor& aImage);
-
-  virtual void Composite(EffectChain& aEffectChain,
-                         float aOpacity,
-                         const gfx::Matrix4x4& aTransform,
-                         const gfx::Point& aOffset,
-                         const gfx::Filter& aFilter,
-                         const gfx::Rect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr,
-                         TiledLayerProperties* aLayerProperties = nullptr);
-
-  virtual void AddTextureHost(TextureHost* aTextureHost);
-
-  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
-  {
-    // Update the associated compositor ID in case Composer2D succeeds,
-    // because we won't enter RenderLayer() if so ...
-    ImageContainerParent::SetCompositorIDForImage(
-      mImageContainerID, compositor()->GetCompositorID());
-    // ... but do *not* try to update the local image version.  We need
-    // to retain that information in case we fall back on GL, so that we
-    // can upload / attach buffers properly.
-
-    SurfaceDescriptor* img = ImageContainerParent::GetSurfaceDescriptor(mImageContainerID);
-    if (img) {
-      return LayerRenderState(img);
-    }
-    return LayerRenderState();
-  }
-
-protected:
-  void EnsureImageHost();
-
-  RefPtr<ImageHost> mImageHost;
-  uint64_t mImageContainerID;
-  uint32_t mImageVersion;
-};
-
 }
 }
+
 #endif

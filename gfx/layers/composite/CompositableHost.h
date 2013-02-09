@@ -7,7 +7,8 @@
 #define MOZILLA_GFX_BUFFERHOST_H
 
 #include "mozilla/layers/Compositor.h"
-
+#include "mozilla/layers/PCompositableParent.h"
+#include "mozilla/layers/ISurfaceDeallocator.h"
 namespace mozilla {
 namespace layers {
 
@@ -22,13 +23,16 @@ struct TiledLayerProperties
   bool mRetainTiles;
 };
 
+class Layer;
 class TextureHost;
 class SurfaceDescriptor;
 
 class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
-  CompositableHost() {}
+  CompositableHost(Compositor* aCompositor = nullptr)
+  : mCompositor(aCompositor)
+  {}
 
   virtual ~CompositableHost() {}
 
@@ -36,6 +40,14 @@ public:
                                                Compositor* aCompositor);
 
   virtual CompositableType GetType() = 0;
+
+  virtual void CleanupResources() {}
+
+  virtual void SetCompositor(Compositor* aCompositor)
+  {
+    CleanupResources();
+    mCompositor = aCompositor;
+  }
 
   // composite the contents of this buffer host to the compositor's surface
   virtual void Composite(EffectChain& aEffectChain,
@@ -71,6 +83,63 @@ public:
   bool AddMaskEffect(EffectChain& aEffects,
                      const gfx::Matrix4x4& aTransform,
                      bool aIs3D = false);
+
+  Compositor* GetCompositor() const
+  {
+    return mCompositor;
+  }
+
+  // temporary hack, will be removed when layer won't need to be notfied after texture update
+  Layer* GetLayer() const { return mLayer; }
+  void SetLayer(Layer* aLayer) { mLayer = aLayer; }
+protected:
+  Layer* mLayer;
+  Compositor* mCompositor;
+};
+
+// interface.
+// since PCompositble has two potential manager protocols, we can't just call
+// the Manager() method usually generated when there's one manager protocol,
+// so both manager protocols implement this and we keep a reference to them
+// through this interface.
+class CompositableParentManager : public ISurfaceDeallocator
+{
+public:
+  virtual Compositor* GetCompositor() = 0;
+};
+
+
+class CompositableParent : public PCompositableParent
+{
+public:
+  CompositableParent(CompositableParentManager* aMgr, CompositableType aType);
+  PTextureParent* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
+  bool DeallocPTexture(PTextureParent* aActor) MOZ_OVERRIDE;
+
+  CompositableHost* GetCompositableHost() const {
+    return mHost;
+  }
+  void SetCompositableHost(CompositableHost* aHost) {
+    mHost = aHost;
+  }
+
+  CompositableType GetType() const
+  {
+    return mType;
+  }
+
+  Compositor* GetCompositor() const
+  {
+    return mManager->GetCompositor();
+  }
+  CompositableParentManager* GetCompositableManager() const
+  {
+    return mManager;
+  }
+private:
+  RefPtr<CompositableHost> mHost;
+  CompositableParentManager* mManager;
+  CompositableType mType;
 };
 
 } // namespace

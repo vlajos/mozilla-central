@@ -25,9 +25,9 @@ namespace mozilla {
 namespace layers {
 
 
-TextureClient::TextureClient(ShadowLayerForwarder* aLayerForwarder,
+TextureClient::TextureClient(CompositableForwarder* aForwarder,
                              CompositableType aCompositableType)
-  : mLayerForwarder(aLayerForwarder)
+  : mLayerForwarder(aForwarder)
   , mAllocator(nullptr)
   , mTextureChild(nullptr)
 {
@@ -41,20 +41,23 @@ void
 TextureClient::Updated(ShadowableLayer* aLayer)
 {
   if (mDescriptor.type() != SurfaceDescriptor::T__None) {
-    mLayerForwarder->UpdateTexture(mTextureChild, SurfaceDescriptor(mDescriptor));
+    mLayerForwarder->UpdateTexture(this, SurfaceDescriptor(mDescriptor));
   }
 }
 
 void
-TextureClient::Destroyed(ShadowableLayer* aLayer)
+TextureClient::Destroyed(CompositableClient* aCompositable)
 {
-  mLayerForwarder->DestroyedThebesBuffer(aLayer, mDescriptor);
+  // TODO[nical] why did we pass a layer here?
+  // TODO: thebes specific stuff in the base class?
+  mLayerForwarder->DestroyedThebesBuffer(nullptr, mDescriptor);
 }
 
 void
 TextureClient::SetAsyncContainerID(uint64_t aID)
 {
-  mLayerForwarder->AttachAsyncTexture(GetTextureChild(), aID);
+  NS_WARNING("TODO[nical] remove this code and implement at compositable level");
+  //mLayerForwarder->AttachAsyncTexture(GetTextureChild(), aID);
 }
 
 void
@@ -68,14 +71,14 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
 }
 
 void
-TextureClient::SetTextureChild(PTextureChild* aChild) {
+TextureClient::SetIPDLActor(PTextureChild* aChild) {
   mTextureChild = aChild;
   mAllocator = static_cast<TextureChild*>(aChild);
 }
 
 
-TextureClientShmem::TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
-  : TextureClient(aLayerForwarder, aCompositableType)
+TextureClientShmem::TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+  : TextureClient(aForwarder, aCompositableType)
   , mSurface(nullptr)
   , mSurfaceAsImage(nullptr)
 {
@@ -316,9 +319,9 @@ TextureClientShared::~TextureClientShared()
   }
 }
 
-TextureClientSharedGL::TextureClientSharedGL(ShadowLayerForwarder* aLayerForwarder,
+TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
                                              CompositableType aCompositableType)
-  : TextureClientShared(aLayerForwarder, aCompositableType)
+  : TextureClientShared(aForwarder, aCompositableType)
 {
   mTextureInfo.memoryType = TEXTURE_SHARED|TEXTURE_BUFFERED;
 }
@@ -364,9 +367,9 @@ TextureClientSharedGL::Unlock()
   mDescriptor = SurfaceDescriptor();
 }
 
-TextureClientBridge::TextureClientBridge(ShadowLayerForwarder* aLayerForwarder,
+TextureClientBridge::TextureClientBridge(CompositableForwarder* aForwarder,
                                          CompositableType aCompositableType)
-  : TextureClient(aLayerForwarder, aCompositableType)
+  : TextureClient(aForwarder, aCompositableType)
 {
   mTextureInfo.memoryType = TEXTURE_SHMEM;
 }
@@ -386,25 +389,24 @@ CompositingFactory::TypeForImage(Image* aImage) {
 /* static */ TemporaryRef<ImageClient>
 CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
                                       CompositableType aCompositableHostType,
-                                      ShadowLayerForwarder* aLayerForwarder,
-                                      ShadowableLayer* aLayer,
+                                      CompositableForwarder* aForwarder,
                                       TextureFlags aFlags)
 {
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {
   case BUFFER_SHARED:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new ImageClientShared(aLayerForwarder, aLayer, aFlags);
+      result = new ImageClientShared(aForwarder, aFlags);
     }
     // fall through to BUFFER_SINGLE
   case BUFFER_SINGLE:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new ImageClientTexture(aLayerForwarder, aLayer, aFlags);
+      result = new ImageClientTexture(aForwarder, aFlags);
     }
     break;
   case BUFFER_BRIDGE:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new ImageClientBridge(aLayerForwarder, aLayer, aFlags);
+      result = new ImageClientBridge(aForwarder, aFlags);
     }
     break;
   case BUFFER_UNKNOWN:
@@ -416,27 +418,24 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
   }
 
   NS_ASSERTION(result, "Failed to create ImageClient");
-  if (result) {
-    result->SetCompositableChild(aLayerForwarder, aLayer);
-  }
+
   return result.forget();
 }
 
 /* static */ TemporaryRef<CanvasClient>
 CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
                                        CompositableType aCompositableHostType,
-                                       ShadowLayerForwarder* aLayerForwarder,
-                                       ShadowableLayer* aLayer,
+                                       CompositableForwarder* aForwarder,
                                        TextureFlags aFlags)
 {
   if (aCompositableHostType == BUFFER_DIRECT) {
-    return new CanvasClient2D(aLayerForwarder, aLayer, aFlags);
+    return new CanvasClient2D(aForwarder, aFlags);
   }
   if (aCompositableHostType == BUFFER_SHARED) {
     if (aParentBackend == LAYERS_OPENGL) {
-      return new CanvasClientWebGL(aLayerForwarder, aLayer, aFlags);
+      return new CanvasClientWebGL(aForwarder, aFlags);
     }
-    return new CanvasClient2D(aLayerForwarder, aLayer, aFlags);
+    return new CanvasClient2D(aForwarder, aFlags);
   }
   return nullptr;
 }
@@ -444,21 +443,20 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
 /* static */ TemporaryRef<ContentClient>
 CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
                                         CompositableType aCompositableHostType,
-                                        ShadowLayerForwarder* aLayerForwarder,
-                                        ShadowableLayer* aLayer,
+                                        CompositableForwarder* aForwarder,
                                         TextureFlags aFlags)
 {
   if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
     return nullptr;
   }
   if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientTexture(aLayerForwarder, aLayer, aFlags);
+    return new ContentClientTexture(aForwarder, aFlags);
   }
   if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
-      return new ContentClientDirect(aLayerForwarder, aLayer, aFlags);
+      return new ContentClientDirect(aForwarder, aFlags);
     }
-    return new ContentClientTexture(aLayerForwarder, aLayer, aFlags);
+    return new ContentClientTexture(aForwarder, aFlags);
   }
   if (aCompositableHostType == BUFFER_TILED) {
     NS_RUNTIMEABORT("No CompositableClient for tiled layers");
@@ -470,35 +468,35 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
 CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
                                         TextureHostType aTextureHostType,
                                         CompositableType aCompositableHostType,
-                                        ShadowLayerForwarder* aLayerForwarder,
+                                        CompositableForwarder* aForwarder,
                                         bool aStrict /* = false */)
 {
   RefPtr<TextureClient> result = nullptr;
   switch (aTextureHostType) {
   case TEXTURE_SHARED|TEXTURE_BUFFERED:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientSharedGL(aLayerForwarder, aCompositableHostType);
+      result = new TextureClientSharedGL(aForwarder, aCompositableHostType);
     }
     break;
   case TEXTURE_SHARED:
     if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientShared(aLayerForwarder, aCompositableHostType);
+      result = new TextureClientShared(aForwarder, aCompositableHostType);
     }
     break;
   case TEXTURE_SHMEM:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new TextureClientShmem(aLayerForwarder, aCompositableHostType);
+      result = new TextureClientShmem(aForwarder, aCompositableHostType);
     }
     break;
   case TEXTURE_ASYNC:
-    result = new TextureClientBridge(aLayerForwarder, aCompositableHostType);
+    result = new TextureClientBridge(aForwarder, aCompositableHostType);
     break;
   case TEXTURE_TILE:
-    result = new TextureClientTile(aLayerForwarder, aCompositableHostType);
+    result = new TextureClientTile(aForwarder, aCompositableHostType);
     break;
   case TEXTURE_SHARED|TEXTURE_DXGI:
 #ifdef XP_WIN
-    result = new TextureClientD3D11(aLayerForwarder, aCompositableHostType);
+    result = new TextureClientD3D11(aForwarder, aCompositableHostType);
     break;
 #endif
   default:

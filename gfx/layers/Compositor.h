@@ -12,7 +12,7 @@
 #include "gfxMatrix.h"
 #include "nsAutoPtr.h"
 #include "nsRegion.h"
-#include "LayersTypes.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h"
 
 class gfxContext;
@@ -44,7 +44,7 @@ class TextureClient;
 class ImageClient;
 class CanvasClient;
 class ContentClient;
-class ShadowLayerForwarder;
+class CompositableForwarder;
 class ShadowableLayer;
 class PTextureChild;
 class TextureSourceOGL;
@@ -160,13 +160,14 @@ public:
   virtual ~TextureHost();
 
   /**
+   * TODO: not needed anymore
    * In most case there is one TextureSource per TextureHost, and CompositableHost
    * sometimes need to get a TextureSource from a TextureHost (for example to create
    * a mask effect). This is one of the sketchy pieces of the compositing architecture
    * that I hope to fix asap, maybe by enforcing one TextureSource per TextureHost and
    * replacing this by GetAsTextureSource().
    */
-  virtual TextureSource* AsTextureSource() = 0;
+  virtual TextureSource* AsTextureSource() { return this; };
 
   virtual gfx::SurfaceFormat GetFormat() { return mFormat; }
 
@@ -208,6 +209,8 @@ public:
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
+
+  virtual void CleanupResources() {}
 
   void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {
@@ -323,6 +326,11 @@ protected:
   ISurfaceDeallocator* mDeAllocator;
 };
 
+class PlaceHolderTextureHost : public TextureHost
+{
+
+};
+
 /**
  * This can be used as an offscreen rendering target by the compositor, and
  * subsequently can be used as a source by the compositor.
@@ -429,8 +437,7 @@ public:
    * currently set textures to sample from. This area may not refer directly
    * to pixels depending on the effect.
    */
-  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
-                        const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
+  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
                         const EffectChain &aEffectChain,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset) = 0;
@@ -520,23 +527,20 @@ public:
    */
   static TemporaryRef<ImageClient> CreateImageClient(LayersBackend aBackendType,
                                                      CompositableType aImageHostType,
-                                                     ShadowLayerForwarder* aLayerForwarder,
-                                                     ShadowableLayer* aLayer,
+                                                     CompositableForwarder* aFwd,
                                                      TextureFlags aFlags);
   static TemporaryRef<CanvasClient> CreateCanvasClient(LayersBackend aBackendType,
                                                        CompositableType aImageHostType,
-                                                       ShadowLayerForwarder* aLayerForwarder,
-                                                       ShadowableLayer* aLayer,
+                                                       CompositableForwarder* aFwd,
                                                        TextureFlags aFlags);
   static TemporaryRef<ContentClient> CreateContentClient(LayersBackend aBackendType,
                                                          CompositableType aImageHostType,
-                                                         ShadowLayerForwarder* aLayerForwarder,
-                                                         ShadowableLayer* aLayer,
+                                                         CompositableForwarder* aFwd,
                                                          TextureFlags aFlags);
   static TemporaryRef<TextureClient> CreateTextureClient(LayersBackend aBackendType,
                                                          TextureHostType aTextureHostType,
                                                          CompositableType aImageHostType,
-                                                         ShadowLayerForwarder* aLayerForwarder,
+                                                         CompositableForwarder* aFwd,
                                                          bool aStrict = false); 
 
   static CompositableType TypeForImage(Image* aImage);

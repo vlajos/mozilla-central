@@ -145,9 +145,12 @@ public:
   MessageLoop * GetMessageLoop() const;
 
   // overriden from PImageBridgeChild
-  PImageContainerChild* AllocPImageContainer(uint64_t*);
+  PImageContainerChild* AllocPImageContainer(uint64_t*) MOZ_OVERRIDE;
   // overriden from PImageBridgeChild
-  bool DeallocPImageContainer(PImageContainerChild* aImgContainerChild);
+  bool DeallocPImageContainer(PImageContainerChild* aImgContainerChild) MOZ_OVERRIDE;
+
+  PCompositableChild* AllocPCompositable(uint64_t*) MOZ_OVERRIDE { return nullptr; }
+  bool DeallocPCompositable(PCompositableChild* aActor) MOZ_OVERRIDE { return false; }
 
   /**
    * This must be called by the static function DeleteImageBridgeSync defined

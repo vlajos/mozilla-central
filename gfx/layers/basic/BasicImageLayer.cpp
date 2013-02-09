@@ -258,8 +258,12 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
                                                         mForceSingleTile
                                                           ? ForceSingleTile
                                                           : NoFlags);
-    if (!mImageClient ||
-        !mImageClient->UpdateImage(mContainer, this)) {
+    if (!mImageClient) {
+      return;
+    }
+    mImageClient->Connect();
+    mImageClient->GetForwarder()->Attach(mImageClient, this);
+    if (!mImageClient->UpdateImage(mContainer, this)) {
       return;
     }
   }

@@ -8,6 +8,7 @@
 
 #include "mozilla/DebugOnly.h"
 
+#include "mozilla/layers/LayersTypes.h"
 #include "gfxTypes.h"
 #include "gfxASurface.h"
 #include "nsRegion.h"
@@ -21,7 +22,6 @@
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
 #include "nsStyleAnimation.h"
-#include "LayersTypes.h"
 #include "FrameMetrics.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/TimeStamp.h"
@@ -82,8 +82,6 @@ class LayerComposite;
 struct TextureIdentifier;
 struct TextureFactoryIdentifier;
 struct EffectMask;
-
-typedef uint32_t TextureFlags;
 
 #define MOZ_LAYER_DECL_NAME(n, e)                           \
   virtual const char* Name() const { return n; }            \

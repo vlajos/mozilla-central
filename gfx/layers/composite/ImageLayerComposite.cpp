@@ -126,6 +126,10 @@ ImageLayerComposite::SetPictureRect(const nsIntRect& aPictureRect)
 void
 ImageLayerComposite::CleanupResources()
 {
+  if (mImageHost) {
+    mImageHost->CleanupResources();
+    mImageHost->SetCompositor(nullptr);
+  }
   mImageHost = nullptr;
 }
 

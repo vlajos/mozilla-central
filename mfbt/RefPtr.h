@@ -42,7 +42,7 @@ template<typename T> OutParamRef<T> byRef(RefPtr<T>&);
  */
 #ifdef DEBUG
 namespace detail {
-static const int DEAD = 0xffffdead;
+static const unsigned int DEAD = 0xffffdead;
 }
 #endif
 

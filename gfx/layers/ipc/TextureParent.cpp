@@ -13,9 +13,43 @@
 namespace mozilla {
 namespace layers {
 
-TextureParent::TextureParent(const TextureInfo& aInfo)
+TextureParent::TextureParent(const TextureInfo& aInfo, CompositableParent* aCompositable)
 : mTextureInfo(aInfo), mLastSurfaceType(SurfaceDescriptor::Tnull_t)
 {
+  Compositor* compositor = aCompositable->GetCompositor();
+  // I don't know if we really want to enforce that
+  // let's see if we ever hit it.
+  MOZ_ASSERT(compositor);
+  if (compositor) {
+    mTextureHost = compositor->CreateTextureHost(aInfo.memoryType,
+                                                 aInfo.textureFlags,
+                                                 mLastSurfaceType,
+                                                 aCompositable->GetCompositableManager());
+    aCompositable->GetCompositableHost()->AddTextureHost(mTextureHost);
+  }
+}
+
+bool
+TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
+  if (!SurfaceTypeChanged(aSurfaceType)) {
+    return false;
+  }
+  CompositableParent* compParent = static_cast<CompositableParent*>(Manager());
+  CompositableHost* compositable = compParent->GetCompositableHost();
+  Compositor* compositor = compParent->GetCompositor();
+  // I don't know if we really want to enforce that
+  // let's see if we ever hit it.
+  MOZ_ASSERT(compositor);
+  if (compositor) {
+    mTextureHost = compositor->CreateTextureHost(mTextureInfo.compositableType,
+                                                 mTextureInfo.textureFlags,
+                                                 mLastSurfaceType,
+                                                 nullptr);
+    SetCurrentSurfaceType(aSurfaceType);
+    compositable->AddTextureHost(mTextureHost);
+    return true;
+  }
+  return false;
 }
 
 TextureParent::~TextureParent()
@@ -30,10 +64,9 @@ void TextureParent::SetTextureHost(TextureHost* aHost)
 
 CompositableHost* TextureParent::GetCompositableHost() const
 {
-  ShadowLayerParent* layerParent
-    = static_cast<ShadowLayerParent*>(Manager());
-  LayerComposite* layer = layerParent->AsLayer()->AsLayerComposite();
-  return layer->GetCompositableHost();
+  CompositableParent* actor
+    = static_cast<CompositableParent*>(Manager());
+  return actor->GetCompositableHost();
 }
 
 TextureHost* TextureParent::GetTextureHost() const

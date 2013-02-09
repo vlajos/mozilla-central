@@ -58,10 +58,10 @@ static void DrawDebugOverlay(gfxASurface* imgSurf, int x, int y)
 namespace mozilla {
 namespace layers {
 
-ContentClientBasic::ContentClientBasic(BasicLayerManager* aManager)
-  : mManager(aManager)
+ContentClientBasic::ContentClientBasic(CompositableForwarder* aForwarder,
+                                       BasicLayerManager* aManager)
+: ContentClient(aForwarder), mManager(aManager)
 {}
-
 
 already_AddRefed<gfxASurface>
 ContentClientBasic::CreateBuffer(ContentType aType,
@@ -97,17 +97,19 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   mOldTextures.AppendElement(mTextureClient);
 
   if (mTextureClient) {
-    mTextureClient->Destroyed(mLayer);
+    mTextureClient->Destroyed(this);
   }
 
-  if (mLayerForwarder->GetParentBackendType() != LAYERS_D3D11) {
+  // TODO[nrc] this logic should be in CreateTextureClientFor, content stuff
+  // not know about backend types
+  if (GetForwarder()->GetCompositorBackendType() != LAYERS_D3D11) {
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
-                                              mLayer, AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHMEM,
+                          AllowRepeat, true).drop());
   } else {
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED|TEXTURE_DXGI, GetType(),
-                                              mLayer, AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHARED|TEXTURE_DXGI,
+                          AllowRepeat, true).drop());
   }
 
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
@@ -235,8 +237,8 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
     AutoOpenSurface roFrontBuffer(OPEN_READ_ONLY, roFront.buffer());
     nsIntSize size = roFrontBuffer.Size();
     mTextureClient = static_cast<TextureClientShmem*>(
-      mLayerForwarder->CreateTextureClientFor(TEXTURE_SHMEM, GetType(),
-                                              mLayer, AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHMEM,
+                          AllowRepeat, true).drop());
     mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height),
                                         roFrontBuffer.ContentType());
   }
@@ -279,8 +281,10 @@ ContentClientDirect::SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
     gfxUtils::ClipToRegion(destCtx, aUpdateRegion);
   }
 
-  ContentClientDirect srcBuffer(aSource, aRect, aRotation);
-  srcBuffer.DrawBufferWithRotation(destCtx, 1.0, nullptr, nullptr);
+  // FIXME [bjacob] only putting this on the heap to work around impossibility to
+  // put RefCounted objects on the stack
+  RefPtr<ContentClientDirect> srcBuffer = new ContentClientDirect(aSource, aRect, aRotation);
+  srcBuffer->DrawBufferWithRotation(destCtx, 1.0, nullptr, nullptr);
 }
 
 void
@@ -442,7 +446,7 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
 {
   if (aTile.IsPlaceholderTile()) {
     RefPtr<TextureClient> textureClient =
-      mManager->CreateTextureClientFor(TEXTURE_TILE, BUFFER_TILED, mThebesLayer, true);
+      mThebesLayer->GetCompositableClient()->CreateTextureClient(TEXTURE_TILE, 0, true); // TODO[nical] check that
     aTile.mTextureClient = static_cast<TextureClientTile*>(textureClient.get());
   }
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());

@@ -46,14 +46,14 @@ AsTextureHost(const OpPaintT& op)
   return static_cast<TextureParent*>(op.textureParent())->GetTextureHost();
 }
 
+// TODO[nical] we should not need this
 template<class OpPaintT>
 Layer* GetLayerFromOpPaint(const OpPaintT& op)
 {
   PTextureParent* textureParent = op.textureParent();
-  MOZ_ASSERT(textureParent);
-  ShadowLayerParent* shadow = cast(textureParent->Manager());
-
-  return shadow->AsLayer();
+  CompositableHost* compoHost
+    = static_cast<CompositableParent*>(textureParent->Manager())->GetCompositableHost();
+  return compoHost->GetLayer();
 }
 
 template<class OpCreateT>
@@ -453,6 +453,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateEnd(canvas, "FF00FF");
       break;
     }
+/*
     case Edit::TOpAttachTexture: {
       const OpAttachTexture& op = edit.get_OpAttachTexture();
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
@@ -487,6 +488,28 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       TextureHost* host = AsTextureHost(op);
       MOZ_ASSERT(host, "TextureHost not created");
       host->SetAsyncContainerID(op.containerID());
+      break;
+    }
+*/
+    case Edit::TOpAttachCompositable: {
+      printf("OpAttachCompositable\n");
+      const OpAttachCompositable& op = edit.get_OpAttachCompositable();
+      CompositableParent* compositableParent
+        = static_cast<CompositableParent*>(op.compositableParent());
+      ShadowLayerParent* layerParent
+        = static_cast<ShadowLayerParent*>(op.layerParent());
+      ShadowLayer* layer = layerParent->AsLayer()->AsShadowLayer();
+      LayerComposite* layerComposite = layerParent->AsLayer()->AsLayerComposite();
+      MOZ_ASSERT(layer);
+
+      Compositor* compositor
+        = static_cast<LayerManagerComposite*>(layerParent->AsLayer()->Manager())->GetCompositor();
+
+      CompositableHost* compositable = compositableParent->GetCompositableHost();
+      MOZ_ASSERT(compositable);
+      compositable->SetCompositor(compositor);
+      layerComposite->SetCompositableHost(compositable);
+      compositable->SetLayer(layerParent->AsLayer());
       break;
     }
     case Edit::TOpPaintTexture: {
@@ -555,7 +578,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
     case Edit::TOpUpdatePictureRect: {
       const OpUpdatePictureRect& op = edit.get_OpUpdatePictureRect();
-      CompositableHost* compositable = AsShadowLayer(op)->AsLayer()->AsLayerComposite()->GetCompositableHost();
+      CompositableHost* compositable
+       = static_cast<CompositableParent*>(op.compositableParent())->GetCompositableHost();
       MOZ_ASSERT(compositable);
       compositable->SetPictureRect(op.picture());
       break;
@@ -639,6 +663,19 @@ ShadowLayersParent::DeallocPLayer(PLayerParent* actor)
   return true;
 }
 
+PCompositableParent*
+ShadowLayersParent::AllocPCompositable(const CompositableType& aType)
+{
+  return new CompositableParent(this, aType);
+}
+
+bool
+ShadowLayersParent::DeallocPCompositable(PCompositableParent* actor)
+{
+  delete actor;
+  return true;
+}
+
 void
 ShadowLayersParent::DestroySharedSurface(gfxSharedImageSurface* aSurface)
 {
@@ -650,6 +687,13 @@ ShadowLayersParent::DestroySharedSurface(SurfaceDescriptor* aSurface)
 {
   layer_manager()->DestroySharedSurface(aSurface, this);
 }
+
+Compositor*
+ShadowLayersParent::GetCompositor()
+{
+  return mLayerManager->GetCompositor();
+}
+
 
 } // namespace layers
 } // namespace mozilla

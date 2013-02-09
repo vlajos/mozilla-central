@@ -6,11 +6,15 @@
 #ifndef GFX_LAYERSTYPES_H
 #define GFX_LAYERSTYPES_H
 
+#include "nsPoint.h"
+
 namespace mozilla {
 namespace layers {
 
 class SurfaceDescriptor;
-  
+
+typedef uint32_t TextureFlags;
+
 enum LayersBackend {
   LAYERS_NONE = 0,
   LAYERS_BASIC,

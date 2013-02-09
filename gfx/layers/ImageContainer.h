@@ -9,7 +9,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "gfxASurface.h" // for gfxImageFormat
-#include "LayersTypes.h" // for LayersBackend
+#include "mozilla/layers/LayersTypes.h" // for LayersBackend
 #include "mozilla/TimeStamp.h"
 #include "ImageTypes.h"
 

@@ -133,6 +133,10 @@ CanvasLayerComposite::GetCompositableHost() {
 void
 CanvasLayerComposite::CleanupResources()
 {
+  if (mImageHost) {
+    mImageHost->CleanupResources();
+    mImageHost->SetCompositor(nullptr);
+  }
   mImageHost = nullptr;
 }
 
