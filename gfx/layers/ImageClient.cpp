@@ -126,20 +126,22 @@ ImageClientShared::Updated(ShadowableLayer* aLayer)
 ImageClientBridge::ImageClientBridge(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
 : ImageClient(aFwd)
+, mAsyncContainerID(0)
 {
 }
 
 bool
 ImageClientBridge::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 {
-  mTextureClient->SetAsyncContainerID(aContainer->GetAsyncContainerID());
+  if (!GetForwarder()) {
+    return false;
+  }
+  if (mAsyncContainerID == aContainer->GetAsyncContainerID()) {
+    return true;
+  }
+  mAsyncContainerID = aContainer->GetAsyncContainerID();
+  GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, aLayer->AsShadowableLayer());
   return true;
-}
-
-void
-ImageClientBridge::Updated(ShadowableLayer* aLayer)
-{
-  //mTextureClient->Updated(aLayer);
 }
 
 }

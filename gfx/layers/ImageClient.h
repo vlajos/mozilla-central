@@ -100,10 +100,10 @@ public:
   virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SurfaceDescriptor& aBuffer) {}
-  virtual void Updated(ShadowableLayer* aLayer);
+  virtual void Updated(ShadowableLayer* aLayer) {}
 
-private:
-  RefPtr<TextureClient> mTextureClient;
+protected:
+  uint64_t mAsyncContainerID;
 };
 
 }

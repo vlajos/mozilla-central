@@ -62,7 +62,7 @@ struct OpAttachCompositable {
 };
 
 struct OpAttachAsyncCompositable {
-  PCompositable compositable;
+  PLayer layer;
   uint64_t containerID;
 };
 

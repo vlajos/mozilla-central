@@ -210,6 +210,8 @@ public:
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
+  virtual void CleanupResources() {}
+
   void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {
     mDeAllocator = aDeAllocator;

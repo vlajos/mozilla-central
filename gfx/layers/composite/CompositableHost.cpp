@@ -57,9 +57,6 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
   case BUFFER_TILED:
     result = new TiledContentHost(aCompositor);
     return result;
-  case BUFFER_BRIDGE:
-    result = new ImageHostBridge(aCompositor);
-    return result;
   case BUFFER_CONTENT:
     result = new ContentHostTexture(aCompositor);
     return result;

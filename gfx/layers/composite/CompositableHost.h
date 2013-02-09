@@ -30,7 +30,9 @@ class SurfaceDescriptor;
 class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
-  CompositableHost() {}
+  CompositableHost(Compositor* aCompositor = nullptr)
+  : mCompositor(aCompositor)
+  {}
 
   virtual ~CompositableHost() {}
 
@@ -82,10 +84,15 @@ public:
                      const gfx::Matrix4x4& aTransform,
                      bool aIs3D = false);
 
+  Compositor* GetCompositor() const
+  {
+    return mCompositor;
+  }
+
   // temporary hack, will be removed when layer won't need to be notfied after texture update
   Layer* GetLayer() const { return mLayer; }
   void SetLayer(Layer* aLayer) { mLayer = aLayer; }
-private:
+protected:
   Layer* mLayer;
   Compositor* mCompositor;
 };

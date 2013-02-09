@@ -185,7 +185,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 }
 
 ContentHost::ContentHost(Compositor* aCompositor)
-  : mCompositor(aCompositor)
+  : AContentHost(aCompositor)
   , mPaintWillResample(false)
   , mInitialised(false)
 {
@@ -337,7 +337,7 @@ ContentHost::Composite(EffectChain& aEffectChain,
                                                   Float(tileRegionRect.y) / texRect.height,
                                                   Float(tileRegionRect.width) / texRect.width,
                                                   Float(tileRegionRect.height) / texRect.height);
-            mCompositor->DrawQuad(rect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+            GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
         }
       }
     }

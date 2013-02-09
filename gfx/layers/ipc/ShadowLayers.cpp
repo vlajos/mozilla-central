@@ -826,5 +826,13 @@ void ShadowLayerForwarder::Attach(CompositableClient* aCompositable,
                                      nullptr, aCompositable->GetIPDLActor()));
 }
 
+void ShadowLayerForwarder::AttachAsyncCompositable(uint64_t aCompositableID,
+                                                   ShadowableLayer* aLayer)
+{
+  MOZ_ASSERT(aLayer);
+  mTxn->AddEdit(OpAttachAsyncCompositable(nullptr, Shadow(aLayer),
+                                          aCompositableID));
+}
+
 } // namespace layers
 } // namespace mozilla

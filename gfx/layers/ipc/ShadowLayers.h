@@ -92,6 +92,10 @@ public:
   virtual void Attach(CompositableClient* aCompositable,
                       ShadowableLayer* aLayer) = 0;
 
+  virtual void AttachAsyncCompositable(uint64_t aCompositableID,
+                                       ShadowableLayer* aLayer) = 0;
+
+
   /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
@@ -208,6 +212,9 @@ public:
    */
   void Attach(CompositableClient* aCompositable,
               ShadowableLayer* aLayer);
+
+  void AttachAsyncCompositable(uint64_t aCompositableID,
+                               ShadowableLayer* aLayer);
 
   /**
    * Begin recording a transaction to be forwarded atomically to a
