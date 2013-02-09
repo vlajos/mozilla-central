@@ -245,8 +245,10 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     if (!mCanvasClient) {
       return;
     }
-    mCanvasClient->Connect();
-    mCanvasClient->GetForwarder()->Attach(mCanvasClient, this);
+    if (HasShadow()) {
+      mCanvasClient->Connect();
+      mCanvasClient->GetForwarder()->Attach(mCanvasClient, this);
+    }
   }
   mCanvasClient->Update(gfx::IntSize(mBounds.width, mBounds.height), this);
 

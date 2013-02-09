@@ -36,7 +36,7 @@
 
 #include "nsGtkIMModule.h"
 
-#ifdef MOZ_LOGGING_YESTERDAY_ALL_MY_TROUBLES_SEEMED_SO_FAR_AWAY // TODO[nical] log macros are fucked up right now
+#ifdef MOZ_LOGGING
 
 // make sure that logging is enabled before including prlog.h
 #define FORCE_PR_LOG
