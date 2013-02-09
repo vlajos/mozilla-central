@@ -228,7 +228,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   PaintState result;
   // We need to disable rotation if we're going to be resampled when
   // drawing, because we might sample across the rotation boundary.
-  //TODO turn this back on at some point
+  //TODO[nrc] turn this back on at some point
   bool canHaveRotation = false; // !(aFlags & (PAINT_WILL_RESAMPLE | PAINT_NO_ROTATION));
 
   nsIntRegion validRegion = aLayer->GetValidRegion();
