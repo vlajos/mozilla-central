@@ -5,20 +5,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-include protocol PLayer;
+include protocol PCompositable;
 include LayersSurfaces;
 
 namespace mozilla {
 namespace layers {
 
 /**
- * TODO[nrc] comment
+ * TODO[nical] comment
  */
 
-async protocol PTexture {
-  manager PLayer;
+async protocol PTexture
+{
+  manager PCompositable;
+
 parent:
-    async __delete__();
+  async __delete__();
 };
 
 }

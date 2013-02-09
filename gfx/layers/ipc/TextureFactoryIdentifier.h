@@ -13,7 +13,7 @@ enum CompositableType
 {
   BUFFER_UNKNOWN,
   BUFFER_SINGLE,
-  BUFFER_SHARED, // TODO: is that relevent to compositable? 
+  BUFFER_SHARED, // TODO: is that relevent to compositable?
   BUFFER_DIRECT, // TODO: is that relevent to compositable?
   BUFFER_BRIDGE,
   BUFFER_CONTENT,

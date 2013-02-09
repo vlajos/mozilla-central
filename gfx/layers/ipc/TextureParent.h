@@ -8,6 +8,7 @@
 
 #include "mozilla/layers/PTextureParent.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h"
+#include "CompositableHost.h"
 
 namespace mozilla {
 namespace layers {
@@ -19,7 +20,7 @@ class TextureInfo;
 class TextureParent : public PTextureParent
 {
 public:
-  TextureParent(const TextureInfo& aInfo);
+  TextureParent(const TextureInfo& aInfo, CompositableParent* aCompositable);
   virtual ~TextureParent();
 
   void SetTextureHost(TextureHost* aHost);
@@ -36,6 +37,8 @@ public:
   SurfaceDescriptor::Type GetSurfaceType() const {
     return mLastSurfaceType;
   }
+
+  bool EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType);
 private:
   TextureInfo mTextureInfo;
   RefPtr<TextureHost> mTextureHost;

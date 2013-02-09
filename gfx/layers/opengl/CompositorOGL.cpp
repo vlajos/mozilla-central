@@ -32,12 +32,15 @@
 
 
 namespace mozilla {
+
+using namespace gfx;
+
 namespace layers {
 
 using namespace mozilla::gl;
 
-static inline gfx::IntSize ns2gfxSize(const nsIntSize& s) {
-  return gfx::IntSize(s.width, s.height);
+static inline IntSize ns2gfxSize(const nsIntSize& s) {
+  return IntSize(s.width, s.height);
 }
 
 static const double kFpsWindowMs = 250.0;
@@ -579,9 +582,8 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
 // than the rectangle given by |aTexCoordRect|.
 void 
 CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
-                                              const gfx::IntRect& aTexCoordRect,
-                                              const gfx::IntSize& aTexSize,
-                                              GLenum aWrapMode /* = LOCAL_GL_REPEAT */,
+                                              const Rect& aTexCoordRect,
+                                              TextureSource *aTexture,
                                               bool aFlipped /* = false */)
 {
   NS_ASSERTION(aProg->HasInitialized(), "Shader program not correctly initialized");
@@ -604,24 +606,33 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
 
   GLContext::RectTriangles rects;
 
-  gfx::IntSize realTexSize = aTexSize;
+  GLenum wrapMode = aTexture->AsSourceOGL()->GetWrapMode();
+
+  IntSize realTexSize = aTexture->GetSize();
   if (!mGLContext->CanUploadNonPowerOfTwo()) {
-    realTexSize = gfx::IntSize(gfx::NextPowerOfTwo(aTexSize.width),
-                               gfx::NextPowerOfTwo(aTexSize.height));
+    realTexSize = IntSize(NextPowerOfTwo(realTexSize.width),
+                          NextPowerOfTwo(realTexSize.height));
   }
 
-  if (aWrapMode == LOCAL_GL_REPEAT) {
+  // We need to convert back to actual texels here to get proper behaviour with
+  // our GL helper functions. Should fix this sometime.
+  IntRect texCoordRect = IntRect(aTexCoordRect.x * aTexture->GetSize().width,
+                                 aTexCoordRect.y * aTexture->GetSize().height,
+                                 aTexCoordRect.width * aTexture->GetSize().width,
+                                 aTexCoordRect.height * aTexture->GetSize().height);
+
+  if (wrapMode == LOCAL_GL_REPEAT) {
     rects.addRect(/* dest rectangle */
                   0.0f, 0.0f, 1.0f, 1.0f,
                   /* tex coords */
-                  aTexCoordRect.x / GLfloat(realTexSize.width),
-                  aTexCoordRect.y / GLfloat(realTexSize.height),
-                  aTexCoordRect.XMost() / GLfloat(realTexSize.width),
-                  aTexCoordRect.YMost() / GLfloat(realTexSize.height),
+                  texCoordRect.x / GLfloat(realTexSize.width),
+                  texCoordRect.y / GLfloat(realTexSize.height),
+                  texCoordRect.XMost() / GLfloat(realTexSize.width),
+                  texCoordRect.YMost() / GLfloat(realTexSize.height),
                   aFlipped);
   } else {
-    nsIntRect tcRect(aTexCoordRect.x, aTexCoordRect.y,
-                     aTexCoordRect.width, aTexCoordRect.height);
+    nsIntRect tcRect(texCoordRect.x, texCoordRect.y,
+                     texCoordRect.width, texCoordRect.height);
     GLContext::DecomposeIntoNoRepeatTriangles(tcRect,
                                               nsIntSize(realTexSize.width, realTexSize.height),
                                               rects, aFlipped);
@@ -743,7 +754,7 @@ CompositorOGL::CreateTextureHost(TextureHostType aTextureType,
 }
 
 TemporaryRef<CompositingRenderTarget>
-CompositorOGL::CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aInit)
+CompositorOGL::CreateRenderTarget(const IntRect &aRect, SurfaceInitMode aInit)
 {
   GLuint tex = 0;
   GLuint fbo = 0;
@@ -753,7 +764,7 @@ CompositorOGL::CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aIn
 }
 
 TemporaryRef<CompositingRenderTarget>
-CompositorOGL::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+CompositorOGL::CreateRenderTargetFromSource(const IntRect &aRect,
                                             const CompositingRenderTarget *aSource)
 {
   GLuint tex = 0;
@@ -834,22 +845,21 @@ FPSState::DrawFrameCounter(GLContext* context)
  * If the OpenGL setup is capable of using non-POT textures, then it
  * will just return aSize.
  */
-static gfx::IntSize
-CalculatePOTSize(const gfx::IntSize& aSize, GLContext* gl)
+static IntSize
+CalculatePOTSize(const IntSize& aSize, GLContext* gl)
 {
   if (gl->CanUploadNonPowerOfTwo())
     return aSize;
 
-  return gfx::IntSize(gfx::NextPowerOfTwo(aSize.width), gfx::NextPowerOfTwo(aSize.height));
+  return IntSize(NextPowerOfTwo(aSize.width), NextPowerOfTwo(aSize.height));
 }
 
 void
-CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut)
+CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
+                          const Rect& aRenderBounds, Rect *aClipRectOut)
 {
-  if (mFrameInProgress) {
-    EndFrame(aTransform);
-  }
+  MOZ_ASSERT(!mFrameInProgress, "frame still in progress (should have called EndFrame or AbortFrame");
+
   mFrameInProgress = true;
   gfxRect rect;
   if (mIsRenderingToEGLSurface) {
@@ -926,7 +936,7 @@ CompositorOGL::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransf
 }
 
 void
-CompositorOGL::CreateFBOWithTexture(const gfx::IntRect& aRect, SurfaceInitMode aInit,
+CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
                                     GLuint aSourceFrameBuffer,
                                     GLuint *aFBO, GLuint *aTexture)
 {
@@ -1042,31 +1052,14 @@ CompositorOGL::CreateFBOWithTexture(const gfx::IntRect& aRect, SurfaceInitMode a
 
 
 void
-CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
-                        const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
+CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
                         const EffectChain &aEffectChain,
-                        gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
-                        const gfx::Point &aOffset)
+                        Float aOpacity, const gfx::Matrix4x4 &aTransform,
+                        const Point &aOffset)
 {
-  if (!mFrameInProgress) {
-    //TODO[nrc] is this sensible?
-    //BeginFrame(aClipRect, gfxMatrix());
-    MOZ_ASSERT(false, "TODO[nrc]");
-  }
+  MOZ_ASSERT(mFrameInProgress, "frame not started");
 
-  gfx::IntRect intSourceRect;
-  if (aSourceRect) {
-    aSourceRect->ToIntRect(&intSourceRect);
-  }
-
-  gfx::IntRect intTextureRect;
-  if (aTextureRect) {
-    aTextureRect->ToIntRect(&intTextureRect);
-  } else {
-    aRect.ToIntRect(&intTextureRect);
-  }
-
-  gfx::IntRect intClipRect;
+  IntRect intClipRect;
   if (aClipRect) {
     aClipRect->ToIntRect(&intClipRect);
     mGLContext->fScissor(intClipRect.x, intClipRect.y,
@@ -1087,11 +1080,11 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     // We're assuming that the gl backend won't cheat and use NPOT
     // textures when glContext says it can't (which seems to happen
     // on a mac when you force POT textures)
-    gfx::IntSize maskSize = CalculatePOTSize(effectMask->mSize, mGLContext);
+    IntSize maskSize = CalculatePOTSize(effectMask->mSize, mGLContext);
 
     const gfx::Matrix4x4& maskTransform = effectMask->mMaskTransform;
     NS_ASSERTION(maskTransform.Is2D(), "How did we end up with a 3D transform here?!");
-    gfx::Rect bounds = gfx::Rect(gfx::Point(), gfx::Size(maskSize));
+    Rect bounds = Rect(Point(), Size(maskSize));
     bounds = maskTransform.As2D().TransformBounds(bounds);
 
     maskQuadTransform._11 = 1.0f/bounds.width;
@@ -1110,14 +1103,14 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     EffectSolidColor* effectSolidColor =
       static_cast<EffectSolidColor*>(aEffectChain.mEffects[EFFECT_SOLID_COLOR].get());
 
-    gfx::Color color = effectSolidColor->mColor;
+    Color color = effectSolidColor->mColor;
 
     /* Multiply color by the layer opacity, as the shader
      * ignores layer opacity and expects a final color to
      * write to the color buffer.  This saves a needless
      * multiply in the fragment shader.
      */
-    gfx::Float opacity = aOpacity * color.a;
+    Float opacity = aOpacity * color.a;
     color.r *= opacity;
     color.g *= opacity;
     color.b *= opacity;
@@ -1136,28 +1129,31 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     BindAndDrawQuad(program);
 
   } else if (aEffectChain.mEffects[EFFECT_BGRA] || aEffectChain.mEffects[EFFECT_BGRX]) {
-    TextureSourceOGL* source;
+    TextureSource* source;
     bool premultiplied;
     gfxPattern::GraphicsFilter filter;
     ShaderProgramOGL *program;
     bool flipped;
+    Rect textureCoords;
 
     if (aEffectChain.mEffects[EFFECT_BGRA]) {
       EffectBGRA* effectBGRA =
         static_cast<EffectBGRA*>(aEffectChain.mEffects[EFFECT_BGRA].get());
-      source = effectBGRA->mBGRATexture->AsSourceOGL();
+      source = effectBGRA->mBGRATexture;
       premultiplied = effectBGRA->mPremultiplied;
       flipped = effectBGRA->mFlipped;
-      filter = gfx::ThebesFilter(effectBGRA->mFilter);
+      filter = ThebesFilter(effectBGRA->mFilter);
       program = GetProgram(gl::BGRALayerProgramType, maskType);
+      textureCoords = effectBGRA->mTextureCoords;
     } else if (aEffectChain.mEffects[EFFECT_BGRX]) {
       EffectBGRX* effectBGRX =
         static_cast<EffectBGRX*>(aEffectChain.mEffects[EFFECT_BGRX].get());
-      source = effectBGRX->mBGRXTexture->AsSourceOGL();
+      source = effectBGRX->mBGRXTexture;
       premultiplied = effectBGRX->mPremultiplied;
       flipped = effectBGRX->mFlipped;
-      filter = gfx::ThebesFilter(effectBGRX->mFilter);
+      filter = ThebesFilter(effectBGRX->mFilter);
       program = GetProgram(gl::BGRXLayerProgramType, maskType);
+      textureCoords = effectBGRX->mTextureCoords;
     }
 
     if (!premultiplied) {
@@ -1165,7 +1161,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);
     }
 
-    source->BindTexture(LOCAL_GL_TEXTURE0);
+    source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
     mGLContext->ApplyFilterToBoundTexture(filter);
 
     program->Activate();
@@ -1181,8 +1177,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskLayerTransform(maskQuadTransform);
     }
 
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
-                                   source->GetWrapMode(), flipped);
+    BindAndDrawQuadWithTextureRect(program, textureCoords, source, flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1190,37 +1185,41 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     }
   } else if (aEffectChain.mEffects[EFFECT_RGBA] || aEffectChain.mEffects[EFFECT_RGBX] ||
              aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
-    TextureSourceOGL* source;
+    TextureSource* source;
     bool premultiplied;
     gfxPattern::GraphicsFilter filter;
     ShaderProgramOGL *program;
     bool flipped;
+    Rect textureCoords;
 
     if (aEffectChain.mEffects[EFFECT_RGBA]) {
       EffectRGBA* effectRGBA =
         static_cast<EffectRGBA*>(aEffectChain.mEffects[EFFECT_RGBA].get());
-      source = effectRGBA->mRGBATexture->AsSourceOGL();
+      source = effectRGBA->mRGBATexture;
       premultiplied = effectRGBA->mPremultiplied;
       flipped = effectRGBA->mFlipped;
-      filter = gfx::ThebesFilter(effectRGBA->mFilter);
+      filter = ThebesFilter(effectRGBA->mFilter);
       program = GetProgram(gl::RGBALayerProgramType, maskType);
+      textureCoords = effectRGBA->mTextureCoords;
     } else if (aEffectChain.mEffects[EFFECT_RGBX]) {
       EffectRGBX* effectRGBX =
         static_cast<EffectRGBX*>(aEffectChain.mEffects[EFFECT_RGBX].get());
-      source = effectRGBX->mRGBXTexture->AsSourceOGL();
+      source = effectRGBX->mRGBXTexture;
       premultiplied = effectRGBX->mPremultiplied;
       flipped = effectRGBX->mFlipped;
-      filter = gfx::ThebesFilter(effectRGBX->mFilter);
+      filter = ThebesFilter(effectRGBX->mFilter);
       program = GetProgram(gl::RGBXLayerProgramType, maskType);
+      textureCoords = effectRGBX->mTextureCoords;
     } else {
       EffectRGBAExternal* effectRGBAExternal =
         static_cast<EffectRGBAExternal*>(aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL].get());
-      source = effectRGBAExternal->mRGBATexture->AsSourceOGL();
+      source = effectRGBAExternal->mRGBATexture;
       premultiplied = effectRGBAExternal->mPremultiplied;
       flipped = effectRGBAExternal->mFlipped;
-      filter = gfx::ThebesFilter(effectRGBAExternal->mFilter);
+      filter = ThebesFilter(effectRGBAExternal->mFilter);
       program = GetProgram(gl::RGBALayerExternalProgramType, maskType);
       program->SetTextureTransform(effectRGBAExternal->mTextureTransform);
+      textureCoords = effectRGBAExternal->mTextureCoords;
     }
 
     if (!premultiplied) {
@@ -1229,9 +1228,9 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     }
 
     if (aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
-      source->BindTexture(LOCAL_GL_TEXTURE0);
+      source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
     } else {
-      source->BindTexture(0);
+      source->AsSourceOGL()->BindTexture(0);
     }
 
     mGLContext->ApplyFilterToBoundTexture(filter);
@@ -1248,8 +1247,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskTextureUnit(1);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
-                                   source->GetWrapMode(), flipped);
+    BindAndDrawQuadWithTextureRect(program, textureCoords, source, flipped);
 
     if (!premultiplied) {
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1273,7 +1271,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       return;
     }
 
-    gfxPattern::GraphicsFilter filter = gfx::ThebesFilter(effectYCbCr->mFilter);
+    gfxPattern::GraphicsFilter filter = ThebesFilter(effectYCbCr->mFilter);
 
     sourceY->BindTexture(LOCAL_GL_TEXTURE0);
     mGLContext->ApplyFilterToBoundTexture(filter);
@@ -1295,7 +1293,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
       program->SetMaskTextureUnit(3);
       program->SetMaskLayerTransform(maskQuadTransform);
     }
-    BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size());
+    BindAndDrawQuadWithTextureRect(program, effectYCbCr->mTextureCoords, sourceYCbCr->GetSubSource(Y));
   } else if (aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA]) {
     EffectComponentAlpha* effectComponentAlpha =
       static_cast<EffectComponentAlpha*>(aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA].get());
@@ -1336,8 +1334,7 @@ CompositorOGL::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
         program->SetMaskLayerTransform(maskQuadTransform);
       }
 
-      BindAndDrawQuadWithTextureRect(program, intSourceRect, intTextureRect.Size(),
-                                     sourceOnBlack->GetWrapMode());
+      BindAndDrawQuadWithTextureRect(program, effectComponentAlpha->mTextureCoords, effectComponentAlpha->mOnBlack);
 
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);

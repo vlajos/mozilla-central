@@ -47,8 +47,8 @@ CompositingRenderTargetD3D11::GetSize() const
   return TextureSourceD3D11::GetSize();
 }
 
-TextureClientD3D11::TextureClientD3D11(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
-  : TextureClient(aLayerForwarder, aCompositableType)
+TextureClientD3D11::TextureClientD3D11(CompositableForwarder* aCompositableForwarder, CompositableType aCompositableType)
+  : TextureClient(aCompositableForwarder, aCompositableType)
 {
   mTextureInfo.compositableType = aCompositableType;
   mTextureInfo.memoryType = TEXTURE_DXGI;

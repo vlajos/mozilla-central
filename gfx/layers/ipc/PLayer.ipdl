@@ -6,10 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PLayers;
-include protocol PTexture; 
-include "mozilla/layers/TextureFactoryIdentifier.h";
-
-using mozilla::layers::TextureInfo;
 
 namespace mozilla {
 namespace layers {
@@ -20,7 +16,6 @@ namespace layers {
 
 async protocol PLayer {
     manager PLayers;
-    manages PTexture;
 
     /**
      * OWNERSHIP MODEL
@@ -37,7 +32,6 @@ async protocol PLayer {
      * being deleted "soon" (usually immediately).
      */
 parent:
-    async PTexture(TextureInfo textureInfo);
     async __delete__();
 };
 

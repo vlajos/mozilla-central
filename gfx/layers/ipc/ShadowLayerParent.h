@@ -31,9 +31,6 @@ public:
   Layer* AsLayer() const { return mLayer; }
   ContainerLayer* AsContainer() const;
 
-  virtual PTextureParent* AllocPTexture(const TextureInfo& info) MOZ_OVERRIDE;
-  virtual bool DeallocPTexture(PTextureParent* tc) MOZ_OVERRIDE;
-
 private:
   virtual void ActorDestroy(ActorDestroyReason why) MOZ_OVERRIDE;
 

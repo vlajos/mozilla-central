@@ -299,6 +299,84 @@ LayerManagerOGL::ClearCachedResources(Layer* aSubtree)
 #endif  // DEBUG
 }
 
+// |aTexCoordRect| is the rectangle from the texture that we want to
+// draw using the given program.  The program already has a necessary
+// offset and scale, so the geometry that needs to be drawn is a unit
+// square from 0,0 to 1,1.
+//
+// |aTexSize| is the actual size of the texture, as it can be larger
+// than the rectangle given by |aTexCoordRect|.
+void 
+LayerManagerOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
+                                                const nsIntRect& aTexCoordRect,
+                                                const nsIntSize& aTexSize,
+                                                GLenum aWrapMode /* = LOCAL_GL_REPEAT */,
+                                                bool aFlipped /* = false */)
+{
+  NS_ASSERTION(aProg->HasInitialized(), "Shader program not correctly initialized");
+  GLuint vertAttribIndex =
+    aProg->AttribLocation(ShaderProgramOGL::VertexCoordAttrib);
+  GLuint texCoordAttribIndex =
+    aProg->AttribLocation(ShaderProgramOGL::TexCoordAttrib);
+  NS_ASSERTION(texCoordAttribIndex != GLuint(-1), "no texture coords?");
+
+  // clear any bound VBO so that glVertexAttribPointer() goes back to
+  // "pointer mode"
+  gl()->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
+
+  // Given what we know about these textures and coordinates, we can
+  // compute fmod(t, 1.0f) to get the same texture coordinate out.  If
+  // the texCoordRect dimension is < 0 or > width/height, then we have
+  // wraparound that we need to deal with by drawing multiple quads,
+  // because we can't rely on full non-power-of-two texture support
+  // (which is required for the REPEAT wrap mode).
+
+  GLContext::RectTriangles rects;
+
+  nsIntSize realTexSize = aTexSize;
+  if (!gl()->CanUploadNonPowerOfTwo()) {
+    realTexSize = nsIntSize(gfx::NextPowerOfTwo(aTexSize.width),
+                            gfx::NextPowerOfTwo(aTexSize.height));
+  }
+
+  if (aWrapMode == LOCAL_GL_REPEAT) {
+    rects.addRect(/* dest rectangle */
+                  0.0f, 0.0f, 1.0f, 1.0f,
+                  /* tex coords */
+                  aTexCoordRect.x / GLfloat(realTexSize.width),
+                  aTexCoordRect.y / GLfloat(realTexSize.height),
+                  aTexCoordRect.XMost() / GLfloat(realTexSize.width),
+                  aTexCoordRect.YMost() / GLfloat(realTexSize.height),
+                  aFlipped);
+  } else {
+    nsIntRect tcRect(aTexCoordRect.x, aTexCoordRect.y,
+                     aTexCoordRect.width, aTexCoordRect.height);
+    GLContext::DecomposeIntoNoRepeatTriangles(tcRect,
+                                              nsIntSize(realTexSize.width, realTexSize.height),
+                                              rects, aFlipped);
+  }
+
+  gl()->fVertexAttribPointer(vertAttribIndex, 2,
+                                   LOCAL_GL_FLOAT, LOCAL_GL_FALSE, 0,
+                                   rects.vertexPointer());
+
+  gl()->fVertexAttribPointer(texCoordAttribIndex, 2,
+                                   LOCAL_GL_FLOAT, LOCAL_GL_FALSE, 0,
+                                   rects.texCoordPointer());
+
+  {
+    gl()->fEnableVertexAttribArray(texCoordAttribIndex);
+    {
+      gl()->fEnableVertexAttribArray(vertAttribIndex);
+
+      gl()->fDrawArrays(LOCAL_GL_TRIANGLES, 0, rects.elements());
+
+      gl()->fDisableVertexAttribArray(vertAttribIndex);
+    }
+    gl()->fDisableVertexAttribArray(texCoordAttribIndex);
+  }
+}
+
 void
 LayerManagerOGL::Render()
 {

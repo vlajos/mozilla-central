@@ -23,11 +23,11 @@ CanvasClient::SetBuffer(const TextureIdentifier& aTextureIdentifier,
   mTextureClient->SetDescriptor(aBuffer);
 }
 
-CanvasClient2D::CanvasClient2D(ShadowLayerForwarder* aLayerForwarder,
-                               ShadowableLayer* aLayer,
+CanvasClient2D::CanvasClient2D(CompositableForwarder* aFwd,
                                TextureFlags aFlags)
+: CanvasClient(aFwd)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_DIRECT, BUFFER_DIRECT, aLayer, aFlags, true);
+  mTextureClient = CreateTextureClient(TEXTURE_DIRECT, aFlags, true);
 }
 
 void
@@ -48,13 +48,12 @@ CanvasClient2D::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   mTextureClient->Unlock();
 }
 
-CanvasClientWebGL::CanvasClientWebGL(ShadowLayerForwarder* aLayerForwarder,
-                                       ShadowableLayer* aLayer, 
-                                       TextureFlags aFlags)
+CanvasClientWebGL::CanvasClientWebGL(CompositableForwarder* aFwd,
+                                     TextureFlags aFlags)
+: CanvasClient(aFwd)
 {
-  mTextureClient = aLayerForwarder->CreateTextureClientFor(TEXTURE_SHARED | TEXTURE_BUFFERED,
-                                                           BUFFER_SHARED,
-                                                           aLayer, true, aFlags);
+  mTextureClient = CreateTextureClient(TEXTURE_SHARED|TEXTURE_BUFFERED,
+                                       true, aFlags);
 }
 
 void

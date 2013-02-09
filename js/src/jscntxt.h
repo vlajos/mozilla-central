@@ -30,6 +30,7 @@
 
 #include "ds/LifoAlloc.h"
 #include "gc/Statistics.h"
+#include "gc/StoreBuffer.h"
 #include "js/HashTable.h"
 #include "js/Vector.h"
 #include "vm/DateTime.h"
@@ -341,7 +342,7 @@ class NewObjectCache
      * NULL if returning the object could possibly trigger GC (does not
      * indicate failure).
      */
-    inline JSObject *newObjectFromHit(JSContext *cx, EntryIndex entry);
+    inline JSObject *newObjectFromHit(JSContext *cx, EntryIndex entry, js::gc::InitialHeap heap);
 
     /* Fill an entry after a cache miss. */
     inline void fillProto(EntryIndex entry, Class *clasp, js::TaggedProto proto, gc::AllocKind kind, JSObject *obj);
@@ -879,29 +880,21 @@ struct JSRuntime : js::RuntimeFriendFields,
     bool                gcGenerationalEnabled;
 
     /*
-     * Whether exact stack scanning is enabled for this runtime. This is
-     * currently only used for dynamic root analysis. Exact scanning starts out
-     * enabled, and is disabled if e4x has been used.
-     */
-    bool                gcExactScanningEnabled;
-
-
-    /*
      * This is true if we are in the middle of a brain transplant (e.g.,
      * JS_TransplantObject) or some other operation that can manipulate
-     * dead compartments.
+     * dead zones.
      */
-    bool                gcManipulatingDeadCompartments;
+    bool                gcManipulatingDeadZones;
 
     /*
      * This field is incremented each time we mark an object inside a
-     * compartment with no incoming cross-compartment pointers. Typically if
+     * zone with no incoming cross-compartment pointers. Typically if
      * this happens it signals that an incremental GC is marking too much
      * stuff. At various times we check this counter and, if it has changed, we
      * run an immediate, non-incremental GC to clean up the dead
-     * compartments. This should happen very rarely.
+     * zones. This should happen very rarely.
      */
-    unsigned            gcObjectsMarkedInDeadCompartments;
+    unsigned            gcObjectsMarkedInDeadZones;
 
     bool                gcPoke;
 
@@ -910,6 +903,11 @@ struct JSRuntime : js::RuntimeFriendFields,
     bool isHeapBusy() { return heapState != js::Idle; }
 
     bool isHeapCollecting() { return heapState == js::Collecting; }
+
+#ifdef JSGC_GENERATIONAL
+    js::gc::Nursery              gcNursery;
+    js::gc::StoreBuffer          gcStoreBuffer;
+#endif
 
     /*
      * These options control the zealousness of the GC. The fundamental values
@@ -1289,25 +1287,6 @@ namespace js {
 
 struct AutoResolving;
 
-static inline bool
-OptionsHasAllowXML(uint32_t options)
-{
-    return !!(options & JSOPTION_ALLOW_XML);
-}
-
-static inline bool
-OptionsHasMoarXML(uint32_t options)
-{
-    return !!(options & JSOPTION_MOAR_XML);
-}
-
-static inline bool
-OptionsSameVersionFlags(uint32_t self, uint32_t other)
-{
-    static const uint32_t mask = JSOPTION_MOAR_XML;
-    return !((self & mask) ^ (other & mask));
-}
-
 /*
  * Flags accompany script version data so that a) dynamically created scripts
  * can inherit their caller's compile-time properties and b) scripts can be
@@ -1318,34 +1297,13 @@ OptionsSameVersionFlags(uint32_t self, uint32_t other)
  */
 namespace VersionFlags {
 static const unsigned MASK      = 0x0FFF; /* see JSVersion in jspubtd.h */
-static const unsigned ALLOW_XML = 0x1000; /* flag induced by JSOPTION_ALLOW_XML */
-static const unsigned MOAR_XML  = 0x2000; /* flag induced by JSOPTION_MOAR_XML */
-static const unsigned FULL_MASK = 0x3FFF;
+static const unsigned FULL_MASK = 0x0FFF;
 } /* namespace VersionFlags */
 
 static inline JSVersion
 VersionNumber(JSVersion version)
 {
     return JSVersion(uint32_t(version) & VersionFlags::MASK);
-}
-
-static inline bool
-VersionHasAllowXML(JSVersion version)
-{
-    return !!(version & VersionFlags::ALLOW_XML);
-}
-
-static inline bool
-VersionHasMoarXML(JSVersion version)
-{
-    return !!(version & VersionFlags::MOAR_XML);
-}
-
-/* @warning This is a distinct condition from having the XML flag set. */
-static inline bool
-VersionShouldParseXML(JSVersion version)
-{
-    return VersionHasMoarXML(version) || VersionNumber(version) >= JSVERSION_1_6;
 }
 
 static inline JSVersion
@@ -1369,8 +1327,7 @@ VersionHasFlags(JSVersion version)
 static inline unsigned
 VersionFlagsToOptions(JSVersion version)
 {
-    unsigned copts = (VersionHasAllowXML(version) ? JSOPTION_ALLOW_XML : 0) |
-                     (VersionHasMoarXML(version) ? JSOPTION_MOAR_XML : 0);
+    unsigned copts = 0;
     JS_ASSERT((copts & JSCOMPILEOPTION_MASK) == copts);
     return copts;
 }
@@ -1378,13 +1335,7 @@ VersionFlagsToOptions(JSVersion version)
 static inline JSVersion
 OptionFlagsToVersion(unsigned options, JSVersion version)
 {
-    uint32_t v = version;
-    v &= ~(VersionFlags::ALLOW_XML | VersionFlags::MOAR_XML);
-    if (OptionsHasAllowXML(options))
-        v |= VersionFlags::ALLOW_XML;
-    if (OptionsHasMoarXML(options))
-        v |= VersionFlags::MOAR_XML;
-    return JSVersion(v);
+    return version;
 }
 
 static inline bool
@@ -1689,9 +1640,7 @@ struct JSContext : js::ContextFriendFields,
     void *onOutOfMemory(void *p, size_t nbytes) {
         return runtime->onOutOfMemory(p, nbytes, this);
     }
-    void updateMallocCounter(size_t nbytes) {
-        runtime->updateMallocCounter(compartment, nbytes);
-    }
+    void updateMallocCounter(size_t nbytes);
     void reportAllocationOverflow() {
         js_ReportAllocationOverflow(this);
     }
@@ -1788,25 +1737,6 @@ struct AutoResolving {
     AutoResolving       *const link;
     MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
-
-#if JS_HAS_XML_SUPPORT
-class AutoXMLRooter : private AutoGCRooter {
-  public:
-    AutoXMLRooter(JSContext *cx, JSXML *xml
-                  MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : AutoGCRooter(cx, XML), xml(xml)
-    {
-        MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-        JS_ASSERT(xml);
-    }
-
-    friend void AutoGCRooter::trace(JSTracer *trc);
-
-  private:
-    JSXML * const xml;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-};
-#endif /* JS_HAS_XML_SUPPORT */
 
 #ifdef JS_THREADSAFE
 # define JS_LOCK_GC(rt)    PR_Lock((rt)->gcLock)

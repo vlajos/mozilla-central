@@ -281,8 +281,13 @@ public:
                            CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
   virtual CompositableHost* GetCompositableHost() = 0;
+  virtual void SetCompositableHost(CompositableHost* aHost) { MOZ_ASSERT(false, "called SetCompositableHost for a layer without a compositable"); }
 
   virtual void CleanupResources() = 0;
+
+  virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
+
+  virtual void EnsureBuffer(CompositableType aHostType);
 
 protected:
   LayerManagerComposite* mCompositeManager;

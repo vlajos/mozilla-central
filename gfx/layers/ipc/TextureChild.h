@@ -20,28 +20,24 @@ class TextureChild : public PTextureChild,
 {
 public:
   TextureChild()
-    : mTextureClient(nullptr)
+  : mTextureClient(nullptr)
   {}
 
-  void SetClients(TextureClient* aTextureClient,
-                  CompositableClient* aCompositableClient)
+  void SetClient(TextureClient* aTextureClient)
   {
     mTextureClient = aTextureClient;
-    mCompositableClient = aCompositableClient;
   }
 
+  CompositableClient* GetCompositableClient();
   TextureClient* GetTextureClient() const
   {
     return mTextureClient;
   }
 
-  CompositableClient* GetCompositableClient() const
-  {
-    return mCompositableClient;
-  }
+  void Destroy();
+
 private:
   TextureClient* mTextureClient;
-  CompositableClient* mCompositableClient;
 };
 
 } // namespace

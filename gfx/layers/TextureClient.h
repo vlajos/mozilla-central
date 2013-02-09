@@ -87,29 +87,27 @@ public:
   virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation);
-  virtual void Destroyed(ShadowableLayer* aLayer);
+  // TODO[nical] we probably don't really need this param
+  virtual void Destroyed(CompositableClient* aCompositable);
 
-  void SetTextureChild(PTextureChild* aTextureChild);
-  PTextureChild* GetTextureChild() const {
+  void SetIPDLActor(PTextureChild* aTextureChild);
+  PTextureChild* GetIPDLActor() const {
     return mTextureChild;
   }
 
-  ShadowLayerForwarder* GetLayerForwarder() const {
+  CompositableForwarder* GetLayerForwarder() const {
     return mLayerForwarder;
   }
-/*
-  void SetSurfaceAllocator(ISurfaceDeallocator* aAllocator) {
-    mAllocator = aAllocator;
-  }
-*/
+
   ISurfaceDeallocator* GetSurfaceAllocator() const {
     return mAllocator;
   }
 
 protected:
-  TextureClient(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
+  TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 
-  ShadowLayerForwarder* mLayerForwarder;
+  CompositableForwarder* mLayerForwarder;
+  // TODO[nical] remove this, the forwarder is the allocator
   ISurfaceDeallocator* mAllocator;
   // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
   // the reference here.
@@ -158,6 +156,7 @@ class TextureClientShmem : public TextureClient
 {
 public:
   virtual ~TextureClientShmem();
+  TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 
   virtual already_AddRefed<gfxContext> LockContext();
   virtual gfxImageSurface* LockImageSurface();
@@ -166,8 +165,6 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
 private:
-  TextureClientShmem(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
-
   gfxASurface* GetSurface();
 
   nsRefPtr<gfxASurface> mSurface;
@@ -191,16 +188,15 @@ class TextureClientShared : public TextureClient
 public:
   virtual ~TextureClientShared();
 
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
-
-protected:
-  TextureClientShared(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
-    : TextureClient(aLayerForwarder, aCompositableType)
+  TextureClientShared(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClient(aForwarder, aCompositableType)
   {
     mTextureInfo.memoryType = TEXTURE_SHARED;
   }
 
-  friend class CompositingFactory;
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
+
+protected:
 };
 
 class TextureClientSharedGL : public TextureClientShared
@@ -211,8 +207,8 @@ public:
   virtual gl::SharedTextureHandle LockHandle(GLContext* aGL, gl::GLContext::SharedTextureShareType aFlags);
   virtual void Unlock();
 
+  TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 protected:
-  TextureClientSharedGL(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
 
   gl::GLContext* mGL;
   gfx::IntSize mSize;
@@ -228,10 +224,7 @@ public:
   // always ok
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
 
-protected:
-  TextureClientBridge(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType);
-
-  friend class CompositingFactory;
+  TextureClientBridge(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 };
 
 class TextureClientTile : public TextureClient
@@ -251,14 +244,13 @@ public:
     return mSurface;
   }
 
-private:
-  TextureClientTile(ShadowLayerForwarder* aLayerForwarder, CompositableType aCompositableType)
-    : TextureClient(aLayerForwarder, aCompositableType)
+  TextureClientTile(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClient(aForwarder, aCompositableType)
     , mSurface(nullptr)
   {
     mTextureInfo.memoryType = TEXTURE_TILE;
   }
-
+private:
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
 
   friend class CompositingFactory;

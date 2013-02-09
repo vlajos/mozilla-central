@@ -340,8 +340,7 @@ CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
 }
 
 void
-CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
-                          const gfx::Rect *aTextureRect, const gfx::Rect *aClipRect,
+CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
                           const EffectChain &aEffectChain,
                           gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                           const gfx::Point &aOffset)
@@ -350,14 +349,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   mVSConstants.renderTargetOffset[0] = aOffset.x;
   mVSConstants.renderTargetOffset[1] = aOffset.y;
   mVSConstants.layerQuad = aRect;
-  if (!aSourceRect || !aTextureRect)  {
-    mVSConstants.textureCoords = Rect(0, 0, 1, 1);
-  } else {
-    mVSConstants.textureCoords = Rect(aSourceRect->x / aTextureRect->width,
-                                      aSourceRect->y / aTextureRect->height,
-                                      aSourceRect->width / aTextureRect->width,
-                                      aSourceRect->height / aTextureRect->height);
-  }
+
   mPSConstants.layerOpacity[0] = aOpacity;
 
   D3D11_RECT scissor;
@@ -388,6 +380,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
   } else if (aEffectChain.mEffects[EFFECT_BGRX]) {
     EffectBGRX *rgbEffect = static_cast<EffectBGRX*>(aEffectChain.mEffects[EFFECT_BGRX].get());
 
+    mVSConstants.textureCoords = rgbEffect->mTextureCoords;
+
     TextureSourceD3D11 *source = rgbEffect->mBGRXTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
@@ -402,6 +396,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aSourceRect,
     mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
   } else if (aEffectChain.mEffects[EFFECT_BGRA]) {
     EffectBGRA *rgbEffect = static_cast<EffectBGRA*>(aEffectChain.mEffects[EFFECT_BGRA].get());
+
+    mVSConstants.textureCoords = rgbEffect->mTextureCoords;
 
     TextureSourceD3D11 *source = rgbEffect->mBGRATexture->AsSourceD3D11();
 

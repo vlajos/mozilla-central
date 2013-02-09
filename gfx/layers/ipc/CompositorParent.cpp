@@ -235,9 +235,9 @@ CompositorParent::Destroy()
 static void
 DispatchMemoryPressureToLayers(Layer* aLayer)
 {
-  ShadowLayer* shadowLayer = aLayer->AsShadowLayer();
-  if (shadowLayer) {
-    TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
+  LayerComposite* composite = aLayer->AsLayerComposite();
+  if (composite) {
+    TiledLayerComposer* tileComposer = composite->AsTiledLayerComposer();
     if (tileComposer) {
       tileComposer->MemoryPressure();
     }

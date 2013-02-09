@@ -56,7 +56,9 @@ public:
   }
 
   GLenum GetWrapMode() const MOZ_OVERRIDE {
-    return LOCAL_GL_REPEAT; // TODO[nical] not sure this is the right thing to return by default.
+    return LOCAL_GL_REPEAT; // TODO[nical] not sure this is the right thing to return by default. [nrc] - Almost certainly not, probably there should not be a default.
+                            // maybe return mWrapMode, although that never gets set. I have no
+    // idea what is going here, TBH
   }
 
 #ifdef MOZ_DUMP_PAINTING
@@ -71,6 +73,7 @@ public:
   GLuint mTextureHandle;
   GLuint mFBO;
 
+  //TODO[nical] none of these ever get set!
   gfx::IntSize mSize;
   GLenum mWrapMode;
   ContentType mContentType;

@@ -9,7 +9,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "gfxASurface.h" // for gfxImageFormat
-#include "LayersTypes.h" // for LayersBackend
+#include "mozilla/layers/LayersTypes.h" // for LayersBackend
 #include "mozilla/TimeStamp.h"
 #include "ImageTypes.h"
 
@@ -441,6 +441,15 @@ public:
   uint32_t GetPaintCount() {
     ReentrantMonitorAutoEnter mon(mReentrantMonitor);
     return mPaintCount;
+  }
+
+  /**
+   * Resets the paint count to zero.
+   * Can be called from any thread.
+   */
+  void ResetPaintCount() {
+    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
+    mPaintCount = 0;
   }
 
   /**

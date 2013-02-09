@@ -8,7 +8,17 @@
 namespace mozilla {
 namespace layers {
 
+CompositableClient*
+TextureChild::GetCompositableClient()
+{
+  return static_cast<CompositableChild*>(Manager())->GetCompositableClient();
+}
 
+void
+TextureChild::Destroy()
+{
+  Send__delete__(this);
+}
 
 } // namespace
 } // namespace

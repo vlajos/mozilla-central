@@ -6,6 +6,7 @@
 include LayersSurfaces;
 include protocol PGrallocBuffer;
 include protocol PImageContainer;
+include protocol PCompositable;
 
 using ImageHandle;
 
@@ -20,6 +21,7 @@ namespace layers {
 /*FIXME: sync*/rpc protocol PImageBridge
 {
   manages PImageContainer;
+  manages PCompositable;
   manages PGrallocBuffer;
 
 parent:
@@ -42,6 +44,7 @@ parent:
   sync Stop();
 
   sync PImageContainer() returns (uint64_t id);
+  sync PCompositable() returns (uint64_t id);
 };
 
 

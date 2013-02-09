@@ -242,10 +242,11 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
       flags |= NeedsYFlip;
     }
     mCanvasClient = BasicManager()->CreateCanvasClientFor(GetCompositableClientType(), this, flags);
-
     if (!mCanvasClient) {
       return;
     }
+    mCanvasClient->Connect();
+    mCanvasClient->GetForwarder()->Attach(mCanvasClient, this);
   }
   mCanvasClient->Update(gfx::IntSize(mBounds.width, mBounds.height), this);
 

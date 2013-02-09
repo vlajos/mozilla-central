@@ -344,7 +344,7 @@ LayerManagerComposite::ComputeRenderIntegrityInternal(Layer* aLayer,
 
     // See if there's any incomplete low-precision rendering
     TiledLayerComposer* composer = nullptr;
-    ShadowLayer* shadow = aLayer->AsShadowLayer();
+    LayerComposite* shadow = aLayer->AsLayerComposite();
     if (shadow) {
       composer = shadow->AsTiledLayerComposer();
       if (composer) {
@@ -558,6 +558,7 @@ LayerManagerComposite::CreateShadowRefLayer()
   return nsRefPtr<CompositeRefLayer>(new CompositeRefLayer(this)).forget();
 }
 
+// TODO[nical: remove this
 bool
 LayerManagerComposite::AddMaskEffect(Layer* aMaskLayer, EffectChain& aEffects, bool aIs3D)
 {
@@ -588,6 +589,18 @@ LayerManagerComposite::CreateDrawTarget(const IntSize &aSize,
   }
 #endif
   return LayerManager::CreateDrawTarget(aSize, aFormat);
+}
+
+
+void
+LayerComposite::EnsureBuffer(CompositableType aHostType)
+{
+  RefPtr<CompositableHost> bufferHost = GetCompositableHost();
+  if (!bufferHost ||
+      bufferHost->GetType() != aHostType) {
+    bufferHost = CompositableHost::Create(aHostType, mCompositor);
+    SetCompositableHost(bufferHost);
+  }
 }
 
 } /* layers */

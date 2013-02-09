@@ -204,7 +204,7 @@ SurfaceDescriptor* ImageContainerChild::AllocateSurfaceDescriptorFor(Image* imag
     }
 
     ++mActiveImageCount;
-    return new SurfaceDescriptor(YCbCrImage(shmem, 0, data->GetPictureRect()));
+    return new SurfaceDescriptor(YCbCrImage(shmem, 0));
   } else {
     NS_RUNTIMEABORT("TODO: Only YCbCrImage is supported here right now.");
   }
@@ -627,7 +627,7 @@ public:
 
   SurfaceDescriptor* ToSurfaceDescriptor() {
     if (mAllocated) {
-      return new SurfaceDescriptor(YCbCrImage(mShmem, 0, mData.GetPictureRect()));
+      return new SurfaceDescriptor(YCbCrImage(mShmem, 0));
     }
     return nullptr;
   }

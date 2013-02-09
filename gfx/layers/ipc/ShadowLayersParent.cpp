@@ -46,14 +46,14 @@ AsTextureHost(const OpPaintT& op)
   return static_cast<TextureParent*>(op.textureParent())->GetTextureHost();
 }
 
+// TODO[nical] we should not need this
 template<class OpPaintT>
 Layer* GetLayerFromOpPaint(const OpPaintT& op)
 {
   PTextureParent* textureParent = op.textureParent();
-  MOZ_ASSERT(textureParent);
-  ShadowLayerParent* shadow = cast(textureParent->Manager());
-
-  return shadow->AsLayer();
+  CompositableHost* compoHost
+    = static_cast<CompositableParent*>(textureParent->Manager())->GetCompositableHost();
+  return compoHost->GetLayer();
 }
 
 template<class OpCreateT>
@@ -388,13 +388,13 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       const OpPaintTiledLayerBuffer& op = edit.get_OpPaintTiledLayerBuffer();
       ShadowLayerParent* shadow = AsShadowLayer(op);
 
-      ShadowThebesLayer* shadowLayer = static_cast<ShadowThebesLayer*>(shadow->AsLayer());
-      shadowLayer->EnsureBuffer(BUFFER_TILED);
-      TiledLayerComposer* tileComposer = shadowLayer->AsTiledLayerComposer();
+      LayerComposite* compositeLayer = shadow->AsLayer()->AsLayerComposite();
+      compositeLayer->EnsureBuffer(BUFFER_TILED);
+      TiledLayerComposer* tileComposer = compositeLayer->AsTiledLayerComposer();
 
-      NS_ASSERTION(tileComposer, "shadowLayer is not a tile composer");
+      NS_ASSERTION(tileComposer, "compositeLayer is not a tile composer");
 
-      BasicTiledLayerBuffer* p = (BasicTiledLayerBuffer*)op.tiledLayerBuffer();
+      BasicTiledLayerBuffer* p = reinterpret_cast<BasicTiledLayerBuffer*>(op.tiledLayerBuffer());
       tileComposer->PaintedTiledLayerBuffer(p);
       break;
     }
@@ -453,19 +453,21 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       RenderTraceInvalidateEnd(canvas, "FF00FF");
       break;
     }
+/*
     case Edit::TOpAttachTexture: {
       const OpAttachTexture& op = edit.get_OpAttachTexture();
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
       ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
       Layer* layer = layerParent->AsLayer();
       MOZ_ASSERT(layer);
+      LayerComposite* layerComposite = layer->AsLayerComposite();
+      MOZ_ASSERT(layerComposite);
 
       Compositor* compositor
         = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       const TextureInfo& info = textureParent->GetTextureInfo();
-      //TODO[nrc] we should be using layer::EnsureBuffer for this :-(
-      RefPtr<CompositableHost> bufferHost
-        = CompositableHost::Create(textureParent->GetTextureInfo().compositableType, compositor);
+      layerComposite->EnsureBuffer(textureParent->GetTextureInfo().compositableType);
+
       RefPtr<TextureHost> textureHost
         = compositor->CreateTextureHost(info.memoryType,
                                         info.textureFlags,
@@ -475,9 +477,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       textureHost->SetCompositorID(compositor->GetCompositorID());
       textureParent->SetTextureHost(textureHost.get());
       textureHost->SetTextureParent(textureParent);
-      bufferHost->AddTextureHost(textureHost);
+      layerComposite->GetCompositableHost()->AddTextureHost(textureHost);
 
-      layer->AsShadowLayer()->SetCompositableHost(bufferHost.get());
       layer->AsShadowLayer()->SetAllocator(this);
       break;
     }
@@ -487,6 +488,28 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       TextureHost* host = AsTextureHost(op);
       MOZ_ASSERT(host, "TextureHost not created");
       host->SetAsyncContainerID(op.containerID());
+      break;
+    }
+*/
+    case Edit::TOpAttachCompositable: {
+      printf("OpAttachCompositable\n");
+      const OpAttachCompositable& op = edit.get_OpAttachCompositable();
+      CompositableParent* compositableParent
+        = static_cast<CompositableParent*>(op.compositableParent());
+      ShadowLayerParent* layerParent
+        = static_cast<ShadowLayerParent*>(op.layerParent());
+      ShadowLayer* layer = layerParent->AsLayer()->AsShadowLayer();
+      LayerComposite* layerComposite = layerParent->AsLayer()->AsLayerComposite();
+      MOZ_ASSERT(layer);
+
+      Compositor* compositor
+        = static_cast<LayerManagerComposite*>(layerParent->AsLayer()->Manager())->GetCompositor();
+
+      CompositableHost* compositable = compositableParent->GetCompositableHost();
+      MOZ_ASSERT(compositable);
+      compositable->SetCompositor(compositor);
+      layerComposite->SetCompositableHost(compositable);
+      compositable->SetLayer(layerParent->AsLayer());
       break;
     }
     case Edit::TOpPaintTexture: {
@@ -555,7 +578,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
     case Edit::TOpUpdatePictureRect: {
       const OpUpdatePictureRect& op = edit.get_OpUpdatePictureRect();
-      CompositableHost* compositable = AsShadowLayer(op)->AsLayer()->AsShadowLayer()->GetCompositableHost();
+      CompositableHost* compositable
+       = static_cast<CompositableParent*>(op.compositableParent())->GetCompositableHost();
       MOZ_ASSERT(compositable);
       compositable->SetPictureRect(op.picture());
       break;
@@ -639,6 +663,19 @@ ShadowLayersParent::DeallocPLayer(PLayerParent* actor)
   return true;
 }
 
+PCompositableParent*
+ShadowLayersParent::AllocPCompositable(const CompositableType& aType)
+{
+  return new CompositableParent(this, aType);
+}
+
+bool
+ShadowLayersParent::DeallocPCompositable(PCompositableParent* actor)
+{
+  delete actor;
+  return true;
+}
+
 void
 ShadowLayersParent::DestroySharedSurface(gfxSharedImageSurface* aSurface)
 {
@@ -650,6 +687,13 @@ ShadowLayersParent::DestroySharedSurface(SurfaceDescriptor* aSurface)
 {
   layer_manager()->DestroySharedSurface(aSurface, this);
 }
+
+Compositor*
+ShadowLayersParent::GetCompositor()
+{
+  return mLayerManager->GetCompositor();
+}
+
 
 } // namespace layers
 } // namespace mozilla

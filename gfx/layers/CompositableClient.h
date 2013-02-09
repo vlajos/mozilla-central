@@ -6,19 +6,85 @@
 #ifndef MOZILLA_GFX_BUFFERCLIENT_H
 #define MOZILLA_GFX_BUFFERCLIENT_H
 
+#include "mozilla/layers/PCompositableChild.h"
+#include "mozilla/layers/LayersTypes.h"
+
 namespace mozilla {
 namespace layers {
+
+typedef uint32_t TextureFlags; // See Layers.h
+
+class CompositableChild;
+class CompositableClient;
+class TextureClient;
+class ShadowLayersChild;
+class ImageBridgeChild;
+class ShadowableLayer;
+class CompositableForwarder;
+
+class CompositableChild : public PCompositableChild
+{
+public:
+  CompositableChild()
+  : mCompositableClient(nullptr)
+  {}
+
+  virtual PTextureChild* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
+  virtual bool DeallocPTexture(PTextureChild* aActor) MOZ_OVERRIDE;
+
+  void Destroy();
+
+  void SetClient(CompositableClient* aClient) {
+    mCompositableClient = aClient;
+  }
+
+  CompositableClient* GetCompositableClient() const {
+    return mCompositableClient;
+  }
+private:
+  CompositableClient* mCompositableClient;
+};
 
 class CompositableClient : public RefCounted<CompositableClient>
 {
 public:
-  virtual ~CompositableClient() {}
+  CompositableClient(CompositableForwarder* aForwarder)
+  : mCompositableChild(nullptr), mForwarder(aForwarder)
+  {}
+
+  virtual ~CompositableClient();
+
   virtual CompositableType GetType() const
   {
     NS_WARNING("This method should be overridden");
     return BUFFER_UNKNOWN;
   }
 
+  LayersBackend GetCompositorBackendType() const;
+
+  TemporaryRef<TextureClient> CreateTextureClient(TextureHostType aTextureHostType,
+                                                  TextureFlags aFlags,
+                                                  bool aStrict = false);
+
+  /**
+   * Establishes the connection with compositor side through IPDL
+   */
+  bool Connect();
+
+  void Destroy();
+
+  CompositableChild* GetIPDLActor() const;
+  // should only be called by a CompositableForwarder
+  void SetIPDLActor(CompositableChild* aChild);
+
+  CompositableForwarder* GetForwarder() const
+  {
+    return mForwarder;
+  }
+
+protected:
+  CompositableChild* mCompositableChild;
+  CompositableForwarder* mForwarder;
 };
 
 } // namespace

@@ -8,6 +8,7 @@
 #include "ShadowLayerChild.h"
 #include "ShadowLayersChild.h"
 #include "ShadowLayerUtils.h"
+#include "mozilla/layers/CompositableClient.h"
 
 namespace mozilla {
 namespace layers {
@@ -56,6 +57,19 @@ ShadowLayersChild::AllocPLayer()
 
 bool
 ShadowLayersChild::DeallocPLayer(PLayerChild* actor)
+{
+  delete actor;
+  return true;
+}
+
+PCompositableChild*
+ShadowLayersChild::AllocPCompositable(const CompositableType& aType)
+{
+  return new CompositableChild();
+}
+
+bool
+ShadowLayersChild::DeallocPCompositable(PCompositableChild* actor)
 {
   delete actor;
   return true;

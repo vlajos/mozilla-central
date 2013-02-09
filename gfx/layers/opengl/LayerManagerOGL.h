@@ -218,7 +218,6 @@ public:
   GLintptr QuadVBOTexCoordOffset() { return mCompositor->QuadVBOTexCoordOffset(); }
   GLintptr QuadVBOFlippedTexCoordOffset() { return mCompositor->QuadVBOFlippedTexCoordOffset(); }
 
-// TODO[nical:merge] next 4 methods only declared here, impl moved to cpp so check what they do
   void BindQuadVBO() {
     mCompositor->BindQuadVBO();
   }
@@ -261,16 +260,7 @@ public:
                                       const nsIntRect& aTexCoordRect,
                                       const nsIntSize& aTexSize,
                                       GLenum aWrapMode = LOCAL_GL_REPEAT,
-                                      bool aFlipped = false)
-  {
-    mCompositor->BindAndDrawQuadWithTextureRect(aProg,
-                   gfx::IntRect(aTexCoordRect.x,
-                                aTexCoordRect.y,
-                                aTexCoordRect.width,
-                                aTexCoordRect.height),
-                   gfx::IntSize(aTexSize.width, aTexSize.height),
-                   aWrapMode, aFlipped);
-  }
+                                      bool aFlipped = false);
 
   const nsIntSize& GetWidgetSize() {
     return mCompositor->mWidgetSize;

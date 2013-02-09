@@ -15,6 +15,7 @@ namespace layers {
 
 class ThebesBuffer;
 class OptionalThebesBuffer;
+struct TexturedEffect;
 
 // Base class for Thebes layer buffers, used by main thread and off-main thread
 // compositing. This is the only place we use *Hosts/*Clients for main thread
@@ -63,6 +64,10 @@ protected:
 class AContentHost : public CompositableHost
 {
 public:
+  AContentHost(Compositor* aCompositor)
+  : CompositableHost(aCompositor)
+  {}
+
   /**
    * Update the content host.
    * aTextureInfo identifies the texture host which should be updated.
@@ -121,7 +126,9 @@ public:
 
   virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {
-    mTextureHost->SetDeAllocator(aDeAllocator);
+    if (mTextureHost) {
+      mTextureHost->SetDeAllocator(aDeAllocator);
+    }
   }
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
@@ -154,10 +161,9 @@ protected:
 
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
-  RefPtr<Compositor> mCompositor;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
-  RefPtr<Effect> mTextureEffect;
+  RefPtr<TexturedEffect> mTextureEffect;
   bool mPaintWillResample;
   bool mInitialised;
 };
@@ -311,7 +317,7 @@ class TiledContentHost : public AContentHost,
 {
 public:
   TiledContentHost(Compositor* aCompositor)
-    : mCompositor(aCompositor)
+    : AContentHost(aCompositor)
     , mVideoMemoryTiledBuffer(aCompositor)
     , mLowPrecisionVideoMemoryTiledBuffer(aCompositor)
     , mReusableTileStore(nullptr)
@@ -386,8 +392,6 @@ private:
                          gfx::Matrix4x4 aTransform);
 
   void EnsureTileStore();
-
-  RefPtr<Compositor> mCompositor;
 
   nsIntRegion                  mRegionToUpload;
   nsIntRegion                  mLowPrecisionRegionToUpload;

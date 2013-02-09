@@ -117,7 +117,6 @@ SharedRGBImage::ToSurfaceDescriptor()
     return nullptr;
   }
   return new SurfaceDescriptor(RGBImage(*mShmem,
-                               nsIntRect(0, 0, mSize.width, mSize.height),
                                mImageFormat));
 }
 
