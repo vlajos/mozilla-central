@@ -222,6 +222,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   }
 }
 
+//TODO[nrc] just get rid of this
 struct AutoPaintClient {
   AutoPaintClient(ContentClient* aContentClient)
     : mContentClient(aContentClient)

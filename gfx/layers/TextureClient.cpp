@@ -108,6 +108,7 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     mContentType = aContentType;
     mSize = aSize;
 
+    // TODO[nrc or nical] this leads to an abort in Shmem.cpp:147
     if (!mLayerForwarder->AllocBuffer(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
       NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
     }

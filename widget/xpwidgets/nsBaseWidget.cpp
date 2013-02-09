@@ -754,12 +754,6 @@ nsBaseWidget::AutoUseBasicLayerManager::~AutoUseBasicLayerManager()
 bool
 nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
 {
-/*
-  // TODO[nical] this is just a convenience for the gfx work, it should not be merged to central
-#ifdef MOZ_WIDGET_GTK2
-  return true;
-#endif
-*/
 #if defined(XP_WIN) || defined(ANDROID) || (MOZ_PLATFORM_MAEMO > 5) || \
     defined(MOZ_GL_PROVIDER) || defined(XP_MACOSX)
   bool accelerateByDefault = true;
@@ -895,9 +889,6 @@ bool nsBaseWidget::UseOffMainThreadCompositing()
 {
   bool isSmallPopup = ((mWindowType == eWindowType_popup) &&
                       (mPopupType != ePopupTypePanel));
-  if (isSmallPopup) {
-    printf("tooltip!\n");
-  }
   return CompositorParent::CompositorLoop() && !isSmallPopup;
 }
 
