@@ -616,6 +616,7 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
 
   // We need to convert back to actual texels here to get proper behaviour with
   // our GL helper functions. Should fix this sometime.
+  // I want to vomit.
   IntRect texCoordRect = IntRect(aTexCoordRect.x * aTexture->GetSize().width,
                                  aTexCoordRect.y * aTexture->GetSize().height,
                                  aTexCoordRect.width * aTexture->GetSize().width,

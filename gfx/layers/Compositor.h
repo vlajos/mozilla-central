@@ -187,7 +187,7 @@ public:
    * Update for tiled texture hosts could probably have a better signature, but we
    * will replace it with PTexture stuff anyway, so nm.
    */
-  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags) {}
+  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize) {}
 
   /**
    * Lock the texture host for compositing, returns an effect that should
