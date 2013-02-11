@@ -3639,7 +3639,6 @@ nsDOMClassInfo::Init()
   DOM_CLASSINFO_MAP_END
 #endif
 
-#ifdef DEBUG
   {
     uint32_t i = ArrayLength(sClassInfoData);
 
@@ -3650,6 +3649,7 @@ nsDOMClassInfo::Init()
       return NS_ERROR_NOT_INITIALIZED;
     }
 
+#ifdef DEBUG
     for (i = 0; i < eDOMClassInfoIDCount; i++) {
       if (!sClassInfoData[i].u.mConstructorFptr ||
           sClassInfoData[i].mDebugID != i) {
@@ -3669,8 +3669,8 @@ nsDOMClassInfo::Init()
         return NS_ERROR_NOT_INITIALIZED;
       }
     }
-  }
 #endif
+  }
 
   // Initialize static JSString's
   DefineStaticJSVals(cx);
