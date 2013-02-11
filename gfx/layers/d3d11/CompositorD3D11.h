@@ -125,6 +125,7 @@ private:
   void UpdateRenderTarget();
   bool CreateShaders();
   void UpdateConstantBuffers();
+  void SetSamplerForFilter(gfx::Filter aFilter);
 
   RefPtr<ID3D11DeviceContext> mContext;
   RefPtr<ID3D11Device> mDevice;

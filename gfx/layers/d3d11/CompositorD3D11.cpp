@@ -43,6 +43,8 @@ struct DeviceAttachmentsD3D11
   RefPtr<ID3D11Buffer> mPSConstantBuffer;
   RefPtr<ID3D11Buffer> mVSConstantBuffer;
   RefPtr<ID3D11RasterizerState> mRasterizerState;
+  RefPtr<ID3D11SamplerState> mLinearSamplerState;
+  RefPtr<ID3D11SamplerState> mPointSamplerState;
   RefPtr<ID3D11BlendState> mPremulBlendState;
 };
 
@@ -153,6 +155,19 @@ CompositorD3D11::Initialize()
     rastDesc.ScissorEnable = TRUE;
 
     hr = mDevice->CreateRasterizerState(&rastDesc, byRef(mAttachments->mRasterizerState));
+    if (FAILED(hr)) {
+      return false;
+    }
+
+    CD3D11_SAMPLER_DESC samplerDesc(D3D11_DEFAULT);
+    samplerDesc.AddressU = samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    hr = mDevice->CreateSamplerState(&samplerDesc, byRef(mAttachments->mLinearSamplerState));
+    if (FAILED(hr)) {
+      return false;
+    }
+
+    samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    hr = mDevice->CreateSamplerState(&samplerDesc, byRef(mAttachments->mPointSamplerState));
     if (FAILED(hr)) {
       return false;
     }
@@ -390,6 +405,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
     ID3D11ShaderResourceView *srView = view;
     mContext->PSSetShaderResources(0, 1, &srView);
 
+    SetSamplerForFilter(rgbEffect->mFilter);
+
     UpdateConstantBuffers();
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
@@ -406,6 +423,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     ID3D11ShaderResourceView *srView = view;
     mContext->PSSetShaderResources(0, 1, &srView);
+
+    SetSamplerForFilter(rgbEffect->mFilter);
 
     UpdateConstantBuffers();
 
@@ -610,6 +629,24 @@ CompositorD3D11::UpdateConstantBuffers()
 
   buffer = mAttachments->mPSConstantBuffer;
   mContext->PSSetConstantBuffers(0, 1, &buffer);
+}
+
+void
+CompositorD3D11::SetSamplerForFilter(Filter aFilter)
+{
+  ID3D11SamplerState *sampler;
+  switch (aFilter) {
+  case FILTER_LINEAR:
+    sampler = mAttachments->mLinearSamplerState;
+    break;
+  case FILTER_POINT:
+    sampler = mAttachments->mPointSamplerState;
+    break;
+  default:
+    sampler = mAttachments->mLinearSamplerState;
+  }
+
+  mContext->PSSetSamplers(0, 1, &sampler);
 }
 
 }
