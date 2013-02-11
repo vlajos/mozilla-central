@@ -446,7 +446,7 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
 {
   if (aTile.IsPlaceholderTile()) {
     RefPtr<TextureClient> textureClient =
-      mThebesLayer->GetCompositableClient()->CreateTextureClient(TEXTURE_TILE, 0, true); // TODO[nical] check that
+      new TextureClientTile(mManager, BUFFER_TILED);
     aTile.mTextureClient = static_cast<TextureClientTile*>(textureClient.get());
   }
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());

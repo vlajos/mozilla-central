@@ -412,7 +412,8 @@ public:
   {}
   ~TiledTextureHost();
 
-  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags) MOZ_OVERRIDE;
+  // have to pass the size in here (every time) because of DrawQuad API :-(
+  virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize) MOZ_OVERRIDE;
   virtual bool Lock() MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE {}
 
@@ -425,8 +426,7 @@ public:
   }
   virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
-    NS_RUNTIMEABORT("No size for a tiled texture host");
-    return gfx::IntSize();
+    return mSize;
   }
 
 protected:
@@ -441,6 +441,7 @@ private:
     return mGLFormat == LOCAL_GL_RGB ? LOCAL_GL_UNSIGNED_SHORT_5_6_5 : LOCAL_GL_UNSIGNED_BYTE;
   }
 
+  gfx::IntSize mSize;
   GLuint mTextureHandle;
   GLenum mGLFormat;
   gl::GLContext* mGL;

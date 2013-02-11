@@ -236,19 +236,7 @@ public:
     return *this;
   }
 
-  void Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* aCompositor) {
-    TextureFlags flags = 0;
-    if (!mTextureHost) {
-      // convert placeholder tile to a real tile
-      mTextureHost = aCompositor->CreateTextureHost(TEXTURE_TILE,
-                                                    0,
-                                                    SURFACEDESCRIPTOR_UNKNOWN,
-                                                    nullptr);
-      flags |= NewTile;
-    }
-
-    mTextureHost->Update(aReusableSurface, flags);
-  }
+  void Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* aCompositor, uint16_t aSize);
 
   bool operator== (const TiledTexture& o) const {
     if (!mTextureHost || !o.mTextureHost) {

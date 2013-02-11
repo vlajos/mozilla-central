@@ -494,7 +494,7 @@ TiledLayerBufferComposite::ValidateTile(TiledTexture aTile,
   long start = PR_IntervalNow();
 #endif
 
-  aTile.Validate(mMainMemoryTiledBuffer->GetTile(aTileOrigin).GetSurface(), mCompositor);
+  aTile.Validate(mMainMemoryTiledBuffer->GetTile(aTileOrigin).GetSurface(), mCompositor, GetTileLength());
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
   if (PR_IntervalNow() - start > 1) {
@@ -788,6 +788,21 @@ TiledContentHost::RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
     tileX++;
     x += w;
   }
+}
+
+void
+TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* aCompositor, uint16_t aSize) {
+  TextureFlags flags = 0;
+  if (!mTextureHost) {
+    // convert placeholder tile to a real tile
+    mTextureHost = aCompositor->CreateTextureHost(TEXTURE_TILE,
+                                                  0,
+                                                  SURFACEDESCRIPTOR_UNKNOWN,
+                                                  nullptr);
+    flags |= NewTile;
+  }
+
+  mTextureHost->Update(aReusableSurface, flags, gfx::IntSize(aSize, aSize));
 }
 
 

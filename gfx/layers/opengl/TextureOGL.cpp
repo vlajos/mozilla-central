@@ -301,8 +301,9 @@ GetFormatAndTileForImageFormat(gfxASurface::gfxImageFormat aFormat,
 }
 
 void
-TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags)
+TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize)
 {
+  mSize = aSize;
   mGL->MakeCurrent();
   if (aFlags & NewTile) {
     SetFlags(aFlags);
