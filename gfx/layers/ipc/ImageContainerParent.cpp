@@ -39,7 +39,6 @@ bool ImageContainerParent::RecvFlush()
 {
   SurfaceDescriptor *img = RemoveSurfaceDescriptor(mID);
   if (img) {
-    DeallocSurfaceDescriptorData(this, *img);
     delete img;
   }
   return true;
