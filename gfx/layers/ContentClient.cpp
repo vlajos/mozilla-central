@@ -451,7 +451,10 @@ BasicTiledLayerBuffer::ValidateTileInternal(BasicTiledLayerTile aTile,
   }
   aTile.mTextureClient->EnsureTextureClient(gfx::IntSize(GetTileLength(), GetTileLength()), GetContentType());
 
-  gfxASurface* writableSurface = aTile.mTextureClient->LockImageSurface();
+  nsRefPtr<gfxASurface> writableSurface =
+    ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE,
+                                         *aTile.mTextureClient->LockSurfaceDescriptor());
+  //gfxASurface* writableSurface = aTile.mTextureClient->LockImageSurface();
   // Bug 742100, this gfxContext really should live on the stack.
   nsRefPtr<gfxContext> ctxt = new gfxContext(writableSurface);
 

@@ -1281,7 +1281,7 @@ BasicShadowLayerManager::IsCompositingCheap()
 {
   // Whether compositing is cheap depends on the parent backend.
   return mShadowManager &&
-         LayerManager::IsCompositingCheap(GetParentBackendType());
+         LayerManager::IsCompositingCheap(GetCompositorBackendType());
 }
 
 void

@@ -18,8 +18,8 @@ class BasicCanvasLayer;
 class CanvasClient : public CompositableClient
 {
 public:
-  CanvasClient(CompositableForwarder* aFwd)
-  : CompositableClient(aFwd)
+  CanvasClient(CompositableForwarder* aFwd, TextureFlags aFlags)
+  : CompositableClient(aFwd), mFlags(aFlags)
   {}
 
   virtual ~CanvasClient() {}
@@ -34,6 +34,8 @@ public:
   }
 protected:
   RefPtr<TextureClient> mTextureClient;
+  TextureFlags mFlags;
+
 };
 
 // used for 2D canvases and WebGL canvas on non-GL systems where readback is requried

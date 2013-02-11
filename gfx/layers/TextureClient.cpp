@@ -168,7 +168,10 @@ bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface*
   }
   EnsureTextureClient(size, surface, contentType);
 
-  nsRefPtr<gfxContext> tmpCtx = mTextureClient->LockContext();
+  nsRefPtr<gfxASurface> tmpASurface =
+    ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE,
+                                         *mTextureClient->LockSurfaceDescriptor());
+  nsRefPtr<gfxContext> tmpCtx = new gfxContext(tmpASurface.get());
   tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
   PaintContext(pat,
                nsIntRegion(nsIntRect(0, 0, size.width, size.height)),
@@ -254,6 +257,23 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
   return true;
 }
 
+AutoLockHandleClient::AutoLockHandleClient(TextureClient* aClient,
+                                           gl::GLContext* aGL,
+                                           gfx::IntSize aSize,
+                                           gl::GLContext::SharedTextureShareType aFlags)
+: AutoLockTextureClient(aClient), mHandle(0)
+{
+  if (mDescriptor->type() == SurfaceDescriptor::TSharedTextureDescriptor) {
+    mHandle = mDescriptor->get_SharedTextureDescriptor().handle();
+  } else {
+    mHandle = aGL->CreateSharedHandle(aFlags);
+    *mDescriptor = SharedTextureDescriptor(aFlags,
+                                          mHandle,
+                                          nsIntSize(aSize.width,
+                                                    aSize.height),
+                                          false);
+  }
+}
 
 already_AddRefed<gfxContext>
 TextureClientShmem::LockContext()
@@ -333,7 +353,6 @@ TextureClientSharedGL::~TextureClientSharedGL()
     mGL->ReleaseSharedHandle(handle.shareType(), handle.handle());
   }
 }
-
 
 void
 TextureClientSharedGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aContentType)

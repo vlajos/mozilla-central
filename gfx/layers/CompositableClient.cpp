@@ -105,8 +105,10 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
       result = new TextureClientShmem(GetForwarder(), GetType());
     }
     break;
-  case TEXTURE_ASYNC:
-    result = new TextureClientBridge(GetForwarder(), GetType());
+  case TEXTURE_DIRECT:
+    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
+      result = new TextureClientShmem(GetForwarder(), GetType());
+    }
     break;
   case TEXTURE_TILE:
     result = new TextureClientTile(GetForwarder(), GetType());
@@ -117,7 +119,7 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
     break;
 #endif
   default:
-    return result.forget();
+    MOZ_ASSERT(false, "Unhandled texture host type");
   }
 
   NS_ASSERTION(result, "Failed to create TextureClient");

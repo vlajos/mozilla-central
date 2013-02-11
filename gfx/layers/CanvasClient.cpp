@@ -25,16 +25,15 @@ CanvasClient::SetBuffer(const TextureIdentifier& aTextureIdentifier,
 
 CanvasClient2D::CanvasClient2D(CompositableForwarder* aFwd,
                                TextureFlags aFlags)
-: CanvasClient(aFwd)
+: CanvasClient(aFwd, aFlags)
 {
-  mTextureClient = CreateTextureClient(TEXTURE_DIRECT, aFlags, true);
 }
 
 void
 CanvasClient2D::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
-    return;
+    mTextureClient = CreateTextureClient(TEXTURE_DIRECT, mFlags, true);
   }
 
   bool isOpaque = (aLayer->GetContentFlags() & Layer::CONTENT_OPAQUE);
@@ -50,17 +49,16 @@ CanvasClient2D::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 
 CanvasClientWebGL::CanvasClientWebGL(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
-: CanvasClient(aFwd)
+: CanvasClient(aFwd, aFlags)
 {
-  mTextureClient = CreateTextureClient(TEXTURE_SHARED|TEXTURE_BUFFERED,
-                                       true, aFlags);
 }
 
 void
 CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
-    return;
+    mTextureClient = CreateTextureClient(TEXTURE_SHARED|TEXTURE_BUFFERED,
+                                         true, mFlags);
   }
 
   NS_ASSERTION(aLayer->mGLContext, "CanvasClientWebGL should only be used with GL canvases");
@@ -75,7 +73,9 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   else
     flags = gl::GLContext::CrossProcess;
 
-  SharedTextureHandle handle = mTextureClient->LockHandle(aLayer->mGLContext, flags);
+  AutoLockHandleClient autolLock(mTextureClient, aLayer->mGLContext, aSize, flags);
+  SharedTextureHandle handle = autolLock.GetHandle();
+  //mTextureClient->LockHandle(aLayer->mGLContext, flags);
 
   if (handle) {
     aLayer->mGLContext->MakeCurrent();
@@ -83,7 +83,7 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
     aLayer->Painted();
   }
 
-  mTextureClient->Unlock();
+  //mTextureClient->Unlock();
 }
 
 }

@@ -74,7 +74,7 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
     mTexture = mGL->CreateTextureImage(size,
                                        surf.ContentType(),
                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                       FlagsToGLFlags(mFlags)).get(); // TODO[nical] eeek!
+                                       FlagsToGLFlags(mFlags)).get();
     mSize = gfx::IntSize(size.width, size.height);
   }
 

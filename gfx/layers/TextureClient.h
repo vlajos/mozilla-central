@@ -60,9 +60,7 @@ public:
    * with the object it should call Unlock.
    */
   // these will be removed
-  virtual already_AddRefed<gfxContext> LockContext()  { return nullptr; }
-  virtual TemporaryRef<gfx::DrawTarget> LockDT() { return nullptr; } 
-  virtual gfxImageSurface* LockImageSurface() { return nullptr; }
+  //virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual SharedTextureHandle LockHandle(GLContext* aGL, GLContext::SharedTextureShareType aFlags) { return 0; }
   // only this one should remain (and be called just "Lock")
@@ -151,6 +149,23 @@ protected:
                            gfxASurface* surface,
                            gfxASurface::gfxContentType contentType);
 };
+
+class AutoLockHandleClient : public AutoLockTextureClient
+{
+public:
+  AutoLockHandleClient(TextureClient* aClient,
+                       gl::GLContext* aGL,
+                       gfx::IntSize aSize,
+                       gl::GLContext::SharedTextureShareType aFlags);
+  gl::SharedTextureHandle GetHandle() { return mHandle; }
+protected:
+  gl::SharedTextureHandle mHandle;
+};
+
+
+
+
+
 
 class TextureClientShmem : public TextureClient
 {

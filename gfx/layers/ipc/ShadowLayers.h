@@ -314,14 +314,6 @@ public:
                                BasicTiledLayerBuffer* aTiledLayerBuffer);
 
   /**
-   * TODO[nical] remove
-   * Notify the compositor that a texture will be updated asynchronously
-   * through ImageBridge, using an ID to connect the protocols on the 
-   * compositor side.
-   */
-  void AttachAsyncTexture(PTextureChild* aTexture, uint64_t aID);
-
-  /**
    * Notify the compositor that a compositable will be updated asynchronously
    * through ImageBridge, using an ID to connect the protocols on the 
    * compositor side.
@@ -426,12 +418,6 @@ public:
    * ShadowLayerManager.
    */
   PLayerChild* ConstructShadowFor(ShadowableLayer* aLayer);
-
-  // TODO[nical] remove
-  LayersBackend GetParentBackendType()
-  {
-    return mParentBackend;
-  }
 
   LayersBackend GetCompositorBackendType() MOZ_OVERRIDE
   {
