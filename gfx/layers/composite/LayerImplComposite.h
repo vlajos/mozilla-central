@@ -302,7 +302,7 @@ protected:
         }
 
         RefPtr<Effect> effect = new EffectRenderTarget(surface);
-        effectChain.mEffects[EFFECT_RENDER_TARGET] = effect;
+        effectChain.mPrimaryEffect= effect;
         gfx::Matrix4x4 transform;
         ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 

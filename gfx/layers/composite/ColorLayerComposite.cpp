@@ -20,7 +20,7 @@ RenderColorLayer(ColorLayer* aLayer, Compositor *aCompositor,
                                                                          color.g,
                                                                          color.b,
                                                                          color.a));
-  effects.mEffects[EFFECT_SOLID_COLOR] = effectColor;
+  effects.mPrimaryEffect = effectColor;
   nsIntRect visibleRect = aLayer->GetEffectiveVisibleRegion().GetBounds();
 
   LayerManagerComposite::AddMaskEffect(aLayer->GetMaskLayer(), effects);

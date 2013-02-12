@@ -89,7 +89,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     return;
   }
   
-  aEffectChain.mEffects[effect->mType] = effect;
+  aEffectChain.mPrimaryEffect = effect;
 
   TileIterator* it = mTextureHost->AsTextureSource()->AsTileIterator();
   if (it) {

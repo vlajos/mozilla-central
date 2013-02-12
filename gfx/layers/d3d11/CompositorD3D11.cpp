@@ -391,9 +391,9 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   mContext->RSSetScissorRects(1, &scissor);
   mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-  if (aEffectChain.mEffects[EFFECT_SOLID_COLOR]) {
+  if (aEffectChain.mPrimaryEffect->mType == EFFECT_SOLID_COLOR) {
     Color color =
-      static_cast<EffectSolidColor*>(aEffectChain.mEffects[EFFECT_SOLID_COLOR].get())->mColor;
+      static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get())->mColor;
     mPSConstants.layerColor[0] = color.r * aOpacity;
     mPSConstants.layerColor[1] = color.g * aOpacity;
     mPSConstants.layerColor[2] = color.b * aOpacity;
@@ -401,8 +401,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
-  } else if (aEffectChain.mEffects[EFFECT_BGRX]) {
-    EffectBGRX *rgbEffect = static_cast<EffectBGRX*>(aEffectChain.mEffects[EFFECT_BGRX].get());
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRX) {
+    EffectBGRX *rgbEffect = static_cast<EffectBGRX*>(aEffectChain.mPrimaryEffect.get());
 
     mVSConstants.textureCoords = rgbEffect->mTextureCoords;
 
@@ -418,8 +418,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
-  } else if (aEffectChain.mEffects[EFFECT_BGRA]) {
-    EffectBGRA *rgbEffect = static_cast<EffectBGRA*>(aEffectChain.mEffects[EFFECT_BGRA].get());
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA) {
+    EffectBGRA *rgbEffect = static_cast<EffectBGRA*>(aEffectChain.mPrimaryEffect.get());
 
     mVSConstants.textureCoords = rgbEffect->mTextureCoords;
 
@@ -435,8 +435,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mRGBAShader, nullptr, 0);
-  } else if (aEffectChain.mEffects[EFFECT_YCBCR]) {
-    EffectYCbCr *ycbcrEffect = static_cast<EffectYCbCr*>(aEffectChain.mEffects[EFFECT_YCBCR].get());
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_YCBCR) {
+    EffectYCbCr *ycbcrEffect = static_cast<EffectYCbCr*>(aEffectChain.mPrimaryEffectget());
 
     SetSamplerForFilter(FILTER_LINEAR);
 

@@ -34,7 +34,7 @@ bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
                                       source->GetSize(),
                                       aTransform);
   effect->mIs3D = aIs3D;
-  aEffects.mEffects[EFFECT_MASK] = effect;
+  aEffects.mSecondaryEffects[EFFECT_MASK] = effect;
   return true;
 }
 

@@ -42,13 +42,13 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
         TextureSource* sourceOnBlack = mTextureHost->AsTextureSource();
         TextureSource* sourceOnWhite = mTextureHostOnWhite->AsTextureSource();
-        aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA] =
+        aEffectChain.mPrimaryEffect =
           new EffectComponentAlpha(sourceOnBlack, sourceOnWhite);
       } else {
         return;
       }
     } else {
-        aEffectChain.mEffects[effect->mType] = effect;
+        aEffectChain.mPrimaryEffect = effect;
     }
   } else {
     return;
@@ -225,7 +225,7 @@ ContentHost::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  aEffectChain.mEffects[mTextureEffect->mType] = mTextureEffect;
+  aEffectChain.mPrimaryEffect = mTextureEffect;
 
   nsIntRegion tmpRegion;
   const nsIntRegion* renderRegion;
@@ -697,7 +697,7 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
     effect = new EffectBGRA(aTile.mTextureHost, true, aFilter);
   }
   if (aTile.mTextureHost->Lock()) {
-    aEffectChain.mEffects[effect->mType] = effect;
+    aEffectChain.mPrimaryEffect = effect;
   } else {
     return;
   }

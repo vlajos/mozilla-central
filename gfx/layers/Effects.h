@@ -13,6 +13,8 @@ namespace layers {
 
 enum EffectTypes
 {
+  EFFECT_MASK,
+  EFFECT_PRIMARY,
   EFFECT_BGRX,
   EFFECT_RGBX,
   EFFECT_BGRA,
@@ -21,21 +23,20 @@ enum EffectTypes
   EFFECT_YCBCR,
   EFFECT_COMPONENT_ALPHA,
   EFFECT_SOLID_COLOR,
-  EFFECT_MASK,
   EFFECT_RENDER_TARGET,
   EFFECT_MAX
 };
 
 struct Effect : public RefCounted<Effect>
 {
-  Effect(uint32_t aType) : mType(aType) {}
+  Effect(EffectTypes aType) : mType(aType) {}
 
-  uint32_t mType;
+  EffectTypes mType;
 };
 
 struct TexturedEffect : public Effect
 {
-  TexturedEffect(uint32_t aType) : Effect(aType),
+  TexturedEffect(EffectTypes aType) : Effect(aType),
     mTextureCoords(0, 0, 1.0f, 1.0f) {}
 
   gfx::Rect mTextureCoords;
@@ -186,8 +187,8 @@ struct EffectSolidColor : public Effect
 
 struct EffectChain
 {
-  // todo - define valid grammar
-  RefPtr<Effect> mEffects[EFFECT_MAX];
+  RefPtr<Effect> mPrimaryEffect;
+  RefPtr<Effect> mSecondaryEffects[EFFECT_PRIMARY];
 };
 
 

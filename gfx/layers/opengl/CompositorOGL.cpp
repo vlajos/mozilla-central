@@ -1071,8 +1071,8 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
   EffectMask* effectMask;
   TextureSourceOGL* sourceMask = nullptr;
   gfx::Matrix4x4 maskQuadTransform;
-  if (aEffectChain.mEffects[EFFECT_MASK]) {
-    effectMask = static_cast<EffectMask*>(aEffectChain.mEffects[EFFECT_MASK].get());
+  if (aEffectChain.mSecondaryEffects[EFFECT_MASK]) {
+    effectMask = static_cast<EffectMask*>(aEffectChain.mSecondaryEffects[EFFECT_MASK].get());
     sourceMask = effectMask->mMaskTexture->AsSourceOGL();
 
     // NS_ASSERTION(textureMask->IsAlpha(),
@@ -1100,9 +1100,9 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
     maskType = MaskNone;
   }
 
-  if (aEffectChain.mEffects[EFFECT_SOLID_COLOR]) {
+  if (aEffectChain.mPrimaryEffect->mType == EFFECT_SOLID_COLOR) {
     EffectSolidColor* effectSolidColor =
-      static_cast<EffectSolidColor*>(aEffectChain.mEffects[EFFECT_SOLID_COLOR].get());
+      static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get());
 
     Color color = effectSolidColor->mColor;
 
@@ -1129,7 +1129,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
     }
     BindAndDrawQuad(program);
 
-  } else if (aEffectChain.mEffects[EFFECT_BGRA] || aEffectChain.mEffects[EFFECT_BGRX]) {
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA || aEffectChain.mPrimaryEffect->mType == EFFECT_BGRX) {
     TextureSource* source;
     bool premultiplied;
     gfxPattern::GraphicsFilter filter;
@@ -1137,18 +1137,18 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
     bool flipped;
     Rect textureCoords;
 
-    if (aEffectChain.mEffects[EFFECT_BGRA]) {
+    if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA) {
       EffectBGRA* effectBGRA =
-        static_cast<EffectBGRA*>(aEffectChain.mEffects[EFFECT_BGRA].get());
+        static_cast<EffectBGRA*>(aEffectChain.mPrimaryEffect.get());
       source = effectBGRA->mBGRATexture;
       premultiplied = effectBGRA->mPremultiplied;
       flipped = effectBGRA->mFlipped;
       filter = ThebesFilter(effectBGRA->mFilter);
       program = GetProgram(gl::BGRALayerProgramType, maskType);
       textureCoords = effectBGRA->mTextureCoords;
-    } else if (aEffectChain.mEffects[EFFECT_BGRX]) {
+    } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRX) {
       EffectBGRX* effectBGRX =
-        static_cast<EffectBGRX*>(aEffectChain.mEffects[EFFECT_BGRX].get());
+        static_cast<EffectBGRX*>(aEffectChain.mPrimaryEffect.get());
       source = effectBGRX->mBGRXTexture;
       premultiplied = effectBGRX->mPremultiplied;
       flipped = effectBGRX->mFlipped;
@@ -1184,8 +1184,8 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);
     }
-  } else if (aEffectChain.mEffects[EFFECT_RGBA] || aEffectChain.mEffects[EFFECT_RGBX] ||
-             aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA || aEffectChain.mPrimaryEffect->mType == EFFECT_RGBX ||
+             aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
     TextureSource* source;
     bool premultiplied;
     gfxPattern::GraphicsFilter filter;
@@ -1193,18 +1193,18 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
     bool flipped;
     Rect textureCoords;
 
-    if (aEffectChain.mEffects[EFFECT_RGBA]) {
+    if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA) {
       EffectRGBA* effectRGBA =
-        static_cast<EffectRGBA*>(aEffectChain.mEffects[EFFECT_RGBA].get());
+        static_cast<EffectRGBA*>(aEffectChain.mPrimaryEffect.get());
       source = effectRGBA->mRGBATexture;
       premultiplied = effectRGBA->mPremultiplied;
       flipped = effectRGBA->mFlipped;
       filter = ThebesFilter(effectRGBA->mFilter);
       program = GetProgram(gl::RGBALayerProgramType, maskType);
       textureCoords = effectRGBA->mTextureCoords;
-    } else if (aEffectChain.mEffects[EFFECT_RGBX]) {
+    } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBX) {
       EffectRGBX* effectRGBX =
-        static_cast<EffectRGBX*>(aEffectChain.mEffects[EFFECT_RGBX].get());
+        static_cast<EffectRGBX*>(aEffectChain.mPrimaryEffect.get());
       source = effectRGBX->mRGBXTexture;
       premultiplied = effectRGBX->mPremultiplied;
       flipped = effectRGBX->mFlipped;
@@ -1213,7 +1213,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       textureCoords = effectRGBX->mTextureCoords;
     } else {
       EffectRGBAExternal* effectRGBAExternal =
-        static_cast<EffectRGBAExternal*>(aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL].get());
+        static_cast<EffectRGBAExternal*>(aEffectChain.mPrimaryEffect.get());
       source = effectRGBAExternal->mRGBATexture;
       premultiplied = effectRGBAExternal->mPremultiplied;
       flipped = effectRGBAExternal->mFlipped;
@@ -1228,7 +1228,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);
     }
 
-    if (aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
+    if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
       source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
     } else {
       source->AsSourceOGL()->BindTexture(0);
@@ -1255,12 +1255,12 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);
     }
 
-    if (aEffectChain.mEffects[EFFECT_RGBA_EXTERNAL]) {
+    if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
       mGLContext->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, 0);
     }
-  } else if (aEffectChain.mEffects[EFFECT_YCBCR]) {
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_YCBCR) {
     EffectYCbCr* effectYCbCr =
-      static_cast<EffectYCbCr*>(aEffectChain.mEffects[EFFECT_YCBCR].get());
+      static_cast<EffectYCbCr*>(aEffectChain.mPrimaryEffect.get());
     TextureSource* sourceYCbCr = effectYCbCr->mYCbCrTexture;
     const int Y = 0, Cb = 1, Cr = 2;
     TextureSourceOGL* sourceY =  sourceYCbCr->GetSubSource(Y)->AsSourceOGL();
@@ -1295,9 +1295,9 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       program->SetMaskLayerTransform(maskQuadTransform);
     }
     BindAndDrawQuadWithTextureRect(program, effectYCbCr->mTextureCoords, sourceYCbCr->GetSubSource(Y));
-  } else if (aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA]) {
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_COMPONENT_ALPHA) {
     EffectComponentAlpha* effectComponentAlpha =
-      static_cast<EffectComponentAlpha*>(aEffectChain.mEffects[EFFECT_COMPONENT_ALPHA].get());
+      static_cast<EffectComponentAlpha*>(aEffectChain.mPrimaryEffect.get());
     TextureSourceOGL* sourceOnWhite = effectComponentAlpha->mOnWhite->AsSourceOGL();
     TextureSourceOGL* sourceOnBlack = effectComponentAlpha->mOnBlack->AsSourceOGL();
 
@@ -1340,9 +1340,9 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
                                      LOCAL_GL_ONE, LOCAL_GL_ONE);
     }
-  } else if (aEffectChain.mEffects[EFFECT_RENDER_TARGET]) {
+  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_RENDER_TARGET) {
     EffectRenderTarget* effectRenderTarget =
-      static_cast<EffectRenderTarget*>(aEffectChain.mEffects[EFFECT_RENDER_TARGET].get());
+      static_cast<EffectRenderTarget*>(aEffectChain.mPrimaryEffect.get());
     RefPtr<CompositingRenderTargetOGL> surface
       = static_cast<CompositingRenderTargetOGL*>(effectRenderTarget->mRenderTarget.get());
 
