@@ -701,6 +701,34 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
   }
 }
 
+TemporaryRef<TexturedEffect>
+CreateTexturedEffect(TextureHost* aTextureHost,
+                     const gfx::Filter& aFilter)
+{
+  RefPtr<TexturedEffect> result;
+  switch (aTextureHost->GetFormat()) {
+  case FORMAT_B8G8R8A8:
+    result = new EffectBGRA(aTextureHost, true, aFilter);
+    break;
+  case FORMAT_B8G8R8X8:
+    result = new EffectBGRX(aTextureHost, true, aFilter);
+    break;
+  case FORMAT_R8G8B8X8:
+    result = new EffectRGBX(aTextureHost, true, aFilter);
+    break;
+  case FORMAT_R8G8B8A8:
+    result = new EffectRGBA(aTextureHost, true, aFilter);
+    break;
+  case FORMAT_YUV:
+    result = new EffectYCbCr(aTextureHost, aFilter);
+    break;
+  default:
+    MOZ_NOT_REACHED("unhandled program type");
+  }
+
+  return result;
+}
+
 void
 CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {

@@ -51,6 +51,7 @@ class TextureSourceOGL;
 class TextureSourceD3D11;
 class TextureParent;
 class Matrix4x4;
+class TexturedEffect;
 
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
@@ -394,6 +395,12 @@ public:
                       uint32_t aTextureFlags,
                       SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator) = 0;
+
+  /**
+   * Create a new Effect for aTextureHost.
+   */
+  virtual TemporaryRef<TexturedEffect> CreateTexturedEffect(TextureHost* aTextureHost,
+                                                            const gfx::Filter& aFilter) = 0; 
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId

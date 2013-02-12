@@ -64,26 +64,8 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   }
 
   mTextureHost->UpdateAsyncTexture();
-  RefPtr<TexturedEffect> effect;
-  switch (mTextureHost->GetFormat()) {
-  case FORMAT_B8G8R8A8:
-    effect = new EffectBGRA(mTextureHost, true, aFilter);
-    break;
-  case FORMAT_B8G8R8X8:
-    effect = new EffectBGRX(mTextureHost, true, aFilter);
-    break;
-  case FORMAT_R8G8B8X8:
-    effect = new EffectRGBX(mTextureHost, true, aFilter);
-    break;
-  case FORMAT_R8G8B8A8:
-    effect = new EffectRGBA(mTextureHost, true, aFilter);
-    break;
-  case FORMAT_YUV:
-    effect = new EffectYCbCr(mTextureHost, aFilter);
-    break;
-  default:
-    MOZ_NOT_REACHED("unhandled program type");
-  }
+  RefPtr<TexturedEffect> effect =
+    GetCompositor()->CreateTexturedEffect(mTextureHost, aFilter);
 
   if (!mTextureHost->Lock()) {
     return;

@@ -394,15 +394,8 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   *aNewBackResult = null_t();
   aUpdatedRegionBack->SetEmpty();
 
-  if (mTextureHost->GetFormat() == FORMAT_R8G8B8A8) {
-    mTextureEffect = new EffectRGBA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  } else if (mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
-    mTextureEffect = new EffectRGBX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  } else if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
-    mTextureEffect = new EffectBGRA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  } else {
-    mTextureEffect = new EffectBGRX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  }
+  mTextureEffect =
+    GetCompositor()->CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -457,15 +450,8 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 
-  if (mTextureHost->GetFormat() == FORMAT_R8G8B8A8) {
-    mTextureEffect = new EffectRGBA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  } else if (mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
-    mTextureEffect = new EffectRGBX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  } else if (mTextureHost->GetFormat() == FORMAT_B8G8R8A8) {
-    mTextureEffect = new EffectBGRA(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  } else {
-    mTextureEffect = new EffectBGRX(mTextureHost->AsTextureSource(), true, FILTER_LINEAR);
-  }
+  mTextureEffect =
+    GetCompositor()->CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -696,12 +682,8 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
   MOZ_ASSERT(aTile.mTextureHost, "Trying to render a placeholder tile?");
 
   //TODO y flip
-  RefPtr<TexturedEffect> effect;
-  if (aTile.mTextureHost->GetFormat() == FORMAT_R8G8B8X8) {
-    effect = new EffectRGBX(aTile.mTextureHost, true, aFilter);
-  } else {
-    effect = new EffectBGRA(aTile.mTextureHost, true, aFilter);
-  }
+  RefPtr<TexturedEffect> effect =
+    GetCompositor()->CreateTexturedEffect(aTile.mTextureHost, aFilter);
   if (aTile.mTextureHost->Lock()) {
     aEffectChain.mPrimaryEffect = effect;
   } else {
