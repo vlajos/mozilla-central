@@ -9,6 +9,7 @@
 #include "gfxImageSurface.h"
 #include "Effects.h"
 #include "ipc/AutoOpenSurface.h"
+#include "ShmemYCbCrImage.h"
 #include "gfxWindowsPlatform.h"
 #include "gfxD2DSurface.h"
 
@@ -22,19 +23,19 @@ IntSize
 TextureSourceD3D11::GetSize() const
 {
   D3D11_TEXTURE2D_DESC desc;
-  mTexture->GetDesc(&desc);
+  mTextures[0]->GetDesc(&desc);
 
   return IntSize(desc.Width, desc.Height);
 }
 
 CompositingRenderTargetD3D11::CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture)
 {
-  mTexture = aTexture;
+  mTextures[0] = aTexture;
 
   RefPtr<ID3D11Device> device;
-  mTexture->GetDevice(byRef(device));
+  mTextures[0]->GetDevice(byRef(device));
 
-  HRESULT hr = device->CreateRenderTargetView(mTexture, NULL, byRef(mRTView));
+  HRESULT hr = device->CreateRenderTargetView(mTextures[0], NULL, byRef(mRTView));
 
   if (FAILED(hr)) {
     LOGD3D11("Failed to create RenderTargetView.");
@@ -189,6 +190,7 @@ void
 TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
                              bool *aNeedsReset, nsIntRegion *aRegion)
 {
+  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TShmem || aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
 
   if (aImage.type() == SurfaceDescriptor::TShmem) {
     AutoOpenSurface openSurf(OPEN_READ_ONLY, aImage);
@@ -203,7 +205,7 @@ TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialis
     CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_B8G8R8A8_UNORM, size.width, size.height,
                               1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
 
-    mDevice->CreateTexture2D(&desc, &initData, byRef(mTexture));
+    mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[0]));
 
     if (surf->Format() == gfxImageSurface::ImageFormatRGB24) {
       mFormat = FORMAT_B8G8R8X8;
@@ -214,7 +216,7 @@ TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialis
     mNeedsLock = false;
   } else if (aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
     mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
-                                __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTexture));
+                                __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTextures[0]));
     mFormat = FORMAT_B8G8R8A8;
     mNeedsLock = true;
   }
@@ -226,7 +228,7 @@ TextureHostD3D11::LockTexture()
 {
   if (mNeedsLock) {
     RefPtr<IDXGIKeyedMutex> mutex;
-    mTexture->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
+    mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
     mutex->AcquireSync(0, INFINITE);
   }
@@ -237,10 +239,55 @@ TextureHostD3D11::ReleaseTexture()
 {
   if (mNeedsLock) {
     RefPtr<IDXGIKeyedMutex> mutex;
-    mTexture->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
+    mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
     mutex->ReleaseSync(0);
   }
+}
+
+IntSize
+TextureHostYCbCrD3D11::GetSize() const
+{
+  return TextureSourceD3D11::GetSize();
+}
+
+TextureSource*
+TextureHostYCbCrD3D11::AsTextureSource()
+{
+  return this;
+}
+
+void
+TextureHostYCbCrD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
+                             bool *aNeedsReset, nsIntRegion *aRegion)
+{
+  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TYCbCrImage);
+
+  ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
+                             aImage.get_YCbCrImage().offset());
+
+  gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
+
+  gfxIntSize size = shmemImage.GetYSize();
+  
+  D3D11_SUBRESOURCE_DATA initData;
+  initData.pSysMem = shmemImage.GetYData();
+  initData.SysMemPitch = shmemImage.GetYStride();
+
+  CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_R8_UNORM, size.width, size.height,
+                              1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
+
+  mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[0]));
+
+  initData.pSysMem = shmemImage.GetCbData();
+  initData.SysMemPitch = shmemImage.GetCbCrStride();
+  desc.Width = shmemImage.GetCbCrSize().width;
+  desc.Height = shmemImage.GetCbCrSize().height;
+
+  mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[1]));
+
+  initData.pSysMem = shmemImage.GetCrData();
+  mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[2]));
 }
 
 }

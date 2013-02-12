@@ -40,6 +40,7 @@ struct DeviceAttachmentsD3D11
   RefPtr<ID3D11PixelShader> mSolidColorShader;
   RefPtr<ID3D11PixelShader> mRGBAShader;
   RefPtr<ID3D11PixelShader> mRGBShader;
+  RefPtr<ID3D11PixelShader> mYCbCrShader;
   RefPtr<ID3D11Buffer> mPSConstantBuffer;
   RefPtr<ID3D11Buffer> mVSConstantBuffer;
   RefPtr<ID3D11RasterizerState> mRasterizerState;
@@ -310,12 +311,22 @@ CompositorD3D11::GetMaxTextureSize() const
 }
 
 TemporaryRef<TextureHost>
-CompositorD3D11::CreateTextureHost(TextureHostType aMemoryType,
+CompositorD3D11::CreateTextureHost(TextureHostType aTextureType,
                                    uint32_t aTextureFlags,
                                    SurfaceDescriptorType aDescriptorType,
                                    ISurfaceDeallocator* aDeAllocator)
 {
-  RefPtr<TextureHost> result = new TextureHostD3D11(BUFFER_NONE, aDeAllocator, mDevice);
+  BufferMode bufferMode = aTextureType & TEXTURE_BUFFERED ? BUFFER_BUFFERED
+                                                          : BUFFER_NONE;
+  RefPtr<TextureHost> result;
+  if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
+    result = new TextureHostYCbCrD3D11(bufferMode, aDeAllocator, mDevice);
+  } else {
+    result = new TextureHostD3D11(bufferMode, aDeAllocator, mDevice);
+  }
+
+  result->SetFlags(aTextureFlags);
+
   return result.forget();
 }
 
@@ -388,8 +399,6 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
     mPSConstants.layerColor[2] = color.b * aOpacity;
     mPSConstants.layerColor[3] = color.a * aOpacity;
 
-    UpdateConstantBuffers();
-
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
   } else if (aEffectChain.mEffects[EFFECT_BGRX]) {
@@ -406,8 +415,6 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
     mContext->PSSetShaderResources(0, 1, &srView);
 
     SetSamplerForFilter(rgbEffect->mFilter);
-
-    UpdateConstantBuffers();
 
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
@@ -426,13 +433,34 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     SetSamplerForFilter(rgbEffect->mFilter);
 
-    UpdateConstantBuffers();
-
     mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
     mContext->PSSetShader(mAttachments->mRGBAShader, nullptr, 0);
+  } else if (aEffectChain.mEffects[EFFECT_YCBCR]) {
+    EffectYCbCr *ycbcrEffect = static_cast<EffectYCbCr*>(aEffectChain.mEffects[EFFECT_YCBCR].get());
+
+    SetSamplerForFilter(FILTER_LINEAR);
+
+    mVSConstants.textureCoords = ycbcrEffect->mTextureCoords;
+
+    TextureSourceD3D11 *source = ycbcrEffect->mYCbCrTexture->AsSourceD3D11();
+    TextureSourceD3D11::YCbCrTextures textures = source->GetYCbCrTextures();
+
+    RefPtr<ID3D11ShaderResourceView> views[3];
+    mDevice->CreateShaderResourceView(textures.mY, nullptr, byRef(views[0]));
+    mDevice->CreateShaderResourceView(textures.mCb, nullptr, byRef(views[1]));
+    mDevice->CreateShaderResourceView(textures.mCr, nullptr, byRef(views[2]));
+
+    ID3D11ShaderResourceView *srViews[3] = { views[0], views[1], views[2] };
+    mContext->PSSetShaderResources(0, 3, srViews);
+
+    mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
+    mContext->PSSetShader(mAttachments->mYCbCrShader, nullptr, 0);
   } else {
     return;
   }
+
+  UpdateConstantBuffers();
+
   mContext->Draw(4, 0);
 }
 
@@ -608,6 +636,7 @@ CompositorD3D11::CreateShaders()
   LOAD_PIXEL_SHADER(SolidColorShader);
   LOAD_PIXEL_SHADER(RGBShader);
   LOAD_PIXEL_SHADER(RGBAShader);
+  LOAD_PIXEL_SHADER(YCbCrShader);
 
 #undef LOAD_PIXEL_SHADER
 }

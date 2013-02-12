@@ -12,3 +12,5 @@ fxc CompositorD3D11.fx -ERGBShader -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnRG
 cat $tempfile >> CompositorD3D11Shaders.h
 fxc CompositorD3D11.fx -ERGBAShader -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnRGBAShader
 cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -EYCbCrShader -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnYCbCrShader
+cat $tempfile >> CompositorD3D11Shaders.h

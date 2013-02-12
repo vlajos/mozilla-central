@@ -21,11 +21,23 @@ public:
   TextureSourceD3D11()
   { }
 
-  ID3D11Texture2D *GetD3D11Texture() { return mTexture; }
+  ID3D11Texture2D *GetD3D11Texture() { return mTextures[0]; }
+  virtual bool IsYCbCrSource() const { return false; }
+
+  struct YCbCrTextures
+  {
+    ID3D11Texture2D *mY;
+    ID3D11Texture2D *mCb;
+    ID3D11Texture2D *mCr;
+  };
+  virtual YCbCrTextures GetYCbCrTextures() {
+    YCbCrTextures textures = { mTextures[0], mTextures[1], mTextures[2] };
+    return textures;
+  }
 protected:
   virtual gfx::IntSize GetSize() const;
 
-  RefPtr<ID3D11Texture2D> mTexture;
+  RefPtr<ID3D11Texture2D> mTextures[3];
 };
 
 class CompositingRenderTargetD3D11 : public CompositingRenderTarget,
@@ -98,6 +110,34 @@ private:
 
   RefPtr<ID3D11Device> mDevice;
   bool mNeedsLock;
+};
+
+class TextureHostYCbCrD3D11 : public TextureHost
+                            , public TextureSourceD3D11
+{
+public:
+  TextureHostYCbCrD3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
+                        ID3D11Device *aDevice)
+    : TextureHost(aBuffering, aDeallocator)
+    , mDevice(aDevice)
+  {
+    mFormat = gfx::FORMAT_YUV;
+  }
+
+  virtual TextureSource *AsTextureSource();
+
+  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
+
+  virtual gfx::IntSize GetSize() const;
+
+  virtual bool IsYCbCrSource() const { return true; }
+
+protected:
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
+                          bool *aNeedsReset, nsIntRegion* aRegion);
+
+private:
+  RefPtr<ID3D11Device> mDevice;
 };
 
 }

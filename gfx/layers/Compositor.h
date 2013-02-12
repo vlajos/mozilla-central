@@ -193,7 +193,7 @@ public:
    * Lock the texture host for compositing, returns an effect that should
    * be used to composite this texture.
    */
-  virtual bool Lock() { return false; }
+  virtual bool Lock() { return true; }
 
   /**
    * Unlock the texture host after compositing
