@@ -115,7 +115,10 @@ public:
 
   gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
-    return mSize;
+    if (mTexture) {
+      return gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
+    }
+    return gfx::IntSize(0, 0);
   }
 
   GLenum GetWrapMode() const MOZ_OVERRIDE
@@ -162,7 +165,6 @@ public:
 protected:
   RefPtr<gl::TextureImage> mTexture;
   gl::GLContext* mGL;
-  gfx::IntSize mSize;
 };
 
 

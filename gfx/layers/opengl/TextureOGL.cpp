@@ -75,7 +75,6 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                        surf.ContentType(),
                                        WrapMode(mGL, mFlags & AllowRepeat),
                                        FlagsToGLFlags(mFlags)).get();
-    mSize = gfx::IntSize(size.width, size.height);
   }
 
   // XXX this is always just ridiculously slow

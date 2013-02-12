@@ -35,6 +35,14 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 
   mTextureHost->UpdateAsyncTexture();
 
+  bool isLocked = mTextureHost->Lock();
+  if (!isLocked) {
+    return;
+  }
+
+  Effect* effect = new EffectBGRA(mTextureHost->AsTextureSource(), false, aFilter, false);
+  aEffectChain.mEffects[effect->mType] = effect;
+  NS_RUNTIMEABORT("Not implemented");
 #if 0
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
@@ -55,7 +63,7 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   }
 #else
   // XXX - Bas - Disabled as per new Lock API.
-  return;
+  //return;
 #endif
 
   nsIntRegion tmpRegion;
@@ -168,11 +176,9 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
             gfx::Rect textureRect(0, 0,
                                   texRect.width, texRect.height);
 
-#if 0
-            // XXX - Bas - Needs to be fixed for new lock API. Not used.
-            mCompositor->DrawQuad(rect, &sourceRect, &textureRect, &aClipRect, aEffectChain,
+            // XXX - Bas - Needs to be fixed for new lock API
+            mCompositor->DrawQuad(rect, &aClipRect, aEffectChain,
                                   aOpacity, aTransform, aOffset);
-#endif
         }
       }
     }
