@@ -62,6 +62,12 @@ LayerManagerOGL::~LayerManagerOGL()
   Destroy();
 }
 
+void*
+LayerManagerOGL::GetNSOpenGLContext() const
+{
+  return gl()->GetNativeData(GLContext::NativeGLContext);
+}
+
 int32_t
 LayerManagerOGL::GetMaxTextureSize() const
 {
