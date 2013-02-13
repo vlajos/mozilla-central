@@ -9,6 +9,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "GLContext.h"
 #include "LayerManagerOGLProgram.h"
+#include "mozilla/layers/Effects.h"
 
 #include "mozilla/TimeStamp.h"
 
@@ -145,7 +146,7 @@ public:
   virtual const char* Name() const { return "OGL"; }
 #endif // MOZ_DUMP_PAINTING
 
-  gl::ShaderProgramType GetFBOLayerProgramType() {
+  gl::ShaderProgramType GetFBOLayerProgramType() const {
     if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
       return gl::RGBARectLayerProgramType;
     return gl::RGBALayerProgramType;
@@ -162,6 +163,8 @@ public:
   }
 
 private:
+  gl::ShaderProgramType GetProgramTypeForEffect(EffectTypes aType) const;
+
   /** 
    * Context target, nullptr when drawing directly to our swap chain.
    */

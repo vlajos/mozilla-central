@@ -406,7 +406,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     mVSConstants.textureCoords = rgbEffect->mTextureCoords;
 
-    TextureSourceD3D11 *source = rgbEffect->mBGRXTexture->AsSourceD3D11();
+    TextureSourceD3D11 *source = rgbEffect->mTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -423,7 +423,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     mVSConstants.textureCoords = rgbEffect->mTextureCoords;
 
-    TextureSourceD3D11 *source = rgbEffect->mBGRATexture->AsSourceD3D11();
+    TextureSourceD3D11 *source = rgbEffect->mTexture->AsSourceD3D11();
 
     RefPtr<ID3D11ShaderResourceView> view;
     mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
@@ -442,7 +442,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
     mVSConstants.textureCoords = ycbcrEffect->mTextureCoords;
 
-    TextureSourceD3D11 *source = ycbcrEffect->mYCbCrTexture->AsSourceD3D11();
+    TextureSourceD3D11 *source = ycbcrEffect->mTexture->AsSourceD3D11();
     TextureSourceD3D11::YCbCrTextures textures = source->GetYCbCrTextures();
 
     RefPtr<ID3D11ShaderResourceView> views[3];

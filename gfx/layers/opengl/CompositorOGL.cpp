@@ -1046,6 +1046,30 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
   *aTexture = tex;
 }
 
+gl::ShaderProgramType
+CompositorOGL::GetProgramTypeForEffect(EffectTypes aType) const
+{
+  switch(aType) {
+  case EFFECT_SOLID_COLOR:
+    return gl::ColorLayerProgramType;
+  case EFFECT_RGBA:
+    return gl::RGBALayerProgramType;
+  case EFFECT_RGBA_EXTERNAL:
+    return gl::RGBAExternalLayerProgramType;
+  case EFFECT_RGBX:
+    return gl::RGBXLayerProgramType;
+  case EFFECT_BGRA:
+    return gl::BGRALayerProgramType;
+  case EFFECT_BGRX:
+    return gl::BGRXLayerProgramType;
+  case EFFECT_YCBCR:
+    return gl::YCbCrLayerProgramType;
+  case EFFECT_RENDER_TARGET:
+    return GetFBOLayerProgramType();
+  default:
+    return gl::RGBALayerProgramType;
+  }
+}
 
 void
 CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
@@ -1095,276 +1119,198 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
     maskType = MaskNone;
   }
 
-  if (aEffectChain.mPrimaryEffect->mType == EFFECT_SOLID_COLOR) {
-    EffectSolidColor* effectSolidColor =
-      static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get());
+  ShaderProgramOGL *program = GetProgram(GetProgramTypeForEffect(aEffectChain.mPrimaryEffect->mType), maskType);
+  program->Activate();
+  program->SetLayerQuadRect(aRect);
+  program->SetLayerTransform(aTransform);
+  program->SetRenderOffset(aOffset.x, aOffset.y);
 
-    Color color = effectSolidColor->mColor;
+  switch (aEffectChain.mPrimaryEffect->mType) {
+    case EFFECT_SOLID_COLOR: {
+      EffectSolidColor* effectSolidColor =
+        static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get());
 
-    /* Multiply color by the layer opacity, as the shader
-     * ignores layer opacity and expects a final color to
-     * write to the color buffer.  This saves a needless
-     * multiply in the fragment shader.
-     */
-    Float opacity = aOpacity * color.a;
-    color.r *= opacity;
-    color.g *= opacity;
-    color.b *= opacity;
-    color.a = opacity;
-    ShaderProgramOGL *program = GetProgram(gl::ColorLayerProgramType, maskType);
-    program->Activate();
-    program->SetLayerQuadRect(aRect);
-    program->SetRenderColor(effectSolidColor->mColor);
-    program->SetLayerTransform(aTransform);
-    program->SetRenderOffset(aOffset.x, aOffset.y);
-    if (maskType != MaskNone) {
-      sourceMask->BindTexture(LOCAL_GL_TEXTURE0);
-      program->SetMaskTextureUnit(0);
-      program->SetMaskLayerTransform(maskQuadTransform);
-    }
-    BindAndDrawQuad(program);
+      Color color = effectSolidColor->mColor;
+      /* Multiply color by the layer opacity, as the shader
+       * ignores layer opacity and expects a final color to
+       * write to the color buffer.  This saves a needless
+       * multiply in the fragment shader.
+       */
+      Float opacity = aOpacity * color.a;
+      color.r *= opacity;
+      color.g *= opacity;
+      color.b *= opacity;
+      color.a = opacity;
 
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA || aEffectChain.mPrimaryEffect->mType == EFFECT_BGRX) {
-    TextureSource* source;
-    bool premultiplied;
-    gfxPattern::GraphicsFilter filter;
-    ShaderProgramOGL *program;
-    bool flipped;
-    Rect textureCoords;
+      program->SetRenderColor(effectSolidColor->mColor);
 
-    if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA) {
-      EffectBGRA* effectBGRA =
-        static_cast<EffectBGRA*>(aEffectChain.mPrimaryEffect.get());
-      source = effectBGRA->mBGRATexture;
-      premultiplied = effectBGRA->mPremultiplied;
-      flipped = effectBGRA->mFlipped;
-      filter = ThebesFilter(effectBGRA->mFilter);
-      program = GetProgram(gl::BGRALayerProgramType, maskType);
-      textureCoords = effectBGRA->mTextureCoords;
-    } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRX) {
-      EffectBGRX* effectBGRX =
-        static_cast<EffectBGRX*>(aEffectChain.mPrimaryEffect.get());
-      source = effectBGRX->mBGRXTexture;
-      premultiplied = effectBGRX->mPremultiplied;
-      flipped = effectBGRX->mFlipped;
-      filter = ThebesFilter(effectBGRX->mFilter);
-      program = GetProgram(gl::BGRXLayerProgramType, maskType);
-      textureCoords = effectBGRX->mTextureCoords;
-    }
-
-    if (!premultiplied) {
-      mGLContext->fBlendFuncSeparate(LOCAL_GL_SRC_ALPHA, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
-                                     LOCAL_GL_ONE, LOCAL_GL_ONE);
-    }
-
-    source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
-    mGLContext->ApplyFilterToBoundTexture(filter);
-
-    program->Activate();
-    program->SetTextureUnit(0);
-    program->SetLayerOpacity(aOpacity);
-    program->SetLayerTransform(aTransform);
-    program->SetRenderOffset(aOffset.x, aOffset.y);
-    program->SetLayerQuadRect(aRect);
-    if (maskType != MaskNone) {
-      mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
-      sourceMask->BindTexture(LOCAL_GL_TEXTURE1);
-      program->SetMaskTextureUnit(1);
-      program->SetMaskLayerTransform(maskQuadTransform);
-    }
-
-    BindAndDrawQuadWithTextureRect(program, textureCoords, source, flipped);
-
-    if (!premultiplied) {
-      mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
-                                     LOCAL_GL_ONE, LOCAL_GL_ONE);
-    }
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA || aEffectChain.mPrimaryEffect->mType == EFFECT_RGBX ||
-             aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
-    TextureSource* source;
-    bool premultiplied;
-    gfxPattern::GraphicsFilter filter;
-    ShaderProgramOGL *program;
-    bool flipped;
-    Rect textureCoords;
-
-    if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA) {
-      EffectRGBA* effectRGBA =
-        static_cast<EffectRGBA*>(aEffectChain.mPrimaryEffect.get());
-      source = effectRGBA->mRGBATexture;
-      premultiplied = effectRGBA->mPremultiplied;
-      flipped = effectRGBA->mFlipped;
-      filter = ThebesFilter(effectRGBA->mFilter);
-      program = GetProgram(gl::RGBALayerProgramType, maskType);
-      textureCoords = effectRGBA->mTextureCoords;
-    } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBX) {
-      EffectRGBX* effectRGBX =
-        static_cast<EffectRGBX*>(aEffectChain.mPrimaryEffect.get());
-      source = effectRGBX->mRGBXTexture;
-      premultiplied = effectRGBX->mPremultiplied;
-      flipped = effectRGBX->mFlipped;
-      filter = ThebesFilter(effectRGBX->mFilter);
-      program = GetProgram(gl::RGBXLayerProgramType, maskType);
-      textureCoords = effectRGBX->mTextureCoords;
-    } else {
-      EffectRGBAExternal* effectRGBAExternal =
-        static_cast<EffectRGBAExternal*>(aEffectChain.mPrimaryEffect.get());
-      source = effectRGBAExternal->mRGBATexture;
-      premultiplied = effectRGBAExternal->mPremultiplied;
-      flipped = effectRGBAExternal->mFlipped;
-      filter = ThebesFilter(effectRGBAExternal->mFilter);
-      program = GetProgram(gl::RGBALayerExternalProgramType, maskType);
-      program->SetTextureTransform(effectRGBAExternal->mTextureTransform);
-      textureCoords = effectRGBAExternal->mTextureCoords;
-    }
-
-    if (!premultiplied) {
-      mGLContext->fBlendFuncSeparate(LOCAL_GL_SRC_ALPHA, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
-                                     LOCAL_GL_ONE, LOCAL_GL_ONE);
-    }
-
-    if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
-      source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
-    } else {
-      source->AsSourceOGL()->BindTexture(0);
-    }
-
-    mGLContext->ApplyFilterToBoundTexture(filter);
-
-    program->Activate();
-    program->SetTextureUnit(0);
-    program->SetLayerOpacity(aOpacity);
-    program->SetLayerTransform(aTransform);
-    program->SetRenderOffset(aOffset.x, aOffset.y);
-    program->SetLayerQuadRect(aRect);
-    if (maskType != MaskNone) {
-      mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
-      sourceMask->BindTexture(LOCAL_GL_TEXTURE1);
-      program->SetMaskTextureUnit(1);
-      program->SetMaskLayerTransform(maskQuadTransform);
-    }
-    BindAndDrawQuadWithTextureRect(program, textureCoords, source, flipped);
-
-    if (!premultiplied) {
-      mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
-                                     LOCAL_GL_ONE, LOCAL_GL_ONE);
-    }
-
-    if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
-      mGLContext->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, 0);
-    }
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_YCBCR) {
-    EffectYCbCr* effectYCbCr =
-      static_cast<EffectYCbCr*>(aEffectChain.mPrimaryEffect.get());
-    TextureSource* sourceYCbCr = effectYCbCr->mYCbCrTexture;
-    const int Y = 0, Cb = 1, Cr = 2;
-    TextureSourceOGL* sourceY =  sourceYCbCr->GetSubSource(Y)->AsSourceOGL();
-    TextureSourceOGL* sourceCb = sourceYCbCr->GetSubSource(Cb)->AsSourceOGL();
-    TextureSourceOGL* sourceCr = sourceYCbCr->GetSubSource(Cr)->AsSourceOGL();
-
-    if (!sourceY && !sourceCb && !sourceCr) {
-      NS_WARNING("Invalid layer texture.");
-      return;
-    }
-
-    gfxPattern::GraphicsFilter filter = ThebesFilter(effectYCbCr->mFilter);
-
-    sourceY->BindTexture(LOCAL_GL_TEXTURE0);
-    mGLContext->ApplyFilterToBoundTexture(filter);
-    sourceCb->BindTexture(LOCAL_GL_TEXTURE1);
-    mGLContext->ApplyFilterToBoundTexture(filter);
-    sourceCr->BindTexture(LOCAL_GL_TEXTURE2);
-    mGLContext->ApplyFilterToBoundTexture(filter);
-
-    ShaderProgramOGL *program = GetProgram(YCbCrLayerProgramType, maskType);
-
-    program->Activate();
-    program->SetYCbCrTextureUnits(Y, Cb, Cr);
-    program->SetLayerOpacity(aOpacity);
-    program->SetLayerTransform(aTransform);
-    program->SetRenderOffset(aOffset.x, aOffset.y);
-    program->SetLayerQuadRect(aRect);
-    if (maskType != MaskNone) {
-      sourceMask->BindTexture(LOCAL_GL_TEXTURE3);
-      program->SetMaskTextureUnit(3);
-      program->SetMaskLayerTransform(maskQuadTransform);
-    }
-    BindAndDrawQuadWithTextureRect(program, effectYCbCr->mTextureCoords, sourceYCbCr->GetSubSource(Y));
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_COMPONENT_ALPHA) {
-    EffectComponentAlpha* effectComponentAlpha =
-      static_cast<EffectComponentAlpha*>(aEffectChain.mPrimaryEffect.get());
-    TextureSourceOGL* sourceOnWhite = effectComponentAlpha->mOnWhite->AsSourceOGL();
-    TextureSourceOGL* sourceOnBlack = effectComponentAlpha->mOnBlack->AsSourceOGL();
-
-    if (!sourceOnBlack->IsValid() ||
-        !sourceOnWhite->IsValid()) {
-      NS_WARNING("Invalid layer texture for component alpha");
-      return;
-    }
-
-    for (PRInt32 pass = 1; pass <=2; ++pass) {
-      ShaderProgramOGL* program;
-      if (pass == 1) {
-        program = GetProgram(gl::ComponentAlphaPass1ProgramType, maskType);
-        gl()->fBlendFuncSeparate(LOCAL_GL_ZERO, LOCAL_GL_ONE_MINUS_SRC_COLOR,
-                                 LOCAL_GL_ONE, LOCAL_GL_ONE);
-      } else {
-        program = GetProgram(gl::ComponentAlphaPass2ProgramType, maskType);
-        gl()->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE,
-                                 LOCAL_GL_ONE, LOCAL_GL_ONE);
-      }
-
-      sourceOnBlack->BindTexture(LOCAL_GL_TEXTURE0);
-      sourceOnWhite->BindTexture(LOCAL_GL_TEXTURE1);
-      
-      program->Activate();
-      program->SetBlackTextureUnit(0);
-      program->SetWhiteTextureUnit(1);
-      program->SetLayerOpacity(aOpacity);
-      program->SetLayerTransform(aTransform);
-      program->SetRenderOffset(aOffset.x, aOffset.y);
-      program->SetLayerQuadRect(aRect);
       if (maskType != MaskNone) {
-        sourceMask->BindTexture(LOCAL_GL_TEXTURE2);
-        program->SetMaskTextureUnit(2);
+        sourceMask->BindTexture(LOCAL_GL_TEXTURE0);
+        program->SetMaskTextureUnit(0);
         program->SetMaskLayerTransform(maskQuadTransform);
       }
 
-      BindAndDrawQuadWithTextureRect(program, effectComponentAlpha->mTextureCoords, effectComponentAlpha->mOnBlack);
-
-      mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
-                                     LOCAL_GL_ONE, LOCAL_GL_ONE);
+      BindAndDrawQuad(program);
     }
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_RENDER_TARGET) {
-    EffectRenderTarget* effectRenderTarget =
-      static_cast<EffectRenderTarget*>(aEffectChain.mPrimaryEffect.get());
-    RefPtr<CompositingRenderTargetOGL> surface
-      = static_cast<CompositingRenderTargetOGL*>(effectRenderTarget->mRenderTarget.get());
+    break;
 
-    ShaderProgramOGL *program = GetProgram(GetFBOLayerProgramType(), maskType);
+  case EFFECT_BGRA:
+  case EFFECT_BGRX:
+  case EFFECT_RGBA:
+  case EFFECT_RGBX:
+  case EFFECT_RGBA_EXTERNAL: {
+      TexturedEffect* texturedEffect =
+          static_cast<TexturedEffect*>(aEffectChain.mPrimaryEffect.get());
+      bool flipped;
+      Rect textureCoords;
+      TextureSource *source = texturedEffect->mTexture;
 
-    surface->BindTexture(LOCAL_GL_TEXTURE0);
+      if (!texturedEffect->mPremultiplied) {
+        mGLContext->fBlendFuncSeparate(LOCAL_GL_SRC_ALPHA, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
+                                       LOCAL_GL_ONE, LOCAL_GL_ONE);
+      }
+
+      if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
+        source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
+        EffectRGBAExternal* effectRGBAExternal =
+          static_cast<EffectRGBAExternal*>(aEffectChain.mPrimaryEffect.get());
+        program->SetTextureTransform(effectRGBAExternal->mTextureTransform);
+      } else {
+        source->AsSourceOGL()->BindTexture(0);
+      }
+
+      mGLContext->ApplyFilterToBoundTexture(ThebesFilter(texturedEffect->mFilter));
+
+      program->SetTextureUnit(0);
+      program->SetLayerOpacity(aOpacity);
+
+      if (maskType != MaskNone) {
+        mGLContext->fActiveTexture(LOCAL_GL_TEXTURE1);
+        sourceMask->BindTexture(LOCAL_GL_TEXTURE1);
+        program->SetMaskTextureUnit(1);
+        program->SetMaskLayerTransform(maskQuadTransform);
+      }
+
+      BindAndDrawQuadWithTextureRect(program, texturedEffect->mTextureCoords, source, texturedEffect->mFlipped);
+
+      if (!texturedEffect->mPremultiplied) {
+        mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
+                                       LOCAL_GL_ONE, LOCAL_GL_ONE);
+      }
+    }
+    break;
+  case EFFECT_YCBCR: {
+      EffectYCbCr* effectYCbCr =
+        static_cast<EffectYCbCr*>(aEffectChain.mPrimaryEffect.get());
+      TextureSource* sourceYCbCr = effectYCbCr->mTexture;
+      const int Y = 0, Cb = 1, Cr = 2;
+      TextureSourceOGL* sourceY =  sourceYCbCr->GetSubSource(Y)->AsSourceOGL();
+      TextureSourceOGL* sourceCb = sourceYCbCr->GetSubSource(Cb)->AsSourceOGL();
+      TextureSourceOGL* sourceCr = sourceYCbCr->GetSubSource(Cr)->AsSourceOGL();
+
+      if (!sourceY && !sourceCb && !sourceCr) {
+        NS_WARNING("Invalid layer texture.");
+        return;
+      }
+
+      gfxPattern::GraphicsFilter filter = ThebesFilter(effectYCbCr->mFilter);
+
+      sourceY->BindTexture(LOCAL_GL_TEXTURE0);
+      mGLContext->ApplyFilterToBoundTexture(filter);
+      sourceCb->BindTexture(LOCAL_GL_TEXTURE1);
+      mGLContext->ApplyFilterToBoundTexture(filter);
+      sourceCr->BindTexture(LOCAL_GL_TEXTURE2);
+      mGLContext->ApplyFilterToBoundTexture(filter);
+
+      program->Activate();
+      program->SetYCbCrTextureUnits(Y, Cb, Cr);
+      program->SetLayerOpacity(aOpacity);
+
+      if (maskType != MaskNone) {
+        sourceMask->BindTexture(LOCAL_GL_TEXTURE3);
+        program->SetMaskTextureUnit(3);
+        program->SetMaskLayerTransform(maskQuadTransform);
+      }
+      BindAndDrawQuadWithTextureRect(program, effectYCbCr->mTextureCoords, sourceYCbCr->GetSubSource(Y));
+    }
+    break;
+  case EFFECT_RENDER_TARGET: {
+      EffectRenderTarget* effectRenderTarget =
+        static_cast<EffectRenderTarget*>(aEffectChain.mPrimaryEffect.get());
+      RefPtr<CompositingRenderTargetOGL> surface
+        = static_cast<CompositingRenderTargetOGL*>(effectRenderTarget->mRenderTarget.get());
+
+      ShaderProgramOGL *program = GetProgram(GetFBOLayerProgramType(), maskType);
+
+      surface->BindTexture(LOCAL_GL_TEXTURE0);
     
-    program->Activate();
-    program->SetTextureUnit(0);
-    program->SetLayerOpacity(aOpacity);
-    program->SetLayerTransform(aTransform);
-    program->SetRenderOffset(aOffset.x, aOffset.y);
-    program->SetLayerQuadRect(aRect);
-    if (maskType != MaskNone) {
-      sourceMask->BindTexture(LOCAL_GL_TEXTURE1);
-      program->SetMaskTextureUnit(1);
-      program->SetMaskLayerTransform(maskQuadTransform);
-    }
-    if (program->GetTexCoordMultiplierUniformLocation() != -1) {
-      // 2DRect case, get the multiplier right for a sampler2DRect
-      program->SetTexCoordMultiplier(aRect.width, aRect.height);
-    }
+      program->SetTextureUnit(0);
+      program->SetLayerOpacity(aOpacity);
 
-    // Drawing is always flipped, but when copying between surfaces we want to avoid
-    // this. Pass true for the flip parameter to introduce a second flip
-    // that cancels the other one out.
-    BindAndDrawQuad(program, true);
+      if (maskType != MaskNone) {
+        sourceMask->BindTexture(LOCAL_GL_TEXTURE1);
+        program->SetMaskTextureUnit(1);
+        program->SetMaskLayerTransform(maskQuadTransform);
+      }
+
+      if (program->GetTexCoordMultiplierUniformLocation() != -1) {
+        // 2DRect case, get the multiplier right for a sampler2DRect
+        program->SetTexCoordMultiplier(aRect.width, aRect.height);
+      }
+
+      // Drawing is always flipped, but when copying between surfaces we want to avoid
+      // this. Pass true for the flip parameter to introduce a second flip
+      // that cancels the other one out.
+      BindAndDrawQuad(program, true);
+    }
+    break;
+  case EFFECT_COMPONENT_ALPHA: {
+      EffectComponentAlpha* effectComponentAlpha =
+        static_cast<EffectComponentAlpha*>(aEffectChain.mPrimaryEffect.get());
+      TextureSourceOGL* sourceOnWhite = effectComponentAlpha->mOnWhite->AsSourceOGL();
+      TextureSourceOGL* sourceOnBlack = effectComponentAlpha->mOnBlack->AsSourceOGL();
+
+      if (!sourceOnBlack->IsValid() ||
+          !sourceOnWhite->IsValid()) {
+        NS_WARNING("Invalid layer texture for component alpha");
+        return;
+      }
+
+      for (PRInt32 pass = 1; pass <=2; ++pass) {
+        ShaderProgramOGL* program;
+        if (pass == 1) {
+          program = GetProgram(gl::ComponentAlphaPass1ProgramType, maskType);
+          gl()->fBlendFuncSeparate(LOCAL_GL_ZERO, LOCAL_GL_ONE_MINUS_SRC_COLOR,
+                                   LOCAL_GL_ONE, LOCAL_GL_ONE);
+        } else {
+          program = GetProgram(gl::ComponentAlphaPass2ProgramType, maskType);
+          gl()->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE,
+                                   LOCAL_GL_ONE, LOCAL_GL_ONE);
+        }
+
+        sourceOnBlack->BindTexture(LOCAL_GL_TEXTURE0);
+        sourceOnWhite->BindTexture(LOCAL_GL_TEXTURE1);
+      
+        program->Activate();
+        program->SetBlackTextureUnit(0);
+        program->SetWhiteTextureUnit(1);
+        program->SetLayerOpacity(aOpacity);
+        program->SetLayerTransform(aTransform);
+        program->SetRenderOffset(aOffset.x, aOffset.y);
+        program->SetLayerQuadRect(aRect);
+        if (maskType != MaskNone) {
+          sourceMask->BindTexture(LOCAL_GL_TEXTURE2);
+          program->SetMaskTextureUnit(2);
+          program->SetMaskLayerTransform(maskQuadTransform);
+        }
+
+        BindAndDrawQuadWithTextureRect(program, effectComponentAlpha->mTextureCoords, effectComponentAlpha->mOnBlack);
+
+        mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
+                                       LOCAL_GL_ONE, LOCAL_GL_ONE);
+      }
+    }
+    break;
   }
 
   mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
