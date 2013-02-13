@@ -22,10 +22,15 @@ public:
   ColorLayerComposite(LayerManagerComposite *aManager)
     : ShadowColorLayer(aManager, nullptr)
     , LayerComposite(aManager)
-  { 
+  {
+    MOZ_COUNT_CTOR(ColorLayerComposite);
     mImplData = static_cast<LayerComposite*>(this);
   }
-  ~ColorLayerComposite() { Destroy(); }
+  ~ColorLayerComposite()
+  {
+    MOZ_COUNT_DTOR(ColorLayerComposite);
+    Destroy();
+  }
 
   // LayerComposite Implementation
   virtual Layer* GetLayer() { return this; }

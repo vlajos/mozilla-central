@@ -17,11 +17,14 @@ ContainerLayerComposite::ContainerLayerComposite(LayerManagerComposite *aManager
   : ShadowContainerLayer(aManager, nullptr)
   , LayerComposite(aManager)
 {
+  MOZ_COUNT_CTOR(ContainerLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
 }
  
 ContainerLayerComposite::~ContainerLayerComposite()
 {
+  MOZ_COUNT_DTOR(ContainerLayerComposite);
+
   // We don't Destroy() on destruction here because this destructor
   // can be called after remote content has crashed, and it may not be
   // safe to free the IPC resources of our children.  Those resources

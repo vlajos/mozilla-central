@@ -21,6 +21,7 @@ TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocat
   , mFormat(gfx::FORMAT_UNKNOWN)
 
 {
+  MOZ_COUNT_CTOR(TextureHost);
   if (aBufferMode != BUFFER_NONE) {
     mBuffer = new SurfaceDescriptor;
   }
@@ -33,6 +34,7 @@ TextureHost::~TextureHost()
     mDeAllocator->DestroySharedSurface(mBuffer);
     delete mBuffer;
   }
+  MOZ_COUNT_DTOR(TextureHost);
 }
 
 void TextureHost::Update(const SurfaceDescriptor& aImage,

@@ -31,8 +31,14 @@ public:
     : mPaintWillResample(false)
     , mInitialised(true)
     , mCompositor(aCompositor)
-  {}
-  virtual ~CompositingThebesLayerBuffer() {}
+  {
+    MOZ_COUNT_CTOR(CompositingThebesLayerBuffer);
+  }
+
+  virtual ~CompositingThebesLayerBuffer()
+  {
+    MOZ_COUNT_DTOR(CompositingThebesLayerBuffer);
+  }
 
   virtual PaintState BeginPaint(ContentType aContentType,
                                 uint32_t aFlags) = 0;

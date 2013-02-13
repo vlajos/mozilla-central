@@ -32,9 +32,14 @@ class CompositableHost : public RefCounted<CompositableHost>
 public:
   CompositableHost(Compositor* aCompositor = nullptr)
   : mCompositor(aCompositor)
-  {}
+  {
+    MOZ_COUNT_CTOR(CompositableHost);
+  }
 
-  virtual ~CompositableHost() {}
+  virtual ~CompositableHost()
+  {
+    MOZ_COUNT_DTOR(CompositableHost);
+  }
 
   static TemporaryRef<CompositableHost> Create(CompositableType aType,
                                                Compositor* aCompositor);

@@ -26,6 +26,12 @@ protected:
   ImageHost(Compositor* aCompositor)
   : CompositableHost(aCompositor)
   {
+    MOZ_COUNT_CTOR(ImageHost);
+  }
+
+  ~ImageHost()
+  {
+    MOZ_COUNT_DTOR(ImageHost);
   }
 };
 

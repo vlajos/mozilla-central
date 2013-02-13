@@ -21,11 +21,13 @@ CanvasLayerComposite::CanvasLayerComposite(LayerManagerComposite* aManager)
   , LayerComposite(aManager)
   , mImageHost(nullptr)
 {
+  MOZ_COUNT_CTOR(CanvasLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
 }
 
 CanvasLayerComposite::~CanvasLayerComposite()
 {
+  MOZ_COUNT_DTOR(CanvasLayerComposite);
 }
 
 void

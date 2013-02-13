@@ -91,7 +91,12 @@ public:
 class TextureSource : public RefCounted<TextureSource>
 {
 public:
-  virtual ~TextureSource() {};
+  TextureSource() {
+    MOZ_COUNT_CTOR(TextureSource);
+  };
+  virtual ~TextureSource() {
+    MOZ_COUNT_DTOR(TextureSource);
+  };
 
   virtual gfx::IntSize GetSize() const = 0;
   /**
@@ -361,8 +366,12 @@ class Compositor : public RefCounted<Compositor>
 public:
   Compositor()
     : mCompositorID(0)
-  {}
-  virtual ~Compositor() {}
+  {
+    MOZ_COUNT_CTOR(Compositor);
+  }
+  virtual ~Compositor() {
+    MOZ_COUNT_DTOR(Compositor);
+  }
 
   virtual bool Initialize() = 0;
   virtual void Destroy() = 0;
