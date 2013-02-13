@@ -69,6 +69,11 @@ public:
     CreateRenderTargetFromSource(const gfx::IntRect &aRect,
                                  const CompositingRenderTarget *aSource);
 
+  virtual TemporaryRef<TexturedEffect> CreateEffect(TextureHost* aTextureHost,
+                                                    const gfx::Filter& aFilter) MOZ_OVERRIDE; 
+  virtual TemporaryRef<Effect> CreateRenderTargetEffect(CompositingRenderTarget* aTarget) MOZ_OVERRIDE; 
+  virtual TemporaryRef<Effect> CreateColorEffect(const gfx::Color& aColor) MOZ_OVERRIDE; 
+
   virtual void SetRenderTarget(CompositingRenderTarget *aSurface) { }
 
   virtual void SetRenderTargetSize(int aWidth, int aHeight) { }

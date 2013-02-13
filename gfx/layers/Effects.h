@@ -31,6 +31,8 @@ struct Effect : public RefCounted<Effect>
 {
   Effect(EffectTypes aType) : mType(aType) {}
 
+  virtual void Composite() = 0;
+
   EffectTypes mType;
 };
 
@@ -52,6 +54,11 @@ struct EffectMask : public Effect
     , mSize(aSize)
     , mMaskTransform(aMaskTransform)
   {}
+
+  virtual void Composite() MOZ_OVERRIDE
+  {
+    MOZ_ASSERT(false, "Can't composite a mask without a primary effect.");
+  }
 
   TextureSource* mMaskTexture;
   bool mIs3D;

@@ -46,8 +46,10 @@ public:
                                                       uint32_t aTextureFlags,
                                                       SurfaceDescriptorType aDescriptorType,
                                                       ISurfaceDeallocator* aDeAllocator) MOZ_OVERRIDE;
-  virtual TemporaryRef<TexturedEffect> CreateTexturedEffect(TextureHost* aTextureHost,
-                                                            const gfx::Filter& aFilter) MOZ_OVERRIDE; 
+  virtual TemporaryRef<TexturedEffect> CreateEffect(TextureHost* aTextureHost,
+                                                    const gfx::Filter& aFilter) MOZ_OVERRIDE; 
+  virtual TemporaryRef<Effect> CreateRenderTargetEffect(CompositingRenderTarget* aTarget) MOZ_OVERRIDE; 
+  virtual TemporaryRef<Effect> CreateColorEffect(const gfx::Color& aColor) MOZ_OVERRIDE; 
   
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {

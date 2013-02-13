@@ -399,8 +399,10 @@ public:
   /**
    * Create a new Effect for aTextureHost.
    */
-  virtual TemporaryRef<TexturedEffect> CreateTexturedEffect(TextureHost* aTextureHost,
-                                                            const gfx::Filter& aFilter) = 0; 
+  virtual TemporaryRef<TexturedEffect> CreateEffect(TextureHost* aTextureHost,
+                                                    const gfx::Filter& aFilter) = 0; 
+  virtual TemporaryRef<Effect> CreateRenderTargetEffect(CompositingRenderTarget* aTarget) = 0; 
+  virtual TemporaryRef<Effect> CreateColorEffect(const gfx::Color& aColor) = 0; 
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId

@@ -40,8 +40,9 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  Effect* effect = new EffectBGRA(mTextureHost->AsTextureSource(), false, aFilter, false);
-  aEffectChain.mEffects[effect->mType] = effect;
+  // TODO[BenWa] sorry, please use mCompositor->CreateEffect()
+  Effect* effect = nullptr; // new EffectBGRA(mTextureHost->AsTextureSource(), false, aFilter, false);
+  aEffectChain.mPrimaryEffect = effect;
   NS_RUNTIMEABORT("Not implemented");
 #if 0
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
@@ -395,7 +396,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   aUpdatedRegionBack->SetEmpty();
 
   mTextureEffect =
-    GetCompositor()->CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
+    GetCompositor()->CreateEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -451,7 +452,7 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   *aUpdatedRegionBack = aUpdated;
 
   mTextureEffect =
-    GetCompositor()->CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
+    GetCompositor()->CreateEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -683,7 +684,7 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 
   //TODO y flip
   RefPtr<TexturedEffect> effect =
-    GetCompositor()->CreateTexturedEffect(aTile.mTextureHost, aFilter);
+    GetCompositor()->CreateEffect(aTile.mTextureHost, aFilter);
   if (aTile.mTextureHost->Lock()) {
     aEffectChain.mPrimaryEffect = effect;
   } else {

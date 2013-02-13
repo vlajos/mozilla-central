@@ -37,9 +37,9 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     GetCompositor()->FallbackTextureInfo(id);
     id.textureFlags = mTextureHost->GetFlags();
     mTextureHost = GetCompositor()->CreateTextureHost(id.memoryType,
-                                                   id.textureFlags,
-                                                   SURFACEDESCRIPTOR_UNKNOWN,
-                                                   mTextureHost->GetDeAllocator());
+                                                      id.textureFlags,
+                                                      SURFACEDESCRIPTOR_UNKNOWN,
+                                                      mTextureHost->GetDeAllocator());
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;
@@ -65,7 +65,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
 
   mTextureHost->UpdateAsyncTexture();
   RefPtr<TexturedEffect> effect =
-    GetCompositor()->CreateTexturedEffect(mTextureHost, aFilter);
+    GetCompositor()->CreateEffect(mTextureHost, aFilter);
 
   if (!mTextureHost->Lock()) {
     return;

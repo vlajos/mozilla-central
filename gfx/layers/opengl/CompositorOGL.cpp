@@ -280,7 +280,129 @@ FPSState::DrawFPS(TimeStamp aNow,
 }
 
 
+struct EffectRenderTargetOGL : public EffectRenderTarget
+{
+  EffectRenderTargetOGL(CompositingRenderTarget *aRenderTarget)
+    : EffectRenderTarget(aRenderTarget)
+  {}
 
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectBGRXOGL : public EffectBGRX
+{
+  EffectBGRXOGL(TextureSource *aBGRXTexture,
+                bool aPremultiplied,
+                mozilla::gfx::Filter aFilter,
+                bool aFlipped = false)
+    : EffectBGRX(aBGRXTexture, aPremultiplied, aFilter, aFlipped)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectRGBXOGL : public EffectRGBX
+{
+  EffectRGBXOGL(TextureSource *aRGBXTexture,
+                bool aPremultiplied,
+                mozilla::gfx::Filter aFilter,
+                bool aFlipped = false)
+    : EffectRGBX(aRGBXTexture, aPremultiplied, aFilter, aFlipped)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectBGRAOGL : public EffectBGRA
+{
+  EffectBGRAOGL(TextureSource *aBGRATexture,
+                bool aPremultiplied,
+                mozilla::gfx::Filter aFilter,
+                bool aFlipped = false)
+    : EffectBGRA(aBGRATexture, aPremultiplied, aFilter, aFlipped)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectRGBAOGL : public EffectRGBA
+{
+  EffectRGBAOGL(TextureSource *aRGBATexture,
+                bool aPremultiplied,
+                mozilla::gfx::Filter aFilter,
+                bool aFlipped = false)
+    : EffectRGBA(aRGBATexture, aPremultiplied, aFilter, aFlipped)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectRGBAExternalOGL : public EffectRGBAExternal
+{
+  EffectRGBAExternalOGL(TextureSource *aRGBATexture,
+                        const gfx::Matrix4x4 &aTextureTransform,
+                        bool aPremultiplied,
+                        mozilla::gfx::Filter aFilter,
+                        bool aFlipped = false)
+    : EffectRGBAExternal(aRGBATexture, aTextureTransform, aPremultiplied, aFilter, aFlipped)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectYCbCrOGL : public EffectYCbCr
+{
+  EffectYCbCrOGL(TextureSource *aSource, mozilla::gfx::Filter aFilter)
+    : EffectYCbCr(aSource, aFilter)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectComponentAlphaOGL : public EffectComponentAlpha
+{
+  EffectComponentAlphaOGL(TextureSource *aOnWhite, TextureSource *aOnBlack)
+    : EffectComponentAlpha(aOnWhite, aOnBlack)
+  {}
+
+  virtual void Composite()
+  {
+    
+  }
+};
+
+struct EffectSolidColorOGL : public EffectSolidColor
+{
+  EffectSolidColorOGL(const mozilla::gfx::Color &aColor)
+    : EffectSolidColor(aColor)
+  {}
+
+  virtual void Composite()
+  {
+
+  }
+};
 
 
 
@@ -702,25 +824,25 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
 }
 
 TemporaryRef<TexturedEffect>
-CreateTexturedEffect(TextureHost* aTextureHost,
-                     const gfx::Filter& aFilter)
+CompositorOGL::CreateEffect(TextureHost* aTextureHost,
+                            const gfx::Filter& aFilter)
 {
   RefPtr<TexturedEffect> result;
   switch (aTextureHost->GetFormat()) {
   case FORMAT_B8G8R8A8:
-    result = new EffectBGRA(aTextureHost, true, aFilter);
+    result = new EffectBGRAOGL(aTextureHost, true, aFilter);
     break;
   case FORMAT_B8G8R8X8:
-    result = new EffectBGRX(aTextureHost, true, aFilter);
+    result = new EffectBGRXOGL(aTextureHost, true, aFilter);
     break;
   case FORMAT_R8G8B8X8:
-    result = new EffectRGBX(aTextureHost, true, aFilter);
+    result = new EffectRGBXOGL(aTextureHost, true, aFilter);
     break;
   case FORMAT_R8G8B8A8:
-    result = new EffectRGBA(aTextureHost, true, aFilter);
+    result = new EffectRGBAOGL(aTextureHost, true, aFilter);
     break;
   case FORMAT_YUV:
-    result = new EffectYCbCr(aTextureHost, aFilter);
+    result = new EffectYCbCrOGL(aTextureHost, aFilter);
     break;
   default:
     MOZ_NOT_REACHED("unhandled program type");
@@ -728,6 +850,20 @@ CreateTexturedEffect(TextureHost* aTextureHost,
 
   return result;
 }
+
+TemporaryRef<Effect>
+CompositorOGL::CreateRenderTargetEffect(CompositingRenderTarget* aTarget)
+{
+  RefPtr<Effect> result = new EffectRenderTargetOGL(aTarget);
+  return result;
+}
+
+TemporaryRef<Effect>
+CompositorOGL::CreateColorEffect(const gfx::Color& aColor)
+{
+  RefPtr<Effect> result = new EffectSolidColorOGL(aColor);
+  return result;
+} 
 
 void
 CompositorOGL::FallbackTextureInfo(TextureInfo& aId)

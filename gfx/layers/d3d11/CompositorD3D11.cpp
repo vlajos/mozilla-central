@@ -365,6 +365,26 @@ CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
   return rt;
 }
 
+TemporaryRef<TexturedEffect>
+CompositorD3D11::CreateEffect(TextureHost* aTextureHost,
+                              const gfx::Filter& aFilter)
+{
+  // TODO
+  return nullptr;
+}
+TemporaryRef<Effect>
+CompositorD3D11::CreateRenderTargetEffect(CompositingRenderTarget* aTarget)
+{
+  // TODO
+  return nullptr;
+}
+TemporaryRef<Effect>
+CompositorD3D11::CreateColorEffect(const gfx::Color& aColor)
+{
+  // TODO
+  return nullptr;
+}
+
 void
 CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
                           const EffectChain &aEffectChain,

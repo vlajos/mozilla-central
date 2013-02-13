@@ -301,8 +301,7 @@ protected:
           LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(), effectChain, is3D);
         }
 
-        RefPtr<Effect> effect = new EffectRenderTarget(surface);
-        effectChain.mPrimaryEffect= effect;
+        effectChain.mPrimaryEffect = aManager->GetCompositor()->CreateRenderTargetEffect(surface);
         gfx::Matrix4x4 transform;
         ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 
