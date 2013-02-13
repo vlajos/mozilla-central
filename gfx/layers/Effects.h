@@ -7,6 +7,7 @@
 #define MOZILLA_LAYERS_EFFECTS_H
 
 #include "mozilla/gfx/Matrix.h"
+#include "mozilla/layers/Compositor.h"
 
 namespace mozilla {
 namespace layers {
@@ -31,8 +32,6 @@ struct Effect : public RefCounted<Effect>
 {
   Effect(EffectTypes aType) : mType(aType) {}
 
-  virtual void Composite() = 0;
-
   EffectTypes mType;
 };
 
@@ -54,11 +53,6 @@ struct EffectMask : public Effect
     , mSize(aSize)
     , mMaskTransform(aMaskTransform)
   {}
-
-  virtual void Composite() MOZ_OVERRIDE
-  {
-    MOZ_ASSERT(false, "Can't composite a mask without a primary effect.");
-  }
 
   TextureSource* mMaskTexture;
   bool mIs3D;
@@ -198,6 +192,33 @@ struct EffectChain
   RefPtr<Effect> mSecondaryEffects[EFFECT_PRIMARY];
 };
 
+TemporaryRef<TexturedEffect>
+CreateTexturedEffect(TextureHost *aTextureHost,
+                     const gfx::Filter& aFilter)
+{
+  RefPtr<TexturedEffect> result;
+  switch (aTextureHost->GetFormat()) {
+  case gfx::FORMAT_B8G8R8A8:
+    result = new EffectBGRA(aTextureHost, true, aFilter);
+    break;
+  case gfx::FORMAT_B8G8R8X8:
+    result = new EffectBGRX(aTextureHost, true, aFilter);
+    break;
+  case gfx::FORMAT_R8G8B8X8:
+    result = new EffectRGBX(aTextureHost, true, aFilter);
+    break;
+  case gfx::FORMAT_R8G8B8A8:
+    result = new EffectRGBA(aTextureHost, true, aFilter);
+    break;
+  case gfx::FORMAT_YUV:
+    result = new EffectYCbCr(aTextureHost, aFilter);
+    break;
+  default:
+    MOZ_NOT_REACHED("unhandled program type");
+  }
+
+  return result;
+}
 
 } // namespace
 } // namespace

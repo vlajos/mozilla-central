@@ -16,10 +16,10 @@ RenderColorLayer(ColorLayer* aLayer, Compositor *aCompositor,
 {
   EffectChain effects;
   gfxRGBA color(aLayer->GetColor());
-  effects.mPrimaryEffect = aCompositor->CreateColorEffect(gfx::Color(color.r,
-                                                                     color.g,
-                                                                     color.b,
-                                                                     color.a));
+  effects.mPrimaryEffect = new EffectSolidColor(gfx::Color(color.r,
+                                                           color.g,
+                                                           color.b,
+                                                           color.a));
   nsIntRect visibleRect = aLayer->GetEffectiveVisibleRegion().GetBounds();
 
   LayerManagerComposite::AddMaskEffect(aLayer->GetMaskLayer(), effects);

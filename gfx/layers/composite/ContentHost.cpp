@@ -396,7 +396,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
   aUpdatedRegionBack->SetEmpty();
 
   mTextureEffect =
-    GetCompositor()->CreateEffect(mTextureHost, FILTER_LINEAR);
+    CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -452,7 +452,7 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   *aUpdatedRegionBack = aUpdated;
 
   mTextureEffect =
-    GetCompositor()->CreateEffect(mTextureHost, FILTER_LINEAR);
+    CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -684,7 +684,7 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 
   //TODO y flip
   RefPtr<TexturedEffect> effect =
-    GetCompositor()->CreateEffect(aTile.mTextureHost, aFilter);
+    CreateTexturedEffect(aTile.mTextureHost, aFilter);
   if (aTile.mTextureHost->Lock()) {
     aEffectChain.mPrimaryEffect = effect;
   } else {

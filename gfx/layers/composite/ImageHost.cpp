@@ -65,7 +65,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
 
   mTextureHost->UpdateAsyncTexture();
   RefPtr<TexturedEffect> effect =
-    GetCompositor()->CreateEffect(mTextureHost, aFilter);
+    CreateTexturedEffect(mTextureHost, aFilter);
 
   if (!mTextureHost->Lock()) {
     return;
