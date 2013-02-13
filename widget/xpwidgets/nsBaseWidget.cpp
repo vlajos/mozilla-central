@@ -127,7 +127,7 @@ static void DeferredDestroyCompositor(CompositorParent* aCompositorParent,
     aCompositorChild->Release();
 }
 
-void nsBaseWidget::DestroyCompositor() 
+void nsBaseWidget::DestroyCompositor()
 {
   if (mCompositorChild) {
     mCompositorChild->SendWillStop();
@@ -275,7 +275,7 @@ nsBaseWidget::CreateChild(const nsIntRect  &aRect,
   return nullptr;
 }
 
-// Attach a view to our widget which we'll send events to. 
+// Attach a view to our widget which we'll send events to.
 NS_IMETHODIMP
 nsBaseWidget::AttachViewToTopLevel(bool aUseAttachedEvents,
                                    nsDeviceContext *aContext)
@@ -303,7 +303,7 @@ nsIWidgetListener* nsBaseWidget::GetAttachedWidgetListener()
  {
    return mAttachedWidgetListener;
  }
- 
+
 void nsBaseWidget::SetAttachedWidgetListener(nsIWidgetListener* aListener)
  {
    mAttachedWidgetListener = aListener;
@@ -381,7 +381,21 @@ float nsBaseWidget::GetDPI()
 
 double nsIWidget::GetDefaultScale()
 {
-  return 1.0;
+  // The number of device pixels per CSS pixel. A value <= 0 means choose
+  // automatically based on the DPI. A positive value is used as-is. This effectively
+  // controls the size of a CSS "px".
+  float devPixelsPerCSSPixel = -1.0;
+
+  nsAdoptingCString prefString = Preferences::GetCString("layout.css.devPixelsPerPx");
+  if (!prefString.IsEmpty()) {
+    devPixelsPerCSSPixel = static_cast<float>(atof(prefString));
+  }
+
+  if (devPixelsPerCSSPixel <= 0) {
+    devPixelsPerCSSPixel = GetDefaultScaleInternal();
+  }
+
+  return devPixelsPerCSSPixel;
 }
 
 //-------------------------------------------------------------------------
@@ -393,7 +407,7 @@ void nsBaseWidget::AddChild(nsIWidget* aChild)
 {
   NS_PRECONDITION(!aChild->GetNextSibling() && !aChild->GetPrevSibling(),
                   "aChild not properly removed from its old child list");
-  
+
   if (!mFirstChild) {
     mFirstChild = mLastChild = aChild;
   } else {
@@ -694,8 +708,12 @@ NS_IMETHODIMP nsBaseWidget::MakeFullScreen(bool aFullScreen)
     NS_ASSERTION(screenManager, "Unable to grab screenManager.");
     if (screenManager) {
       nsCOMPtr<nsIScreen> screen;
-      screenManager->ScreenForRect(mOriginalBounds->x, mOriginalBounds->y,
-                                   mOriginalBounds->width, mOriginalBounds->height,
+      // convert dev pix to display/CSS pix for ScreenForRect
+      double scale = GetDefaultScale();
+      screenManager->ScreenForRect(mOriginalBounds->x / scale,
+                                   mOriginalBounds->y / scale,
+                                   mOriginalBounds->width / scale,
+                                   mOriginalBounds->height / scale,
                                    getter_AddRefs(screen));
       if (screen) {
         int32_t left, top, width, height;
@@ -822,7 +840,7 @@ nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
 
   if (mForceLayersAcceleration)
     return true;
-  
+
   if (!whitelisted) {
     NS_WARNING("OpenGL-accelerated layers are not supported on this system.");
 #ifdef MOZ_ANDROID_OMTC
