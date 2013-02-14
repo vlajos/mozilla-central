@@ -259,6 +259,11 @@ public:
     return mSurface;
   }
 
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor)
+  {
+    MOZ_ASSERT(false, "Tiled texture clients don't use SurfaceDescriptors.");
+  }
+
   TextureClientTile(CompositableForwarder* aForwarder, CompositableType aCompositableType)
     : TextureClient(aForwarder, aCompositableType)
     , mSurface(nullptr)
