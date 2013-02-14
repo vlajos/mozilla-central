@@ -2,9 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "ImageContainerChild.h"
+// TODO[nical] port this to the new architecture
+
 #include "ShadowLayers.h"
 #include "SharedRGBImage.h"
+#include "mozilla/layers/LayersSurfaces.h"
 #include "Shmem.h"
 
 // Just big enough for a 1080p RGBA32 frame
@@ -20,13 +22,17 @@ SharedRGBImage::SharedRGBImage(ImageContainerChild *aImageContainerChild) :
   mAllocated(false),
   mShmem(new ipc::Shmem())
 {
+/*
   mImageContainerChild->AddRef();
+*/
 }
 
 SharedRGBImage::~SharedRGBImage()
 {
+/*
   mImageContainerChild->DeallocShmemAsync(*mShmem);
   mImageContainerChild->Release();
+*/
   delete mShmem;
 }
 
@@ -96,11 +102,11 @@ SharedRGBImage::AllocateBuffer(nsIntSize aSize, gfxImageFormat aImageFormat)
   if (size == 0 || size > MAX_FRAME_SIZE) {
     NS_WARNING("Invalid frame size");
   }
-
+/*
   if (mImageContainerChild->AllocUnsafeShmemSync(size, OptimalShmemType(), mShmem)) {
     mAllocated = true;
   }
-
+*/
   return mAllocated;
 }
 

@@ -26,7 +26,7 @@ class CompositableChild : public PCompositableChild
 {
 public:
   CompositableChild()
-  : mCompositableClient(nullptr)
+  : mCompositableClient(nullptr), mID(0)
   {}
 
   virtual PTextureChild* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
@@ -34,15 +34,24 @@ public:
 
   void Destroy();
 
-  void SetClient(CompositableClient* aClient) {
+  void SetClient(CompositableClient* aClient)
+  {
     mCompositableClient = aClient;
   }
 
-  CompositableClient* GetCompositableClient() const {
+  CompositableClient* GetCompositableClient() const
+  {
     return mCompositableClient;
+  }
+
+  void SetAsyncID(uint64_t aID) { mID = aID; }
+  uint64_t GetAsyncID() const
+  {
+    return mID;
   }
 private:
   CompositableClient* mCompositableClient;
+  uint64_t mID;
 };
 
 class CompositableClient : public RefCounted<CompositableClient>
@@ -80,6 +89,14 @@ public:
   CompositableForwarder* GetForwarder() const
   {
     return mForwarder;
+  }
+
+  uint64_t GetAsyncID() const
+  {
+    if (mCompositableChild) {
+      return mCompositableChild->GetAsyncID();
+    }
+    return 0;
   }
 
 protected:

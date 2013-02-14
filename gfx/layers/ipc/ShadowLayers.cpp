@@ -18,6 +18,7 @@
 #include "mozilla/layers/PLayersParent.h"
 #include "mozilla/layers/TextureChild.h"
 #include "mozilla/layers/CompositableClient.h"
+#include "mozilla/layers/LayerTransaction.h"
 #include "ShadowLayers.h"
 #include "ShadowLayerChild.h"
 #include "gfxipc/ShadowLayerUtils.h"
@@ -73,10 +74,21 @@ public:
     AddNoSwapPaint(aPaint);
     mSwapRequired = true;
   }
+  void AddPaint(const CompositableOperation& aPaint)
+  {
+    AddNoSwapPaint(Edit(aPaint));
+    mSwapRequired = true;
+  }
+
   void AddNoSwapPaint(const Edit& aPaint)
   {
     NS_ABORT_IF_FALSE(!Finished(), "forgot BeginTransaction?");
     mPaints.push_back(aPaint);
+  }
+  void AddNoSwapPaint(const CompositableOperation& aPaint)
+  {
+    NS_ABORT_IF_FALSE(!Finished(), "forgot BeginTransaction?");
+    mPaints.push_back(Edit(aPaint));
   }
   void AddMutant(ShadowableLayer* aLayer)
   {
@@ -136,10 +148,15 @@ struct AutoTxnEnd {
   Transaction* mTxn;
 };
 
+void 
+CompositableForwarder::IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier)
+{
+  mMaxTextureSize = aIdentifier.mMaxTextureSize;
+  mCompositorBackend = aIdentifier.mParentBackend;
+}
+
 ShadowLayerForwarder::ShadowLayerForwarder()
  : mShadowManager(NULL)
- , mMaxTextureSize(0)
- , mParentBackend(mozilla::layers::LAYERS_NONE)
  , mIsFirstPaint(false)
 {
   mTxn = new Transaction();
@@ -310,14 +327,6 @@ ShadowLayerForwarder::UpdatePictureRect(CompositableClient* aCompositable,
 {
   mTxn->AddNoSwapPaint(OpUpdatePictureRect(nullptr, aCompositable->GetIPDLActor(), aRect));
 }
-
-void 
-ShadowLayerForwarder::IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier)
-{
-  mMaxTextureSize = aIdentifier.mMaxTextureSize;
-  mParentBackend = aIdentifier.mParentBackend;
-}
-
 
 bool
 ShadowLayerForwarder::EndTransaction(InfallibleTArray<EditReply>* aReplies)
@@ -577,38 +586,13 @@ ShadowLayerForwarder::DestroySharedSurface(SurfaceDescriptor* aSurface)
     DestroySharedShmemSurface(aSurface, mShadowManager);
   }
 }
-/*
-TemporaryRef<TextureClient>
-ShadowLayerForwarder::CreateTextureClientFor(const TextureHostType& aTextureHostType,
-                                             const CompositableType& aCompositableType,
-                                             CompositableClient* aCompositable,
-                                             TextureFlags aFlags,
-                                             bool aStrict)
-{
-  RefPtr<TextureClient> client = CompositingFactory::CreateTextureClient(mParentBackend,
-                                                                         aTextureHostType,
-                                                                         aCompositableType,
-                                                                         this, aStrict);
-  // This is kind of gross, but tiled buffers do their own thing and don't want
-  // to create a corresponding texture client.
-  if (aCompositableType == BUFFER_TILED) {
-    return client.forget();
-  }
 
-  TextureChild* textureChild
-    = static_cast<TextureChild*>(aCompositable->GetIPDLActor()->SendPTextureConstructor(client->GetTextureInfo()));
-  client->SetTextureChild(textureChild);
-  textureChild->SetClients(client, aCompositable);
-
-  return client.forget();
-}
-*/
 TemporaryRef<ImageClient>
 ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositableType,
                                            ShadowableLayer* aLayer,
                                            TextureFlags aFlags)
 {
-  RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(mParentBackend,
+  RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(GetCompositorBackendType(),
                                                                      aCompositableType,
                                                                      this, aFlags);
   return client.forget();
@@ -619,7 +603,7 @@ ShadowLayerForwarder::CreateCanvasClientFor(const CompositableType& aCompositabl
                                             ShadowableLayer* aLayer,
                                             TextureFlags aFlags)
 {
-  RefPtr<CanvasClient> client = CompositingFactory::CreateCanvasClient(mParentBackend,
+  RefPtr<CanvasClient> client = CompositingFactory::CreateCanvasClient(GetCompositorBackendType(),
                                                                        aCompositableType,
                                                                        this, aFlags);
   return client.forget();
@@ -630,7 +614,7 @@ ShadowLayerForwarder::CreateContentClientFor(const CompositableType& aCompositab
                                              ShadowableLayer* aLayer,
                                              TextureFlags aFlags)
 {
-  RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(mParentBackend,
+  RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(GetCompositorBackendType(),
                                                                          aCompositableType,
                                                                          this, aFlags);
   return client.forget();

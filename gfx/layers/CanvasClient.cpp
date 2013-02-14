@@ -75,15 +75,12 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 
   AutoLockHandleClient autolLock(mTextureClient, aLayer->mGLContext, aSize, flags);
   SharedTextureHandle handle = autolLock.GetHandle();
-  //mTextureClient->LockHandle(aLayer->mGLContext, flags);
 
   if (handle) {
     aLayer->mGLContext->MakeCurrent();
     aLayer->mGLContext->UpdateSharedHandle(flags, handle);
     aLayer->Painted();
   }
-
-  //mTextureClient->Unlock();
 }
 
 }

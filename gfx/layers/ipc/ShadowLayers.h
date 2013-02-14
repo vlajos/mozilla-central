@@ -17,7 +17,7 @@
 #include "mozilla/WidgetUtils.h"
 #include "mozilla/layers/ISurfaceDeallocator.h"
 #include "mozilla/dom/ScreenOrientation.h"
-
+#include "mozilla/layers/CompositableForwarder.h"
 
 class gfxSharedImageSurface;
 
@@ -69,83 +69,6 @@ enum OpenMode {
   OPEN_READ_WRITE
 };
 
-//interface
-// TODO[nical] move this to a better place
-class CompositableForwarder
-{
-  friend class AutoOpenSurface;
-  friend class TextureClientShmem;
-public:
-  virtual LayersBackend GetCompositorBackendType() = 0;
-
-  /**
-   * Setup the IPDL actor for aCompositable to be part of layers
-   * transactions.
-   */
-  virtual void Connect(CompositableClient* aCompositable) = 0;
-
-  /**
-   * Adds an edit in the layers transaction in order to attach
-   * the corresponding compositable and layer on the compositor side.
-   * Connect must have been called on aCompositable beforehand.
-   */
-  virtual void Attach(CompositableClient* aCompositable,
-                      ShadowableLayer* aLayer) = 0;
-
-  virtual void AttachAsyncCompositable(uint64_t aCompositableID,
-                                       ShadowableLayer* aLayer) = 0;
-
-
-  /**
-   * Communicate to the compositor that the texture identified by aLayer
-   * and aIdentifier has been updated to aImage.
-   */
-  virtual void UpdateTexture(TextureClient* aTexture,
-                             const SurfaceDescriptor& aImage) = 0;
-
-  /**
-   * Communicate to the compositor that aRegion in the texture identified by aLayer
-   * and aIdentifier has been updated to aThebesBuffer.
-   */
-  virtual void UpdateTextureRegion(TextureClient* aTexture,
-                                   const ThebesBuffer& aThebesBuffer,
-                                   const nsIntRegion& aUpdatedRegion) = 0;
-
-  /**
-   * Communicate the picture rect of a YUV image in aLayer to the compositor
-   */
-  virtual void UpdatePictureRect(CompositableClient* aCompositable,
-                                 const nsIntRect& aRect) = 0;
-
-  /**
-   * The specified layer is destroying its buffers.
-   * |aBackBufferToDestroy| is deallocated when this transaction is
-   * posted to the parent.  During the parent-side transaction, the
-   * shadow is told to destroy its front buffer.  This can happen when
-   * a new front/back buffer pair have been created because of a layer
-   * resize, e.g.
-   */
-  virtual void DestroyedThebesBuffer(ShadowableLayer* aThebes,
-                                     const SurfaceDescriptor& aBackBufferToDestroy) = 0;
-
-  /**
-   * Shmem (gfxSharedImageSurface) buffers are available on all
-   * platforms, but they may not be optimal.
-   *
-   * In the absence of platform-specific buffers these fall back to
-   * Shmem/gfxSharedImageSurface.
-   */
-  virtual bool AllocBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           SurfaceDescriptor* aBuffer) = 0;
-
-  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
-                                   gfxASurface::gfxContentType aContent,
-                                   uint32_t aCaps,
-                                   SurfaceDescriptor* aBuffer) = 0;
-
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
-};
 
 
 /**
@@ -419,30 +342,14 @@ public:
    */
   PLayerChild* ConstructShadowFor(ShadowableLayer* aLayer);
 
-  LayersBackend GetCompositorBackendType() MOZ_OVERRIDE
-  {
-    return mParentBackend;
-  }
-
   /**
    * Flag the next paint as the first for a document.
    */
   void SetIsFirstPaint() { mIsFirstPaint = true; }
 
-  virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
-  
-  void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
-
   /**
-   * Create texture or buffer clients, see comments in CompositingFactory
+   * Create compositable clients, see comments in CompositingFactory
    */
-/*
-  TemporaryRef<TextureClient> CreateTextureClientFor(const TextureHostType& aTextureHostType,
-                                                     const CompositableType& aCompositableType,
-                                                     CompositableClient* aCompositable,
-                                                     TextureFlags aFlags,
-                                                     bool aStrict = false);
-*/
   TemporaryRef<ImageClient> CreateImageClientFor(const CompositableType& aCompositableType,
                                                  ShadowableLayer* aLayer,
                                                  TextureFlags aFlags);
@@ -452,7 +359,7 @@ public:
   TemporaryRef<ContentClient> CreateContentClientFor(const CompositableType& aCompositableType,
                                                      ShadowableLayer* aLayer,
                                                      TextureFlags aFlags);
-  
+
   static void PlatformSyncBeforeUpdate();
 
   static already_AddRefed<gfxASurface>
@@ -516,8 +423,6 @@ private:
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
 
   Transaction* mTxn;
-  int32_t mMaxTextureSize;
-  LayersBackend mParentBackend;
 
   bool mIsFirstPaint;
 };

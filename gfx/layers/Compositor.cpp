@@ -6,7 +6,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/layers/ISurfaceDeallocator.h"
-#include "mozilla/layers/ImageContainerParent.h"
+//#include "mozilla/layers/ImageContainerParent.h"
 
 namespace mozilla {
 namespace layers {
@@ -63,6 +63,7 @@ bool TextureHost::UpdateAsyncTexture()
   if (!IsAsync()) {
     return true;
   }
+  /*
   ImageContainerParent::SetCompositorIDForImage(mAsyncContainerID, mCompositorID);
   uint32_t imgVersion = ImageContainerParent::GetSurfaceDescriptorVersion(mAsyncContainerID);
   if (imgVersion != mAsyncTextureVersion) {
@@ -74,6 +75,8 @@ bool TextureHost::UpdateAsyncTexture()
     mAsyncTextureVersion = imgVersion;
   }
   return true;
+  */
+  return false;
 }
 
 

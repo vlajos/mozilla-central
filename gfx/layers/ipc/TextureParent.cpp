@@ -9,7 +9,8 @@
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "ShadowLayerParent.h"
 #include "LayerManagerComposite.h"
-
+#include "Compositor.h"
+#include "mozilla/layers/CompositableTransactionParent.h"
 namespace mozilla {
 namespace layers {
 

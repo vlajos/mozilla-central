@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gfxSharedImageSurface.h"
-#include "mozilla/layers/ImageContainerParent.h"
 
 #include "ipc/AutoOpenSurface.h"
 #include "ImageLayerComposite.h"

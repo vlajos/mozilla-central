@@ -8,7 +8,6 @@
 #include "SharedTextureImage.h"
 #include "gfxUtils.h"
 #include "gfxSharedImageSurface.h"
-#include "mozilla/layers/ImageContainerChild.h"
 #include "ImageClient.h"
 #ifdef MOZ_X11
 #include "gfxXlibSurface.h"

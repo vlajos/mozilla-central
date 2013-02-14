@@ -7,7 +7,6 @@
 #define MOZILLA_GFX_IMAGEHOST_H
 
 #include "CompositableHost.h"
-#include "mozilla/layers/ImageContainerParent.h"
 #include "LayerManagerComposite.h"
 
 namespace mozilla {

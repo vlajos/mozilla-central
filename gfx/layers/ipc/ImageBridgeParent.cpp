@@ -7,7 +7,7 @@
 
 #include "mozilla/layers/CompositorParent.h"
 #include "mozilla/layers/ImageBridgeParent.h"
-#include "mozilla/layers/ImageContainerParent.h"
+#include "CompositableHost.h"
 #include "nsTArray.h"
 #include "nsXULAppAPI.h"
 
@@ -21,13 +21,48 @@ namespace layers {
 ImageBridgeParent::ImageBridgeParent(MessageLoop* aLoop)
 : mMessageLoop(aLoop)
 {
-  ImageContainerParent::CreateSurfaceDescriptorMap();
+  CompositableMap::Create();
 }
 
 ImageBridgeParent::~ImageBridgeParent()
 {
-  ImageContainerParent::DestroySurfaceDescriptorMap();
+  CompositableMap::Destroy();
 }
+
+bool
+ImageBridgeParent::RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply)
+{
+  EditReplyVector replyv;
+  for (EditArray::index_type i = 0; i < aEdits.Length(); ++i) {
+    bool isFirstPaint = false;
+    ReceiveCompositableUpdate(aEdits[i],
+                              isFirstPaint,
+                              replyv);
+  }
+
+  aReply->SetCapacity(replyv.size());
+  if (replyv.size() > 0) {
+    aReply->AppendElements(&replyv.front(), replyv.size());
+  }
+
+  // Ensure that any pending operations involving back and front
+  // buffers have completed, so that neither process stomps on the
+  // other's buffer contents.
+  ShadowLayerManager::PlatformSyncBeforeReplyUpdate();
+
+  // TODO[nical] schedule composition
+  return true;
+}
+
+bool
+ImageBridgeParent::RecvUpdateNoSwap(const EditArray& aEdits)
+{
+  InfallibleTArray<EditReply> noReplies;
+  bool success = RecvUpdate(aEdits, &noReplies);
+  NS_ABORT_IF_FALSE(noReplies.Length() == 0, "RecvUpdateNoSwap requires a sync Update to carry Edits");
+  return success;
+}
+
 
 static void
 ConnectImageBridgeInParentProcess(ImageBridgeParent* aBridge,
@@ -56,12 +91,14 @@ ImageBridgeParent::Create(Transport* aTransport, ProcessId aOtherProcess)
 
 bool ImageBridgeParent::RecvStop()
 {
+/*
   unsigned int numChildren = ManagedPImageContainerParent().Length();
   for (unsigned int i = 0; i < numChildren; ++i) {
     static_cast<ImageContainerParent*>(
       ManagedPImageContainerParent()[i]
     )->DoStop();
   }
+*/
   return true;
 }
 
@@ -97,7 +134,7 @@ ImageBridgeParent::DeallocPGrallocBuffer(PGrallocBufferParent* actor)
   return false;
 #endif
 }
-
+/*
 PImageContainerParent* ImageBridgeParent::AllocPImageContainer(uint64_t* aID)
 {
   uint64_t id = GenImageContainerID();
@@ -110,12 +147,42 @@ bool ImageBridgeParent::DeallocPImageContainer(PImageContainerParent* toDealloc)
   delete toDealloc;
   return true;
 }
+*/
+PCompositableParent*
+ImageBridgeParent::ImageBridgeParent::AllocPCompositable(const CompositableType& aType,
+                                                         uint64_t* aID)
+{
+  uint64_t id = GenImageContainerID();
+  *aID = id;
+  return new CompositableParent(this, aType, id);
+}
+
+bool ImageBridgeParent::DeallocPCompositable(PCompositableParent* aActor)
+{
+  delete aActor;
+  return true;
+}
+
 
 
 MessageLoop * ImageBridgeParent::GetMessageLoop() {
   return mMessageLoop;
 }
 
+void ImageBridgeParent::DestroySharedSurface(gfxSharedImageSurface* aSurface)
+{
+  // TODO[nical]
+}
+void ImageBridgeParent::DestroySharedSurface(SurfaceDescriptor* aSurface)
+{
+  // TODO[nical]
+}
+bool ImageBridgeParent::AllocateUnsafe(size_t aSize,
+                            ipc::SharedMemory::SharedMemoryType aType,
+                            ipc::Shmem* aShmem)
+{
+  return false; // TODO[nical]
+}
 
 } // layers
 } // mozilla

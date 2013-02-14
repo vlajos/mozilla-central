@@ -129,10 +129,6 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
     result->SetIPDLActor(textureChild);
     textureChild->SetClient(result);
   }
-  // debug
-  if (aTextureHostType & TEXTURE_SHARED) {
-    printf("Shared texture\n");
-  }
 
   return result.forget();
 }

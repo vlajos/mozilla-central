@@ -73,6 +73,7 @@ CPPSRCS = \
         BasicThebesLayer.cpp \
         BasicTiledThebesLayer.cpp \
         CompositableHost.cpp \
+        CompositableTransactionParent.cpp \
         ImageContainer.cpp \
         Layers.cpp \
         RenderTrace.cpp \
@@ -143,6 +144,7 @@ EXPORTS_mozilla/layers =\
         AsyncPanZoomController.h \
         Axis.h \
         CompositableClient.h \
+        CompositableTransactionParent.h \
         Compositor.h \
 		ReusableTileStoreComposite.h \
         CompositorOGL.h \
@@ -150,13 +152,12 @@ EXPORTS_mozilla/layers =\
         CompositorCocoaWidgetHelper.h \
         CompositorChild.h \
         CompositorParent.h \
+        CompositableForwarder.h \
         Effects.h \
         GeckoContentController.h \
         GestureEventListener.h \
         ImageBridgeChild.h \
         ImageBridgeParent.h \
-        ImageContainerChild.h \
-        ImageContainerParent.h \
         ImageHost.h \
         ISurfaceDeallocator.h \
         LayersTypes.h \
@@ -192,8 +193,6 @@ CPPSRCS += \
         GestureEventListener.cpp \
         ImageBridgeChild.cpp \
         ImageBridgeParent.cpp \
-        ImageContainerChild.cpp \
-        ImageContainerParent.cpp \
         ReusableTileStoreComposite.cpp \
         ShadowLayers.cpp \
         ShadowLayerChild.cpp \

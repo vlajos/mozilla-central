@@ -12,6 +12,7 @@
 #include "mozilla/layers/LayersTypes.h" // for LayersBackend
 #include "mozilla/TimeStamp.h"
 #include "ImageTypes.h"
+#include "mozilla/RefPtr.h"
 
 #ifdef XP_WIN
 struct ID3D10Texture2D;
@@ -38,6 +39,7 @@ class Shmem;
     
 namespace layers {
 
+class ImageClient;
 class ImageContainerChild;
 class SharedPlanarYCbCrImage;
 
@@ -564,7 +566,8 @@ protected:
   // In this case the ImageContainer is perfectly usable, but it will forward 
   // frames to the compositor through transactions in the main thread rather than 
   // asynchronusly using the ImageBridge IPDL protocol.
-  nsRefPtr<ImageContainerChild> mImageContainerChild;
+  //nsRefPtr<ImageContainerChild> mImageContainerChild;
+  RefPtr<ImageClient> mImageClient;
 };
 
 class AutoLockImage

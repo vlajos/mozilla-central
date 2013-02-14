@@ -11,7 +11,7 @@
 #include "mozilla/layers/PLayersParent.h"
 #include "ShadowLayers.h"
 #include "ShadowLayersManager.h"
-#include "CompositableHost.h" // for CompositableParentManager
+#include "CompositableTransactionParent.h"
 
 namespace mozilla {
 

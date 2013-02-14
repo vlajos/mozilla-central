@@ -8,19 +8,111 @@
 #include "CompositorParent.h"
 #include "ImageBridgeChild.h"
 #include "ImageBridgeParent.h"
-#include "ImageContainerChild.h"
 #include "ImageLayers.h"
 #include "gfxSharedImageSurface.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "mozilla/layers/CompositableClient.h"
 #include "nsXULAppAPI.h"
+#include "Compositor.h"
+#include "CompositableClient.h"
+#include "TextureClient.h"
+
+#include "ImageClient.h"
 
 using namespace base;
 using namespace mozilla::ipc;
 
 namespace mozilla {
 namespace layers {
+
+typedef std::vector<CompositableOperation> OpVector;
+
+struct CompositableTransaction
+{
+  ~CompositableTransaction()
+  {
+    End();
+  }
+  bool Finished() const
+  {
+    return mFinished;
+  }
+  void Start()
+  {
+    MOZ_ASSERT(mFinished);
+    mFinished = false;
+  }
+  void End()
+  {
+    mFinished = true;
+    mSwapRequired = false;
+    mOperations.clear();
+  }
+  bool IsEmpty() const
+  {
+    return mOperations.empty();
+  }
+  void AddNoSwapEdit(const CompositableOperation& op)
+  {
+    NS_ABORT_IF_FALSE(!Finished(), "forgot BeginTransaction?");
+    mOperations.push_back(op);
+  }
+  void AddEdit(const CompositableOperation& op)
+  {
+    AddNoSwapEdit(op);
+    mSwapRequired = true;
+  }
+
+  OpVector mOperations;
+  bool mSwapRequired;
+  bool mFinished;
+};
+
+struct AutoTxnEnd {
+  AutoTxnEnd(CompositableTransaction* aTxn) : mTxn(aTxn) {}
+  ~AutoTxnEnd() { mTxn->End(); }
+  CompositableTransaction* mTxn;
+};
+
+void
+ImageBridgeChild::UpdateTexture(TextureClient* aTexture,
+                                const SurfaceDescriptor& aImage)
+{
+  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
+  MOZ_ASSERT(aTexture);
+  MOZ_ASSERT(aTexture->GetIPDLActor());
+  mTxn->AddEdit(OpPaintTexture(nullptr, aTexture->GetIPDLActor(), aImage));
+}
+
+void
+ImageBridgeChild::UpdateTextureRegion(TextureClient* aTexture,
+                                      const ThebesBuffer& aThebesBuffer,
+                                      const nsIntRegion& aUpdatedRegion)
+{
+  MOZ_ASSERT(aTexture);
+  MOZ_ASSERT(aTexture->GetIPDLActor());
+  mTxn->AddEdit(OpPaintTextureRegion(nullptr, aTexture->GetIPDLActor(),
+                                      aThebesBuffer,
+                                      aUpdatedRegion));
+}
+
+void
+ImageBridgeChild::UpdatePictureRect(CompositableClient* aCompositable,
+                                    const nsIntRect& aRect)
+{
+  mTxn->AddNoSwapEdit(OpUpdatePictureRect(nullptr, aCompositable->GetIPDLActor(), aRect));
+}
+
+void
+ImageBridgeChild::DestroyedThebesBuffer(ShadowableLayer* aThebes,
+                                        const SurfaceDescriptor& aBackBufferToDestroy)
+{
+  NS_RUNTIMEABORT("not implemented yet");
+  //mTxn->AddBufferToDestroy(aBackBufferToDestroy);
+}
+
 
 // Singleton 
 static ImageBridgeChild *sImageBridgeChildSingleton = nullptr;
@@ -29,14 +121,14 @@ static Thread *sImageBridgeChildThread = nullptr;
 // dispatched function
 static void StopImageBridgeSync(ReentrantMonitor *aBarrier, bool *aDone)
 {
-  ReentrantMonitorAutoEnter autoMon(*aBarrier);
+ReentrantMonitorAutoEnter autoMon(*aBarrier);
 
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");
   if (sImageBridgeChildSingleton) {
 
     sImageBridgeChildSingleton->SendStop();
-
+/*
     int numChildren =
       sImageBridgeChildSingleton->ManagedPImageContainerChild().Length();
     for (int i = numChildren-1; i >= 0; --i) {
@@ -45,6 +137,7 @@ static void StopImageBridgeSync(ReentrantMonitor *aBarrier, bool *aDone)
           sImageBridgeChildSingleton->ManagedPImageContainerChild()[i]);
       ctn->StopChild();
     }
+*/
   }
   *aDone = true;
   aBarrier->NotifyAll();
@@ -63,6 +156,7 @@ static void DeleteImageBridgeSync(ReentrantMonitor *aBarrier, bool *aDone)
   aBarrier->NotifyAll();
 }
 
+/*
 // dispatched function
 static void CreateContainerChildSync(nsRefPtr<ImageContainerChild>* result, 
                                      ReentrantMonitor* barrier,
@@ -73,6 +167,19 @@ static void CreateContainerChildSync(nsRefPtr<ImageContainerChild>* result,
   *aDone = true;
   barrier->NotifyAll();
 }
+*/
+// dispatched function
+static void CreateImageClientSync(RefPtr<ImageClient>* result,
+                                  ReentrantMonitor* barrier,
+                                  CompositableType aType,
+                                  bool *aDone)
+{
+  ReentrantMonitorAutoEnter autoMon(*barrier);
+  *result = sImageBridgeChildSingleton->CreateImageClientNow(aType);
+  *aDone = true;
+  barrier->NotifyAll();
+}
+
 
 struct GrallocParam {
   gfxIntSize size;
@@ -125,6 +232,44 @@ static void ConnectImageBridge(ImageBridgeChild * child, ImageBridgeParent * par
   ipc::AsyncChannel *parentChannel = parent->GetIPCChannel();
   child->Open(parentChannel, parentMsgLoop, mozilla::ipc::AsyncChannel::Child);
 }
+
+ImageBridgeChild::ImageBridgeChild()
+{
+  mTxn = new CompositableTransaction();
+}
+ImageBridgeChild::~ImageBridgeChild()
+{
+  delete mTxn;
+}
+
+void
+ImageBridgeChild::Connect(CompositableClient* aCompositable)
+{
+  printf("ShadowLayerForwarder::Connect(Compositable)\n");
+  MOZ_ASSERT(aCompositable);
+  uint64_t id = 0;
+  CompositableChild* child = static_cast<CompositableChild*>(
+    SendPCompositableConstructor(aCompositable->GetType(), &id));
+  MOZ_ASSERT(child);
+  child->SetAsyncID(id);
+  aCompositable->SetIPDLActor(child);
+  MOZ_ASSERT(child->GetAsyncID() == id);
+  child->SetClient(aCompositable);
+}
+
+PCompositableChild*
+ImageBridgeChild::AllocPCompositable(const CompositableType& aType, uint64_t* aID)
+{
+  return new CompositableChild();
+}
+
+bool
+ImageBridgeChild::DeallocPCompositable(PCompositableChild* aActor)
+{
+  delete aActor;
+  return true;
+}
+
 
 Thread* ImageBridgeChild::GetThread() const
 {
@@ -241,6 +386,7 @@ void ImageBridgeChild::DestroyBridge()
 }
 
 // Not needed, cf CreateImageContainerChildNow
+/*
 PImageContainerChild* ImageBridgeChild::AllocPImageContainer(uint64_t* id)
 {
   NS_ABORT();
@@ -252,7 +398,7 @@ bool ImageBridgeChild::DeallocPImageContainer(PImageContainerChild* aImgContaine
   static_cast<ImageContainerChild*>(aImgContainerChild)->Release();
   return true;
 }
-
+*/
 bool InImageBridgeChildThread()
 {
   return sImageBridgeChildThread->thread_id() == PlatformThread::CurrentId();
@@ -269,6 +415,39 @@ void ImageBridgeChild::ConnectAsync(ImageBridgeParent* aParent)
                                                             this, aParent));
 }
 
+TemporaryRef<ImageClient>
+ImageBridgeChild::CreateImageClient(CompositableType aType)
+{
+  if (InImageBridgeChildThread()) {
+    return CreateImageClientNow(aType);
+  }
+  ReentrantMonitor barrier("CreateImageClient Lock");
+  ReentrantMonitorAutoEnter autoMon(barrier);
+  bool done = false;
+
+  RefPtr<ImageClient> result = nullptr;
+  GetMessageLoop()->PostTask(FROM_HERE, NewRunnableFunction(&CreateImageClientSync,
+                                                            &result, &barrier, aType, &done));
+  // should stop the thread until the ImageClient has been created on
+  // the other thread
+  while (!done) {
+    barrier.Wait();
+  }
+  return result.forget();
+}
+
+TemporaryRef<ImageClient>
+ImageBridgeChild::CreateImageClientNow(CompositableType aType)
+{
+  RefPtr<ImageClient> client 
+    = CompositingFactory::CreateImageClient(mCompositorBackend,
+                                            aType,
+                                            this,
+                                            0);
+  client->Connect();
+  return client.forget();
+}
+/*
 already_AddRefed<ImageContainerChild> ImageBridgeChild::CreateImageContainerChild()
 {
   if (InImageBridgeChildThread()) {
@@ -298,11 +477,14 @@ already_AddRefed<ImageContainerChild> ImageBridgeChild::CreateImageContainerChil
 already_AddRefed<ImageContainerChild> ImageBridgeChild::CreateImageContainerChildNow()
 {
   nsRefPtr<ImageContainerChild> ctnChild = new ImageContainerChild();
+  RefPtr<ImageClient> compositable = CompositingFactory::CreateImageClient(LAYERS_OPENGL,BUFFER_SINGLE,this,0);
+  compositable->Connect();
   uint64_t id = 0;
   SendPImageContainerConstructor(ctnChild, &id);
   ctnChild->SetID(id);
   return ctnChild.forget();
 }
+*/
 
 PGrallocBufferChild*
 ImageBridgeChild::AllocPGrallocBuffer(const gfxIntSize&, const uint32_t&, const uint32_t&,

@@ -27,7 +27,7 @@ namespace layers {
  */
 sync protocol PImageContainer
 {
-  manager PImageBridge;
+//  manager PImageBridge;
   manages PGrallocBuffer;
 
 child:

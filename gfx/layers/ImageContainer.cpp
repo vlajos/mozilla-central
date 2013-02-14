@@ -5,7 +5,6 @@
 
 
 #include "mozilla/layers/ImageBridgeChild.h"
-#include "mozilla/layers/ImageContainerChild.h"
 
 #include "ImageContainer.h"
 #include "GonkIOSurfaceImage.h"
@@ -18,6 +17,7 @@
 #include "yuv_convert.h"
 #include "gfxUtils.h"
 #include "gfxPlatform.h"
+#include "ImageClient.h"
 
 #ifdef XP_MACOSX
 #include "mozilla/gfx/QuartzSupport.h"
@@ -125,19 +125,21 @@ ImageContainer::ImageContainer(int flag)
   mRemoteData(nullptr),
   mRemoteDataMutex(nullptr),
   mCompositionNotifySink(nullptr),
-  mImageContainerChild(nullptr)
+  //mImageContainerChild(nullptr),
+  mImageClient(nullptr)
 {
   if (flag == ENABLE_ASYNC && ImageBridgeChild::IsCreated()) {
-    mImageContainerChild = 
-      ImageBridgeChild::GetSingleton()->CreateImageContainerChild();
+    mImageClient = ImageBridgeChild::GetSingleton()->CreateImageClient(BUFFER_SINGLE);
   }
 }
 
 ImageContainer::~ImageContainer()
 {
+  /*
   if (mImageContainerChild) {
     mImageContainerChild->DispatchStop();
   }
+  */
 }
 
 already_AddRefed<Image>
@@ -145,6 +147,7 @@ ImageContainer::CreateImage(const ImageFormat *aFormats,
                             uint32_t aNumFormats)
 {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
+  /*
   if (mImageContainerChild) {
     nsRefPtr<Image> img = mImageContainerChild->CreateImage((uint32_t*)aFormats,
                                                             aNumFormats);
@@ -152,6 +155,7 @@ ImageContainer::CreateImage(const ImageFormat *aFormats,
       return img.forget();
     }
   }
+  */
   return mImageFactory->CreateImage(aFormats, aNumFormats, mScaleHint, mRecycleBin);
 }
 
@@ -179,7 +183,7 @@ void
 ImageContainer::SetCurrentImage(Image *aImage)
 {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-
+/*
   if (mImageContainerChild) {
     if (aImage) {
       mImageContainerChild->SendImageAsync(this, aImage);
@@ -187,7 +191,7 @@ ImageContainer::SetCurrentImage(Image *aImage)
       mImageContainerChild->SetIdle();
     }
   }
-  
+*/ 
   SetCurrentImageInternal(aImage);
 }
 
@@ -195,20 +199,20 @@ void
 ImageContainer::SetCurrentImageInTransaction(Image *aImage)
 {
   NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
-  NS_ASSERTION(!mImageContainerChild, "Should use async image transfer with ImageBridge.");
+//  NS_ASSERTION(!mImageContainerChild, "Should use async image transfer with ImageBridge.");
   
   SetCurrentImageInternal(aImage);
 }
 
 bool ImageContainer::IsAsync() const {
-  return mImageContainerChild != nullptr;
+  return mImageClient != nullptr;
 }
 
 uint64_t ImageContainer::GetAsyncContainerID() const
 {
   NS_ASSERTION(IsAsync(),"Shared image ID is only relevant to async ImageContainers");
   if (IsAsync()) {
-    return mImageContainerChild->GetID();
+    return mImageClient->GetAsyncID();
   } else {
     return 0; // zero is always an invalid SurfaceDescriptorID
   }

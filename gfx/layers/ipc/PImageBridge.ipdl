@@ -4,11 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include LayersSurfaces;
+include LayerTransaction;
 include protocol PGrallocBuffer;
-include protocol PImageContainer;
 include protocol PCompositable;
+include protocol PTexture;
+
+include "mozilla/layers/TextureFactoryIdentifier.h";
 
 using ImageHandle;
+using mozilla::layers::CompositableType;
 
 namespace mozilla {
 namespace layers {
@@ -20,11 +24,13 @@ namespace layers {
  */
 /*FIXME: sync*/rpc protocol PImageBridge
 {
-  manages PImageContainer;
   manages PCompositable;
   manages PGrallocBuffer;
 
 parent:
+
+  //sync Update(CompositableOperation[] ops) returns (EditReply[] reply);
+  async UpdateNoSwap(CompositableOperation[] ops);
 
   // Allocates a gralloc buffer that may not suitable to use with
   // gfxImageSurface but allows hardware decoder to write to the
@@ -43,8 +49,7 @@ parent:
   // before sending __delete__.
   sync Stop();
 
-  sync PImageContainer() returns (uint64_t id);
-  sync PCompositable() returns (uint64_t id);
+  sync PCompositable(CompositableType aType) returns (uint64_t id);
 };
 
 

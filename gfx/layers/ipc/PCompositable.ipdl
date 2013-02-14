@@ -9,6 +9,7 @@ include protocol PLayers;
 include protocol PImageBridge;
 include protocol PTexture;
 include "mozilla/layers/TextureFactoryIdentifier.h";
+include protocol PCompositor;
 
 using mozilla::layers::TextureInfo;
 
@@ -17,7 +18,7 @@ namespace layers {
 
 async protocol PCompositable
 {
-    manager PLayers or PImageBridge;
+    manager PImageBridge or PLayers;
     manages PTexture;
 parent:
     async PTexture(TextureInfo info);

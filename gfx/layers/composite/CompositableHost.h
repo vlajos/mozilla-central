@@ -9,6 +9,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/PCompositableParent.h"
 #include "mozilla/layers/ISurfaceDeallocator.h"
+
 namespace mozilla {
 namespace layers {
 
@@ -102,22 +103,13 @@ protected:
   Compositor* mCompositor;
 };
 
-// interface.
-// since PCompositble has two potential manager protocols, we can't just call
-// the Manager() method usually generated when there's one manager protocol,
-// so both manager protocols implement this and we keep a reference to them
-// through this interface.
-class CompositableParentManager : public ISurfaceDeallocator
-{
-public:
-  virtual Compositor* GetCompositor() = 0;
-};
-
+class CompositableParentManager;
 
 class CompositableParent : public PCompositableParent
 {
 public:
-  CompositableParent(CompositableParentManager* aMgr, CompositableType aType);
+  CompositableParent(CompositableParentManager* aMgr, CompositableType aType, uint64_t aID = 0);
+  ~CompositableParent();
   PTextureParent* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
   bool DeallocPTexture(PTextureParent* aActor) MOZ_OVERRIDE;
 
@@ -133,10 +125,8 @@ public:
     return mType;
   }
 
-  Compositor* GetCompositor() const
-  {
-    return mManager->GetCompositor();
-  }
+  Compositor* GetCompositor() const;
+
   CompositableParentManager* GetCompositableManager() const
   {
     return mManager;
@@ -145,7 +135,22 @@ private:
   RefPtr<CompositableHost> mHost;
   CompositableParentManager* mManager;
   CompositableType mType;
+  uint64_t mID;
 };
+
+
+/**
+ * Global CompositableMap, to use in the compositor thread only.
+ */
+namespace CompositableMap {
+  void Create();
+  void Destroy();
+  CompositableParent* Get(uint64_t aID);
+  void Set(uint64_t aID, CompositableParent* aParent);
+  void Erase(uint64_t aID);
+  void Clear();
+} // CompositableMap
+
 
 } // namespace
 } // namespace

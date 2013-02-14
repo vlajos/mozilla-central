@@ -6,9 +6,9 @@
 #include "CompositableHost.h"
 #include "ImageHost.h"
 #include "ContentHost.h"
-#include "mozilla/layers/ImageContainerParent.h"
 #include "mozilla/layers/TextureParent.h"
 #include "Effects.h"
+#include "mozilla/layers/CompositableTransactionParent.h"
 
 namespace mozilla {
 namespace layers {
@@ -69,6 +69,13 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
   }
 }
 
+Compositor*
+CompositableParent::GetCompositor() const
+{
+  return mManager->GetCompositor();
+}
+  
+
 PTextureParent*
 CompositableParent::AllocPTexture(const TextureInfo& aInfo)
 {
@@ -84,12 +91,64 @@ CompositableParent::DeallocPTexture(PTextureParent* aActor)
 
 
 CompositableParent::CompositableParent(CompositableParentManager* aMgr,
-                                       CompositableType aType)
+                                       CompositableType aType,
+                                       uint64_t aID)
 : mManager(aMgr)
 , mType(aType)
+, mID(aID)
 {
   mHost = CompositableHost::Create(aType, aMgr->GetCompositor());
+  if (aID) {
+    CompositableMap::Set(aID, this);
+  }
 }
+
+CompositableParent::~CompositableParent()
+{
+  CompositableMap::Erase(mID);
+}
+
+namespace CompositableMap {
+  typedef std::map<uint64_t, CompositableParent*> Map_t;
+  static Map_t* sCompositableMap = nullptr;
+  CompositableParent* Get(uint64_t aID)
+  {
+    Map_t::iterator it = sCompositableMap->find(aID);
+    if (it == sCompositableMap->end()) {
+      return nullptr;
+    }
+    return it->second;
+  }
+  void Set(uint64_t aID, CompositableParent* aParent)
+  {
+    (*sCompositableMap)[aID] = aParent;
+  }
+  void Erase(uint64_t aID)
+  {
+    Map_t::iterator it = sCompositableMap->find(aID);
+    if (it != sCompositableMap->end()) {
+      sCompositableMap->erase(it);
+    }
+  }
+  void Clear()
+  {
+    sCompositableMap->clear();
+  }
+  void Create()
+  {
+    if (sCompositableMap == nullptr) {
+      sCompositableMap = new Map_t;
+    }
+  }
+  void Destroy()
+  {
+    Clear();
+    delete sCompositableMap;
+    sCompositableMap = nullptr;
+  }
+} // CompositableMap
+
+
 
 } // namespace
 } // namespace

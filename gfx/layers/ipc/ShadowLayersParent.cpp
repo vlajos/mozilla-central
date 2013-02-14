@@ -382,115 +382,12 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
         ShadowChild(rtc)->AsLayer(), NULL);
       break;
     }
-
-    case Edit::TOpPaintTiledLayerBuffer: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint TiledLayerBuffer"));
-      const OpPaintTiledLayerBuffer& op = edit.get_OpPaintTiledLayerBuffer();
-      ShadowLayerParent* shadow = AsShadowLayer(op);
-
-      LayerComposite* compositeLayer = shadow->AsLayer()->AsLayerComposite();
-      compositeLayer->EnsureBuffer(BUFFER_TILED);
-      TiledLayerComposer* tileComposer = compositeLayer->AsTiledLayerComposer();
-
-      NS_ASSERTION(tileComposer, "compositeLayer is not a tile composer");
-
-      BasicTiledLayerBuffer* p = reinterpret_cast<BasicTiledLayerBuffer*>(op.tiledLayerBuffer());
-      tileComposer->PaintedTiledLayerBuffer(p);
+    case Edit::TCompositableOperation: {
+      ReceiveCompositableUpdate(edit.get_CompositableOperation(),
+                                isFirstPaint,
+                                replyv);
       break;
     }
-    case Edit::TOpPaintThebesBuffer: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
-
-      const OpPaintThebesBuffer& op = edit.get_OpPaintThebesBuffer();
-      ShadowThebesLayer* thebes =
-        static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op)->AsShadowLayer());
-      const ThebesBuffer& newFront = op.newFrontBuffer();
-
-      RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
-
-      OptionalThebesBuffer newBack;
-      nsIntRegion newValidRegion;
-      OptionalThebesBuffer readonlyFront;
-      nsIntRegion frontUpdatedRegion;
-      thebes->Swap(newFront, op.updatedRegion(),
-                   &newBack, &newValidRegion,
-                   &readonlyFront, &frontUpdatedRegion);
-
-      // We have to invalidate the pixels painted into the new buffer.
-      // They might overlap with our old pixels.
-      //aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
-
-      replyv.push_back(
-        OpThebesBufferSwap(
-          op.textureParent(), NULL,
-          newBack, newValidRegion,
-          readonlyFront, frontUpdatedRegion));
-
-      RenderTraceInvalidateEnd(thebes, "FF00FF");
-      break;
-    }
-    case Edit::TOpPaintCanvas: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint CanvasLayer"));
-
-      const OpPaintCanvas& op = edit.get_OpPaintCanvas();
-      ShadowCanvasLayer* canvas = static_cast<ShadowCanvasLayer*>(GetLayerFromOpPaint(op)->AsShadowLayer());
-
-      RenderTraceInvalidateStart(canvas, "FF00FF", canvas->GetVisibleRegion().GetBounds());
-
-      canvas->SetAllocator(this);
-      TextureHost* textureHost = AsTextureHost(op);
-
-      SurfaceDescriptor newBack;
-      bool success;
-      textureHost->Update(op.newFrontBuffer(), &newBack, &success);
-      if (!success) {
-        NS_ASSERTION(newBack.type() == SurfaceDescriptor::Tnull_t, "fail should give null result");
-      }
-
-      canvas->Updated();
-      replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
-
-      RenderTraceInvalidateEnd(canvas, "FF00FF");
-      break;
-    }
-/*
-    case Edit::TOpAttachTexture: {
-      const OpAttachTexture& op = edit.get_OpAttachTexture();
-      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
-      ShadowLayerParent* layerParent = static_cast<ShadowLayerParent*>(op.layerParent());
-      Layer* layer = layerParent->AsLayer();
-      MOZ_ASSERT(layer);
-      LayerComposite* layerComposite = layer->AsLayerComposite();
-      MOZ_ASSERT(layerComposite);
-
-      Compositor* compositor
-        = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
-      const TextureInfo& info = textureParent->GetTextureInfo();
-      layerComposite->EnsureBuffer(textureParent->GetTextureInfo().compositableType);
-
-      RefPtr<TextureHost> textureHost
-        = compositor->CreateTextureHost(info.memoryType,
-                                        info.textureFlags,
-                                        SURFACEDESCRIPTOR_UNKNOWN,
-                                        this);
-
-      textureHost->SetCompositorID(compositor->GetCompositorID());
-      textureParent->SetTextureHost(textureHost.get());
-      textureHost->SetTextureParent(textureParent);
-      layerComposite->GetCompositableHost()->AddTextureHost(textureHost);
-
-      layer->AsShadowLayer()->SetAllocator(this);
-      break;
-    }
-    case Edit::TOpAttachAsyncTexture: {
-      // For ImageBridge
-      const OpAttachAsyncTexture& op = edit.get_OpAttachAsyncTexture();
-      TextureHost* host = AsTextureHost(op);
-      MOZ_ASSERT(host, "TextureHost not created");
-      host->SetAsyncContainerID(op.containerID());
-      break;
-    }
-*/
     case Edit::TOpAttachCompositable: {
       printf("OpAttachCompositable\n");
       const OpAttachCompositable& op = edit.get_OpAttachCompositable();
@@ -512,78 +409,43 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       compositable->SetLayer(layerParent->AsLayer());
       break;
     }
-    case Edit::TOpPaintTexture: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
-
-      const OpPaintTexture& op = edit.get_OpPaintTexture();
-
-      Layer* layer = GetLayerFromOpPaint(op);
-      ShadowLayer* shadowLayer = layer->AsShadowLayer();
+    case Edit::TOpAttachAsyncCompositable: {
+      printf("OpAttachAsyncCompositable\n");
+      const OpAttachAsyncCompositable& op = edit.get_OpAttachAsyncCompositable();
+      CompositableParent* compositableParent = CompositableMap::Get(op.containerID());
+      MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");
+      ShadowLayerParent* layerParent
+        = static_cast<ShadowLayerParent*>(op.layerParent());
+      ShadowLayer* layer = layerParent->AsLayer()->AsShadowLayer();
+      LayerComposite* layerComposite = layerParent->AsLayer()->AsLayerComposite();
+      MOZ_ASSERT(layer);
 
       Compositor* compositor
-        = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+        = static_cast<LayerManagerComposite*>(layerParent->AsLayer()->Manager())->GetCompositor();
 
-      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
-      const SurfaceDescriptor& descriptor = op.image();
-      const TextureInfo& info = textureParent->GetTextureInfo();
-      if (textureParent->SurfaceTypeChanged(descriptor.type())) {
-        RefPtr<TextureHost> textureHost
-        = compositor->CreateTextureHost(info.memoryType,
-                                        info.textureFlags,
-                                        descriptor.type(),
-                                        this);
-        textureHost->SetCompositorID(compositor->GetCompositorID());
-        textureParent->SetTextureHost(textureHost.get());
-        textureHost->SetTextureParent(textureParent);
-        // here we probably need something more specific like SwapTextureHost
-        layer->AsLayerComposite()->GetCompositableHost()->AddTextureHost(textureHost);
-      }
-      textureParent->SetCurrentSurfaceType(descriptor.type());
-      TextureHost* host = AsTextureHost(op);
-      shadowLayer->SetAllocator(this);
-      SurfaceDescriptor newBack;
-      RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
-      host->Update(op.image(), &newBack);
-      replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
- 
-      RenderTraceInvalidateEnd(layer, "FF00FF");
-      break;
-    }
-    case Edit::TOpPaintTextureRegion: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
-
-      const OpPaintTextureRegion& op = edit.get_OpPaintTextureRegion();
-      ShadowThebesLayer* thebes =
-        static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op));
-      const ThebesBuffer& newFront = op.newFrontBuffer();
-
-      RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
-
-      thebes->SetAllocator(this);
-      OptionalThebesBuffer newBack;
-      nsIntRegion newValidRegion;
-      OptionalThebesBuffer readonlyFront;
-      nsIntRegion frontUpdatedRegion;
-      thebes->SwapTexture(newFront, op.updatedRegion(),
-                          &newBack, &newValidRegion,
-                          &readonlyFront, &frontUpdatedRegion);
-      replyv.push_back(
-        OpThebesBufferSwap(
-          op.textureParent(), nullptr,
-          newBack, newValidRegion,
-          readonlyFront, frontUpdatedRegion));
-
-      RenderTraceInvalidateEnd(thebes, "FF00FF");
-      break;
-    }
-    case Edit::TOpUpdatePictureRect: {
-      const OpUpdatePictureRect& op = edit.get_OpUpdatePictureRect();
-      CompositableHost* compositable
-       = static_cast<CompositableParent*>(op.compositableParent())->GetCompositableHost();
+      CompositableHost* compositable = compositableParent->GetCompositableHost();
       MOZ_ASSERT(compositable);
-      compositable->SetPictureRect(op.picture());
+      compositable->SetCompositor(compositor);
+      layerComposite->SetCompositableHost(compositable);
+      compositable->SetLayer(layerParent->AsLayer());
       break;
     }
+    case Edit::TOpPaintTiledLayerBuffer: {
+      MOZ_LAYERS_LOG(("[ParentSide] Paint TiledLayerBuffer"));
+      const OpPaintTiledLayerBuffer& op = edit.get_OpPaintTiledLayerBuffer();
+      ShadowLayerParent* shadow = AsShadowLayer(op);
+
+      LayerComposite* compositeLayer = shadow->AsLayer()->AsLayerComposite();
+      compositeLayer->EnsureBuffer(BUFFER_TILED);
+      TiledLayerComposer* tileComposer = compositeLayer->AsTiledLayerComposer();
+
+      NS_ASSERTION(tileComposer, "compositeLayer is not a tile composer");
+
+      BasicTiledLayerBuffer* p = reinterpret_cast<BasicTiledLayerBuffer*>(op.tiledLayerBuffer());
+      tileComposer->PaintedTiledLayerBuffer(p);
+      break;
+    }
+
     default:
       NS_RUNTIMEABORT("not reached");
     }

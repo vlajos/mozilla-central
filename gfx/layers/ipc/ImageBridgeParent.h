@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/PImageBridgeParent.h"
+#include "CompositableTransactionParent.h"
 
 class MessageLoop;
 
@@ -16,9 +17,12 @@ class CompositorParent;
  * It's purpose is mainly to setup the IPDL connection. Most of the
  * interesting stuff is in ImageContainerParent.
  */
-class ImageBridgeParent : public PImageBridgeParent
+class ImageBridgeParent : public PImageBridgeParent,
+                          public CompositableParentManager
 {
 public:
+  typedef InfallibleTArray<CompositableOperation> EditArray;
+  typedef InfallibleTArray<EditReply> EditReplyArray;
 
   ImageBridgeParent(MessageLoop* aLoop);
   ~ImageBridgeParent();
@@ -33,13 +37,27 @@ public:
   virtual bool
   DeallocPGrallocBuffer(PGrallocBufferParent* actor) MOZ_OVERRIDE;
 
-  // Overriden from PImageBridgeParent.
-  PImageContainerParent* AllocPImageContainer(uint64_t* aID) MOZ_OVERRIDE;
-  // Overriden from PImageBridgeParent.
-  bool DeallocPImageContainer(PImageContainerParent* toDealloc) MOZ_OVERRIDE;
+  // CompositableManager
+  Compositor* GetCompositor() MOZ_OVERRIDE { return nullptr; } // TODO[nical] this is actually a bad idea
 
-  PCompositableParent* AllocPCompositable(uint64_t*) MOZ_OVERRIDE { return nullptr; } // TODO[nical]
-  bool DeallocPCompositable(PCompositableParent* aActor) MOZ_OVERRIDE { return false; }
+  // ISurfaceDeallocator
+  virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE;
+  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
+  virtual bool AllocateUnsafe(size_t aSize,
+                              ipc::SharedMemory::SharedMemoryType aType,
+                              ipc::Shmem* aShmem) MOZ_OVERRIDE;
+
+  // PImageBridge
+  bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
+  bool RecvUpdateNoSwap(const EditArray& aEdits);
+
+/*
+  PImageContainerParent* AllocPImageContainer(uint64_t* aID) MOZ_OVERRIDE;
+  bool DeallocPImageContainer(PImageContainerParent* toDealloc) MOZ_OVERRIDE;
+*/
+  PCompositableParent* AllocPCompositable(const CompositableType& aType,
+                                          uint64_t*) MOZ_OVERRIDE;
+  bool DeallocPCompositable(PCompositableParent* aActor) MOZ_OVERRIDE;
 
 
   // Overriden from PImageBridgeParent.

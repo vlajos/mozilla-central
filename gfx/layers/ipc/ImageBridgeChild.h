@@ -8,6 +8,7 @@
 
 #include "mozilla/layers/PImageBridgeChild.h"
 #include "nsAutoPtr.h"
+#include "mozilla/layers/CompositableForwarder.h"
 
 class gfxSharedImageSurface;
 
@@ -18,10 +19,15 @@ class Thread;
 namespace mozilla {
 namespace layers {
 
+class ImageClient;
 class ImageContainerChild;
 class ImageBridgeParent;
 class SurfaceDescriptor;
+class CompositableClient;
+class CompositableTransaction;
+class ShadowableLayer;
 class Image;
+
 
 /**
  * Returns true if the current thread is the ImageBrdigeChild's thread.
@@ -72,6 +78,7 @@ bool InImageBridgeChildThread();
  * ShadowImageLayer with an ImageContainer ID).
  */
 class ImageBridgeChild : public PImageBridgeChild
+                       , public CompositableForwarder
 {
   friend class ImageContainer;
 public:
@@ -145,21 +152,21 @@ public:
   MessageLoop * GetMessageLoop() const;
 
   // overriden from PImageBridgeChild
-  PImageContainerChild* AllocPImageContainer(uint64_t*) MOZ_OVERRIDE;
+  // PImageContainerChild* AllocPImageContainer(uint64_t*) MOZ_OVERRIDE;
   // overriden from PImageBridgeChild
-  bool DeallocPImageContainer(PImageContainerChild* aImgContainerChild) MOZ_OVERRIDE;
+  // bool DeallocPImageContainer(PImageContainerChild* aImgContainerChild) MOZ_OVERRIDE;
 
-  PCompositableChild* AllocPCompositable(uint64_t*) MOZ_OVERRIDE { return nullptr; }
-  bool DeallocPCompositable(PCompositableChild* aActor) MOZ_OVERRIDE { return false; }
+  PCompositableChild* AllocPCompositable(const CompositableType& aType, uint64_t* aID) MOZ_OVERRIDE;
+  bool DeallocPCompositable(PCompositableChild* aActor) MOZ_OVERRIDE;
 
   /**
    * This must be called by the static function DeleteImageBridgeSync defined
    * in ImageBridgeChild.cpp ONLY.
    */
-  ~ImageBridgeChild() {};
+  ~ImageBridgeChild();
 
   /**
-   * Part of the creation of ImageCOntainerChild that is executed on the 
+   * Part of the creation of ImageContainerChild that is executed on the 
    * ImageBridgeChild thread after invoking CreateImageContainerChild
    *
    * Must be called from the ImageBridgeChild thread.
@@ -211,31 +218,67 @@ public:
   bool
   DeallocSurfaceDescriptorGrallocNow(const SurfaceDescriptor& aBuffer);
 
-protected:
-  
-  ImageBridgeChild() {};
+
+  // CompositableForwarder
+
+  virtual void Connect(CompositableClient* aCompositable) MOZ_OVERRIDE;
+  void Attach(CompositableClient* aCompositable,
+              ShadowableLayer* aLayer) MOZ_OVERRIDE
+  {
+    NS_RUNTIMEABORT("should not be called");
+  }
+  void AttachAsyncCompositable(uint64_t aCompositableID,
+                               ShadowableLayer* aLayer) MOZ_OVERRIDE
+  {
+    NS_RUNTIMEABORT("should not be called");
+  }
 
   /**
-   * Creates an ImageContainerChild and it's associated ImageContainerParent.
-   *
-   * The creation happens synchronously on the ImageBridgeChild thread, so if 
-   * this function is called on another thread, the current thread will be 
-   * paused until the creation is done.
-   *
-   * This method should only be called from ImageContainer's constructor, 
-   * because it spawns a task that contains a pointer to the ImageContainer
-   * (not a refPtr). So the execution of the task can race with the destruction
-   * of the ImageContainer if the refcount is decremented in another thread.
-   * This is done like this because you cannot use a refPtr to the object
-   * within its own constructor (if you do the object will be deleted along with
-   * the refPtr before the constructor returns and the refcount gets a chance to
-   * get incremented!). If you really need to call this function outside 
-   * ImageContainer's constructor, make sure to increment and decrement 
-   * the ImageContainer's reference count respectively before and after the call. 
+   * Communicate to the compositor that the texture identified by aLayer
+   * and aIdentifier has been updated to aImage.
    */
-  already_AddRefed<ImageContainerChild> CreateImageContainerChild();
+  virtual void UpdateTexture(TextureClient* aTexture,
+                             const SurfaceDescriptor& aImage) MOZ_OVERRIDE;
 
-  
+  /**
+   * Communicate to the compositor that aRegion in the texture identified by aLayer
+   * and aIdentifier has been updated to aThebesBuffer.
+   */
+  virtual void UpdateTextureRegion(TextureClient* aTexture,
+                                   const ThebesBuffer& aThebesBuffer,
+                                   const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE;
+
+  /**
+   * Communicate the picture rect of a YUV image in aLayer to the compositor
+   */
+  virtual void UpdatePictureRect(CompositableClient* aCompositable,
+                                 const nsIntRect& aRect) MOZ_OVERRIDE;
+
+  /**
+   * TODO
+   */
+  virtual void DestroyedThebesBuffer(ShadowableLayer*,
+                                     const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
+  // TODO
+  bool AllocBuffer(const gfxIntSize& aSize,
+                   gfxASurface::gfxContentType aContent,
+                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
+  // TODO
+  bool AllocBufferWithCaps(const gfxIntSize& aSize,
+                           gfxASurface::gfxContentType aContent,
+                           uint32_t aCaps,
+                           SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
+  // TODO
+  void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {}
+
+  TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);
+  TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);
+
+
+protected:
+  ImageBridgeChild();
+
+  CompositableTransaction* mTxn;
 };
 
 } // layers
