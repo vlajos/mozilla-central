@@ -34,6 +34,7 @@ union MaybeMagicGrallocBufferHandle {
 
 struct SurfaceDescriptorD3D10 {
   WindowsHandle handle;
+  bool hasAlpha;
 };
 
 struct SharedTextureDescriptor {

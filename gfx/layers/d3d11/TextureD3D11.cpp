@@ -96,7 +96,7 @@ TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     LOGD3D11("Error getting shared handle for texture.");
   }
 
-  mDescriptor = SurfaceDescriptorD3D10((WindowsHandle)sharedHandle);
+  mDescriptor = SurfaceDescriptorD3D10((WindowsHandle)sharedHandle, aType == gfxASurface::CONTENT_COLOR_ALPHA);
 
   mContentType = aType;
 }
@@ -217,7 +217,7 @@ TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialis
   } else if (aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
     mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
                                 __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTextures[0]));
-    mFormat = FORMAT_B8G8R8A8;
+    mFormat = aImage.get_SurfaceDescriptorD3D10().hasAlpha() ? FORMAT_B8G8R8A8 : FORMAT_B8G8R8X8;
     mNeedsLock = true;
   }
 

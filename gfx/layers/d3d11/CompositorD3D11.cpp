@@ -172,6 +172,19 @@ CompositorD3D11::Initialize()
     if (FAILED(hr)) {
       return false;
     }
+
+    CD3D11_BLEND_DESC blendDesc(D3D11_DEFAULT);
+    D3D11_RENDER_TARGET_BLEND_DESC rtBlend = {
+      TRUE,
+      D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD,
+      D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD,
+      D3D11_COLOR_WRITE_ENABLE_ALL
+    };
+    blendDesc.RenderTarget[0] = rtBlend;
+    hr = mDevice->CreateBlendState(&blendDesc, byRef(mAttachments->mPremulBlendState));
+    if (FAILED(hr)) {
+      return false;
+    }
   }
 
   nsRefPtr<IDXGIDevice> dxgiDevice;
@@ -350,6 +363,42 @@ CompositorD3D11::CreateRenderTarget(const gfx::IntRect &aRect,
   return rt;
 }
 
+void
+CompositorD3D11::SetRenderTarget(CompositingRenderTarget *aRenderTarget)
+{
+  ID3D11RenderTargetView *view;
+  if (!aRenderTarget) {
+    view = mDefaultRT;
+    mContext->OMSetRenderTargets(1, &view, nullptr);
+    return;
+  }
+
+  CompositingRenderTargetD3D11 *newRT =
+    static_cast<CompositingRenderTargetD3D11*>(aRenderTarget);
+  view = newRT->mRTView;
+  mContext->OMSetRenderTargets(1, &view, nullptr);
+}
+
+void
+CompositorD3D11::SetPSForEffect(Effect *aEffect)
+{
+  switch (aEffect->mType) {
+  case EFFECT_SOLID_COLOR:
+    mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
+    return;
+  case EFFECT_BGRA:
+  case EFFECT_RENDER_TARGET:
+    mContext->PSSetShader(mAttachments->mRGBAShader, nullptr, 0);
+    return;
+  case EFFECT_BGRX:
+    mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
+    return;
+  case EFFECT_YCBCR:
+    mContext->PSSetShader(mAttachments->mYCbCrShader, nullptr, 0);
+    return;
+  }
+}
+
 TemporaryRef<CompositingRenderTarget>
 CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
                                               const CompositingRenderTarget *aSource)
@@ -390,75 +439,66 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   }
   mContext->RSSetScissorRects(1, &scissor);
   mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+  mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
+  FLOAT blendFactor[] = { 0, 0, 0, 0 };
+  mContext->OMSetBlendState(mAttachments->mPremulBlendState, blendFactor, 0xFFFFFFFF);
 
-  if (aEffectChain.mPrimaryEffect->mType == EFFECT_SOLID_COLOR) {
-    Color color =
-      static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get())->mColor;
-    mPSConstants.layerColor[0] = color.r * aOpacity;
-    mPSConstants.layerColor[1] = color.g * aOpacity;
-    mPSConstants.layerColor[2] = color.b * aOpacity;
-    mPSConstants.layerColor[3] = color.a * aOpacity;
+  SetPSForEffect(aEffectChain.mPrimaryEffect);
 
-    mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
-    mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRX) {
-    EffectBGRX *rgbEffect = static_cast<EffectBGRX*>(aEffectChain.mPrimaryEffect.get());
+  switch (aEffectChain.mPrimaryEffect->mType) {
+  case EFFECT_SOLID_COLOR: {
+      Color color =
+        static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get())->mColor;
+      mPSConstants.layerColor[0] = color.r * aOpacity;
+      mPSConstants.layerColor[1] = color.g * aOpacity;
+      mPSConstants.layerColor[2] = color.b * aOpacity;
+      mPSConstants.layerColor[3] = color.a * aOpacity;
+    }
+    break;
+  case EFFECT_BGRX:
+  case EFFECT_BGRA:
+  case EFFECT_RENDER_TARGET:
+    {
+      TexturedEffect *texturedEffect = static_cast<TexturedEffect*>(aEffectChain.mPrimaryEffect.get());
 
-    mVSConstants.textureCoords = rgbEffect->mTextureCoords;
+      mVSConstants.textureCoords = texturedEffect->mTextureCoords;
 
-    TextureSourceD3D11 *source = rgbEffect->mTexture->AsSourceD3D11();
+      TextureSourceD3D11 *source = texturedEffect->mTexture->AsSourceD3D11();
 
-    RefPtr<ID3D11ShaderResourceView> view;
-    mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
+      RefPtr<ID3D11ShaderResourceView> view;
+      mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
 
-    ID3D11ShaderResourceView *srView = view;
-    mContext->PSSetShaderResources(0, 1, &srView);
+      ID3D11ShaderResourceView *srView = view;
+      mContext->PSSetShaderResources(0, 1, &srView);
 
-    SetSamplerForFilter(rgbEffect->mFilter);
+      SetSamplerForFilter(texturedEffect->mFilter);
+    }
+    break;
+  case EFFECT_YCBCR: {
+      EffectYCbCr *ycbcrEffect = static_cast<EffectYCbCr*>(aEffectChain.mPrimaryEffect.get());
 
-    mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
-    mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA) {
-    EffectBGRA *rgbEffect = static_cast<EffectBGRA*>(aEffectChain.mPrimaryEffect.get());
+      SetSamplerForFilter(FILTER_LINEAR);
 
-    mVSConstants.textureCoords = rgbEffect->mTextureCoords;
+      mVSConstants.textureCoords = ycbcrEffect->mTextureCoords;
 
-    TextureSourceD3D11 *source = rgbEffect->mTexture->AsSourceD3D11();
+      TextureSourceD3D11 *source = ycbcrEffect->mTexture->AsSourceD3D11();
+      TextureSourceD3D11::YCbCrTextures textures = source->GetYCbCrTextures();
 
-    RefPtr<ID3D11ShaderResourceView> view;
-    mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
+      RefPtr<ID3D11ShaderResourceView> views[3];
+      mDevice->CreateShaderResourceView(textures.mY, nullptr, byRef(views[0]));
+      mDevice->CreateShaderResourceView(textures.mCb, nullptr, byRef(views[1]));
+      mDevice->CreateShaderResourceView(textures.mCr, nullptr, byRef(views[2]));
 
-    ID3D11ShaderResourceView *srView = view;
-    mContext->PSSetShaderResources(0, 1, &srView);
+      ID3D11ShaderResourceView *srViews[3] = { views[0], views[1], views[2] };
+      mContext->PSSetShaderResources(0, 3, srViews);
 
-    SetSamplerForFilter(rgbEffect->mFilter);
-
-    mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
-    mContext->PSSetShader(mAttachments->mRGBAShader, nullptr, 0);
-  } else if (aEffectChain.mPrimaryEffect->mType == EFFECT_YCBCR) {
-    EffectYCbCr *ycbcrEffect = static_cast<EffectYCbCr*>(aEffectChain.mPrimaryEffect.get());
-
-    SetSamplerForFilter(FILTER_LINEAR);
-
-    mVSConstants.textureCoords = ycbcrEffect->mTextureCoords;
-
-    TextureSourceD3D11 *source = ycbcrEffect->mTexture->AsSourceD3D11();
-    TextureSourceD3D11::YCbCrTextures textures = source->GetYCbCrTextures();
-
-    RefPtr<ID3D11ShaderResourceView> views[3];
-    mDevice->CreateShaderResourceView(textures.mY, nullptr, byRef(views[0]));
-    mDevice->CreateShaderResourceView(textures.mCb, nullptr, byRef(views[1]));
-    mDevice->CreateShaderResourceView(textures.mCr, nullptr, byRef(views[2]));
-
-    ID3D11ShaderResourceView *srViews[3] = { views[0], views[1], views[2] };
-    mContext->PSSetShaderResources(0, 3, srViews);
-
-    mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
-    mContext->PSSetShader(mAttachments->mYCbCrShader, nullptr, 0);
-  } else {
+      mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
+      mContext->PSSetShader(mAttachments->mYCbCrShader, nullptr, 0);
+    }
+    break;
+  default:
     return;
   }
-
   UpdateConstantBuffers();
 
   mContext->Draw(4, 0);
@@ -483,9 +523,6 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
   mContext->IASetVertexBuffers(0, 1, &buffer, &size, &offset);
   ID3D11RenderTargetView *view = mDefaultRT;
   mContext->OMSetRenderTargets(1, &view, nullptr);
-
-  FLOAT green[] = { 0, 1.0f, 0, 1.0f };
-  mContext->ClearRenderTargetView(mDefaultRT, green);
 
   if (aClipRectOut) {
     nsIntRect rect;
@@ -614,6 +651,9 @@ CompositorD3D11::UpdateRenderTarget()
   }
 
   mDevice->CreateRenderTargetView(backBuf, NULL, byRef(mDefaultRT));
+  FLOAT black[] = { 0, 0, 0, 0 };
+  mContext->ClearRenderTargetView(mDefaultRT, black);
+
 }
 
 bool

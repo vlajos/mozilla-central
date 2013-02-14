@@ -69,7 +69,7 @@ public:
     CreateRenderTargetFromSource(const gfx::IntRect &aRect,
                                  const CompositingRenderTarget *aSource);
 
-  virtual void SetRenderTarget(CompositingRenderTarget *aSurface) { }
+  virtual void SetRenderTarget(CompositingRenderTarget *aSurface);
 
   virtual void SetRenderTargetSize(int aWidth, int aHeight) { }
 
@@ -126,6 +126,7 @@ private:
   bool CreateShaders();
   void UpdateConstantBuffers();
   void SetSamplerForFilter(gfx::Filter aFilter);
+  void SetPSForEffect(Effect *aEffect);
 
   RefPtr<ID3D11DeviceContext> mContext;
   RefPtr<ID3D11Device> mDevice;
