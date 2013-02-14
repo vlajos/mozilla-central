@@ -23,7 +23,6 @@ enum CompositableType
 
 typedef int32_t TextureHostType;
 static const TextureHostType TEXTURE_UNKNOWN  = 0;
-static const TextureHostType TEXTURE_SHMEM    = 0;
 static const TextureHostType TEXTURE_BUFFERED = 1 << 0;
 static const TextureHostType TEXTURE_SHARED   = 1 << 2;
 static const TextureHostType TEXTURE_DIRECT   = 1 << 3;
@@ -31,6 +30,7 @@ static const TextureHostType TEXTURE_ASYNC    = 1 << 4;
 static const TextureHostType TEXTURE_EXTERNAL = 1 << 5;
 static const TextureHostType TEXTURE_DXGI     = 1 << 6; // TODO belongs here?
 static const TextureHostType TEXTURE_TILE     = 1 << 7; 
+static const TextureHostType TEXTURE_SHMEM    = 1 << 8;
 
 /**
  * Sent from the compositor to the drawing LayerManager, includes properties
