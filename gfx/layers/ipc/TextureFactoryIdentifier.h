@@ -54,6 +54,12 @@ struct TextureInfo
   CompositableType compositableType;
   TextureHostType memoryType;
   uint32_t textureFlags;
+
+  TextureInfo()
+    : compositableType(BUFFER_UNKNOWN)
+    , memoryType(TEXTURE_UNKNOWN)
+    , textureFlags(0)
+  {}
 };
   
 } // namespace
