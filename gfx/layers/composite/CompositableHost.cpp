@@ -111,8 +111,14 @@ CompositableParent::~CompositableParent()
 namespace CompositableMap {
   typedef std::map<uint64_t, CompositableParent*> Map_t;
   static Map_t* sCompositableMap = nullptr;
+  bool IsCreated() {
+    return sCompositableMap != nullptr;
+  }
   CompositableParent* Get(uint64_t aID)
   {
+    if (!IsCreated() || (aID == 0)) {
+      return nullptr;
+    }
     Map_t::iterator it = sCompositableMap->find(aID);
     if (it == sCompositableMap->end()) {
       return nullptr;
@@ -121,10 +127,16 @@ namespace CompositableMap {
   }
   void Set(uint64_t aID, CompositableParent* aParent)
   {
+    if (!IsCreated() || (aID == 0)) {
+      return;
+    }
     (*sCompositableMap)[aID] = aParent;
   }
   void Erase(uint64_t aID)
   {
+    if (!IsCreated() || (aID == 0)) {
+      return;
+    }
     Map_t::iterator it = sCompositableMap->find(aID);
     if (it != sCompositableMap->end()) {
       sCompositableMap->erase(it);
@@ -132,6 +144,9 @@ namespace CompositableMap {
   }
   void Clear()
   {
+    if (!IsCreated()) {
+      return;
+    }
     sCompositableMap->clear();
   }
   void Create()
