@@ -149,7 +149,7 @@ bool ImageBridgeParent::DeallocPImageContainer(PImageContainerParent* toDealloc)
 }
 */
 PCompositableParent*
-ImageBridgeParent::ImageBridgeParent::AllocPCompositable(const CompositableType& aType,
+ImageBridgeParent::AllocPCompositable(const CompositableType& aType,
                                                          uint64_t* aID)
 {
   uint64_t id = GenImageContainerID();
