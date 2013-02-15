@@ -77,6 +77,9 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                        FlagsToGLFlags(mFlags)).get();
   }
 
+  NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
+                "Image layer has alpha image");
+
   // XXX this is always just ridiculously slow
   nsIntRegion updateRegion;
   
@@ -90,9 +93,6 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
-
-  NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
-                "Image layer has alpha image");
 
   if (mTexture->InUpdate()) {
     mTexture->EndUpdate();

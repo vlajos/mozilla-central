@@ -101,6 +101,11 @@ public:
     return mAllocator;
   }
 
+  void SetFlags(TextureFlags aFlags)
+  {
+    mTextureInfo.textureFlags = aFlags;
+  }
+
 protected:
   TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 

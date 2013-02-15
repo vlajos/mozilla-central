@@ -1311,6 +1311,9 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       }
     }
     break;
+  default:
+    MOZ_ASSERT(false, "Unhandled effect type");
+    break;
   }
 
   mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);

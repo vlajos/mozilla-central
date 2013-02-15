@@ -225,6 +225,8 @@ private:
       return BUFFER_BRIDGE;
     }
 
+    //TODO[nrc] this is nasty, we might wait on a monitor just to get the type
+    // we should cache it
     nsRefPtr<gfxASurface> surface;
     AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
 

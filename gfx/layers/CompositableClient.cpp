@@ -124,6 +124,7 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
 
   NS_ASSERTION(result, "Failed to create TextureClient");
   if (result) {
+    result->SetFlags(aFlags);
     TextureChild* textureChild
       = static_cast<TextureChild*>(GetIPDLActor()->SendPTextureConstructor(result->GetTextureInfo()));
     result->SetIPDLActor(textureChild);

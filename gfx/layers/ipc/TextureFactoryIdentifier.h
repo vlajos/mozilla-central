@@ -49,6 +49,8 @@ struct TextureFactoryIdentifier
  * to the CompositableHost. How the identifier is used depends on the buffer
  * client/host pair.
  */
+ //TODO field naming conventions
+ //TODO(maybe) move this file out of /ipc
 struct TextureInfo
 {
   CompositableType compositableType;
