@@ -73,10 +73,11 @@ struct EffectMask : public Effect
   gfx::Matrix4x4 mMaskTransform;
 };
 
-struct EffectRenderTarget : public Effect
+struct EffectRenderTarget : public TexturedEffect
 {
   EffectRenderTarget(CompositingRenderTarget *aRenderTarget)
-    : Effect(EFFECT_RENDER_TARGET), mRenderTarget(aRenderTarget)
+    : TexturedEffect(EFFECT_RENDER_TARGET, aRenderTarget, true, gfx::FILTER_LINEAR,
+                     false), mRenderTarget(aRenderTarget)
   {}
 
   RefPtr<CompositingRenderTarget> mRenderTarget;

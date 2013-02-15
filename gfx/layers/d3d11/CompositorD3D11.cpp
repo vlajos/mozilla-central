@@ -529,6 +529,9 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
     mWidget->GetClientBounds(rect);
     *aClipRectOut = Rect(0, 0, rect.width, rect.height);
   }
+
+  FLOAT black[] = { 0, 0, 0, 0 };
+  mContext->ClearRenderTargetView(mDefaultRT, black);
 }
 
 void
@@ -651,9 +654,6 @@ CompositorD3D11::UpdateRenderTarget()
   }
 
   mDevice->CreateRenderTargetView(backBuf, NULL, byRef(mDefaultRT));
-  FLOAT black[] = { 0, 0, 0, 0 };
-  mContext->ClearRenderTargetView(mDefaultRT, black);
-
 }
 
 bool
