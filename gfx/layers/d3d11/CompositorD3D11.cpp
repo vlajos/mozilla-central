@@ -445,6 +445,31 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   bool isPremultiplied = true;
 
   MaskMode maskMode = UNMASKED;
+  
+  if (aEffectChain.mSecondaryEffects[EFFECT_MASK]) {
+    if (aTransform.Is2D()) {
+      maskMode = MASKED;
+    } else {
+      MOZ_ASSERT(aEffectChain.mPrimaryEffect->mType == EFFECT_BGRA);
+      maskMode = MASKED3D;
+    }
+
+    EffectMask *maskEffect = static_cast<EffectMask*>(aEffectChain.mSecondaryEffects[EFFECT_MASK].get());
+    TextureSourceD3D11 *source = maskEffect->mMaskTexture->AsSourceD3D11();
+
+    RefPtr<ID3D11ShaderResourceView> view;
+    mDevice->CreateShaderResourceView(source->GetD3D11Texture(), nullptr, byRef(view));
+
+    ID3D11ShaderResourceView *srView = view;
+    mContext->PSSetShaderResources(3, 1, &srView);
+
+    const gfx::Matrix4x4& maskTransform = maskEffect->mMaskTransform;
+    NS_ASSERTION(maskTransform.Is2D(), "How did we end up with a 3D transform here?!");
+    Rect bounds = Rect(Point(), Size(maskEffect->mSize));
+
+    mVSConstants.maskQuad = maskTransform.As2D().TransformBounds(bounds);
+  }
+
 
   D3D11_RECT scissor;
   if (aClipRect) {

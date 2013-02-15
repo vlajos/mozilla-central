@@ -44,8 +44,8 @@ Texture2D tY;
 Texture2D tCb;
 Texture2D tCr;
 Texture2D tRGBWhite;
-// Always bind this to slot 4 since this is always available!
-Texture2D tMask : register(ps, t4);
+// Always bind this to slot 3 since this is always available!
+Texture2D tMask : register(ps, t3);
 
 struct VS_INPUT {
   float2 vPosition : POSITION;

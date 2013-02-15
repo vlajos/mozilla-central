@@ -202,16 +202,26 @@ TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialis
     initData.pSysMem = surf->Data();
     initData.SysMemPitch = surf->Stride();
 
-    CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_B8G8R8A8_UNORM, size.width, size.height,
+    DXGI_FORMAT dxgiFormat;
+    switch (surf->Format()) {
+    case gfxImageSurface::ImageFormatRGB24:
+      mFormat = FORMAT_B8G8R8X8;
+      dxgiFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
+      break;
+    case gfxImageSurface::ImageFormatARGB32:
+      mFormat = FORMAT_B8G8R8A8;
+      dxgiFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
+      break;
+    case gfxImageSurface::ImageFormatA8:
+      mFormat = FORMAT_A8;
+      dxgiFormat = DXGI_FORMAT_A8_UNORM;
+      break;
+    }
+      
+    CD3D11_TEXTURE2D_DESC desc(dxgiFormat, size.width, size.height,
                               1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
 
     mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[0]));
-
-    if (surf->Format() == gfxImageSurface::ImageFormatRGB24) {
-      mFormat = FORMAT_B8G8R8X8;
-    } else {
-      mFormat = FORMAT_B8G8R8A8;
-    }
 
     mNeedsLock = false;
   } else if (aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
