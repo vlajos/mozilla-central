@@ -121,12 +121,18 @@ public:
   virtual nsIntSize* GetWidgetSize();
 
 private:
+  enum MaskMode {
+    UNMASKED = 0,
+    MASKED = 1,
+    MASKED3D
+  };
+
   void VerifyBufferSize();
   void UpdateRenderTarget();
   bool CreateShaders();
   void UpdateConstantBuffers();
   void SetSamplerForFilter(gfx::Filter aFilter);
-  void SetPSForEffect(Effect *aEffect);
+  void SetPSForEffect(Effect *aEffect, MaskMode aMaskMode);
 
   RefPtr<ID3D11DeviceContext> mContext;
   RefPtr<ID3D11Device> mDevice;

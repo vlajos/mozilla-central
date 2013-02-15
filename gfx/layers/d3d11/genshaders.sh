@@ -14,3 +14,17 @@ fxc CompositorD3D11.fx -ERGBAShader -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnR
 cat $tempfile >> CompositorD3D11Shaders.h
 fxc CompositorD3D11.fx -EYCbCrShader -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnYCbCrShader
 cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -ELayerQuadMaskVS -nologo -Tvs_4_0_level_9_3 -Fh$tempfile -VnLayerQuadMaskVS
+cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -ELayerQuadMask3DVS -nologo -Tvs_4_0_level_9_3 -Fh$tempfile -VnLayerQuadMask3DVS
+cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -ESolidColorShaderMask -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnSolidColorShaderMask
+cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -ERGBShaderMask -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnRGBShaderMask
+cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -ERGBAShaderMask -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnRGBAShaderMask
+cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -ERGBAShaderMask3D -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnRGBAShaderMask3D
+cat $tempfile >> CompositorD3D11Shaders.h
+fxc CompositorD3D11.fx -EYCbCrShaderMask -Tps_4_0_level_9_3 -nologo -Fh$tempfile -VnYCbCrShaderMask
+cat $tempfile >> CompositorD3D11Shaders.h

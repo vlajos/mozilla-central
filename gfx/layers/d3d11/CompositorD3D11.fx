@@ -15,31 +15,7 @@ rect vMaskQuad : register(vs, c11);
 float4 fLayerColor : register(ps, c0);
 float fLayerOpacity : register(ps, c1);
 
-BlendState Premul
-{
-  AlphaToCoverageEnable = FALSE;
-  BlendEnable[0] = TRUE;
-  SrcBlend = One;
-  DestBlend = Inv_Src_Alpha;
-  BlendOp = Add;
-  SrcBlendAlpha = One;
-  DestBlendAlpha = Inv_Src_Alpha;
-  BlendOpAlpha = Add;
-  RenderTargetWriteMask[0] = 0x0F; // All
-};
-
-BlendState NonPremul
-{
-  AlphaToCoverageEnable = FALSE;
-  BlendEnable[0] = TRUE;
-  SrcBlend = Src_Alpha;
-  DestBlend = Inv_Src_Alpha;
-  BlendOp = Add;
-  SrcBlendAlpha = One;
-  DestBlendAlpha = Inv_Src_Alpha;
-  BlendOpAlpha = Add;
-  RenderTargetWriteMask[0] = 0x0F; // All
-};
+sampler sSampler : register(ps, s0);
 
 BlendState NoBlendDual
 {
@@ -63,32 +39,13 @@ BlendState ComponentAlphaBlend
   RenderTargetWriteMask[0] = 0x0F; // All
 };
 
-RasterizerState LayerRast
-{
-  ScissorEnable = True;
-  CullMode = None;
-};
-
 Texture2D tRGB;
 Texture2D tY;
 Texture2D tCb;
 Texture2D tCr;
 Texture2D tRGBWhite;
-Texture2D tMask;
-
-SamplerState LayerTextureSamplerLinear
-{
-    Filter = MIN_MAG_MIP_LINEAR;
-    AddressU = Clamp;
-    AddressV = Clamp;
-};
-
-SamplerState LayerTextureSamplerPoint
-{
-    Filter = MIN_MAG_MIP_POINT;
-    AddressU = Clamp;
-    AddressV = Clamp;
-};
+// Always bind this to slot 4 since this is always available!
+Texture2D tMask : register(ps, t4);
 
 struct VS_INPUT {
   float2 vPosition : POSITION;
@@ -130,6 +87,13 @@ float2 TexCoords(const float2 aPosition)
 
   return result;
 }
+
+SamplerState LayerTextureSamplerLinear
+{
+    Filter = MIN_MAG_MIP_LINEAR;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
 
 float4 TransformedPostion(float2 aInPosition)
 {
@@ -218,28 +182,28 @@ VS_MASK_3D_OUTPUT LayerQuadMask3DVS(const VS_INPUT aVertex)
   return outp;
 }
 
-float4 RGBAShaderMask(const VS_MASK_OUTPUT aVertex, uniform sampler aSampler) : SV_Target
+float4 RGBAShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
 {
   float2 maskCoords = aVertex.vMaskCoords;
-  float mask = tMask.Sample(LayerTextureSamplerLinear, maskCoords).a;
-  return tRGB.Sample(aSampler, aVertex.vTexCoords) * fLayerOpacity * mask;
+  float mask = tMask.Sample(sSampler, maskCoords).a;
+  return tRGB.Sample(sSampler, aVertex.vTexCoords) * fLayerOpacity * mask;
 }
 
-float4 RGBAShaderLinearMask3D(const VS_MASK_3D_OUTPUT aVertex) : SV_Target
+float4 RGBAShaderMask3D(const VS_MASK_3D_OUTPUT aVertex) : SV_Target
 {
   float2 maskCoords = aVertex.vMaskCoords.xy / aVertex.vMaskCoords.z;
   float mask = tMask.Sample(LayerTextureSamplerLinear, maskCoords).a;
-  return tRGB.Sample(LayerTextureSamplerLinear, aVertex.vTexCoords) * fLayerOpacity * mask;
+  return tRGB.Sample(sSampler, aVertex.vTexCoords) * fLayerOpacity * mask;
 }
 
-float4 RGBShaderMask(const VS_MASK_OUTPUT aVertex, uniform sampler aSampler) : SV_Target
+float4 RGBShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
 {
   float4 result;
-  result = tRGB.Sample(aSampler, aVertex.vTexCoords) * fLayerOpacity;
+  result = tRGB.Sample(sSampler, aVertex.vTexCoords) * fLayerOpacity;
   result.a = fLayerOpacity;
 
   float2 maskCoords = aVertex.vMaskCoords;
-  float mask = tMask.Sample(LayerTextureSamplerLinear, maskCoords).a;
+  float mask = tMask.Sample(sSampler, maskCoords).a;
   return result * mask;
 }
 
@@ -248,9 +212,9 @@ float4 CalculateYCbCrColor(const float2 aTexCoords)
   float4 yuv;
   float4 color;
 
-  yuv.r = tCr.Sample(LayerTextureSamplerLinear, aTexCoords).r - 0.5;
-  yuv.g = tY.Sample(LayerTextureSamplerLinear, aTexCoords).r - 0.0625;
-  yuv.b = tCb.Sample(LayerTextureSamplerLinear, aTexCoords).r - 0.5;
+  yuv.r = tCr.Sample(sSampler, aTexCoords).r - 0.5;
+  yuv.g = tY.Sample(sSampler, aTexCoords).r - 0.0625;
+  yuv.b = tCb.Sample(sSampler, aTexCoords).r - 0.5;
 
   color.r = yuv.g * 1.164 + yuv.r * 1.596;
   color.g = yuv.g * 1.164 - 0.813 * yuv.r - 0.391 * yuv.b;
@@ -263,7 +227,7 @@ float4 CalculateYCbCrColor(const float2 aTexCoords)
 float4 YCbCrShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
 {
   float2 maskCoords = aVertex.vMaskCoords;
-  float mask = tMask.Sample(LayerTextureSamplerLinear, maskCoords).a;
+  float mask = tMask.Sample(sSampler, maskCoords).a;
 
   return CalculateYCbCrColor(aVertex.vTexCoords) * fLayerOpacity * mask;
 }
@@ -272,12 +236,12 @@ PS_OUTPUT ComponentAlphaShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
 {
   PS_OUTPUT result;
 
-  result.vSrc = tRGB.Sample(LayerTextureSamplerLinear, aVertex.vTexCoords);
-  result.vAlpha = 1.0 - tRGBWhite.Sample(LayerTextureSamplerLinear, aVertex.vTexCoords) + result.vSrc;
+  result.vSrc = tRGB.Sample(sSampler, aVertex.vTexCoords);
+  result.vAlpha = 1.0 - tRGBWhite.Sample(sSampler, aVertex.vTexCoords) + result.vSrc;
   result.vSrc.a = result.vAlpha.g;
 
   float2 maskCoords = aVertex.vMaskCoords;
-  float mask = tMask.Sample(LayerTextureSamplerLinear, maskCoords).a;
+  float mask = tMask.Sample(sSampler, maskCoords).a;
   result.vSrc *= fLayerOpacity * mask;
   result.vAlpha *= fLayerOpacity * mask;
 
@@ -287,7 +251,7 @@ PS_OUTPUT ComponentAlphaShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
 float4 SolidColorShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
 {
   float2 maskCoords = aVertex.vMaskCoords;
-  float mask = tMask.Sample(LayerTextureSamplerLinear, maskCoords).a;
+  float mask = tMask.Sample(sSampler, maskCoords).a;
   return fLayerColor * mask;
 }
 
@@ -295,15 +259,15 @@ float4 SolidColorShaderMask(const VS_MASK_OUTPUT aVertex) : SV_Target
  *  Un-masked versions
  *************************************************************
  */
-float4 RGBAShader(const VS_OUTPUT aVertex, uniform sampler aSampler) : SV_Target
+float4 RGBAShader(const VS_OUTPUT aVertex) : SV_Target
 {
-  return tRGB.Sample(aSampler, aVertex.vTexCoords) * fLayerOpacity;
+  return tRGB.Sample(sSampler, aVertex.vTexCoords) * fLayerOpacity;
 }
 
-float4 RGBShader(const VS_OUTPUT aVertex, uniform sampler aSampler) : SV_Target
+float4 RGBShader(const VS_OUTPUT aVertex) : SV_Target
 {
   float4 result;
-  result = tRGB.Sample(aSampler, aVertex.vTexCoords) * fLayerOpacity;
+  result = tRGB.Sample(sSampler, aVertex.vTexCoords) * fLayerOpacity;
   result.a = fLayerOpacity;
   return result;
 }
@@ -317,8 +281,8 @@ PS_OUTPUT ComponentAlphaShader(const VS_OUTPUT aVertex) : SV_Target
 {
   PS_OUTPUT result;
 
-  result.vSrc = tRGB.Sample(LayerTextureSamplerLinear, aVertex.vTexCoords);
-  result.vAlpha = 1.0 - tRGBWhite.Sample(LayerTextureSamplerLinear, aVertex.vTexCoords) + result.vSrc;
+  result.vSrc = tRGB.Sample(sSampler, aVertex.vTexCoords);
+  result.vAlpha = 1.0 - tRGBWhite.Sample(sSampler, aVertex.vTexCoords) + result.vSrc;
   result.vSrc.a = result.vAlpha.g;
   result.vSrc *= fLayerOpacity;
   result.vAlpha *= fLayerOpacity;

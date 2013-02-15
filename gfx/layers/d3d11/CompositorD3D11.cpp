@@ -32,21 +32,24 @@ static const GUID sDeviceAttachmentsD3D11 =
 static const GUID sLayerManagerCount = 
 { 0x88041664, 0xc835, 0x4aa8, { 0xac, 0xb8, 0x7e, 0xc8, 0x32, 0x35, 0x7e, 0xd8 } };
 
+const FLOAT sBlendFactor[] = { 0, 0, 0, 0 };
+
 struct DeviceAttachmentsD3D11
 {
   RefPtr<ID3D11InputLayout> mInputLayout;
   RefPtr<ID3D11Buffer> mVertexBuffer;
-  RefPtr<ID3D11VertexShader> mVSQuadShader;
-  RefPtr<ID3D11PixelShader> mSolidColorShader;
-  RefPtr<ID3D11PixelShader> mRGBAShader;
-  RefPtr<ID3D11PixelShader> mRGBShader;
-  RefPtr<ID3D11PixelShader> mYCbCrShader;
+  RefPtr<ID3D11VertexShader> mVSQuadShader[3];
+  RefPtr<ID3D11PixelShader> mSolidColorShader[2];
+  RefPtr<ID3D11PixelShader> mRGBAShader[3];
+  RefPtr<ID3D11PixelShader> mRGBShader[2];
+  RefPtr<ID3D11PixelShader> mYCbCrShader[2];
   RefPtr<ID3D11Buffer> mPSConstantBuffer;
   RefPtr<ID3D11Buffer> mVSConstantBuffer;
   RefPtr<ID3D11RasterizerState> mRasterizerState;
   RefPtr<ID3D11SamplerState> mLinearSamplerState;
   RefPtr<ID3D11SamplerState> mPointSamplerState;
   RefPtr<ID3D11BlendState> mPremulBlendState;
+  RefPtr<ID3D11BlendState> mNonPremulBlendState;
 };
 
 CompositorD3D11::CompositorD3D11(nsIWidget *aWidget)
@@ -174,14 +177,26 @@ CompositorD3D11::Initialize()
     }
 
     CD3D11_BLEND_DESC blendDesc(D3D11_DEFAULT);
-    D3D11_RENDER_TARGET_BLEND_DESC rtBlend = {
+    D3D11_RENDER_TARGET_BLEND_DESC rtBlendPremul = {
       TRUE,
       D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD,
       D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD,
       D3D11_COLOR_WRITE_ENABLE_ALL
     };
-    blendDesc.RenderTarget[0] = rtBlend;
+    blendDesc.RenderTarget[0] = rtBlendPremul;
     hr = mDevice->CreateBlendState(&blendDesc, byRef(mAttachments->mPremulBlendState));
+    if (FAILED(hr)) {
+      return false;
+    }
+
+    D3D11_RENDER_TARGET_BLEND_DESC rtBlendNonPremul = {
+      TRUE,
+      D3D11_BLEND_SRC_ALPHA, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD,
+      D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD,
+      D3D11_COLOR_WRITE_ENABLE_ALL
+    };
+    blendDesc.RenderTarget[0] = rtBlendNonPremul;
+    hr = mDevice->CreateBlendState(&blendDesc, byRef(mAttachments->mNonPremulBlendState));
     if (FAILED(hr)) {
       return false;
     }
@@ -380,21 +395,21 @@ CompositorD3D11::SetRenderTarget(CompositingRenderTarget *aRenderTarget)
 }
 
 void
-CompositorD3D11::SetPSForEffect(Effect *aEffect)
+CompositorD3D11::SetPSForEffect(Effect *aEffect, MaskMode aMaskMode)
 {
   switch (aEffect->mType) {
   case EFFECT_SOLID_COLOR:
-    mContext->PSSetShader(mAttachments->mSolidColorShader, nullptr, 0);
+    mContext->PSSetShader(mAttachments->mSolidColorShader[aMaskMode], nullptr, 0);
     return;
   case EFFECT_BGRA:
   case EFFECT_RENDER_TARGET:
-    mContext->PSSetShader(mAttachments->mRGBAShader, nullptr, 0);
+    mContext->PSSetShader(mAttachments->mRGBAShader[aMaskMode], nullptr, 0);
     return;
   case EFFECT_BGRX:
-    mContext->PSSetShader(mAttachments->mRGBShader, nullptr, 0);
+    mContext->PSSetShader(mAttachments->mRGBShader[aMaskMode], nullptr, 0);
     return;
   case EFFECT_YCBCR:
-    mContext->PSSetShader(mAttachments->mYCbCrShader, nullptr, 0);
+    mContext->PSSetShader(mAttachments->mYCbCrShader[aMaskMode], nullptr, 0);
     return;
   }
 }
@@ -427,6 +442,10 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
   mPSConstants.layerOpacity[0] = aOpacity;
 
+  bool isPremultiplied = true;
+
+  MaskMode maskMode = UNMASKED;
+
   D3D11_RECT scissor;
   if (aClipRect) {
     scissor.left = aClipRect->x;
@@ -439,11 +458,9 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   }
   mContext->RSSetScissorRects(1, &scissor);
   mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-  mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
-  FLOAT blendFactor[] = { 0, 0, 0, 0 };
-  mContext->OMSetBlendState(mAttachments->mPremulBlendState, blendFactor, 0xFFFFFFFF);
+  mContext->VSSetShader(mAttachments->mVSQuadShader[maskMode], nullptr, 0);
 
-  SetPSForEffect(aEffectChain.mPrimaryEffect);
+  SetPSForEffect(aEffectChain.mPrimaryEffect, maskMode);
 
   switch (aEffectChain.mPrimaryEffect->mType) {
   case EFFECT_SOLID_COLOR: {
@@ -471,6 +488,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
       ID3D11ShaderResourceView *srView = view;
       mContext->PSSetShaderResources(0, 1, &srView);
 
+      isPremultiplied = texturedEffect->mPremultiplied;
+
       SetSamplerForFilter(texturedEffect->mFilter);
     }
     break;
@@ -491,9 +510,6 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
       ID3D11ShaderResourceView *srViews[3] = { views[0], views[1], views[2] };
       mContext->PSSetShaderResources(0, 3, srViews);
-
-      mContext->VSSetShader(mAttachments->mVSQuadShader, nullptr, 0);
-      mContext->PSSetShader(mAttachments->mYCbCrShader, nullptr, 0);
     }
     break;
   default:
@@ -501,7 +517,13 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   }
   UpdateConstantBuffers();
 
+  if (!isPremultiplied) {
+    mContext->OMSetBlendState(mAttachments->mNonPremulBlendState, sBlendFactor, 0xFFFFFFFF);
+  }
   mContext->Draw(4, 0);
+  if (!isPremultiplied) {
+    mContext->OMSetBlendState(mAttachments->mPremulBlendState, sBlendFactor, 0xFFFFFFFF);
+  }
 }
 
 void
@@ -532,6 +554,8 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
 
   FLOAT black[] = { 0, 0, 0, 0 };
   mContext->ClearRenderTargetView(mDefaultRT, black);
+
+  mContext->OMSetBlendState(mAttachments->mPremulBlendState, sBlendFactor, 0xFFFFFFFF);
 }
 
 void
@@ -662,13 +686,26 @@ CompositorD3D11::CreateShaders()
   HRESULT hr;
 
 
-  hr = mDevice->CreateVertexShader(LayerQuadVS, sizeof(LayerQuadVS), nullptr, byRef(mAttachments->mVSQuadShader));
-
+  hr = mDevice->CreateVertexShader(LayerQuadVS, sizeof(LayerQuadVS), nullptr, byRef(mAttachments->mVSQuadShader[UNMASKED]));
   if (FAILED(hr)) {
     return false;
   }
 
-#define LOAD_PIXEL_SHADER(x) hr = mDevice->CreatePixelShader(x, sizeof(x), nullptr, byRef(mAttachments->m##x)); \
+  hr = mDevice->CreateVertexShader(LayerQuadMaskVS, sizeof(LayerQuadMaskVS), nullptr, byRef(mAttachments->mVSQuadShader[MASKED]));
+  if (FAILED(hr)) {
+    return false;
+  }
+
+  hr = mDevice->CreateVertexShader(LayerQuadMask3DVS, sizeof(LayerQuadMask3DVS), nullptr, byRef(mAttachments->mVSQuadShader[MASKED3D]));
+  if (FAILED(hr)) {
+    return false;
+  }
+
+#define LOAD_PIXEL_SHADER(x) hr = mDevice->CreatePixelShader(x, sizeof(x), nullptr, byRef(mAttachments->m##x[UNMASKED])); \
+  if (FAILED(hr)) { \
+    return false; \
+  } \
+  hr = mDevice->CreatePixelShader(x##Mask, sizeof(x##Mask), nullptr, byRef(mAttachments->m##x[MASKED])); \
   if (FAILED(hr)) { \
     return false; \
   }
@@ -679,6 +716,11 @@ CompositorD3D11::CreateShaders()
   LOAD_PIXEL_SHADER(YCbCrShader);
 
 #undef LOAD_PIXEL_SHADER
+
+  hr = mDevice->CreatePixelShader(RGBAShaderMask3D, sizeof(RGBAShaderMask3D), nullptr, byRef(mAttachments->mRGBAShader[MASKED3D]));
+  if (FAILED(hr)) {
+    return false;
+  }
 }
 
 void
