@@ -100,7 +100,8 @@ ContentClientRemote::CreateBuffer(ContentType aType,
     mTextureClient->Destroyed(this);
   }
 
-  mTextureClient = CreateTextureClientForContent(AllowRepeat).drop();
+  mTextureClient = CreateTextureClient(TEXTURE_SHARED | TEXTURE_DXGI,
+                                       AllowRepeat);
 
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
                                       aType);

@@ -99,11 +99,6 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
       result = new TextureClientShared(GetForwarder(), GetType());
     }
     break;
-  case TEXTURE_SHMEM:
-    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
-      result = new TextureClientShmem(GetForwarder(), GetType());
-    }
-    break;
   case TEXTURE_DIRECT:
     if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
       result = new TextureClientShmem(GetForwarder(), GetType());
@@ -114,9 +109,17 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
     break;
   case TEXTURE_SHARED|TEXTURE_DXGI:
 #ifdef XP_WIN
-    result = new TextureClientD3D11(GetForwarder(), GetType());
-    break;
+    if (GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11) {
+      result = new TextureClientD3D11(GetForwarder(), GetType());
+      break;
+    }
 #endif
+    // fall through to TEXTURE_SHMEM
+  case TEXTURE_SHMEM:
+    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
+      result = new TextureClientShmem(GetForwarder(), GetType());
+    }
+    break;
   default:
     MOZ_ASSERT(false, "Unhandled texture host type");
   }
@@ -131,18 +134,6 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
   }
 
   return result.forget();
-}
-
-TemporaryRef<TextureClient>
-CompositableClient::CreateTextureClientForContent(TextureFlags aFlags)
-{
-  MOZ_ASSERT(GetForwarder(), "Can't create a texture client if the compositable is not connected to the compositor.");
-
-  TextureHostType textureHostType = GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11
-                                    ? TEXTURE_SHARED | TEXTURE_DXGI
-                                    : TEXTURE_SHMEM;
-
-  return CreateTextureClient(textureHostType, aFlags);
 }
 
 } // namespace
