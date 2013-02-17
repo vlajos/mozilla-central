@@ -40,7 +40,7 @@ bool
 ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 {
   if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_SHMEM, mFlags, true);
+    mTextureClient = CreateTextureClient(TEXTURE_SHMEM, mFlags);
   }
 
   nsRefPtr<gfxASurface> surface;
@@ -88,7 +88,7 @@ ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
 : ImageClient(aFwd)
 {
-  //mTextureClient = CreateTextureClient(TEXTURE_SHARED, true, aFlags);
+  //mTextureClient = CreateTextureClient(TEXTURE_SHARED, aFlags);
 }
 
 bool

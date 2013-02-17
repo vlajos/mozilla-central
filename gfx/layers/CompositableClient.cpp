@@ -83,8 +83,7 @@ CompositableChild::DeallocPTexture(PTextureChild* aActor)
 
 TemporaryRef<TextureClient>
 CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
-                                        TextureFlags aFlags,
-                                        bool aStrict)
+                                        TextureFlags aFlags)
 {
   MOZ_ASSERT(GetForwarder(), "Can't create a texture client if the compositable is not connected to the compositor.");
   LayersBackend parentBackend = GetForwarder()->GetCompositorBackendType();
@@ -134,6 +133,17 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
   return result.forget();
 }
 
+TemporaryRef<TextureClient>
+CompositableClient::CreateTextureClientForContent(TextureFlags aFlags)
+{
+  MOZ_ASSERT(GetForwarder(), "Can't create a texture client if the compositable is not connected to the compositor.");
+
+  TextureHostType textureHostType = GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11
+                                    ? TEXTURE_SHARED | TEXTURE_DXGI
+                                    : TEXTURE_SHMEM;
+
+  return CreateTextureClient(textureHostType, aFlags);
+}
 
 } // namespace
 } // namespace

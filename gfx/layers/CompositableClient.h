@@ -71,9 +71,12 @@ public:
 
   LayersBackend GetCompositorBackendType() const;
 
+  // [bjacob] boolean function args suck and don't get r+ from many reviewers.
+  // We should use named constants or overloads instead.
   TemporaryRef<TextureClient> CreateTextureClient(TextureHostType aTextureHostType,
-                                                  TextureFlags aFlags,
-                                                  bool aStrict = false);
+                                                  TextureFlags aFlags);
+
+  TemporaryRef<TextureClient> CreateTextureClientForContent(TextureFlags aFlags);
 
   /**
    * Establishes the connection with compositor side through IPDL

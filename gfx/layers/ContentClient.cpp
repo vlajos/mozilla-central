@@ -100,17 +100,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
     mTextureClient->Destroyed(this);
   }
 
-  // TODO[nrc] this logic should be in CreateTextureClientFor, content stuff
-  // not know about backend types
-  if (GetForwarder()->GetCompositorBackendType() != LAYERS_D3D11) {
-    mTextureClient = static_cast<TextureClientShmem*>(
-      CreateTextureClient(TEXTURE_SHMEM,
-                          AllowRepeat, true).drop());
-  } else {
-    mTextureClient = static_cast<TextureClientShmem*>(
-      CreateTextureClient(TEXTURE_SHARED|TEXTURE_DXGI,
-                          AllowRepeat, true).drop());
-  }
+  mTextureClient = CreateTextureClientForContent(AllowRepeat).drop();
 
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
                                       aType);
@@ -237,8 +227,7 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
     AutoOpenSurface roFrontBuffer(OPEN_READ_ONLY, roFront.buffer());
     nsIntSize size = roFrontBuffer.Size();
     mTextureClient = static_cast<TextureClientShmem*>(
-      CreateTextureClient(TEXTURE_SHMEM,
-                          AllowRepeat, true).drop());
+      CreateTextureClient(TEXTURE_SHMEM, AllowRepeat).drop());
     mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height),
                                         roFrontBuffer.ContentType());
   }
