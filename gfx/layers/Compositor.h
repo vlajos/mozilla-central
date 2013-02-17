@@ -531,9 +531,9 @@ class CompositingFactory
 {
 public:
   /**
-   * The Create*Client methods each create, configure, and return a new buffer
-   * or texture client. If necessary, a message will be sent to the compositor
-   * to create a corresponding buffer or texture host.
+   * The Create*Client methods each create, configure, and return a new compositable
+   * client. If necessary, a message will be sent to the compositor
+   * to create a corresponding compositable host.
    */
   static TemporaryRef<ImageClient> CreateImageClient(LayersBackend aBackendType,
                                                      CompositableType aImageHostType,
@@ -547,11 +547,6 @@ public:
                                                          CompositableType aImageHostType,
                                                          CompositableForwarder* aFwd,
                                                          TextureFlags aFlags);
-  static TemporaryRef<TextureClient> CreateTextureClient(LayersBackend aBackendType,
-                                                         TextureHostType aTextureHostType,
-                                                         CompositableType aImageHostType,
-                                                         CompositableForwarder* aFwd,
-                                                         bool aStrict = false); 
 
   static CompositableType TypeForImage(Image* aImage);
 };

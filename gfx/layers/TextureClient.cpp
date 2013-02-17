@@ -483,50 +483,6 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
   return nullptr;
 }
 
-/* static */ TemporaryRef<TextureClient>
-CompositingFactory::CreateTextureClient(LayersBackend aParentBackend,
-                                        TextureHostType aTextureHostType,
-                                        CompositableType aCompositableHostType,
-                                        CompositableForwarder* aForwarder,
-                                        bool aStrict /* = false */)
-{
-  RefPtr<TextureClient> result = nullptr;
-  switch (aTextureHostType) {
-  case TEXTURE_SHARED|TEXTURE_BUFFERED:
-    if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientSharedGL(aForwarder, aCompositableHostType);
-    }
-    break;
-  case TEXTURE_SHARED:
-    if (aParentBackend == LAYERS_OPENGL) {
-      result = new TextureClientShared(aForwarder, aCompositableHostType);
-    }
-    break;
-  case TEXTURE_SHMEM:
-    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new TextureClientShmem(aForwarder, aCompositableHostType);
-    }
-    break;
-  case TEXTURE_ASYNC:
-    result = new TextureClientBridge(aForwarder, aCompositableHostType);
-    break;
-  case TEXTURE_TILE:
-    result = new TextureClientTile(aForwarder, aCompositableHostType);
-    break;
-  case TEXTURE_SHARED|TEXTURE_DXGI:
-#ifdef XP_WIN
-    result = new TextureClientD3D11(aForwarder, aCompositableHostType);
-    break;
-#endif
-  default:
-    return result.forget();
-  }
-
-  NS_ASSERTION(result, "Failed to create ImageClient");
-
-  return result.forget();
-}
-
 void
 TextureClientTile::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
 {
