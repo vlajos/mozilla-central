@@ -77,9 +77,6 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                        FlagsToGLFlags(mFlags)).get();
   }
 
-  NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
-                "Image layer has alpha image");
-
   // XXX this is always just ridiculously slow
   nsIntRegion updateRegion;
   
@@ -126,6 +123,9 @@ TextureImageAsTextureHostOGL::Lock()
     NS_WARNING("TextureImageAsTextureHost to be composited without texture");
     return false;
   }
+
+  NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
+                "Image layer has alpha image");
 
   return true;
 }
