@@ -50,6 +50,7 @@ EXPORTS = \
         LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
+		LayersLogging.h \
         LayerManagerOGLShaders.h \
         LayerManagerOGL.h \
         LayerManagerOGLProgram.h \

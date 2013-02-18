@@ -14,6 +14,7 @@
 #include "nsRegion.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h"
+#include "Layers.h"
 
 class gfxContext;
 class gfxASurface;

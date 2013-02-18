@@ -6,10 +6,11 @@
 #ifndef GFX_LAYERSLOGGING_H
 #define GFX_LAYERSLOGGING_H
 
+#include "Layers.h"
 #include "nsPoint.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/gfx/Rect.h"
-#include "Compositor.h"
+#include "mozilla/layers/Compositor.h"
 #include "FrameMetrics.h"
 #include "gfxPattern.h"
 #include "gfxColor.h"

@@ -8,6 +8,7 @@
 
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/layers/Compositor.h"
+#include "LayersLogging.h"
 
 namespace mozilla {
 namespace layers {
