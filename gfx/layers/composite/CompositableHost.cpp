@@ -29,7 +29,7 @@ bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
                                const gfx::Matrix4x4& aTransform,
                                bool aIs3D)
 {
-  TextureSource* source = GetTextureHost()->AsTextureSource();
+  TextureSource* source = GetTextureHost();
   EffectMask* effect = new EffectMask(source,
                                       source->GetSize(),
                                       aTransform);

@@ -167,7 +167,7 @@ public:
   virtual ~TextureHost();
 
   /**
-   * TODO: not needed anymore
+   TODO[nical] comment
    * In most case there is one TextureSource per TextureHost, and CompositableHost
    * sometimes need to get a TextureSource from a TextureHost (for example to create
    * a mask effect). This is one of the sketchy pieces of the compositing architecture
@@ -176,7 +176,7 @@ public:
    */
   virtual TextureSource* AsTextureSource() { return this; };
 
-  virtual gfx::SurfaceFormat GetFormat() { return mFormat; }
+  virtual gfx::SurfaceFormat GetFormat() const { return mFormat; }
 
   virtual bool IsValid() const { return true; }
 

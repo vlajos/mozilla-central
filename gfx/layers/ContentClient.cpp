@@ -656,6 +656,7 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
                                          void* aCallbackData)
 {
   bool repeat = false;
+  bool isBufferChanged = false;
   do {
     // Compute the region that should be updated. Repeat as many times as
     // is required.
@@ -666,16 +667,11 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
                                             aPaintData,
                                             repeat);
 
-    // There's no further work to be done, return if nothing has been
-    // drawn, or give what has been drawn to the shadow layer to upload.
-    //TODO[nrc] it doesn't look to me that this is what is happening, if we
-    //drew on a previous iteration but not this one we return false, but probably mean true
-    if (regionToPaint.IsEmpty()) {
-      if (repeat) {
-        break;
-      } else {
-        return false;
-      }
+    isBufferChanged |= repeat;
+
+    // There's no further work to be done
+    if (regionToPaint.IsEmpty()) {  
+      break;
     }
 
     // Keep track of what we're about to refresh.
@@ -692,7 +688,9 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
     aInvalidRegion.Sub(aInvalidRegion, regionToPaint);
   } while (repeat);
 
-  return true;
+  // Return false if nothing has been drawn, or give what has been drawn
+  // to the shadow layer to upload.
+  return isBufferChanged;
 }
 
 BasicTiledLayerBuffer

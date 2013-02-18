@@ -165,7 +165,7 @@ TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
     mShaderProgram = handleDetails.mProgramType;
     if (mFlags & UseOpaqueSurface) {
       mFormat = gfx::FORMAT_B8G8R8X8;
-    } else if (mShaderProgram == gl::RGBALayerProgramType |
+    } else if (mShaderProgram == gl::RGBALayerProgramType ||
                mShaderProgram == gl::RGBARectLayerProgramType) {
       mFormat = gfx::FORMAT_B8G8R8A8;
     } else {

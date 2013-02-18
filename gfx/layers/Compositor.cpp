@@ -14,12 +14,11 @@ namespace layers {
 TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocator)
   : mFlags(NoFlags)
   , mBufferMode(aBufferMode)
-  , mDeAllocator(aDeallocator)
+  , mFormat(gfx::FORMAT_UNKNOWN)
   , mAsyncContainerID(0)
   , mAsyncTextureVersion(0)
   , mCompositorID(0)
-  , mFormat(gfx::FORMAT_UNKNOWN)
-
+  , mDeAllocator(aDeallocator)
 {
   MOZ_COUNT_CTOR(TextureHost);
   if (aBufferMode != BUFFER_NONE) {

@@ -1170,7 +1170,6 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
   case EFFECT_RGBA_EXTERNAL: {
       TexturedEffect* texturedEffect =
           static_cast<TexturedEffect*>(aEffectChain.mPrimaryEffect.get());
-      bool flipped;
       Rect textureCoords;
       TextureSource *source = texturedEffect->mTexture;
 
