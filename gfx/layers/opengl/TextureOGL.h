@@ -83,18 +83,18 @@ GetProgramTypeForTexture(const TextureHost *aTextureHost)
 /**
  * TextureHost implementation using a TextureImage as the underlying texture.
  */
-class TextureImageAsTextureHostOGL : public TextureHost
+class TextureImageTextureHostOGL : public TextureHost
                                    , public TextureSourceOGL
                                    , public TileIterator
 {
 public:
-  TextureImageAsTextureHostOGL(gl::GLContext* aGL,
+  TextureImageTextureHostOGL(gl::GLContext* aGL,
                                gl::TextureImage* aTexImage = nullptr,
                                BufferMode aBufferMode = BUFFER_NONE,
                                ISurfaceDeallocator* aDeallocator = nullptr)
   : TextureHost(aBufferMode, aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
-    MOZ_COUNT_CTOR(TextureImageAsTextureHostOGL);
+    MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
   }
 
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
@@ -102,9 +102,9 @@ public:
     return this;
   }
 
-  ~TextureImageAsTextureHostOGL()
+  ~TextureImageTextureHostOGL()
   {
-    MOZ_COUNT_DTOR(TextureImageAsTextureHostOGL);
+    MOZ_COUNT_DTOR(TextureImageTextureHostOGL);
   }
 
   // TextureHost
@@ -189,7 +189,7 @@ public:
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() { return "TextureImageAsTextureHostOGL"; }
+  virtual const char* Name() { return "TextureImageTextureHostOGL"; }
 #endif
 
 protected:
@@ -298,14 +298,14 @@ private:
   gl::GLContext* mGL;
 };
 
-class TextureHostOGLShared : public TextureHostOGL
+class SharedTextureHostOGL : public TextureHostOGL
 {
 public:
   typedef gfxASurface::gfxContentType ContentType;
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
 
-  virtual ~TextureHostOGLShared()
+  virtual ~SharedTextureHostOGL()
   {
     mGL->MakeCurrent();
     mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
@@ -367,10 +367,10 @@ public:
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() { return "TextureHostOGLShared"; }
+  virtual const char* Name() { return "SharedTextureHostOGL"; }
 #endif
 
-  TextureHostOGLShared(GLContext* aGL,
+  SharedTextureHostOGL(GLContext* aGL,
                        BufferMode aBufferMode = BUFFER_NONE,
                        ISurfaceDeallocator* aDeAllocator = nullptr)
 
@@ -395,76 +395,14 @@ protected:
   gl::GLContext::SharedTextureShareType mShareType;
 };
 
-// TODO ----- code below this line needs to be (re)implemented/fixed -----
-
-
-// TODO[nical] this class isn't implemented/usable
-class SharedTextureAsTextureHostOGL : public TextureHostOGL
+class TiledTextureHostOGL : public TextureHostOGL
 {
 public:
-  SharedTextureAsTextureHostOGL(gl::GLContext* aGL)
-  {
-    // TODO[nical]
-    //mSharedTexture = new SharedTextureWrapper;
-    mGL = aGL;
-  }
-
-  virtual ~SharedTextureAsTextureHostOGL()
-  {
-    mGL->MakeCurrent();
-    mGL->ReleaseSharedHandle(mShareType,
-                                             mSharedHandle);
-    if (mTextureHandle) {
-      mGL->fDeleteTextures(1, &mTextureHandle);
-    }
-  }
-
-  virtual GLuint GetTextureHandle()
-  {
-    return mTextureHandle;
-  }
-
-  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr,
-                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
-
-  virtual bool Lock() MOZ_OVERRIDE;
-  virtual void Unlock() MOZ_OVERRIDE;
-
-  GLenum GetWrapMode() const
-  {
-    return mWrapMode;
-  }
-  void SetWrapMode(GLenum aMode)
-  {
-    mWrapMode = aMode;
-  }
-
-#ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() { return "SharedTextureAsTextureHostOGL"; }
-#endif
-
-protected:
-  typedef mozilla::gl::GLContext GLContext;
-  typedef mozilla::gl::TextureImage TextureImage;
-
-  gl::GLContext* mGL;
-  GLuint mTextureHandle;
-  GLenum mWrapMode;
-  gl::SharedTextureHandle mSharedHandle;
-  gl::GLContext::SharedTextureShareType mShareType;
-
-};
-
-class TiledTextureHost : public TextureHostOGL
-{
-public:
-  TiledTextureHost(gl::GLContext* aGL) 
+  TiledTextureHostOGL(gl::GLContext* aGL) 
     : mTextureHandle(0)
     , mGL(aGL)
   {}
-  ~TiledTextureHost();
+  ~TiledTextureHostOGL();
 
   // have to pass the size in here (every time) because of DrawQuad API :-(
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize) MOZ_OVERRIDE;
@@ -489,7 +427,7 @@ public:
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() { return "TiledTextureHost"; }
+  virtual const char* Name() { return "TiledTextureHostOGL"; }
 #endif
 
 protected:

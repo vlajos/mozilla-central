@@ -60,7 +60,7 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
-void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
+void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                               bool* aIsInitialised,
                                               bool* aNeedsReset,
                                               nsIntRegion* aRegion)
@@ -117,7 +117,7 @@ void TextureImageAsTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
 }
 
 bool
-TextureImageAsTextureHostOGL::Lock()
+TextureImageTextureHostOGL::Lock()
 {
   if (!mTexture) {
     NS_WARNING("TextureImageAsTextureHost to be composited without texture");
@@ -131,7 +131,7 @@ TextureImageAsTextureHostOGL::Lock()
 }
 
 void
-TextureImageAsTextureHostOGL::Abort()
+TextureImageTextureHostOGL::Abort()
 {
   if (mTexture->InUpdate()) {
     mTexture->EndUpdate();
@@ -139,7 +139,7 @@ TextureImageAsTextureHostOGL::Abort()
 }
 
 void
-TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
+SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                  bool* aIsInitialised,
                                  bool* aNeedsReset,
                                  nsIntRegion* aRegion)
@@ -180,7 +180,7 @@ TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
 }
  
 bool
-TextureHostOGLShared::Lock()
+SharedTextureHostOGL::Lock()
 {
   MakeTextureIfNeeded(mGL, mTextureTarget, mTextureHandle);
 
@@ -195,7 +195,7 @@ TextureHostOGLShared::Lock()
 }
 
 void
-TextureHostOGLShared::Unlock()
+SharedTextureHostOGL::Unlock()
 {
   mGL->DetachSharedHandle(mShareType, mSharedHandle);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
@@ -263,7 +263,7 @@ YCbCrTextureHostOGL::Lock()
   return true;
 }
 
-TiledTextureHost::~TiledTextureHost()
+TiledTextureHostOGL::~TiledTextureHostOGL()
 {
   if (mTextureHandle) {
     mGL->MakeCurrent();
@@ -289,7 +289,7 @@ GetFormatAndTileForImageFormat(gfxASurface::gfxImageFormat aFormat,
 }
 
 void
-TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize)
+TiledTextureHostOGL::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize)
 {
   mSize = aSize;
   mGL->MakeCurrent();
@@ -328,10 +328,10 @@ TiledTextureHost::Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFla
 }
 
 bool
-TiledTextureHost::Lock()
+TiledTextureHostOGL::Lock()
 {
   if (!mTextureHandle) {
-    NS_WARNING("TiledTextureHost not ready to be composited");
+    NS_WARNING("TiledTextureHostOGL not ready to be composited");
     return false;
   }
 

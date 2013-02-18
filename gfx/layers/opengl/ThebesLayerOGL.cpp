@@ -143,7 +143,7 @@ public:
       return nullptr;
     }
 
-    mTextureHost = new TextureImageAsTextureHostOGL(gl(), texImage, BUFFER_NONE);
+    mTextureHost = new TextureImageTextureHostOGL(gl(), texImage, BUFFER_NONE);
     return texImage->GetBackingSurface();
   }
 
@@ -238,10 +238,10 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   nsIntRect destBufferRect;
 
   nsRefPtr<TextureImage> texImage = mTextureHost
-                                    ? static_cast<TextureImageAsTextureHostOGL*>(mTextureHost.get())->GetTextureImage()
+                                    ? static_cast<TextureImageTextureHostOGL*>(mTextureHost.get())->GetTextureImage()
                                     : nullptr;
   nsRefPtr<TextureImage> texImageOnWhite = mTextureHostOnWhite 
-                                           ? static_cast<TextureImageAsTextureHostOGL*>(mTextureHostOnWhite.get())->GetTextureImage()
+                                           ? static_cast<TextureImageTextureHostOGL*>(mTextureHostOnWhite.get())->GetTextureImage()
                                            : nullptr;
   while (true) {
     mode = mLayer->GetSurfaceMode();
@@ -475,7 +475,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         dstRectDrawBottomLeft.MoveBy(-destBufferRect.TopLeft());
 
         TextureImage* texImageSource
-          = static_cast<TextureImageAsTextureHostOGL*>(mTextureHost.get())->GetTextureImage();
+          = static_cast<TextureImageTextureHostOGL*>(mTextureHost.get())->GetTextureImage();
         
         destBuffer->Resize(destBufferRect.Size());
 
@@ -501,7 +501,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
         if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
           destBufferOnWhite->Resize(destBufferRect.Size());
           TextureImage* texImageSourceOnWhite 
-            = static_cast<TextureImageAsTextureHostOGL*>(mTextureHostOnWhite.get())->GetTextureImage();
+            = static_cast<TextureImageTextureHostOGL*>(mTextureHostOnWhite.get())->GetTextureImage();
         
           gl()->BlitTextureImage(texImageSourceOnWhite, srcRect,
                                  destBufferOnWhite, dstRect);
@@ -540,18 +540,18 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
                "Rotation disabled, but we have nonzero rotation?");
 
   if (mTextureHost) {
-    static_cast<TextureImageAsTextureHostOGL*>(mTextureHost.get())->SetTextureImage(texImage);
+    static_cast<TextureImageTextureHostOGL*>(mTextureHost.get())->SetTextureImage(texImage);
   } else {
-    mTextureHost = new TextureImageAsTextureHostOGL(gl(), texImage);
+    mTextureHost = new TextureImageTextureHostOGL(gl(), texImage);
   }
 
   if (!texImageOnWhite) {
     mTextureHostOnWhite = nullptr;
   } else {
     if (mTextureHostOnWhite) {
-      static_cast<TextureImageAsTextureHostOGL*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
+      static_cast<TextureImageTextureHostOGL*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
     } else if (texImageOnWhite) {
-      mTextureHostOnWhite = new TextureImageAsTextureHostOGL(gl(), texImageOnWhite);
+      mTextureHostOnWhite = new TextureImageTextureHostOGL(gl(), texImageOnWhite);
     }
   }
 

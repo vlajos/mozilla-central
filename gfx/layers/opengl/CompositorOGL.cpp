@@ -730,16 +730,16 @@ CompositorOGL::CreateTextureHost(TextureHostType aTextureType,
 #endif
 #endif
     if (aTextureType & TEXTURE_TILE) {
-      result = new TiledTextureHost(mGLContext);
+      result = new TiledTextureHostOGL(mGLContext);
     } else if (aTextureType & TEXTURE_SHARED) {
-      result = new TextureHostOGLShared(mGLContext,
+      result = new SharedTextureHostOGL(mGLContext,
                                         bufferMode,
                                         aDeAllocator);
     } else {
-      result = new TextureImageAsTextureHostOGL(mGLContext,
-                                                nullptr,
-                                                bufferMode,
-                                                aDeAllocator);
+      result = new TextureImageTextureHostOGL(mGLContext,
+                                              nullptr,
+                                              bufferMode,
+                                              aDeAllocator);
     }
   }
 
