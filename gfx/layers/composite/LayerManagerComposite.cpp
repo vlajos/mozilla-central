@@ -555,7 +555,7 @@ LayerManagerComposite::CreateShadowRefLayer()
     NS_WARNING("Call on destroyed layer manager");
     return nullptr;
   }
-  return nsRefPtr<CompositeRefLayer>(new CompositeRefLayer(this)).forget();
+  return nsRefPtr<RefLayerComposite>(new RefLayerComposite(this)).forget();
 }
 
 // TODO[nical: remove this

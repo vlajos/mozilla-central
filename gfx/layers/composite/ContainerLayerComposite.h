@@ -65,10 +65,9 @@ public:
 #endif
 };
 
-// RefLayerComposite? Why is this one in a different order!
-class CompositeRefLayer : public ShadowRefLayer,
+class RefLayerComposite : public ShadowRefLayer,
                           public LayerComposite,
-                          protected ContainerLayerImpl<CompositeRefLayer,
+                          protected ContainerLayerImpl<RefLayerComposite,
                                                        LayerComposite,
                                                        LayerManagerComposite>
 {
@@ -78,8 +77,8 @@ class CompositeRefLayer : public ShadowRefLayer,
   friend class mozilla::layers::ContainerLayerImpl;
 
 public:
-  CompositeRefLayer(LayerManagerComposite *aManager);
-  ~CompositeRefLayer();
+  RefLayerComposite(LayerManagerComposite *aManager);
+  ~RefLayerComposite();
 
   /** LayerOGL implementation */
   Layer* GetLayer() { return this; }

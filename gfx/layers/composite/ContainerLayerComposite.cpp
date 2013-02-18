@@ -86,27 +86,27 @@ ContainerLayerComposite::CleanupResources()
   ContainerCleanupResources(this);
 }
 
-CompositeRefLayer::CompositeRefLayer(LayerManagerComposite* aManager)
+RefLayerComposite::RefLayerComposite(LayerManagerComposite* aManager)
   : ShadowRefLayer(aManager, nullptr)
   , LayerComposite(aManager)
 {
   mImplData = static_cast<LayerComposite*>(this);
 }
 
-CompositeRefLayer::~CompositeRefLayer()
+RefLayerComposite::~RefLayerComposite()
 {
   Destroy();
 }
 
 void
-CompositeRefLayer::Destroy()
+RefLayerComposite::Destroy()
 {
   MOZ_ASSERT(!mFirstChild);
   mDestroyed = true;
 }
 
 LayerComposite*
-CompositeRefLayer::GetFirstChildComposite()
+RefLayerComposite::GetFirstChildComposite()
 {
   if (!mFirstChild) {
     return nullptr;
@@ -115,7 +115,7 @@ CompositeRefLayer::GetFirstChildComposite()
 }
 
 void
-CompositeRefLayer::RenderLayer(const nsIntPoint& aOffset,
+RefLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                const nsIntRect& aClipRect,
                                CompositingRenderTarget* aPreviousTarget)
 {
@@ -123,7 +123,7 @@ CompositeRefLayer::RenderLayer(const nsIntPoint& aOffset,
 }
 
 void
-CompositeRefLayer::CleanupResources()
+RefLayerComposite::CleanupResources()
 {
 }
 
