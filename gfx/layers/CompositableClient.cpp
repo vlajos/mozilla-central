@@ -16,6 +16,7 @@ namespace mozilla {
 namespace layers {
 
 CompositableClient::~CompositableClient() {
+  MOZ_COUNT_DTOR(CompositableClient);
   Destroy();
 }
 

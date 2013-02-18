@@ -69,6 +69,7 @@ const TextureFlags NewTile            = 0x20;
  * the texture's buffer host.
  * This is only useful when the underlying surface is too big to fit in one
  * device texture, which forces us to split it in smaller parts.
+ * Tiled Compositable is a different thing.
  */
 class TileIterator
 {
@@ -332,11 +333,6 @@ protected:
 
   TextureParent* mTextureParent;
   ISurfaceDeallocator* mDeAllocator;
-};
-
-class PlaceHolderTextureHost : public TextureHost
-{
-
 };
 
 /**

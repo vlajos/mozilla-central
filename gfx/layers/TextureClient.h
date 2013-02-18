@@ -27,9 +27,25 @@ class ContentClient;
 class PlanarYCbCrImage;
 
 
-/* This class allows texture clients to draw into textures through Azure or
+/**
+ * This class allows texture clients to draw into textures through Azure or
  * thebes and applies locking semantics to allow GPU or CPU level
  * synchronization.
+ * TextureClient's purpose is for the texture data to be
+ * forwarded to the right place on the compositor side and with correct locking
+ * semantics.
+ *
+ * When modifying a TextureClient's data, first call LockDescriptor, modify the
+ * data in the descriptor, and then call Unlock. This makes sure that if the data
+ * is shared with the compositor, the later will not try to read while the data is
+ * being modified (on the other side, TextureHost also has Lock/Unlock semantic).
+ * after unlocking, call Updated in order to add the modification to the current
+ * layer transaction.
+ * Depending on whether the data is shared or copied, Lock/Unlock and Updated can be
+ * no-ops. What's important is that the Client/Host pair implement the same semantic.
+ *
+ * TextureClient owns the data in its surface descriptor and is responsible for
+ * releasing it appropriately.
  */
 class TextureClient : public RefCounted<TextureClient>
 {
@@ -52,6 +68,7 @@ public:
     return mTextureInfo;
   }
   
+  // TODO[nical] remove this
   void SetAsyncContainerID(uint64_t aDescriptor);
 
   /**
@@ -76,11 +93,17 @@ public:
   // and that any initialisation has taken place
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) = 0;
 
+  /**
+   * _Only_ used at the end of the layer transaction when receiving a reply from the compositor.
+   */
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor)
   {
     mDescriptor = aDescriptor;
   }
 
+  /**
+   * Adds this TextureClient's data to the current layer transaction.
+   */
   virtual void Updated(ShadowableLayer* aLayer);
   virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
@@ -97,6 +120,7 @@ public:
     return mLayerForwarder;
   }
 
+  // TODO[nical] remove his, use the Forwarder instead
   ISurfaceDeallocator* GetSurfaceAllocator() const {
     return mAllocator;
   }
@@ -119,6 +143,20 @@ protected:
   PTextureChild* mTextureChild;
 };
 
+
+/*
+ * The logic of converting input image data into a Surface descriptor should be
+ * outside of TextureClient. For Image layers we implement them in the AutoLock*
+ * idiom so that the states need for the purpose of convertion only exist within
+ * the conversion operation, and to avoid adding special interfaces in 
+ * TextureClient tht are only used in one place and not implemented everywhere.
+ * We should do this for all the input data type.
+ */
+
+/**
+ * Base class for AutoLock*Client.
+ * handles lock/unlock
+ */
 class AutoLockTextureClient
 {
 public:
@@ -135,6 +173,9 @@ protected:
   SurfaceDescriptor* mDescriptor;
 };
 
+/**
+ * Writes the content of a PlanarYCbCrImage into a SurfaceDescriptor.
+ */
 class AutoLockYCbCrClient : public AutoLockTextureClient
 {
 public:
@@ -144,6 +185,9 @@ protected:
   bool EnsureTextureClient(PlanarYCbCrImage* aImage);
 };
 
+/**
+ * Writes the content of a gfxASurface into a SurfaceDescriptor.
+ */
 class AutoLockShmemClient : public AutoLockTextureClient
 {
 public:
@@ -155,6 +199,9 @@ protected:
                            gfxASurface::gfxContentType contentType);
 };
 
+/**
+ * Writes a texture handle into a SurfaceDescriptor.
+ */
 class AutoLockHandleClient : public AutoLockTextureClient
 {
 public:

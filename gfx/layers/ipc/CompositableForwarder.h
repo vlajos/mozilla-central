@@ -22,6 +22,16 @@ class SurfaceDescriptor;
 class ThebesBuffer;
 class TextureClient;
 
+/**
+ * A transaction is a set of changes that happenned on the content side, that
+ * should be sent to the compositor side.
+ * CompositableForwarder is an interface to manage a transaction of
+ * compositable objetcs.
+ *
+ * ShadowLayerForwarder is an example of a CompositableForwarder (that can
+ * additionally forward modifications of the Layer tree).
+ * ImageBridgeChild is another CompositableForwarder.
+ */
 class CompositableForwarder
 {
   friend class AutoOpenSurface;
@@ -38,7 +48,7 @@ public:
   virtual void Connect(CompositableClient* aCompositable) = 0;
 
   /**
-   * Adds an edit in the layers transaction in order to attach
+   * Adds an edit in the transaction in order to attach
    * the corresponding compositable and layer on the compositor side.
    * Connect must have been called on aCompositable beforehand.
    */
