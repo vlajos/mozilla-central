@@ -132,5 +132,20 @@ ImageLayerComposite::CleanupResources()
   mImageHost = nullptr;
 }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+nsACString&
+ImageLayerComposite::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  ImageLayer::PrintInfo(aTo, aPrefix);
+  aTo += "\n";
+  if (mImageHost) {
+    nsAutoCString pfx(aPrefix);
+    pfx += "  ";
+    mImageHost->PrintInfo(aTo, pfx.get());
+  }
+  return aTo;
+}
+#endif
+
 } /* layers */
 } /* mozilla */

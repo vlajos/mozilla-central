@@ -158,6 +158,10 @@ public:
 
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
+
 protected:
   virtual nsIntPoint GetOriginOffset() {
     return mBufferRect.TopLeft() - mBufferRotation;
@@ -369,6 +373,10 @@ public:
   virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
 
   virtual void AddTextureHost(TextureHost* aTextureHost) { MOZ_ASSERT(false, "Does nothing"); }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
 
 private:
   void ProcessUploadQueue(nsIntRegion* aNewValidRegion);

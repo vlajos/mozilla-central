@@ -599,6 +599,13 @@ CompositorParent::Composite()
       ComputeTransformForRotation(mTargetConfig.naturalBounds(),
                                   mTargetConfig.rotation()));
   }
+#ifdef MOZ_DUMP_PAINTING
+  static bool gDumpCompositorTree = false;
+  if (gDumpCompositorTree) {
+    fprintf(stdout, "Painting --- compositing layer tree:\n");
+    mLayerManager->Dump(stdout, "", false);
+  }
+#endif
   mLayerManager->EndEmptyTransaction();
 
 #ifdef COMPOSITOR_PERFORMANCE_WARNING

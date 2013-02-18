@@ -76,6 +76,7 @@ CPPSRCS = \
         CompositableTransactionParent.cpp \
         ImageContainer.cpp \
         Layers.cpp \
+        LayersLogging.cpp \
         RenderTrace.cpp \
         ReadbackProcessor.cpp \
         ThebesLayerBuffer.cpp \
@@ -190,6 +191,7 @@ CPPSRCS += \
         CompositorParent.cpp \
         ContentClient.cpp \
         ContentHost.cpp \
+        Effects.cpp \
         GestureEventListener.cpp \
         ImageBridgeChild.cpp \
         ImageBridgeParent.cpp \

@@ -74,6 +74,13 @@ public:
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() const { return "CanvasLayerComposite"; }
+
+protected:
+  virtual nsACString& PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
+
 private:
   void EnsureImageHost(CompositableType aHostType);
 
