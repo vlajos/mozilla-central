@@ -163,7 +163,7 @@ public:
   }
 
 private:
-  gl::ShaderProgramType GetProgramTypeForEffect(EffectTypes aType) const;
+  gl::ShaderProgramType GetProgramTypeForEffect(Effect* aEffect) const;
 
   /** 
    * Context target, nullptr when drawing directly to our swap chain.

@@ -177,6 +177,8 @@ public:
 
   virtual gfx::SurfaceFormat GetFormat() { return mFormat; }
 
+  virtual bool IsValid() const { return true; }
+
   /**
    * Update the texture host from a SurfaceDescriptor, aResult may contain the old
    * content of the texture, a pointer to the new image, or null. The

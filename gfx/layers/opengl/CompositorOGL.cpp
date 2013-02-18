@@ -1047,21 +1047,22 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
 }
 
 gl::ShaderProgramType
-CompositorOGL::GetProgramTypeForEffect(EffectTypes aType) const
+CompositorOGL::GetProgramTypeForEffect(Effect *aEffect) const
 {
-  switch(aType) {
+  switch(aEffect->mType) {
   case EFFECT_SOLID_COLOR:
     return gl::ColorLayerProgramType;
   case EFFECT_RGBA:
-    return gl::RGBALayerProgramType;
   case EFFECT_RGBA_EXTERNAL:
-    return gl::RGBAExternalLayerProgramType;
   case EFFECT_RGBX:
-    return gl::RGBXLayerProgramType;
   case EFFECT_BGRA:
-    return gl::BGRALayerProgramType;
   case EFFECT_BGRX:
-    return gl::BGRXLayerProgramType;
+  {
+    TexturedEffect* texturedEffect =
+        static_cast<TexturedEffect*>(aEffect);
+    TextureSourceOGL* source = texturedEffect->mTexture->AsSourceOGL();
+    return source->GetShaderProgram();
+  }
   case EFFECT_YCBCR:
     return gl::YCbCrLayerProgramType;
   case EFFECT_RENDER_TARGET:
@@ -1119,8 +1120,16 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
     maskType = MaskNone;
   }
 
-  ShaderProgramOGL *program = GetProgram(GetProgramTypeForEffect(aEffectChain.mPrimaryEffect->mType), maskType);
+  gl::ShaderProgramType programType = GetProgramTypeForEffect(aEffectChain.mPrimaryEffect);
+  ShaderProgramOGL *program = GetProgram(programType, maskType);
   program->Activate();
+  if (programType == gl::RGBARectLayerProgramType) {
+    TexturedEffect* texturedEffect =
+        static_cast<TexturedEffect*>(aEffectChain.mPrimaryEffect.get());
+    TextureSourceOGL* source = texturedEffect->mTexture->AsSourceOGL();
+    // This is used by IOSurface that use 0,0...w,h coordinate rather then 0,0..1,1.
+    program->SetTexCoordMultiplier(source->GetSize().width, source->GetSize().height);
+  }
   program->SetLayerQuadRect(aRect);
   program->SetLayerTransform(aTransform);
   program->SetRenderOffset(aOffset.x, aOffset.y);
@@ -1170,16 +1179,15 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
                                        LOCAL_GL_ONE, LOCAL_GL_ONE);
       }
 
+      source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
       if (aEffectChain.mPrimaryEffect->mType == EFFECT_RGBA_EXTERNAL) {
-        source->AsSourceOGL()->BindTexture(LOCAL_GL_TEXTURE0);
         EffectRGBAExternal* effectRGBAExternal =
           static_cast<EffectRGBAExternal*>(aEffectChain.mPrimaryEffect.get());
         program->SetTextureTransform(effectRGBAExternal->mTextureTransform);
-      } else {
-        source->AsSourceOGL()->BindTexture(0);
       }
 
-      mGLContext->ApplyFilterToBoundTexture(ThebesFilter(texturedEffect->mFilter));
+      mGLContext->ApplyFilterToBoundTexture(source->AsSourceOGL()->GetTextureTarget(),
+                                            ThebesFilter(texturedEffect->mFilter));
 
       program->SetTextureUnit(0);
       program->SetLayerOpacity(aOpacity);

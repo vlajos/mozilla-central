@@ -342,12 +342,17 @@ TextureClientShared::~TextureClientShared()
 TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
                                              CompositableType aCompositableType)
   : TextureClientShared(aForwarder, aCompositableType)
+  , mGL(nullptr)
 {
   mTextureInfo.memoryType = TEXTURE_SHARED|TEXTURE_BUFFERED;
 }
 
 TextureClientSharedGL::~TextureClientSharedGL()
 {
+  if (!IsSurfaceDescriptorValid(mDescriptor) ||
+      mDescriptor.type() != SurfaceDescriptor::TSharedTextureDescriptor) {
+    return;
+  }
   SharedTextureDescriptor handle = mDescriptor.get_SharedTextureDescriptor();
   if (mGL && handle.handle()) {
     mGL->ReleaseSharedHandle(handle.shareType(), handle.handle());
@@ -382,8 +387,6 @@ TextureClientSharedGL::LockHandle(GLContext* aGL, gl::GLContext::SharedTextureSh
 void
 TextureClientSharedGL::Unlock()
 {
-  // Move SharedTextureHandle ownership to ShadowLayer
-  mDescriptor = SurfaceDescriptor();
 }
 
 TextureClientBridge::TextureClientBridge(CompositableForwarder* aForwarder,

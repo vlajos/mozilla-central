@@ -19,7 +19,7 @@ using namespace gfx;
 namespace layers {
 
 static void
-MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
+MakeTextureIfNeeded(gl::GLContext* gl, GLenum aTarget, GLuint& aTexture)
 {
   if (aTexture != 0)
     return;
@@ -27,12 +27,12 @@ MakeTextureIfNeeded(gl::GLContext* gl, GLuint& aTexture)
   gl->fGenTextures(1, &aTexture);
 
   gl->fActiveTexture(LOCAL_GL_TEXTURE0);
-  gl->fBindTexture(LOCAL_GL_TEXTURE_2D, aTexture);
+  gl->fBindTexture(aTarget, aTexture);
 
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_LINEAR);
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MAG_FILTER, LOCAL_GL_LINEAR);
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
+  gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_LINEAR);
+  gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_MAG_FILTER, LOCAL_GL_LINEAR);
+  gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
+  gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
 }
  
 static gl::TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
@@ -157,11 +157,22 @@ TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
   }
   mShareType = texture.shareType();
 
-  if (mSharedHandle &&
-      newHandle != mSharedHandle) {
-    mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
-  }
   mSharedHandle = newHandle;
+
+  GLContext::SharedHandleDetails handleDetails;
+  if (mGL->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
+    mTextureTarget = handleDetails.mTarget;
+    mShaderProgram = handleDetails.mProgramType;
+    if (mFlags & UseOpaqueSurface) {
+      mFormat = gfx::FORMAT_B8G8R8X8;
+    } else if (mShaderProgram == gl::RGBALayerProgramType |
+               mShaderProgram == gl::RGBARectLayerProgramType) {
+      mFormat = gfx::FORMAT_B8G8R8A8;
+    } else {
+      NS_RUNTIMEABORT("Shader type not yet supported");
+    }
+  }
+
 
   if (aIsInitialised) {
     *aIsInitialised = true;
@@ -171,37 +182,15 @@ TextureHostOGLShared::UpdateImpl(const SurfaceDescriptor& aImage,
 bool
 TextureHostOGLShared::Lock()
 {
-  GLContext::SharedHandleDetails handleDetails;
-  if (!mGL->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
-    NS_ERROR("Failed to get shared handle details");
-    return false;
-  }
-
-  MakeTextureIfNeeded(mGL, mTextureHandle);
+  MakeTextureIfNeeded(mGL, mTextureTarget, mTextureHandle);
 
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
-  mGL->fBindTexture(handleDetails.mTarget, mTextureHandle);
+  mGL->fBindTexture(mTextureTarget, mTextureHandle);
   if (!mGL->AttachSharedHandle(mShareType, mSharedHandle)) {
     NS_ERROR("Failed to bind shared texture handle");
     return false;
   }
 
-  //TODO we need to do something here, like set mFormat and we need to move this to UpdateImpl
-#if 0
-  // TODO[bas] - Look into dealing with texture transform for RGBALayerExternal!!
-  if (mFlags & UseOpaqueSurface) {
-    return new EffectRGBX(this, true, aFilter, mFlags & NeedsYFlip);
-  } else if (handleDetails.mProgramType == gl::RGBALayerProgramType) {
-    return new EffectRGBA(this, true, aFilter, mFlags & NeedsYFlip);
-  } else if (handleDetails.mProgramType == gl::RGBALayerExternalProgramType) {
-    gfx::Matrix4x4 textureTransform;
-    ToMatrix4x4(handleDetails.mTextureTransform, textureTransform);
-    return new EffectRGBAExternal(this, textureTransform, true, aFilter, mFlags & NeedsYFlip);
-  } else {
-    NS_RUNTIMEABORT("Shader type not yet supported");
-    return nullptr;
-  }
-#endif
   return true;
 }
 

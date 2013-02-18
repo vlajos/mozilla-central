@@ -58,7 +58,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                            const nsIntRegion* aVisibleRegion,
                            TiledLayerProperties* aLayerProperties)
 {
-  if (!mTextureHost) {
+  if (!mTextureHost || !mTextureHost->IsValid()) {
     return;
   }
 
@@ -85,10 +85,14 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     gfx::Rect rect(0, 0,
                    mTextureHost->AsTextureSource()->GetSize().width,
                    mTextureHost->AsTextureSource()->GetSize().height);
-    effect->mTextureCoords = Rect(Float(mPictureRect.x) / rect.width,
-                                  Float(mPictureRect.y) / rect.height,
-                                  Float(mPictureRect.width) / rect.width,
-                                  Float(mPictureRect.height) / rect.height);
+    if (mPictureRect.IsEqualInterior(nsIntRect())) {
+      effect->mTextureCoords = Rect(0, 0, 1, 1);
+    } else {
+      effect->mTextureCoords = Rect(Float(mPictureRect.x) / rect.width,
+                                    Float(mPictureRect.y) / rect.height,
+                                    Float(mPictureRect.width) / rect.width,
+                                    Float(mPictureRect.height) / rect.height);
+    }
 
     GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain,
                               aOpacity, aTransform, aOffset);

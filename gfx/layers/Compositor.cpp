@@ -23,13 +23,15 @@ TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocat
 {
   MOZ_COUNT_CTOR(TextureHost);
   if (aBufferMode != BUFFER_NONE) {
-    mBuffer = new SurfaceDescriptor;
+    mBuffer = new SurfaceDescriptor(null_t());
+  } else {
+    mBuffer = nullptr;
   }
 }
 
 TextureHost::~TextureHost()
 {
-  if (IsBuffered()) {
+  if (IsBuffered() && mBuffer) {
     MOZ_ASSERT(mDeAllocator);
     mDeAllocator->DestroySharedSurface(mBuffer);
     delete mBuffer;
