@@ -83,6 +83,10 @@ public:
     }
   }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
+
 protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;

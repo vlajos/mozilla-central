@@ -147,3 +147,19 @@ CanvasLayerComposite::SetAllocator(ISurfaceDeallocator* aAllocator)
 {
   mImageHost->SetDeAllocator(aAllocator);
 }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+nsACString&
+CanvasLayerComposite::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  CanvasLayer::PrintInfo(aTo, aPrefix);
+  aTo += "\n";
+  if (mImageHost) {
+    nsAutoCString pfx(aPrefix);
+    pfx += "  ";
+    mImageHost->PrintInfo(aTo, pfx.get());
+  }
+  return aTo;
+}
+#endif
+

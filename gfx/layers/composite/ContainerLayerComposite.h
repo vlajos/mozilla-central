@@ -59,8 +59,13 @@ public:
 
   // container layers don't use a compositable
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() const { return "ContainerLayerComposite"; }
+#endif
 };
 
+// RefLayerComposite? Why is this one in a different order!
 class CompositeRefLayer : public ShadowRefLayer,
                           public LayerComposite,
                           protected ContainerLayerImpl<CompositeRefLayer,
@@ -97,6 +102,9 @@ public:
   // ref layers don't use a compositable
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() const { return "RefLayerComposite"; }
+#endif
 };
 
 } /* layers */

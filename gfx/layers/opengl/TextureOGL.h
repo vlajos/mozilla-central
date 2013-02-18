@@ -188,6 +188,10 @@ public:
     return mTexture->NextTile();
   }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "TextureImageAsTextureHostOGL"; }
+#endif
+
 protected:
   RefPtr<gl::TextureImage> mTexture;
   gl::GLContext* mGL;
@@ -283,6 +287,10 @@ public:
     return mYTexture->GetSize();
   }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "YCbCrTextureHostOGL"; }
+#endif
+
 private:
   RefPtr<Channel> mYTexture;
   RefPtr<Channel> mCbTexture;
@@ -358,6 +366,10 @@ public:
              gfxASurface::CONTENT_COLOR;
   }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "TextureHostOGLShared"; }
+#endif
+
   TextureHostOGLShared(GLContext* aGL,
                        BufferMode aBufferMode = BUFFER_NONE,
                        ISurfaceDeallocator* aDeAllocator = nullptr)
@@ -429,6 +441,10 @@ public:
     mWrapMode = aMode;
   }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "SharedTextureAsTextureHostOGL"; }
+#endif
+
 protected:
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
@@ -471,6 +487,10 @@ public:
   {
     return GetProgramTypeForTexture(this);
   }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "TiledTextureHost"; }
+#endif
 
 protected:
   virtual uint64_t GetIdentifier() const MOZ_OVERRIDE {

@@ -157,7 +157,7 @@ public:
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "OGL(Compositor)"; }
+  virtual const char* Name() const { return ""; }
 #endif // MOZ_LAYERS_HAVE_LOG
 
   enum WorldTransforPolicy {

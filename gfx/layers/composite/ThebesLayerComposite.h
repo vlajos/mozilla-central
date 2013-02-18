@@ -63,6 +63,13 @@ public:
 
   virtual void EnsureBuffer(CompositableType aHostType) MOZ_OVERRIDE;
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() const { return "ThebesLayerComposite"; }
+
+protected:
+  virtual nsACString& PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
+
 private:
   gfxRect GetDisplayPort();
   gfxSize GetEffectiveResolution();

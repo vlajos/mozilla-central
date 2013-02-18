@@ -341,5 +341,20 @@ ThebesLayerComposite::GetCompositionBounds()
   return compositionBounds;
 }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+nsACString&
+ThebesLayerComposite::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  ThebesLayer::PrintInfo(aTo, aPrefix);
+  aTo += "\n";
+  if (mBuffer) {
+    nsAutoCString pfx(aPrefix);
+    pfx += "  ";
+    mBuffer->PrintInfo(aTo, pfx.get());
+  }
+  return aTo;
+}
+#endif
+
 } /* layers */
 } /* mozilla */

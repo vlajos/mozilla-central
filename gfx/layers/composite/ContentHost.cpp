@@ -10,6 +10,8 @@
 #include "mozilla/layers/Effects.h"
 #include "ReusableTileStoreComposite.h"
 #include "gfxPlatform.h"
+#include "LayersLogging.h"
+#include "nsPrintfCString.h"
 
 namespace mozilla {
 
@@ -794,6 +796,46 @@ TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* 
   mTextureHost->Update(aReusableSurface, flags, gfx::IntSize(aSize, aSize));
 }
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+void
+ContentHost::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  aTo += aPrefix;
+  aTo += nsPrintfCString("ContentHost (0x%p)", this);
+
+  AppendToString(aTo, mBufferRect, " [buffer-rect=", "]");
+  AppendToString(aTo, mBufferRotation, " [buffer-rotation=", "]");
+  if (PaintWillResample()) {
+    aTo += " [paint-will-resample]";
+  }
+
+  nsAutoCString pfx(aPrefix);
+  pfx += "  ";
+
+  if (mTextureEffect) {
+    aTo += "\n";
+    mTextureEffect->PrintInfo(aTo, pfx.get());
+  }
+
+  if (mTextureHost) {
+    aTo += "\n";
+    mTextureHost->PrintInfo(aTo, pfx.get());
+  }
+
+  if (mTextureHostOnWhite) {
+    aTo += "\n";
+    mTextureHostOnWhite->PrintInfo(aTo, pfx.get());
+  }
+}
+
+void
+TiledContentHost::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  aTo += aPrefix;
+  aTo += nsPrintfCString("TiledContentHost (0x%p)", this);
+
+}
+#endif
 
 } // namespace
 } // namespace

@@ -50,7 +50,6 @@ class PTextureChild;
 class TextureSourceOGL;
 class TextureSourceD3D11;
 class TextureParent;
-class Matrix4x4;
 struct TexturedEffect;
 
 typedef uint32_t TextureFlags;
@@ -61,7 +60,6 @@ const TextureFlags ForceSingleTile    = 0x4;
 const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 const TextureFlags NewTile            = 0x20;
-
 
 /**
  * A view on a TextureHost where the texture is internally represented as tiles
@@ -118,6 +116,10 @@ public:
    * one device texture and must be tiled internally.
    */
   virtual TileIterator* AsTileIterator() { return nullptr; }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
 };
 
 /**
@@ -176,7 +178,7 @@ public:
    */
   virtual TextureSource* AsTextureSource() { return this; };
 
-  virtual gfx::SurfaceFormat GetFormat() { return mFormat; }
+  virtual gfx::SurfaceFormat GetFormat() const { return mFormat; }
 
   virtual bool IsValid() const { return true; }
 
@@ -286,6 +288,11 @@ public:
    * Should be called before Lock.
    */
   bool UpdateAsyncTexture();
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char *Name() =0;
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
 
 protected:
 

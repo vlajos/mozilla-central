@@ -8,6 +8,8 @@
 
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
+#include "LayersLogging.h"
+#include "nsPrintfCString.h"
 
 namespace mozilla {
 
@@ -100,6 +102,24 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
 
   mTextureHost->Unlock();
 }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+void
+ImageHostSingle::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  aTo += aPrefix;
+  aTo += nsPrintfCString("ImageHostSingle (0x%p)", this);
+
+  AppendToString(aTo, mPictureRect, " [picture-rect=", "]");
+
+  if (mTextureHost) {
+    nsAutoCString pfx(aPrefix);
+    pfx += "  ";
+    aTo += "\n";
+    mTextureHost->PrintInfo(aTo, pfx.get());
+  }
+}
+#endif
 
 /*
 void
