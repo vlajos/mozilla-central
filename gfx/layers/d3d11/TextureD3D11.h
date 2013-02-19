@@ -101,6 +101,10 @@ public:
   virtual bool Lock();
   virtual void Unlock();
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "TextureImageTextureHostD3D11"; }
+#endif
+
 protected:
   virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
                           bool *aNeedsReset, nsIntRegion* aRegion);
@@ -131,6 +135,10 @@ public:
   virtual gfx::IntSize GetSize() const;
 
   virtual bool IsYCbCrSource() const { return true; }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "TextureImageTextureHostD3D11"; }
+#endif
 
 protected:
   virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
