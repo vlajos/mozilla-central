@@ -489,7 +489,8 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
 void
 TextureClientTile::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
 {
-  if (!mSurface || mSurface->Format() != gfxPlatform::GetPlatform()->OptimalFormatForContent(aType)) {
+  if (!mSurface ||
+      mSurface->Format() != gfxPlatform::GetPlatform()->OptimalFormatForContent(aType)) {
     gfxImageSurface* tmpTile = new gfxImageSurface(gfxIntSize(aSize.width, aSize.height),
                                                    gfxPlatform::GetPlatform()->OptimalFormatForContent(aType),
                                                    aType != gfxASurface::CONTENT_COLOR);

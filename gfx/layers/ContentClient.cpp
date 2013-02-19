@@ -667,12 +667,12 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
                                             aPaintData,
                                             repeat);
 
-    isBufferChanged |= repeat;
-
-    // There's no further work to be done
+    // There's no further work to be done.
     if (regionToPaint.IsEmpty()) {  
       break;
     }
+
+    isBufferChanged = true;
 
     // Keep track of what we're about to refresh.
     aValidRegion.Or(aValidRegion, regionToPaint);

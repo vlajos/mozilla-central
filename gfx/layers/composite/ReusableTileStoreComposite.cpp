@@ -68,7 +68,7 @@ ReusableTileStoreComposite::InvalidateTiles(const nsIntRegion& aVisibleRegion,
     }
 
     if (release) {
-#if GFX_TILEDLAYER_PREF_WARNINGS
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
       nsIntRect tileBounds = tile->mTileRegion.GetBounds();
       printf_stderr("Releasing obsolete reused tile at %d,%d, x%f\n",
                     tileBounds.x, tileBounds.y, tile->mResolution.width);
@@ -207,7 +207,7 @@ ReusableTileStoreComposite::HarvestTiles(const nsIntRegion& aVisibleRegion,
 
   // Now prune our reused tile store of its oldest tiles if it gets too large.
   while (mTiles.Length() > maxTiles) {
-#if GFX_TILEDLAYER_PREF_WARNINGS
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
     nsIntRect tileBounds = mTiles[0]->mTileRegion.GetBounds();
     printf_stderr("Releasing old reused tile at %d,%d, x%f\n",
                   tileBounds.x, tileBounds.y, mTiles[0]->mResolution.width);
@@ -215,7 +215,7 @@ ReusableTileStoreComposite::HarvestTiles(const nsIntRegion& aVisibleRegion,
     mTiles.RemoveElementAt(0);
   }
 
-#if GFX_TILEDLAYER_PREF_WARNINGS
+#ifdef GFX_TILEDLAYER_PREF_WARNINGS
   printf_stderr("Retained %d tiles\n", mTiles.Length());
 #endif
 }
@@ -291,7 +291,8 @@ ReusableTileStoreComposite::DrawTiles(TiledContentHost* aContentHost,
     }
     nsIntPoint tileOffset(tile->mTileOrigin.x - tileStartX, tile->mTileOrigin.y - tileStartY);
     nsIntSize textureSize(tile->mTileSize, tile->mTileSize);
-    aContentHost->RenderTile(tile->mTexture, aEffectChain, aOpacity, transform, aRenderOffset, aFilter, aClipRect, tileRegion, tileOffset, textureSize);
+    aContentHost->RenderTile(tile->mTexture, aEffectChain, aOpacity, transform, aRenderOffset,
+                             aFilter, aClipRect, tileRegion, tileOffset, textureSize);
   }
 
   mTiles.SwapElements(reorderedTiles);
