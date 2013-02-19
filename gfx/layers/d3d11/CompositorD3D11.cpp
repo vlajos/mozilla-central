@@ -588,6 +588,10 @@ CompositorD3D11::EndFrame(const gfxMatrix &aTransform)
 {
   mContext->Flush();
   mSwapChain->Present(0, 0);
+
+  if (mTarget) {
+    PaintToTarget();
+  }
 }
 
 void
@@ -783,6 +787,43 @@ CompositorD3D11::SetSamplerForFilter(Filter aFilter)
   }
 
   mContext->PSSetSamplers(0, 1, &sampler);
+}
+
+void
+CompositorD3D11::PaintToTarget()
+{
+  nsRefPtr<ID3D11Texture2D> backBuf;
+  
+  mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuf.StartAssignment());
+
+  D3D11_TEXTURE2D_DESC bbDesc;
+  backBuf->GetDesc(&bbDesc);
+
+  CD3D11_TEXTURE2D_DESC softDesc(bbDesc.Format, bbDesc.Width, bbDesc.Height);
+  softDesc.MipLevels = 1;
+  softDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+  softDesc.Usage = D3D11_USAGE_STAGING;
+  softDesc.BindFlags = 0;
+
+  nsRefPtr<ID3D11Texture2D> readTexture;
+
+  HRESULT hr = mDevice->CreateTexture2D(&softDesc, NULL, getter_AddRefs(readTexture));
+  mContext->CopyResource(readTexture, backBuf);
+
+  D3D11_MAPPED_SUBRESOURCE map;
+  mContext->Map(readTexture, 0, D3D11_MAP_READ, 0, &map);
+
+  nsRefPtr<gfxImageSurface> tmpSurface =
+    new gfxImageSurface((unsigned char*)map.pData,
+                        gfxIntSize(bbDesc.Width, bbDesc.Height),
+                        map.RowPitch,
+                        gfxASurface::ImageFormatARGB32);
+
+  mTarget->SetSource(tmpSurface);
+  mTarget->SetOperator(gfxContext::OPERATOR_OVER);
+  mTarget->Paint();
+
+  mContext->Unmap(readTexture, 0);
 }
 
 }

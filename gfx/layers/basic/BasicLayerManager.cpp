@@ -1127,12 +1127,21 @@ BasicShadowLayerManager::BeginTransactionWithTarget(gfxContext* aTarget)
     if (aTarget && (aTarget != mDefaultTarget) &&
         XRE_GetProcessType() == GeckoProcessType_Default) {
       mShadowTarget = aTarget;
+
+      gfxASurface::gfxContentType contentType;
+
+      if (aTarget->IsCairo()) {
+        contentType = aTarget->OriginalSurface()->GetContentType();
+      } else {
+        contentType = aTarget->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8X8 ?
+          gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
+      }
       // Create a temporary target for ourselves, so that
       // mShadowTarget is only drawn to for the window snapshot.
       nsRefPtr<gfxASurface> dummy =
         gfxPlatform::GetPlatform()->CreateOffscreenSurface(
           gfxIntSize(1, 1),
-          aTarget->OriginalSurface()->GetContentType());
+          contentType);
       mDummyTarget = new gfxContext(dummy);
       aTarget = mDummyTarget;
     }
@@ -1157,9 +1166,22 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
   } else if (mShadowTarget) {
     if (mWidget) {
       if (CompositorChild* remoteRenderer = mWidget->GetRemoteRenderer()) {
+
+        gfxASurface::gfxContentType contentType;
+        gfxIntSize size;
+
+        if (mShadowTarget->IsCairo()) {
+          contentType = mShadowTarget->OriginalSurface()->GetContentType();
+          size = mShadowTarget->OriginalSurface()->GetSize();
+        } else {
+          contentType = mShadowTarget->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8X8 ?
+            gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
+          IntSize intSize = mShadowTarget->GetDrawTarget()->GetSize();
+          size = gfxIntSize(intSize.width, intSize.height);
+        }
         nsRefPtr<gfxASurface> target = mShadowTarget->OriginalSurface();
         SurfaceDescriptor inSnapshot, snapshot;
-        if (AllocBuffer(target->GetSize(), target->GetContentType(),
+        if (AllocBuffer(size, contentType,
                         &inSnapshot) &&
             // The compositor will usually reuse |snapshot| and return
             // it through |outSnapshot|, but if it doesn't, it's
