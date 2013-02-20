@@ -9,6 +9,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "TextureClient.h"
 #include <d3d11.h>
+#include <vector>
 
 class gfxD2DSurface;
 
@@ -21,7 +22,7 @@ public:
   TextureSourceD3D11()
   { }
 
-  ID3D11Texture2D *GetD3D11Texture() { return mTextures[0]; }
+  virtual ID3D11Texture2D *GetD3D11Texture() { return mTextures[0]; }
   virtual bool IsYCbCrSource() const { return false; }
 
   struct YCbCrTextures
@@ -35,8 +36,9 @@ public:
     return textures;
   }
 protected:
-  virtual gfx::IntSize GetSize() const;
+  virtual gfx::IntSize GetSize() const { return mSize; }
 
+  gfx::IntSize mSize;
   RefPtr<ID3D11Texture2D> mTextures[3];
 };
 
@@ -78,15 +80,63 @@ private:
   gfxContentType mContentType;
 };
 
-class TextureHostD3D11 : public TextureHost
-                       , public TextureSourceD3D11
+class TextureHostShmemD3D11 : public TextureHost
+                            , public TextureSourceD3D11
+                            , public TileIterator
 {
 public:
-  TextureHostD3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
-                   ID3D11Device *aDevice)
+  TextureHostShmemD3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
+                        ID3D11Device *aDevice)
     : TextureHost(aBuffering, aDeallocator)
     , mDevice(aDevice)
-    , mNeedsLock(false)
+    , mIsTiled(false)
+    , mCurrentTile(0)
+  {
+  }
+
+  virtual TextureSource *AsTextureSource();
+
+  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
+
+  virtual ID3D11Texture2D *GetD3D11Texture() { return mIsTiled ? mTileTextures[mCurrentTile] : TextureSourceD3D11::GetD3D11Texture(); }
+
+  virtual gfx::IntSize GetSize() const;
+
+  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
+
+  virtual bool Lock() { return true; }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "TextureHostShmemD3D11"; }
+#endif
+
+  virtual void BeginTileIteration() { mCurrentTile = 0; }
+  virtual nsIntRect GetTileRect();
+  virtual size_t GetTileCount() { return mTileTextures.size(); }
+  virtual bool NextTile() { return (++mCurrentTile < mTileTextures.size()); }
+
+  virtual TileIterator* AsTileIterator() { return mIsTiled ? this : nullptr; }
+protected:
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
+                          bool *aNeedsReset, nsIntRegion* aRegion);
+private:
+
+  gfx::IntRect GetTileRect(uint32_t aID);
+
+  RefPtr<ID3D11Device> mDevice;
+  bool mIsTiled;
+  std::vector< RefPtr<ID3D11Texture2D> > mTileTextures;
+  uint32_t mCurrentTile;
+};
+
+class TextureHostDXGID3D11 : public TextureHost
+                           , public TextureSourceD3D11
+{
+public:
+  TextureHostDXGID3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
+                       ID3D11Device *aDevice)
+    : TextureHost(aBuffering, aDeallocator)
+    , mDevice(aDevice)
   {
   }
 
@@ -102,7 +152,7 @@ public:
   virtual void Unlock();
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() { return "TextureImageTextureHostD3D11"; }
+  virtual const char* Name() { return "TextureHostDXGID3D11"; }
 #endif
 
 protected:
@@ -112,8 +162,9 @@ private:
   void LockTexture();
   void ReleaseTexture();
 
+  gfx::IntRect GetTileRect(uint32_t aID);
+
   RefPtr<ID3D11Device> mDevice;
-  bool mNeedsLock;
 };
 
 class TextureHostYCbCrD3D11 : public TextureHost
@@ -147,6 +198,27 @@ protected:
 private:
   RefPtr<ID3D11Device> mDevice;
 };
+
+inline uint32_t GetMaxTextureSizeForFeatureLevel(D3D_FEATURE_LEVEL aFeatureLevel)
+{
+  int32_t maxTextureSize;
+  switch (aFeatureLevel) {
+  case D3D_FEATURE_LEVEL_11_1:
+  case D3D_FEATURE_LEVEL_11_0:
+    maxTextureSize = 16384;
+    break;
+  case D3D_FEATURE_LEVEL_10_1:
+  case D3D_FEATURE_LEVEL_10_0:
+    maxTextureSize = 8192;
+    break;
+  case D3D_FEATURE_LEVEL_9_3:
+    maxTextureSize = 4096;
+    break;
+  default:
+    maxTextureSize = 2048;
+  }
+  return maxTextureSize;
+}
 
 }
 }

@@ -162,7 +162,11 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op));
       const ThebesBuffer& newFront = op.newFrontBuffer();
 
+      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
+
       RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
+      
+      textureParent->EnsureTextureHost(newFront.buffer().type());
 
       thebes->SetAllocator(this);
       OptionalThebesBuffer newBack;

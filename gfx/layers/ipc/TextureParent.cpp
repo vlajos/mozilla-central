@@ -18,15 +18,6 @@ TextureParent::TextureParent(const TextureInfo& aInfo, CompositableParent* aComp
 : mTextureInfo(aInfo), mLastSurfaceType(SurfaceDescriptor::Tnull_t)
 {
   MOZ_COUNT_CTOR(TextureParent);
-  Compositor* compositor = aCompositable->GetCompositableHost()->GetCompositor();
-
-  if (compositor) {
-    mTextureHost = compositor->CreateTextureHost(aInfo.memoryType,
-                                                 aInfo.textureFlags,
-                                                 mLastSurfaceType,
-                                                 aCompositable->GetCompositableManager());
-    aCompositable->GetCompositableHost()->AddTextureHost(mTextureHost);
-  }
 }
 
 TextureParent::~TextureParent()

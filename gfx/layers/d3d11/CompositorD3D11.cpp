@@ -319,23 +319,7 @@ CompositorD3D11::CanUseCanvasLayerForSize(const gfxIntSize &aSize)
 int32_t
 CompositorD3D11::GetMaxTextureSize() const
 {
-  int32_t maxTextureSize;
-  switch (mFeatureLevel) {
-  case D3D_FEATURE_LEVEL_11_1:
-  case D3D_FEATURE_LEVEL_11_0:
-    maxTextureSize = 16384;
-    break;
-  case D3D_FEATURE_LEVEL_10_1:
-  case D3D_FEATURE_LEVEL_10_0:
-    maxTextureSize = 8192;
-    break;
-  case D3D_FEATURE_LEVEL_9_3:
-    maxTextureSize = 4096;
-    break;
-  default:
-    maxTextureSize = 2048;
-  }
-  return maxTextureSize;
+  return GetMaxTextureSizeForFeatureLevel(mFeatureLevel);
 }
 
 TemporaryRef<TextureHost>
@@ -349,8 +333,10 @@ CompositorD3D11::CreateTextureHost(TextureHostType aTextureType,
   RefPtr<TextureHost> result;
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
     result = new TextureHostYCbCrD3D11(bufferMode, aDeAllocator, mDevice);
+  } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
+    result = new TextureHostDXGID3D11(bufferMode, aDeAllocator, mDevice);
   } else {
-    result = new TextureHostD3D11(bufferMode, aDeAllocator, mDevice);
+    result = new TextureHostShmemD3D11(bufferMode, aDeAllocator, mDevice);
   }
 
   result->SetFlags(aTextureFlags);
@@ -581,6 +567,7 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
   mContext->ClearRenderTargetView(mDefaultRT, black);
 
   mContext->OMSetBlendState(mAttachments->mPremulBlendState, sBlendFactor, 0xFFFFFFFF);
+  mContext->RSSetState(mAttachments->mRasterizerState);
 }
 
 void
@@ -750,6 +737,8 @@ CompositorD3D11::CreateShaders()
   if (FAILED(hr)) {
     return false;
   }
+
+  return true;
 }
 
 void

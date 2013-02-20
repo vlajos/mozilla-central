@@ -93,6 +93,10 @@ ThebesLayerBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   if (!fillRect.IntersectRect(mBufferRect, quadrantRect))
     return;
 
+  if (!EnsureBuffer()->GetAllowUseAsSource()) {
+    return;
+  }
+
   aTarget->NewPath();
   aTarget->Rectangle(gfxRect(fillRect.x, fillRect.y,
                              fillRect.width, fillRect.height),

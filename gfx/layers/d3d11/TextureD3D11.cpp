@@ -19,15 +19,6 @@ using namespace gfx;
 
 namespace layers {
 
-IntSize
-TextureSourceD3D11::GetSize() const
-{
-  D3D11_TEXTURE2D_DESC desc;
-  mTextures[0]->GetDesc(&desc);
-
-  return IntSize(desc.Width, desc.Height);
-}
-
 CompositingRenderTargetD3D11::CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture)
 {
   mTextures[0] = aTexture;
@@ -141,6 +132,7 @@ TextureClientD3D11::EnsureSurface()
   LockTexture();
   mSurface = new gfxD2DSurface(mTexture, mContentType);
   ReleaseTexture();
+  mSurface->SetAllowUseAsSource(false);
 }
 
 void
@@ -162,97 +154,174 @@ TextureClientD3D11::ReleaseTexture()
 }
 
 IntSize
-TextureHostD3D11::GetSize() const
+TextureHostShmemD3D11::GetSize() const
 {
   return TextureSourceD3D11::GetSize();
 }
 
 TextureSource*
-TextureHostD3D11::AsTextureSource()
+TextureHostShmemD3D11::AsTextureSource()
+{
+  return this;
+}
+
+nsIntRect
+TextureHostShmemD3D11::GetTileRect()
+{
+  IntRect rect = GetTileRect(mCurrentTile);
+  return nsIntRect(rect.x, rect.y, rect.width, rect.height);
+}
+
+uint32_t GetRequiredTiles(uint32_t aSize, uint32_t aMaxSize)
+{
+  uint32_t requiredTiles = aSize / aMaxSize;
+  if (aSize % aMaxSize) {
+    requiredTiles++;
+  }
+  return requiredTiles;
+}
+
+void
+TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
+                             bool *aNeedsReset, nsIntRegion *aRegion)
+{
+  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TShmem);
+
+  AutoOpenSurface openSurf(OPEN_READ_ONLY, aImage);
+  
+  nsRefPtr<gfxImageSurface> surf = openSurf.GetAsImage();
+
+  gfxIntSize size = surf->GetSize();
+
+  uint32_t bpp = 0;
+
+  DXGI_FORMAT dxgiFormat;
+  switch (surf->Format()) {
+  case gfxImageSurface::ImageFormatRGB24:
+    mFormat = FORMAT_B8G8R8X8;
+    dxgiFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
+    bpp = 4;
+    break;
+  case gfxImageSurface::ImageFormatARGB32:
+    mFormat = FORMAT_B8G8R8A8;
+    dxgiFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
+    bpp = 4;
+    break;
+  case gfxImageSurface::ImageFormatA8:
+    mFormat = FORMAT_A8;
+    dxgiFormat = DXGI_FORMAT_A8_UNORM;
+    bpp = 1;
+    break;
+  }
+
+  mSize = IntSize(size.width, size.height);
+      
+  CD3D11_TEXTURE2D_DESC desc(dxgiFormat, size.width, size.height,
+                            1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
+
+  uint32_t maxSize = GetMaxTextureSizeForFeatureLevel(mDevice->GetFeatureLevel());
+  if (size.width <= maxSize && size.height <= maxSize) {
+    D3D11_SUBRESOURCE_DATA initData;
+    initData.pSysMem = surf->Data();
+    initData.SysMemPitch = surf->Stride();
+
+    mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[0]));
+    mIsTiled = false;
+  } else {
+    mIsTiled = true;
+    uint32_t tileCount = GetRequiredTiles(size.width, maxSize) *
+                          GetRequiredTiles(size.height, maxSize);
+
+    mTileTextures.resize(tileCount);
+
+    for (uint32_t i = 0; i < tileCount; i++) {
+      IntRect tileRect = GetTileRect(i);
+
+      desc.Width = tileRect.width;
+      desc.Height = tileRect.height;
+
+      D3D11_SUBRESOURCE_DATA initData;
+      initData.pSysMem = surf->Data() + tileRect.y * surf->Stride() + tileRect.x * bpp;
+      initData.SysMemPitch = surf->Stride();
+
+      mDevice->CreateTexture2D(&desc, &initData, byRef(mTileTextures[i]));
+    }
+  }
+}
+
+IntRect
+TextureHostShmemD3D11::GetTileRect(uint32_t aID)
+{
+  uint32_t maxSize = GetMaxTextureSizeForFeatureLevel(mDevice->GetFeatureLevel());
+  uint32_t horizontalTiles = GetRequiredTiles(mSize.width, maxSize);
+  uint32_t verticalTiles = GetRequiredTiles(mSize.height, maxSize);
+
+  uint32_t verticalTile = aID / horizontalTiles;
+  uint32_t horizontalTile = aID % horizontalTiles;
+
+  return IntRect(horizontalTile * maxSize,
+                 verticalTile * maxSize,
+                 horizontalTile < (horizontalTiles - 1) ? maxSize : mSize.width % maxSize,
+                 verticalTile < (verticalTiles - 1) ? maxSize : mSize.height % maxSize);
+}
+
+IntSize
+TextureHostDXGID3D11::GetSize() const
+{
+  return TextureSourceD3D11::GetSize();
+}
+
+TextureSource*
+TextureHostDXGID3D11::AsTextureSource()
 {
   return this;
 }
 
 bool
-TextureHostD3D11::Lock()
+TextureHostDXGID3D11::Lock()
 {
   LockTexture();
   return true;
 }
 
 void
-TextureHostD3D11::Unlock()
+TextureHostDXGID3D11::Unlock()
 {
   ReleaseTexture();
 }
 
 void
-TextureHostD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
+TextureHostDXGID3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
                              bool *aNeedsReset, nsIntRegion *aRegion)
 {
-  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TShmem || aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
-
-  if (aImage.type() == SurfaceDescriptor::TShmem) {
-    AutoOpenSurface openSurf(OPEN_READ_ONLY, aImage);
+  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
   
-    nsRefPtr<gfxImageSurface> surf = openSurf.GetAsImage();
+  mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
+                              __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTextures[0]));
+  mFormat = aImage.get_SurfaceDescriptorD3D10().hasAlpha() ? FORMAT_B8G8R8A8 : FORMAT_B8G8R8X8;
 
-    gfxIntSize size = surf->GetSize();
-    D3D11_SUBRESOURCE_DATA initData;
-    initData.pSysMem = surf->Data();
-    initData.SysMemPitch = surf->Stride();
+  D3D11_TEXTURE2D_DESC desc;
+  mTextures[0]->GetDesc(&desc);
 
-    DXGI_FORMAT dxgiFormat;
-    switch (surf->Format()) {
-    case gfxImageSurface::ImageFormatRGB24:
-      mFormat = FORMAT_B8G8R8X8;
-      dxgiFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
-      break;
-    case gfxImageSurface::ImageFormatARGB32:
-      mFormat = FORMAT_B8G8R8A8;
-      dxgiFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
-      break;
-    case gfxImageSurface::ImageFormatA8:
-      mFormat = FORMAT_A8;
-      dxgiFormat = DXGI_FORMAT_A8_UNORM;
-      break;
-    }
-      
-    CD3D11_TEXTURE2D_DESC desc(dxgiFormat, size.width, size.height,
-                              1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
-
-    mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[0]));
-
-    mNeedsLock = false;
-  } else if (aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
-    mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
-                                __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTextures[0]));
-    mFormat = aImage.get_SurfaceDescriptorD3D10().hasAlpha() ? FORMAT_B8G8R8A8 : FORMAT_B8G8R8X8;
-    mNeedsLock = true;
-  }
-
+  mSize = IntSize(desc.Width, desc.Height);
 }
 
 void
-TextureHostD3D11::LockTexture()
+TextureHostDXGID3D11::LockTexture()
 {
-  if (mNeedsLock) {
-    RefPtr<IDXGIKeyedMutex> mutex;
-    mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
+  RefPtr<IDXGIKeyedMutex> mutex;
+  mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
-    mutex->AcquireSync(0, INFINITE);
-  }
+  mutex->AcquireSync(0, INFINITE);
 }
 
 void
-TextureHostD3D11::ReleaseTexture()
+TextureHostDXGID3D11::ReleaseTexture()
 {
-  if (mNeedsLock) {
-    RefPtr<IDXGIKeyedMutex> mutex;
-    mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
+  RefPtr<IDXGIKeyedMutex> mutex;
+  mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
-    mutex->ReleaseSync(0);
-  }
+  mutex->ReleaseSync(0);
 }
 
 IntSize
@@ -298,6 +367,8 @@ TextureHostYCbCrD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInit
 
   initData.pSysMem = shmemImage.GetCrData();
   mDevice->CreateTexture2D(&desc, &initData, byRef(mTextures[2]));
+
+  mSize = IntSize(size.width, size.height);
 }
 
 }
