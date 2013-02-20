@@ -29,10 +29,6 @@ public:
   ISurfaceDeallocator() {}
   virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) = 0;
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
-  // we should make another interface or change this interface's name
-  virtual bool AllocateUnsafe(size_t aSize,
-                              ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) = 0;
 protected:
   ~ISurfaceDeallocator() {}
 };

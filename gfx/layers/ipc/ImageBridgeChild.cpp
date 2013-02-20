@@ -106,8 +106,7 @@ ImageBridgeChild::UpdatePictureRect(CompositableClient* aCompositable,
 }
 
 void
-ImageBridgeChild::DestroyedThebesBuffer(ShadowableLayer* aThebes,
-                                        const SurfaceDescriptor& aBackBufferToDestroy)
+ImageBridgeChild::DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy)
 {
   NS_RUNTIMEABORT("not implemented yet");
   //mTxn->AddBufferToDestroy(aBackBufferToDestroy);

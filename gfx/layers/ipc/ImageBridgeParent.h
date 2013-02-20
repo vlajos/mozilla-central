@@ -51,6 +51,7 @@ public:
   bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
   bool RecvUpdateNoSwap(const EditArray& aEdits);
 
+//TODO[nical]
 /*
   PImageContainerParent* AllocPImageContainer(uint64_t* aID) MOZ_OVERRIDE;
   bool DeallocPImageContainer(PImageContainerParent* toDealloc) MOZ_OVERRIDE;

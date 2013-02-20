@@ -163,14 +163,6 @@ public:
     return BUFFER_CONTENT_DIRECT;
   }
 
-  //TODO[nrc] why is this even here? Did it change, did it used to be a no-op maybe?
-  virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
-                                                     const nsIntSize& aSize,
-                                                     uint32_t aFlags)
-  {
-    return ContentClientRemote::CreateBuffer(aType, aSize, aFlags);
-  }
-
   virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
                               const OptionalThebesBuffer& aReadOnlyFrontBuffer,
                               const nsIntRegion& aFrontUpdatedRegion,

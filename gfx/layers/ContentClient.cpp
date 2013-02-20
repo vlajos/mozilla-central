@@ -97,7 +97,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   mOldTextures.AppendElement(mTextureClient);
 
   if (mTextureClient) {
-    mTextureClient->Destroyed(this);
+    mTextureClient->Destroyed();
   }
 
   mTextureClient = CreateTextureClient(TEXTURE_SHARED | TEXTURE_DXGI,

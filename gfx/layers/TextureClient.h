@@ -68,19 +68,16 @@ public:
     return mTextureInfo;
   }
   
-  // TODO[nical] remove this
-  void SetAsyncContainerID(uint64_t aDescriptor);
-
   /**
    * The Lock* methods lock the texture client for drawing into, providing some 
    * object that can be used for drawing to. Once the user is finished
    * with the object it should call Unlock.
    */
-  // these will be removed
-  //virtual gfxImageSurface* LockImageSurface() { return nullptr; }
+  // XXX[nical] these will be removed
+  virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual SharedTextureHandle LockHandle(GLContext* aGL, GLContext::SharedTextureShareType aFlags) { return 0; }
-  // only this one should remain (and be called just "Lock")
+  // XXX[nical] only this one should remain (and be called just "Lock")
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
   virtual void ReleaseResources() {}
   /**
@@ -108,8 +105,7 @@ public:
   virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation);
-  // TODO[nical] we probably don't really need this param
-  virtual void Destroyed(CompositableClient* aCompositable);
+  virtual void Destroyed();
 
   void SetIPDLActor(PTextureChild* aTextureChild);
   PTextureChild* GetIPDLActor() const {
@@ -118,11 +114,6 @@ public:
 
   CompositableForwarder* GetLayerForwarder() const {
     return mLayerForwarder;
-  }
-
-  // TODO[nical] remove his, use the Forwarder instead
-  ISurfaceDeallocator* GetSurfaceAllocator() const {
-    return mAllocator;
   }
 
   void SetFlags(TextureFlags aFlags)
@@ -134,8 +125,6 @@ protected:
   TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 
   CompositableForwarder* mLayerForwarder;
-  // TODO[nical] remove this, the forwarder is the allocator
-  ISurfaceDeallocator* mAllocator;
   // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
   // the reference here.
   SurfaceDescriptor mDescriptor;
@@ -302,16 +291,16 @@ public:
     , mSurface(aOther.mSurface)
   {}
 
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
 
-  virtual gfxImageSurface* LockImageSurface();
+  virtual gfxImageSurface* LockImageSurface() MOZ_OVERRIDE;
 
   gfxReusableSurfaceWrapper* GetReusableSurfaceWrapper()
   {
     return mSurface;
   }
 
-  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor)
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE
   {
     MOZ_ASSERT(false, "Tiled texture clients don't use SurfaceDescriptors.");
   }

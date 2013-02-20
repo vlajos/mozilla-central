@@ -224,8 +224,7 @@ ShadowLayerForwarder::CreatedRefLayer(ShadowableLayer* aRef)
 }
 
 void
-ShadowLayerForwarder::DestroyedThebesBuffer(ShadowableLayer* aThebes,
-                                            const SurfaceDescriptor& aBackBufferToDestroy)
+ShadowLayerForwarder::DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy)
 {
   mTxn->AddBufferToDestroy(aBackBufferToDestroy);
 }
@@ -496,6 +495,14 @@ ShadowLayerForwarder::AllocBufferWithCaps(const gfxIntSize& aSize,
 
   *aBuffer = buffer->GetShmem();
   return true;
+}
+
+bool
+ShadowLayerForwarder::AllocateUnsafe(size_t aSize,
+                                     ipc::SharedMemory::SharedMemoryType aType,
+                                     ipc::Shmem* aShmem)
+{
+  return false; // TODO[nical]
 }
 
 /*static*/ already_AddRefed<gfxASurface>

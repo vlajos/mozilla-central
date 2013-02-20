@@ -255,21 +255,24 @@ public:
                                  const nsIntRect& aRect) MOZ_OVERRIDE;
 
   /**
-   * TODO
+   * TODO[nical]
    */
-  virtual void DestroyedThebesBuffer(ShadowableLayer*,
-                                     const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
+  virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
   // TODO
-  bool AllocBuffer(const gfxIntSize& aSize,
-                   gfxASurface::gfxContentType aContent,
-                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
-  // TODO
-  bool AllocBufferWithCaps(const gfxIntSize& aSize,
+  virtual bool AllocBuffer(const gfxIntSize& aSize,
                            gfxASurface::gfxContentType aContent,
-                           uint32_t aCaps,
                            SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
-  // TODO
-  void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {}
+  // TODO[nical]
+  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
+                                   gfxASurface::gfxContentType aContent,
+                                   uint32_t aCaps,
+                                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
+  // TODO[nical]
+  virtual bool AllocateUnsafe(size_t aSize,
+                              ipc::SharedMemory::SharedMemoryType aType,
+                              ipc::Shmem* aShmem) MOZ_OVERRIDE { return false; }
+  // TODO[nical]
+  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {}
 
   TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);
   TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);

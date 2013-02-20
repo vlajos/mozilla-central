@@ -174,8 +174,7 @@ public:
    * a new front/back buffer pair have been created because of a layer
    * resize, e.g.
    */
-  void DestroyedThebesBuffer(ShadowableLayer* aThebes,
-                             const SurfaceDescriptor& aBackBufferToDestroy);
+  virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
 
   /**
    * At least one attribute of |aMutant| has changed, and |aMutant|
@@ -325,16 +324,20 @@ public:
    * In the absence of platform-specific buffers these fall back to
    * Shmem/gfxSharedImageSurface.
    */
-  bool AllocBuffer(const gfxIntSize& aSize,
-                   gfxASurface::gfxContentType aContent,
-                   SurfaceDescriptor* aBuffer);
-
-  bool AllocBufferWithCaps(const gfxIntSize& aSize,
+  virtual bool AllocBuffer(const gfxIntSize& aSize,
                            gfxASurface::gfxContentType aContent,
-                           uint32_t aCaps,
-                           SurfaceDescriptor* aBuffer);
+                           SurfaceDescriptor* aBuffer) MOZ_OVERRIDE;
 
-  void DestroySharedSurface(SurfaceDescriptor* aSurface);
+  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
+                                   gfxASurface::gfxContentType aContent,
+                                   uint32_t aCaps,
+                                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE;
+
+  virtual bool AllocateUnsafe(size_t aSize,
+                              ipc::SharedMemory::SharedMemoryType aType,
+                              ipc::Shmem* aShmem) MOZ_OVERRIDE;
+
+  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
 
   /**
    * Construct a shadow of |aLayer| on the "other side", at the

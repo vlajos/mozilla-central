@@ -88,8 +88,7 @@ public:
    * a new front/back buffer pair have been created because of a layer
    * resize, e.g.
    */
-  virtual void DestroyedThebesBuffer(ShadowableLayer* aThebes,
-                                     const SurfaceDescriptor& aBackBufferToDestroy) = 0;
+  virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) = 0;
 
   /**
    * Shmem (gfxSharedImageSurface) buffers are available on all
@@ -108,6 +107,10 @@ public:
                                    SurfaceDescriptor* aBuffer) = 0;
 
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
+  
+  virtual bool AllocateUnsafe(size_t aSize,
+                              ipc::SharedMemory::SharedMemoryType aType,
+                              ipc::Shmem* aShmem) = 0;
 
   void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
 

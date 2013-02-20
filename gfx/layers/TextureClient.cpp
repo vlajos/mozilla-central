@@ -28,7 +28,6 @@ namespace layers {
 TextureClient::TextureClient(CompositableForwarder* aForwarder,
                              CompositableType aCompositableType)
   : mLayerForwarder(aForwarder)
-  , mAllocator(nullptr)
   , mTextureChild(nullptr)
 {
   mTextureInfo.compositableType = aCompositableType;
@@ -46,18 +45,11 @@ TextureClient::Updated(ShadowableLayer* aLayer)
 }
 
 void
-TextureClient::Destroyed(CompositableClient* aCompositable)
+TextureClient::Destroyed()
 {
-  // TODO[nical] why did we pass a layer here?
-  // TODO: thebes specific stuff in the base class?
-  mLayerForwarder->DestroyedThebesBuffer(nullptr, mDescriptor);
-}
-
-void
-TextureClient::SetAsyncContainerID(uint64_t aID)
-{
-  NS_WARNING("TODO[nical] remove this code and implement at compositable level");
-  //mLayerForwarder->AttachAsyncTexture(GetTextureChild(), aID);
+  // The owning layer must be locked at some point in the chain of callers
+  // by calling Hold.
+  mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
 }
 
 void
@@ -66,14 +58,15 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntPoint& aBufferRotation)
 {
   mLayerForwarder->UpdateTextureRegion(this,
-                                       ThebesBuffer(mDescriptor, aBufferRect, aBufferRotation),
+                                       ThebesBuffer(mDescriptor,
+                                                    aBufferRect,
+                                                    aBufferRotation),
                                        aUpdatedRegion);
 }
 
 void
 TextureClient::SetIPDLActor(PTextureChild* aChild) {
   mTextureChild = aChild;
-  mAllocator = static_cast<TextureChild*>(aChild);
 }
 
 
@@ -243,7 +236,7 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
   size_t size = ShmemYCbCrImage::ComputeMinBufferSize(data->mYSize,
                                                       data->mCbCrSize);
   ipc::Shmem shmem;
-  if (!mTextureClient->GetSurfaceAllocator()->AllocateUnsafe(size, shmType, &shmem)) {
+  if (!mTextureClient->GetLayerForwarder()->AllocateUnsafe(size, shmType, &shmem)) {
     return false;
   }
 
