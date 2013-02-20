@@ -23,6 +23,8 @@ namespace layers {
 
 class Layer;
 class ShadowLayerManager;
+class ShadowLayerParent;
+class CompositableParent;
 
 class ShadowLayersParent : public PLayersParent,
                            public CompositableParentManager
@@ -78,6 +80,8 @@ protected:
   virtual bool DeallocPCompositable(PCompositableParent* actor) MOZ_OVERRIDE;
 
   virtual Compositor* GetCompositor() MOZ_OVERRIDE;
+  
+  void Attach(ShadowLayerParent* aLayerParent, CompositableParent* aCompositable);
 
 private:
   nsRefPtr<ShadowLayerManager> mLayerManager;

@@ -38,11 +38,27 @@ public:
     return mLastSurfaceType;
   }
 
+  bool HasBuffer() const
+  {
+    return mBuffer.type() != SurfaceDescriptor::T__None;
+  }
+
+  void SetBuffer(const SurfaceDescriptor& aBuffer)
+  {
+    mBuffer = aBuffer;
+  }
+
+  SurfaceDescriptor& GetBuffer()
+  {
+    return mBuffer;
+  }
+
   bool EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType);
 private:
   TextureInfo mTextureInfo;
   RefPtr<TextureHost> mTextureHost;
   SurfaceDescriptor::Type mLastSurfaceType;
+  SurfaceDescriptor mBuffer;
 };
 
 } // namespace

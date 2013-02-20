@@ -320,21 +320,7 @@ void
 TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,
                                              gfxASurface::gfxContentType aType)
 {
-/*
-  if (aSize != mSize ||
-      aContentType != mContentType ||
-      !IsSurfaceDescriptorValid(mDescriptor)) {
-    if (IsSurfaceDescriptorValid(mDescriptor)) {
-      mLayerForwarder->DestroySharedSurface(&mDescriptor);
-    }
-    mContentType = aContentType;
-    mSize = aSize;
-
-    if (!mLayerForwarder->AllocBuffer(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
-      NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
-    }
-  }
-*/
+  NS_RUNTIMEABORT("not enough arguments to do this (need both Y and CbCr sizes)");
 }
 
 TextureClientShared::~TextureClientShared()

@@ -31,6 +31,7 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
   if (!SurfaceTypeChanged(aSurfaceType)) {
     return false;
   }
+
   CompositableParent* compParent = static_cast<CompositableParent*>(Manager());
   CompositableHost* compositable = compParent->GetCompositableHost();
   Compositor* compositor = compositable->GetCompositor();
@@ -46,7 +47,6 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
   }
   return false;
 }
-
 
 void TextureParent::SetTextureHost(TextureHost* aHost)
 {

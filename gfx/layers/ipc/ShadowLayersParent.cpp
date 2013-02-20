@@ -39,6 +39,13 @@ cast(const PLayerParent* in)
     static_cast<const ShadowLayerParent*>(in));
 }
 
+static CompositableParent*
+cast(const PCompositableParent* in)
+{ 
+  return const_cast<CompositableParent*>(
+    static_cast<const CompositableParent*>(in));
+}
+
 template<class OpPaintT>
 static TextureHost*
 AsTextureHost(const OpPaintT& op)
@@ -389,49 +396,27 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpAttachCompositable: {
-#ifdef GFX_COMPOSITOR_LOGGING
-      printf("OpAttachCompositable\n");
-#endif
       const OpAttachCompositable& op = edit.get_OpAttachCompositable();
-      CompositableParent* compositableParent
-        = static_cast<CompositableParent*>(op.compositableParent());
-      ShadowLayerParent* layerParent
-        = static_cast<ShadowLayerParent*>(op.layerParent());
-      ShadowLayer* layer = layerParent->AsLayer()->AsShadowLayer();
-      LayerComposite* layerComposite = layerParent->AsLayer()->AsLayerComposite();
-      MOZ_ASSERT(layer);
-
-      Compositor* compositor
-        = static_cast<LayerManagerComposite*>(layerParent->AsLayer()->Manager())->GetCompositor();
-
-      CompositableHost* compositable = compositableParent->GetCompositableHost();
-      MOZ_ASSERT(compositable);
-      layerComposite->SetCompositableHost(compositable);
-      compositable->SetCompositor(compositor);
-      compositable->SetLayer(layerParent->AsLayer());
+      Attach(cast(op.layerParent()), cast(op.compositableParent()));
       break;
     }
     case Edit::TOpAttachAsyncCompositable: {
-#ifdef GFX_COMPOSITOR_LOGGING
-      printf("OpAttachAsyncCompositable\n");
-#endif
       const OpAttachAsyncCompositable& op = edit.get_OpAttachAsyncCompositable();
       CompositableParent* compositableParent = CompositableMap::Get(op.containerID());
-      MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");
-      ShadowLayerParent* layerParent
-        = static_cast<ShadowLayerParent*>(op.layerParent());
-      ShadowLayer* layer = layerParent->AsLayer()->AsShadowLayer();
-      LayerComposite* layerComposite = layerParent->AsLayer()->AsLayerComposite();
-      MOZ_ASSERT(layer);
+      MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");  
+      Attach(cast(op.layerParent()), compositableParent);
+      unsigned int nTex = compositableParent->ManagedPTextureParent().Length();
 
-      Compositor* compositor
-        = static_cast<LayerManagerComposite*>(layerParent->AsLayer()->Manager())->GetCompositor();
-
-      CompositableHost* compositable = compositableParent->GetCompositableHost();
-      MOZ_ASSERT(compositable);
-      layerComposite->SetCompositableHost(compositable);
-      compositable->SetCompositor(compositor);
-      compositable->SetLayer(layerParent->AsLayer());
+      // make sure we update the texture host with the data that we received before 
+      // attaching (if any).
+      for (unsigned int i = 0; i < nTex; ++i) {
+        TextureParent* tex
+          = static_cast<TextureParent*>(compositableParent->ManagedPTextureParent()[i]);
+        if (tex->HasBuffer()) {
+          tex->EnsureTextureHost(tex->GetBuffer().type());
+          tex->GetTextureHost()->Update(tex->GetBuffer(), &tex->GetBuffer());
+        }
+      }
       break;
     }
     case Edit::TOpPaintTiledLayerBuffer: {
@@ -477,6 +462,23 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 #endif
 
   return true;
+}
+
+void
+ShadowLayersParent::Attach(ShadowLayerParent* aLayerParent, CompositableParent* aCompositable)
+{
+  ShadowLayer* layer = aLayerParent->AsLayer()->AsShadowLayer();
+  MOZ_ASSERT(layer);
+  LayerComposite* layerComposite = aLayerParent->AsLayer()->AsLayerComposite();
+
+  Compositor* compositor
+    = static_cast<LayerManagerComposite*>(aLayerParent->AsLayer()->Manager())->GetCompositor();
+
+  CompositableHost* compositable = aCompositable->GetCompositableHost();
+  MOZ_ASSERT(compositable);
+  layerComposite->SetCompositableHost(compositable);
+  compositable->SetCompositor(compositor);
+  compositable->SetLayer(aLayerParent->AsLayer());
 }
 
 bool
