@@ -308,7 +308,9 @@ public:
   virtual ~SharedTextureHostOGL()
   {
     mGL->MakeCurrent();
-    mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
+    if (mSharedHandle) {
+      mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
+    }
     if (mTextureHandle) {
       mGL->fDeleteTextures(1, &mTextureHandle);
     }
