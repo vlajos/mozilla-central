@@ -83,7 +83,6 @@ void
 ImageBridgeChild::UpdateTexture(TextureClient* aTexture,
                                 const SurfaceDescriptor& aImage)
 {
-  printf("ImageBridgeChild::UpdateTexture\n");
   MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
   MOZ_ASSERT(aTexture);
   MOZ_ASSERT(aTexture->GetIPDLActor());
@@ -325,7 +324,6 @@ static void UpdateImageClientNow(ImageClient* aClient, ImageContainer* aContaine
 {
   MOZ_ASSERT(aClient);
   MOZ_ASSERT(aContainer);
-  printf("(ImageBridge) UpdateImageClientNow\n");
   sImageBridgeChildSingleton->BeginTransaction();
   aClient->UpdateImage(aContainer, Layer::CONTENT_OPAQUE);
   aClient->Updated();
@@ -344,7 +342,6 @@ void ImageBridgeChild::DispatchImageClientUpdate(ImageClient* aClient,
 void
 ImageBridgeChild::BeginTransaction()
 {
-  printf("ImageBridge::BeginTransaction\n");
   MOZ_ASSERT(mTxn->Finished(), "uncommitted txn?");
   mTxn->Begin();
 }
@@ -352,13 +349,11 @@ ImageBridgeChild::BeginTransaction()
 void
 ImageBridgeChild::EndTransaction()
 {
-  printf("ImageBridge::EndTransaction\n");
   MOZ_ASSERT(!mTxn->Finished(), "forgot BeginTransaction?");
 
   AutoEndTransaction _(mTxn);
 
   if (mTxn->IsEmpty()) {
-    printf("\nImageBridge: Empty transaction !!\n\n");  
     return;
   }
 

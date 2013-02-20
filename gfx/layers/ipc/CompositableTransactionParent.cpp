@@ -120,7 +120,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
     }
     case CompositableOperation::TOpPaintTexture: {
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
-      printf("OpPaintTexture\n");
       const OpPaintTexture& op = aEdit.get_OpPaintTexture();
 
       Compositor* compositor = nullptr;
@@ -129,7 +128,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       if (shadowLayer) {
          compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       } else {
-        printf("Trying to paint before OpAttachAsyncTexture?\n");
+        NS_WARNING("Trying to paint before OpAttachAsyncTexture?");
       }
 
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
@@ -138,11 +137,10 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       if (compositor) {
         textureParent->GetCompositableHost()->SetCompositor(compositor);
       }
-      if (textureParent->EnsureTextureHost(descriptor.type())) {
-        printf("reset texture host\n");
-      }
+      textureParent->EnsureTextureHost(descriptor.type());
+      
       if (!textureParent->GetTextureHost()) {
-        printf("failed to create the texture host :(\n");
+        NS_WARNING("failed to create the texture host");
         break;
       }
 
