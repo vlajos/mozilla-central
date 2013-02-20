@@ -209,6 +209,8 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");
 
+  printf("YCbCrTextureHostOGL::Update");
+
   ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
                              aImage.get_YCbCrImage().offset());
 

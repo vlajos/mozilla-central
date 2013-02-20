@@ -34,7 +34,7 @@ public:
    * returns false if this is the wrong kind of ImageClient for aContainer.
    * Note that returning true does not necessarily imply success
    */
-  virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer) = 0;
+  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags) = 0;
 
   /**
    * Set the buffer of a texture client (identified by aTextureInfo) to
@@ -46,7 +46,7 @@ public:
   /**
    * Notify the compositor that this image client has been updated
    */
-  virtual void Updated(ShadowableLayer* aLayer) = 0;
+  virtual void Updated() = 0;
 
   virtual void UpdatePictureRect(nsIntRect aPictureRect);
 
@@ -61,14 +61,12 @@ public:
   ImageClientTexture(CompositableForwarder* aFwd,
                      TextureFlags aFlags);
 
-  virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
-  bool UpdateYCbCrImage(PlanarYCbCrImage* aImage, ImageLayer* aLayer);
-  bool UpdateRGBImage(Image* aImage, ImageLayer* aLayer, gfxASurface* aSurface);
+  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
 
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SurfaceDescriptor& aBuffer);
 
-  virtual void Updated(ShadowableLayer* aLayer);
+  virtual void Updated();
 private:
   RefPtr<TextureClient> mTextureClient;
   TextureFlags mFlags;  
@@ -80,12 +78,12 @@ public:
   ImageClientShared(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
-  virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
+  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
 
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SurfaceDescriptor& aBuffer) {}
 
-  virtual void Updated(ShadowableLayer* aLayer);
+  virtual void Updated();
 private:
   RefPtr<TextureClient> mTextureClient;
 };
@@ -97,13 +95,18 @@ public:
   ImageClientBridge(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
-  virtual bool UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer);
+  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
   virtual void SetBuffer(const TextureInfo& aTextureInfo,
                          const SurfaceDescriptor& aBuffer) {}
-  virtual void Updated(ShadowableLayer* aLayer) {}
+  virtual bool Connect() { return false; }
+  virtual void Updated() {}
+  void SetLayer(ShadowableLayer* aLayer) {
+    mLayer = aLayer;
+  }
 
 protected:
   uint64_t mAsyncContainerID;
+  ShadowableLayer* mLayer;
 };
 
 }

@@ -130,16 +130,15 @@ ImageContainer::ImageContainer(int flag)
 {
   if (flag == ENABLE_ASYNC && ImageBridgeChild::IsCreated()) {
     mImageClient = ImageBridgeChild::GetSingleton()->CreateImageClient(BUFFER_SINGLE);
+    MOZ_ASSERT(mImageClient);
   }
 }
 
 ImageContainer::~ImageContainer()
 {
-  /*
-  if (mImageContainerChild) {
-    mImageContainerChild->DispatchStop();
+  if (IsAsync()) {
+    ImageBridgeChild::DispatchReleaseImageClient(mImageClient);
   }
-  */
 }
 
 already_AddRefed<Image>
@@ -183,15 +182,15 @@ void
 ImageContainer::SetCurrentImage(Image *aImage)
 {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-/*
-  if (mImageContainerChild) {
+  if (IsAsync()) {
     if (aImage) {
-      mImageContainerChild->SendImageAsync(this, aImage);
+      printf("ImageContainer::SetCurrentImage\n");
+      ImageBridgeChild::DispatchImageClientUpdate(mImageClient, this);
     } else {
-      mImageContainerChild->SetIdle();
+      //mImageContainerChild->SetIdle();
     }
   }
-*/ 
+ 
   SetCurrentImageInternal(aImage);
 }
 
@@ -212,7 +211,7 @@ uint64_t ImageContainer::GetAsyncContainerID() const
 {
   NS_ASSERTION(IsAsync(),"Shared image ID is only relevant to async ImageContainers");
   if (IsAsync()) {
-    return mImageClient->GetAsyncID();
+    return mImageClient->GetAsyncID(); // TODO[nical] make sure this is thread safe when things stabilize
   } else {
     return 0; // zero is always an invalid SurfaceDescriptorID
   }

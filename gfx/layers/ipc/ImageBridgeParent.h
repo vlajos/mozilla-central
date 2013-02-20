@@ -45,17 +45,12 @@ public:
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
   virtual bool AllocateUnsafe(size_t aSize,
                               ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) MOZ_OVERRIDE;
+                              ipc::Shmem* aShmem);
 
   // PImageBridge
-  bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
-  bool RecvUpdateNoSwap(const EditArray& aEdits);
+  virtual bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
+  virtual bool RecvUpdateNoSwap(const EditArray& aEdits);
 
-//TODO[nical]
-/*
-  PImageContainerParent* AllocPImageContainer(uint64_t* aID) MOZ_OVERRIDE;
-  bool DeallocPImageContainer(PImageContainerParent* toDealloc) MOZ_OVERRIDE;
-*/
   PCompositableParent* AllocPCompositable(const CompositableType& aType,
                                           uint64_t*) MOZ_OVERRIDE;
   bool DeallocPCompositable(PCompositableParent* aActor) MOZ_OVERRIDE;

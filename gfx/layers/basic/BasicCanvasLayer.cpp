@@ -254,7 +254,7 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
 
   FireDidTransactionCallback();
   
-  mCanvasClient->Updated(BasicManager()->Hold(this));
+  mCanvasClient->Updated(/*BasicManager()->Hold(this)*/);
 }
 
 

@@ -7,7 +7,7 @@
 #include "TextureClient.h"
 #include "mozilla/layers/TextureChild.h"
 #include "mozilla/layers/ShadowLayersChild.h"
-#include "mozilla/layers/ShadowLayers.h" // for CompositabeForwarder
+#include "mozilla/layers/CompositableForwarder.h"
 #ifdef XP_WIN
 #include "mozilla/layers/TextureD3D11.h"
 #endif

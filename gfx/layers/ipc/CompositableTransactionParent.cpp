@@ -41,7 +41,7 @@ Layer* GetLayerFromOpPaint(const OpPaintT& op)
   PTextureParent* textureParent = op.textureParent();
   CompositableHost* compoHost
     = static_cast<CompositableParent*>(textureParent->Manager())->GetCompositableHost();
-  return compoHost->GetLayer();
+  return compoHost ? compoHost->GetLayer() : nullptr;
 }
 
 template<class OpCreateT>
@@ -120,31 +120,32 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
     }
     case CompositableOperation::TOpPaintTexture: {
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
-
+      printf("OpPaintTexture\n");
       const OpPaintTexture& op = aEdit.get_OpPaintTexture();
 
+      Compositor* compositor = nullptr;
       Layer* layer = GetLayerFromOpPaint(op);
-      ShadowLayer* shadowLayer = layer->AsShadowLayer();
-
-      Compositor* compositor
-        = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+      ShadowLayer* shadowLayer = layer ? layer->AsShadowLayer() : nullptr;
+      if (shadowLayer) {
+         compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+      } else {
+        printf("Trying to paint before OpAttachAsyncTexture?\n");
+      }
 
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
       const SurfaceDescriptor& descriptor = op.image();
       const TextureInfo& info = textureParent->GetTextureInfo();
-      if (textureParent->SurfaceTypeChanged(descriptor.type())) {
-        RefPtr<TextureHost> textureHost
-        = compositor->CreateTextureHost(info.memoryType,
-                                        info.textureFlags,
-                                        descriptor.type(),
-                                        this);
-        textureHost->SetCompositorID(compositor->GetCompositorID());
-        textureParent->SetTextureHost(textureHost.get());
-        textureHost->SetTextureParent(textureParent);
-        // here we probably need something more specific like SwapTextureHost
-        layer->AsLayerComposite()->GetCompositableHost()->AddTextureHost(textureHost);
+      if (compositor) {
+        textureParent->GetCompositableHost()->SetCompositor(compositor);
       }
-      textureParent->SetCurrentSurfaceType(descriptor.type());
+      if (textureParent->EnsureTextureHost(descriptor.type())) {
+        printf("reset texture host\n");
+      }
+      if (!textureParent->GetTextureHost()) {
+        printf("failed to create the texture host :(\n");
+        break;
+      }
+
       TextureHost* host = AsTextureHost(op);
       shadowLayer->SetAllocator(this);
       SurfaceDescriptor newBack;

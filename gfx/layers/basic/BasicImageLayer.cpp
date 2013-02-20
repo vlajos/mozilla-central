@@ -254,7 +254,7 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   }
 
   if (!mImageClient ||
-      !mImageClient->UpdateImage(mContainer, this)) {
+      !mImageClient->UpdateImage(mContainer, GetContentFlags())) {
     mImageClient = BasicManager()->CreateImageClientFor(GetImageClientType(), this,
                                                         mForceSingleTile
                                                           ? ForceSingleTile
@@ -262,16 +262,16 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     if (!mImageClient) {
       return;
     }
-    if (HasShadow()) {
+    if (HasShadow() && !mContainer->IsAsync()) {
       mImageClient->Connect();
       mImageClient->GetForwarder()->Attach(mImageClient, this);
     }
-    if (!mImageClient->UpdateImage(mContainer, this)) {
+    if (!mImageClient->UpdateImage(mContainer, GetContentFlags())) {
       return;
     }
   }
 
-  mImageClient->Updated(BasicManager()->Hold(this));
+  mImageClient->Updated(/*BasicManager()->Hold(this)*/);
 }
 
 already_AddRefed<ImageLayer>

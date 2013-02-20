@@ -37,10 +37,13 @@ TextureClient::~TextureClient()
 {}
 
 void
-TextureClient::Updated(ShadowableLayer* aLayer)
+TextureClient::Updated()
 {
-  if (mDescriptor.type() != SurfaceDescriptor::T__None) {
+  if (mDescriptor.type() != SurfaceDescriptor::T__None &&
+      mDescriptor.type() != SurfaceDescriptor::Tnull_t) {
     mLayerForwarder->UpdateTexture(this, SurfaceDescriptor(mDescriptor));
+  } else {
+    NS_WARNING("Trying to send a null SurfaceDescriptor.");
   }
 }
 
@@ -127,11 +130,15 @@ bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
       NS_WARNING("creating SurfaceDescriptor failed!");
       return false;
     }
+    MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::Tnull_t);
+    MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::T__None);
   }
+  MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::Tnull_t);
+  MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::T__None);
   return true;
 }
 
-bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface* surface)
+bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxASurface* surface)
 {
   CompositableType type = CompositingFactory::TypeForImage(aImage);
   if (type != BUFFER_SINGLE) {
@@ -140,17 +147,17 @@ bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface*
 
   nsRefPtr<gfxPattern> pat = new gfxPattern(surface);
   if (!pat)
-    return true;
-
+    return false;
+/*
   pat->SetFilter(aLayer->GetFilter());
   gfxMatrix mat = pat->GetMatrix();
   aLayer->ScaleMatrix(surface->GetSize(), mat);
   pat->SetMatrix(mat);
-
+*/
   gfxIntSize size = aImage->GetSize();
 
   gfxASurface::gfxContentType contentType = gfxASurface::CONTENT_COLOR_ALPHA;
-  bool isOpaque = (aLayer->GetContentFlags() & Layer::CONTENT_OPAQUE);
+  bool isOpaque = (aContentFlags & Layer::CONTENT_OPAQUE);
   if (surface) {
     contentType = surface->GetContentType();
   }
@@ -158,7 +165,9 @@ bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface*
       isOpaque) {
     contentType = gfxASurface::CONTENT_COLOR;
   }
-  EnsureTextureClient(size, surface, contentType);
+  if (!EnsureTextureClient(size, surface, contentType)) {
+    return false;
+  }
 
   nsRefPtr<gfxASurface> tmpASurface =
     ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE,
@@ -176,6 +185,7 @@ bool AutoLockShmemClient::Update(Image* aImage, ImageLayer* aLayer, gfxASurface*
 bool
 AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
 {
+  MOZ_ASSERT(aImage);
   SurfaceDescriptor* descriptor = mTextureClient->LockSurfaceDescriptor();
   MOZ_ASSERT(descriptor);
 
@@ -186,6 +196,7 @@ AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
   }
 
   if (!EnsureTextureClient(aImage)) {
+    NS_RUNTIMEABORT("DARNIT!");
     return false;
   }
 
@@ -203,6 +214,7 @@ AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
 }
 
 bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
+  MOZ_ASSERT(aImage);
   if (!aImage) {
     return false;
   }
@@ -236,6 +248,7 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
                                                       data->mCbCrSize);
   ipc::Shmem shmem;
   if (!mTextureClient->GetLayerForwarder()->AllocateUnsafe(size, shmType, &shmem)) {
+    NS_RUNTIMEABORT("buddy, you need a better allocator");
     return false;
   }
 

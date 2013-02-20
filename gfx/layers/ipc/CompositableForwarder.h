@@ -47,6 +47,7 @@ public:
    */
   virtual void Connect(CompositableClient* aCompositable) = 0;
 
+  // TODO[nical] remove the Attach methods from there (belong to ShadowLayerFwd only)
   /**
    * Adds an edit in the transaction in order to attach
    * the corresponding compositable and layer on the compositor side.

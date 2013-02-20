@@ -49,7 +49,7 @@ public:
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
   virtual bool AllocateUnsafe(size_t aSize,
                               ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) MOZ_OVERRIDE {
+                              ipc::Shmem* aShmem) {
     return AllocUnsafeShmem(aSize, aType, aShmem);
   }
 

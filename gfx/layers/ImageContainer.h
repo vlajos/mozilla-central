@@ -339,7 +339,7 @@ public:
    * Returns 0 if this ImageContainer does not use ImageBridge. Note that
    * 0 is always an invalid ID for asynchronous image containers. 
    *
-   * Can be called from ay thread.
+   * Can be called from any thread.
    */
   uint64_t GetAsyncContainerID() const;
 

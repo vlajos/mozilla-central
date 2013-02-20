@@ -101,7 +101,7 @@ public:
   /**
    * Adds this TextureClient's data to the current layer transaction.
    */
-  virtual void Updated(ShadowableLayer* aLayer);
+  virtual void Updated();
   virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation);
@@ -181,7 +181,7 @@ class AutoLockShmemClient : public AutoLockTextureClient
 {
 public:
   AutoLockShmemClient(TextureClient* aTexture) : AutoLockTextureClient(aTexture) {}
-  bool Update(Image* aImage, ImageLayer* aLayer, gfxASurface* surface);
+  bool Update(Image* aImage, uint32_t aContentFlags, gfxASurface* surface);
 protected:
   bool EnsureTextureClient(nsIntSize aSize,
                            gfxASurface* surface,

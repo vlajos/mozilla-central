@@ -127,7 +127,7 @@ public:
   /**
    * Establishes the connection with compositor side through IPDL
    */
-  bool Connect();
+  virtual bool Connect();
 
   void Destroy();
 

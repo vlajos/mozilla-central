@@ -303,6 +303,7 @@ ShadowLayerForwarder::UpdateTexture(TextureClient* aTexture,
                                     const SurfaceDescriptor& aImage)
 {
   MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
+  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::Tnull_t, "[debug] STOP");
   MOZ_ASSERT(aTexture);
   MOZ_ASSERT(aTexture->GetIPDLActor());
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture->GetIPDLActor(), aImage));
@@ -502,7 +503,7 @@ ShadowLayerForwarder::AllocateUnsafe(size_t aSize,
                                      ipc::SharedMemory::SharedMemoryType aType,
                                      ipc::Shmem* aShmem)
 {
-  return false; // TODO[nical]
+  return mShadowManager->AllocUnsafeShmem(aSize, aType, aShmem);
 }
 
 /*static*/ already_AddRefed<gfxASurface>
@@ -602,6 +603,9 @@ ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositable
   RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(GetCompositorBackendType(),
                                                                      aCompositableType,
                                                                      this, aFlags);
+  if (aCompositableType == BUFFER_BRIDGE) {
+    static_cast<ImageClientBridge*>(client.get())->SetLayer(aLayer);
+  }
   return client.forget();
 }
 
@@ -739,7 +743,8 @@ ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
 bool
 IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface)
 {
-  return SurfaceDescriptor::T__None != aSurface.type();
+  return aSurface.type() != SurfaceDescriptor::T__None &&
+         aSurface.type() != SurfaceDescriptor::Tnull_t;
 }
 
 AutoOpenSurface::AutoOpenSurface(OpenMode aMode,
@@ -813,8 +818,9 @@ ShadowLayerForwarder::Connect(CompositableClient* aCompositable)
 void ShadowLayerForwarder::Attach(CompositableClient* aCompositable,
                                   ShadowableLayer* aLayer)
 {
-  MOZ_ASSERT(aCompositable);
   MOZ_ASSERT(aLayer);
+  MOZ_ASSERT(aCompositable);
+  MOZ_ASSERT(aCompositable->GetIPDLActor());
   mTxn->AddEdit(OpAttachCompositable(nullptr, Shadow(aLayer),
                                      nullptr, aCompositable->GetIPDLActor()));
 }
@@ -823,6 +829,7 @@ void ShadowLayerForwarder::AttachAsyncCompositable(uint64_t aCompositableID,
                                                    ShadowableLayer* aLayer)
 {
   MOZ_ASSERT(aLayer);
+  MOZ_ASSERT(aCompositableID != 0); // zero is always an invalid compositable id.
   mTxn->AddEdit(OpAttachAsyncCompositable(nullptr, Shadow(aLayer),
                                           aCompositableID));
 }

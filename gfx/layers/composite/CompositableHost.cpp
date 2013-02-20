@@ -68,13 +68,13 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
     return nullptr;
   }
 }
-
+/*
 Compositor*
 CompositableParent::GetCompositor() const
 {
   return mManager->GetCompositor();
 }
-  
+*/
 
 PTextureParent*
 CompositableParent::AllocPTexture(const TextureInfo& aInfo)

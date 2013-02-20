@@ -61,14 +61,15 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                            TiledLayerProperties* aLayerProperties)
 {
   if (!mTextureHost || !mTextureHost->IsValid()) {
+    NS_WARNING("Can't composite an invalid or null TextureHost");
     return;
   }
 
-  mTextureHost->UpdateAsyncTexture();
   RefPtr<TexturedEffect> effect =
     CreateTexturedEffect(mTextureHost, aFilter);
 
   if (!mTextureHost->Lock()) {
+    MOZ_ASSERT(false, "failed to lock texture host");
     return;
   }
   

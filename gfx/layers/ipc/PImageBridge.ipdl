@@ -29,7 +29,7 @@ namespace layers {
 
 parent:
 
-  //sync Update(CompositableOperation[] ops) returns (EditReply[] reply);
+  sync Update(CompositableOperation[] ops) returns (EditReply[] reply);
   async UpdateNoSwap(CompositableOperation[] ops);
 
   // Allocates a gralloc buffer that may not suitable to use with

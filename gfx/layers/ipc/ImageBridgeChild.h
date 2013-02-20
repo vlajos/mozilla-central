@@ -20,6 +20,7 @@ namespace mozilla {
 namespace layers {
 
 class ImageClient;
+class ImageContainer;
 class ImageContainerChild;
 class ImageBridgeParent;
 class SurfaceDescriptor;
@@ -136,7 +137,10 @@ public:
    * Dispatches a task to the ImageBridgeChild thread to do the connection
    */
   void ConnectAsync(ImageBridgeParent* aParent);
-    
+
+  void BeginTransaction();
+  void EndTransaction();
+
   /**
    * Returns the ImageBridgeChild's thread.
    *
@@ -261,22 +265,34 @@ public:
   // TODO[nical]
   virtual bool AllocBuffer(const gfxIntSize& aSize,
                            gfxASurface::gfxContentType aContent,
-                           SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
+                           SurfaceDescriptor* aBuffer) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("Implement me");
+    return false;
+  }
   // TODO[nical]
   virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
                                    gfxASurface::gfxContentType aContent,
                                    uint32_t aCaps,
-                                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }
-  // TODO[nical]
+                                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("Implement me");
+    return false;
+  }
+
   virtual bool AllocateUnsafe(size_t aSize,
                               ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) MOZ_OVERRIDE { return false; }
+                              ipc::Shmem* aShmem) MOZ_OVERRIDE {
+    return AllocUnsafeShmem(aSize, aType, aShmem);
+  }
   // TODO[nical]
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {}
+  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("Implement me");
+  }
 
   TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);
   TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);
 
+  static void DispatchReleaseImageClient(ImageClient* aClient);
+  static void DispatchImageClientUpdate(ImageClient* aClient, ImageContainer* aContainer);
 
 protected:
   ImageBridgeChild();
@@ -289,4 +305,3 @@ protected:
 
 
 #endif
-

@@ -37,7 +37,7 @@ ImageClientTexture::ImageClientTexture(CompositableForwarder* aFwd,
 }
 
 bool
-ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
+ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
 {
   if (!mTextureClient) {
     mTextureClient = CreateTextureClient(TEXTURE_SHMEM, mFlags);
@@ -55,12 +55,14 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
     AutoLockYCbCrClient clientLock(mTextureClient);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
     if (!clientLock.Update(ycbcr)) {
+      NS_WARNING("failed to update TextureClient (YCbCr)");
       return false;
     }
     UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
   } else {
     AutoLockShmemClient clientLock(mTextureClient);
-    if (!clientLock.Update(image, aLayer, surface)) {
+    if (!clientLock.Update(image, aContentFlags, surface)) {
+      NS_WARNING("failed to update TextureClient");
       return false;
     }
     UpdatePictureRect(nsIntRect(0, 0,
@@ -79,9 +81,9 @@ ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
 }
 
 void
-ImageClientTexture::Updated(ShadowableLayer* aLayer)
+ImageClientTexture::Updated()
 {
-  mTextureClient->Updated(aLayer);
+  mTextureClient->Updated();
 }
 
 ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
@@ -92,7 +94,7 @@ ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
 }
 
 bool
-ImageClientShared::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
+ImageClientShared::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
 {
   gfxASurface* dontCare = nullptr;
   AutoLockImage autoLock(aContainer, &dontCare);
@@ -118,29 +120,30 @@ ImageClientShared::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
 }
 
 void
-ImageClientShared::Updated(ShadowableLayer* aLayer)
+ImageClientShared::Updated()
 {
-  mTextureClient->Updated(aLayer);
+  mTextureClient->Updated();
 }
 
 ImageClientBridge::ImageClientBridge(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
 : ImageClient(aFwd)
 , mAsyncContainerID(0)
+, mLayer(nullptr)
 {
 }
 
 bool
-ImageClientBridge::UpdateImage(ImageContainer* aContainer, ImageLayer* aLayer)
+ImageClientBridge::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
 {
-  if (!GetForwarder()) {
+  if (!GetForwarder() || !mLayer) {
     return false;
   }
   if (mAsyncContainerID == aContainer->GetAsyncContainerID()) {
     return true;
   }
   mAsyncContainerID = aContainer->GetAsyncContainerID();
-  GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, aLayer->AsShadowableLayer());
+  GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, mLayer);
   return true;
 }
 

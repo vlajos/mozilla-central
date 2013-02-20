@@ -225,6 +225,7 @@ public:
   TextureFlags GetFlags() { return mFlags; }
 
   virtual void CleanupResources() {}
+  virtual void SetCompositor(Compositor* aCompositor) {}
 
   void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
   {

@@ -67,13 +67,10 @@ protected:
 #endif
 
 private:
-  void EnsureImageHost(CompositableType aHostType);
-
-  // A ShadowImageLayer should use only one of the ImageHost
-  // or ImageBridge mechanisms at one time
   RefPtr<ImageHost> mImageHost;
 };
 
 } /* layers */
 } /* mozilla */
+
 #endif /* GFX_ImageLayerComposite_H */

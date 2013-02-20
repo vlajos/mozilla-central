@@ -406,8 +406,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
       CompositableHost* compositable = compositableParent->GetCompositableHost();
       MOZ_ASSERT(compositable);
-      compositable->SetCompositor(compositor);
       layerComposite->SetCompositableHost(compositable);
+      compositable->SetCompositor(compositor);
       compositable->SetLayer(layerParent->AsLayer());
       break;
     }
@@ -429,8 +429,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
       CompositableHost* compositable = compositableParent->GetCompositableHost();
       MOZ_ASSERT(compositable);
-      compositable->SetCompositor(compositor);
       layerComposite->SetCompositableHost(compositable);
+      compositable->SetCompositor(compositor);
       compositable->SetLayer(layerParent->AsLayer());
       break;
     }

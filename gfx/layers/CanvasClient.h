@@ -28,9 +28,9 @@ public:
 
   virtual void SetBuffer(const TextureIdentifier& aTextureIdentifier,
                          const SurfaceDescriptor& aBuffer);
-  virtual void Updated(ShadowableLayer* aLayer)
+  virtual void Updated()
   {
-    mTextureClient->Updated(aLayer);
+    mTextureClient->Updated();
   }
 protected:
   RefPtr<TextureClient> mTextureClient;

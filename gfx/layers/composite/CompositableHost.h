@@ -32,7 +32,7 @@ class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
   CompositableHost(Compositor* aCompositor = nullptr)
-  : mCompositor(aCompositor)
+  : mCompositor(aCompositor), mLayer(nullptr)
   {
     MOZ_COUNT_CTOR(CompositableHost);
   }
@@ -51,6 +51,9 @@ public:
 
   virtual void SetCompositor(Compositor* aCompositor)
   {
+    if (mCompositor == aCompositor) {
+      return;
+    }
     CleanupResources();
     mCompositor = aCompositor;
   }
@@ -128,8 +131,6 @@ public:
   {
     return mType;
   }
-
-  Compositor* GetCompositor() const;
 
   CompositableParentManager* GetCompositableManager() const
   {

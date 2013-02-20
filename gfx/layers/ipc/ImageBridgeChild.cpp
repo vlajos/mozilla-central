@@ -14,6 +14,7 @@
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/CompositableClient.h"
+#include "mozilla/layers/TextureChild.h"
 #include "nsXULAppAPI.h"
 #include "Compositor.h"
 #include "CompositableClient.h"
@@ -31,6 +32,8 @@ typedef std::vector<CompositableOperation> OpVector;
 
 struct CompositableTransaction
 {
+  CompositableTransaction()
+  : mFinished(true), mSwapRequired(false) {}
   ~CompositableTransaction()
   {
     End();
@@ -39,7 +42,7 @@ struct CompositableTransaction
   {
     return mFinished;
   }
-  void Start()
+  void Begin()
   {
     MOZ_ASSERT(mFinished);
     mFinished = false;
@@ -70,9 +73,9 @@ struct CompositableTransaction
   bool mFinished;
 };
 
-struct AutoTxnEnd {
-  AutoTxnEnd(CompositableTransaction* aTxn) : mTxn(aTxn) {}
-  ~AutoTxnEnd() { mTxn->End(); }
+struct AutoEndTransaction {
+  AutoEndTransaction(CompositableTransaction* aTxn) : mTxn(aTxn) {}
+  ~AutoEndTransaction() { mTxn->End(); }
   CompositableTransaction* mTxn;
 };
 
@@ -80,6 +83,7 @@ void
 ImageBridgeChild::UpdateTexture(TextureClient* aTexture,
                                 const SurfaceDescriptor& aImage)
 {
+  printf("ImageBridgeChild::UpdateTexture\n");
   MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
   MOZ_ASSERT(aTexture);
   MOZ_ASSERT(aTexture->GetIPDLActor());
@@ -303,6 +307,101 @@ ConnectImageBridgeInChildProcess(Transport* aTransport,
                                    AsyncChannel::Child);
 }
 
+static void ReleaseImageClientNow(ImageClient* aClient)
+{
+  MOZ_ASSERT(InImageBridgeChildThread());
+  aClient->Release();
+}
+ 
+// static
+void ImageBridgeChild::DispatchReleaseImageClient(ImageClient* aClient)
+{
+  sImageBridgeChildSingleton->GetMessageLoop()->PostTask(
+    FROM_HERE,
+    NewRunnableFunction(&ReleaseImageClientNow, aClient));
+}
+
+static void UpdateImageClientNow(ImageClient* aClient, ImageContainer* aContainer)
+{
+  MOZ_ASSERT(aClient);
+  MOZ_ASSERT(aContainer);
+  printf("(ImageBridge) UpdateImageClientNow\n");
+  sImageBridgeChildSingleton->BeginTransaction();
+  aClient->UpdateImage(aContainer, Layer::CONTENT_OPAQUE);
+  aClient->Updated();
+  sImageBridgeChildSingleton->EndTransaction();
+}
+
+//static
+void ImageBridgeChild::DispatchImageClientUpdate(ImageClient* aClient,
+                                                 ImageContainer* aContainer)
+{
+  sImageBridgeChildSingleton->GetMessageLoop()->PostTask(
+    FROM_HERE,
+    NewRunnableFunction(&UpdateImageClientNow, aClient, aContainer));
+}
+
+void
+ImageBridgeChild::BeginTransaction()
+{
+  printf("ImageBridge::BeginTransaction\n");
+  MOZ_ASSERT(mTxn->Finished(), "uncommitted txn?");
+  mTxn->Begin();
+}
+
+void
+ImageBridgeChild::EndTransaction()
+{
+  printf("ImageBridge::EndTransaction\n");
+  MOZ_ASSERT(!mTxn->Finished(), "forgot BeginTransaction?");
+
+  AutoEndTransaction _(mTxn);
+
+  if (mTxn->IsEmpty()) {
+    printf("\nImageBridge: Empty transaction !!\n\n");  
+    return;
+  }
+
+  AutoInfallibleTArray<CompositableOperation, 10> cset;
+  cset.SetCapacity(mTxn->mOperations.size());
+  if (!mTxn->mOperations.empty()) {
+    cset.AppendElements(&mTxn->mOperations.front(), mTxn->mOperations.size());
+  }
+  ShadowLayerForwarder::PlatformSyncBeforeUpdate();
+
+  AutoInfallibleTArray<EditReply, 10> replies;
+
+  if (mTxn->mSwapRequired) {
+    if (!SendUpdate(cset, &replies)) {
+      NS_WARNING("could not send async texture transaction");
+      return;
+    }
+  } else {
+    // If we don't require a swap we can call SendUpdateNoSwap which
+    // assumes that aReplies is empty (DEBUG assertion)
+    if (!SendUpdateNoSwap(cset)) {
+      NS_WARNING("could not send async texture transaction (no swap)");
+      return;
+    }
+  }
+  for (nsTArray<EditReply>::size_type i = 0; i < replies.Length(); ++i) {
+    const EditReply& reply = replies[i];
+    switch (reply.type()) {
+    case EditReply::TOpTextureSwap: {
+      const OpTextureSwap& ots = reply.get_OpTextureSwap();
+      PTextureChild* textureChild = ots.textureChild();
+      MOZ_ASSERT(textureChild);
+      TextureClient* texClient = static_cast<TextureChild*>(textureChild)->GetTextureClient();
+      texClient->SetDescriptor(ots.image());
+      break;
+    }
+    default:
+      NS_RUNTIMEABORT("not reached");
+    }
+  }
+}
+
+
 PImageBridgeChild*
 ImageBridgeChild::StartUpInChildProcess(Transport* aTransport,
                                         ProcessId aOtherProcess)
@@ -386,20 +485,6 @@ void ImageBridgeChild::DestroyBridge()
 
 }
 
-// Not needed, cf CreateImageContainerChildNow
-/*
-PImageContainerChild* ImageBridgeChild::AllocPImageContainer(uint64_t* id)
-{
-  NS_ABORT();
-  return nullptr;
-}
-
-bool ImageBridgeChild::DeallocPImageContainer(PImageContainerChild* aImgContainerChild)
-{
-  static_cast<ImageContainerChild*>(aImgContainerChild)->Release();
-  return true;
-}
-*/
 bool InImageBridgeChildThread()
 {
   return sImageBridgeChildThread->thread_id() == PlatformThread::CurrentId();
@@ -440,14 +525,19 @@ ImageBridgeChild::CreateImageClient(CompositableType aType)
 TemporaryRef<ImageClient>
 ImageBridgeChild::CreateImageClientNow(CompositableType aType)
 {
+  mCompositorBackend = LAYERS_OPENGL; // TODO[nical]
   RefPtr<ImageClient> client 
     = CompositingFactory::CreateImageClient(mCompositorBackend,
                                             aType,
                                             this,
                                             0);
-  client->Connect();
+  MOZ_ASSERT(client, "failed to create ImageClient");
+  if (client) {
+    client->Connect();
+  }
   return client.forget();
 }
+
 /*
 already_AddRefed<ImageContainerChild> ImageBridgeChild::CreateImageContainerChild()
 {

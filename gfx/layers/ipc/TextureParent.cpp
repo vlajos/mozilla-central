@@ -17,10 +17,9 @@ namespace layers {
 TextureParent::TextureParent(const TextureInfo& aInfo, CompositableParent* aCompositable)
 : mTextureInfo(aInfo), mLastSurfaceType(SurfaceDescriptor::Tnull_t)
 {
-  Compositor* compositor = aCompositable->GetCompositor();
-  // I don't know if we really want to enforce that
-  // let's see if we ever hit it.
-  MOZ_ASSERT(compositor);
+  MOZ_COUNT_CTOR(TextureParent);
+  Compositor* compositor = aCompositable->GetCompositableHost()->GetCompositor();
+
   if (compositor) {
     mTextureHost = compositor->CreateTextureHost(aInfo.memoryType,
                                                  aInfo.textureFlags,
@@ -30,6 +29,12 @@ TextureParent::TextureParent(const TextureInfo& aInfo, CompositableParent* aComp
   }
 }
 
+TextureParent::~TextureParent()
+{
+  MOZ_COUNT_DTOR(TextureParent);
+  mTextureHost = nullptr;
+}
+
 bool
 TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
   if (!SurfaceTypeChanged(aSurfaceType)) {
@@ -37,26 +42,20 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
   }
   CompositableParent* compParent = static_cast<CompositableParent*>(Manager());
   CompositableHost* compositable = compParent->GetCompositableHost();
-  Compositor* compositor = compParent->GetCompositor();
-  // I don't know if we really want to enforce that
-  // let's see if we ever hit it.
-  MOZ_ASSERT(compositor);
+  Compositor* compositor = compositable->GetCompositor();
+
   if (compositor) {
+    mLastSurfaceType = aSurfaceType;
     mTextureHost = compositor->CreateTextureHost(mTextureInfo.compositableType,
                                                  mTextureInfo.textureFlags,
-                                                 mLastSurfaceType,
-                                                 nullptr);
-    SetCurrentSurfaceType(aSurfaceType);
+                                                 aSurfaceType,
+                                                 compParent->GetCompositableManager());
     compositable->AddTextureHost(mTextureHost);
     return true;
   }
   return false;
 }
 
-TextureParent::~TextureParent()
-{
-  mTextureHost = nullptr;
-}
 
 void TextureParent::SetTextureHost(TextureHost* aHost)
 {
