@@ -84,7 +84,7 @@ public:
   }
 
 private:
-  nsRefPtr<BasicLayerManager> mManager;
+  BasicLayerManager* mManager;
 };
 
 class ContentClientRemote : public ContentClient

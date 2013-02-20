@@ -294,10 +294,12 @@ CompositorOGL::CompositorOGL(nsIWidget *aWidget, int aSurfaceWidth,
   , mFrameInProgress(false)
   , mDestroyed(false)
 {
+  MOZ_COUNT_CTOR(CompositorOGL);
 }
 
 CompositorOGL::~CompositorOGL()
 {
+  MOZ_COUNT_DTOR(CompositorOGL);
   Destroy();
 }
 
