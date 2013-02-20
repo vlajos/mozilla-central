@@ -389,7 +389,9 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpAttachCompositable: {
+#ifdef GFX_COMPOSITOR_LOGGING
       printf("OpAttachCompositable\n");
+#endif
       const OpAttachCompositable& op = edit.get_OpAttachCompositable();
       CompositableParent* compositableParent
         = static_cast<CompositableParent*>(op.compositableParent());
@@ -410,7 +412,9 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       break;
     }
     case Edit::TOpAttachAsyncCompositable: {
+#ifdef GFX_COMPOSITOR_LOGGING
       printf("OpAttachAsyncCompositable\n");
+#endif
       const OpAttachAsyncCompositable& op = edit.get_OpAttachAsyncCompositable();
       CompositableParent* compositableParent = CompositableMap::Get(op.containerID());
       MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");

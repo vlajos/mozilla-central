@@ -258,7 +258,7 @@ public:
    * TODO[nical]
    */
   virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
-  // TODO
+  // TODO[nical]
   virtual bool AllocBuffer(const gfxIntSize& aSize,
                            gfxASurface::gfxContentType aContent,
                            SurfaceDescriptor* aBuffer) MOZ_OVERRIDE { return false; }

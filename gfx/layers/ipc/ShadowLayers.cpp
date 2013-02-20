@@ -799,7 +799,9 @@ AutoOpenSurface::GetAsImage()
 void
 ShadowLayerForwarder::Connect(CompositableClient* aCompositable)
 {
+#ifdef GFX_COMPOSITOR_LOGGING
   printf("ShadowLayerForwarder::Connect(Compositable)\n");
+#endif
   MOZ_ASSERT(aCompositable);
   CompositableChild* child = static_cast<CompositableChild*>(
     mShadowManager->SendPCompositableConstructor(aCompositable->GetType()));

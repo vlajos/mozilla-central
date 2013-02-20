@@ -101,7 +101,6 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     mContentType = aContentType;
     mSize = aSize;
 
-    // TODO[nrc or nical] this leads to an abort in Shmem.cpp:147
     if (!mLayerForwarder->AllocBuffer(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
       NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
     }
@@ -425,7 +424,8 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
     }
     break;
   case BUFFER_UNKNOWN:
-    return nullptr;
+    result = nullptr;
+    break;
   default:
     // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
     // at least we'll known if we run into them.

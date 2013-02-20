@@ -16,6 +16,8 @@
 #include "mozilla/layers/TextureFactoryIdentifier.h"
 #include "Layers.h"
 
+//#define GFX_COMPOSITOR_LOGGING
+
 class gfxContext;
 class gfxASurface;
 class gfxImageSurface;
