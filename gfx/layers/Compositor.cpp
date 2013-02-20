@@ -17,9 +17,6 @@ TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocat
   : mFlags(NoFlags)
   , mBufferMode(aBufferMode)
   , mFormat(gfx::FORMAT_UNKNOWN)
-  , mAsyncContainerID(0)
-  , mAsyncTextureVersion(0)
-  , mCompositorID(0)
   , mDeAllocator(aDeallocator)
 {
   MOZ_COUNT_CTOR(TextureHost);
@@ -59,27 +56,6 @@ void TextureHost::Update(const SurfaceDescriptor& aImage,
       *aResult = aImage;
     }
   }
-}
-
-bool TextureHost::UpdateAsyncTexture()
-{
-  if (!IsAsync()) {
-    return true;
-  }
-  /*
-  ImageContainerParent::SetCompositorIDForImage(mAsyncContainerID, mCompositorID);
-  uint32_t imgVersion = ImageContainerParent::GetSurfaceDescriptorVersion(mAsyncContainerID);
-  if (imgVersion != mAsyncTextureVersion) {
-    SurfaceDescriptor* img = ImageContainerParent::GetSurfaceDescriptor(mAsyncContainerID);
-    if (!img) {
-      return false;
-    }
-    Update(*img, img);
-    mAsyncTextureVersion = imgVersion;
-  }
-  return true;
-  */
-  return false;
 }
 
 #ifdef MOZ_LAYERS_HAVE_LOG

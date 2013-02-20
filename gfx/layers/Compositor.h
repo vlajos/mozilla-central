@@ -265,34 +265,6 @@ public:
     return mTextureParent;
   }
 
-  // ImageBridge
-
-  /**
-   * \return true if this TextureHost uses ImageBridge
-   */
-  bool IsAsync() const {
-    return mAsyncContainerID != 0;
-  }
-
-  void SetAsyncContainerID(uint64_t aID) {
-    mAsyncContainerID = aID;
-  }
-
-  void SetCompositorID(uint32_t aID) {
-    mCompositorID = aID;
-  }
-
-  /**
-   * If this TextureHost uses ImageBridge, try to fetch the SurfaceDescriptor in
-   * the ImageBridge global map and call Update on it.
-   * If it does not use ImageBridge, do nothing and return true.
-   * Return false if using ImageBridge and failed to fetch the texture.
-   * The texture is checked against a version ID to avoid calling Update
-   * several times on the same image.
-   * Should be called before Lock.
-   */
-  bool UpdateAsyncTexture();
-
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual const char *Name() =0;
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
@@ -336,11 +308,6 @@ protected:
   BufferMode mBufferMode;
   SurfaceDescriptor* mBuffer;
   gfx::SurfaceFormat mFormat;
-
-  // ImageBridge
-  uint64_t mAsyncContainerID;
-  uint32_t mAsyncTextureVersion;
-  uint32_t mCompositorID;
 
   TextureParent* mTextureParent;
   ISurfaceDeallocator* mDeAllocator;

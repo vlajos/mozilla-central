@@ -106,8 +106,8 @@ public:
   Layer* GetLayer() const { return mLayer; }
   void SetLayer(Layer* aLayer) { mLayer = aLayer; }
 protected:
-  Layer* mLayer;
   Compositor* mCompositor;
+  Layer* mLayer;
 };
 
 class CompositableParentManager;

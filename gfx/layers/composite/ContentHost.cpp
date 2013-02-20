@@ -35,8 +35,6 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  mTextureHost->UpdateAsyncTexture();
-
   bool isLocked = mTextureHost->Lock();
   if (!isLocked) {
     return;
@@ -49,7 +47,6 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
 #if 0
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
-      mTextureHostOnWhite->UpdateAsyncTexture();
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
         TextureSource* sourceOnBlack = mTextureHost->AsTextureSource();
         TextureSource* sourceOnWhite = mTextureHostOnWhite->AsTextureSource();
@@ -836,6 +833,7 @@ TiledContentHost::PrintInfo(nsACString& aTo, const char* aPrefix)
 
 }
 #endif
+
 
 } // namespace
 } // namespace
