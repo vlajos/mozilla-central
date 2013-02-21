@@ -69,7 +69,7 @@ public:
   virtual void Updated();
 private:
   RefPtr<TextureClient> mTextureClient;
-  TextureFlags mFlags;  
+  TextureFlags mFlags;
 };
 
 class ImageClientShared : public ImageClient

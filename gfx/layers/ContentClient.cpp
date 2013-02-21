@@ -101,7 +101,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   }
 
   mTextureClient = CreateTextureClient(TEXTURE_SHARED | TEXTURE_DXGI,
-                                       AllowRepeat);
+                                       aFlags);
 
   mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
                                       aType);
@@ -244,7 +244,7 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().width,
                   mFrontUpdatedRegion.GetBounds().height));
 
-  //TODO[nrc] if we hit the !mTextureClient path above we are prepeating some work here
+  //TODO[nrc] if we hit the !mTextureClient path above we are repeating some work here
   const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
   AutoOpenSurface autoROFront(OPEN_READ_ONLY, roFront.buffer());
   SetBackingBufferAndUpdateFrom(backBuffer,
