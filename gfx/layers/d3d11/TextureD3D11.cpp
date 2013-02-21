@@ -43,7 +43,6 @@ TextureClientD3D11::TextureClientD3D11(CompositableForwarder* aCompositableForwa
   : TextureClient(aCompositableForwarder, aCompositableType)
 {
   mTextureInfo.compositableType = aCompositableType;
-  mTextureInfo.memoryType = TEXTURE_DXGI;
 }
 
 void

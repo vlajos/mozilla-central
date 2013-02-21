@@ -83,34 +83,35 @@ CompositableChild::DeallocPTexture(PTextureChild* aActor)
 }
 
 TemporaryRef<TextureClient>
-CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
+CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
                                         TextureFlags aFlags)
 {
   MOZ_ASSERT(GetForwarder(), "Can't create a texture client if the compositable is not connected to the compositor.");
   LayersBackend parentBackend = GetForwarder()->GetCompositorBackendType();
   RefPtr<TextureClient> result = nullptr;
 
-  if (aTextureHostType & TEXTURE_TILE) {
-    result = new TextureClientTile(GetForwarder(), GetType());
-  } else if (aTextureHostType & TEXTURE_SHMEM) {
-    result = new TextureClientShmem(GetForwarder(), GetType());
-  } else if (aTextureHostType & TEXTURE_DIRECT) {
-    result = new TextureClientShmem(GetForwarder(), GetType());
-  } else if ((aTextureHostType & TEXTURE_SHARED) &&
-             (aTextureHostType & TEXTURE_BUFFERED)) {
-    result = new TextureClientSharedGL(GetForwarder(), GetType());
-  } else if ((aTextureHostType & TEXTURE_SHARED) &&
-             (aTextureHostType & TEXTURE_DXGI)) {
-#ifdef XP_WIN
-    if (GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11) {
-      result = new TextureClientD3D11(GetForwarder(), GetType());
-    } else
-#endif
-    {
-      // fall through to TEXTURE_SHMEM
-      result = new TextureClientShmem(GetForwarder(), GetType());
-    }
-  }
+  switch (aTextureClientType) {
+  case TEXTURE_SHARED_GL:
+     if (parentBackend == LAYERS_OPENGL) {
+       result = new TextureClientSharedGL(GetForwarder(), GetType());
+     }
+     break;
+  case TEXTURE_CONTENT:
+ #ifdef XP_WIN
+     if (GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11) {
+       result = new TextureClientD3D11(GetForwarder(), GetType());
+       break;
+     }
+ #endif
+     // fall through to TEXTURE_SHMEM
+   case TEXTURE_SHMEM:
+     if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
+       result = new TextureClientShmem(GetForwarder(), GetType());
+     }
+     break;
+   default:
+    MOZ_ASSERT(false, "Unhandled texture client type");
+   }
 
   MOZ_ASSERT(result, "Failed to create TextureClient");
   if (result) {

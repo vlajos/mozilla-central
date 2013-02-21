@@ -21,16 +21,13 @@ enum CompositableType
   BUFFER_TILED
 };
 
-typedef int32_t TextureHostType;
-static const TextureHostType TEXTURE_UNKNOWN  = 0;
-static const TextureHostType TEXTURE_BUFFERED = 1 << 0;
-static const TextureHostType TEXTURE_SHARED   = 1 << 2;
-static const TextureHostType TEXTURE_DIRECT   = 1 << 3;
-static const TextureHostType TEXTURE_ASYNC    = 1 << 4; // TODO not needed
-static const TextureHostType TEXTURE_EXTERNAL = 1 << 5;
-static const TextureHostType TEXTURE_DXGI     = 1 << 6; // TODO belongs here?
-static const TextureHostType TEXTURE_TILE     = 1 << 7; 
-static const TextureHostType TEXTURE_SHMEM    = 1 << 8;
+enum TextureHostFlags
+{
+  TEXTURE_HOST_DEFAULT = 0,       // The default texture host for the given SurfaceDescriptor should be created
+  TEXTURE_HOST_TILED = 1 << 0,    // A texture host that supports tiling should be created
+  TEXTURE_HOST_BUFFERED = 1 << 1, // The texture host should support swapping multiple buffers
+  TEXTURE_HOST_DIRECT = 1 << 2    // The texture host should attempt to use the SurfaceDescriptor for direct texturing
+};
 
 /**
  * Sent from the compositor to the drawing LayerManager, includes properties
@@ -54,12 +51,12 @@ struct TextureFactoryIdentifier
 struct TextureInfo
 {
   CompositableType compositableType;
-  TextureHostType memoryType;
+  uint32_t textureHostFlags;
   uint32_t textureFlags;
 
   TextureInfo()
     : compositableType(BUFFER_UNKNOWN)
-    , memoryType(TEXTURE_UNKNOWN)
+    , textureHostFlags(0)
     , textureFlags(0)
   {}
 };

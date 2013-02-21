@@ -1031,14 +1031,14 @@ struct ParamTraits<mozilla::layers::TextureInfo>
   static void Write(Message* aMsg, const paramType& aParam)
   {
     WriteParam(aMsg, aParam.compositableType);
-    WriteParam(aMsg, aParam.memoryType);
+    WriteParam(aMsg, aParam.textureHostFlags);
     WriteParam(aMsg, aParam.textureFlags);
   }
 
   static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->compositableType) &&
-           ReadParam(aMsg, aIter, &aResult->memoryType) &&
+           ReadParam(aMsg, aIter, &aResult->textureHostFlags) &&
            ReadParam(aMsg, aIter, &aResult->textureFlags);
   }
 };

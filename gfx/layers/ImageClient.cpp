@@ -90,7 +90,6 @@ ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
 : ImageClient(aFwd)
 {
-  //mTextureClient = CreateTextureClient(TEXTURE_SHARED, aFlags);
 }
 
 bool

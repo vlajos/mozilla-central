@@ -56,9 +56,9 @@ public:
   virtual void MakeCurrent(bool) { }
 
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(TextureHostType aMemoryType,
+    CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+                      uint32_t aTextureHostFlags,
                       uint32_t aTextureFlags,
-                      SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator);
 
   virtual TemporaryRef<CompositingRenderTarget>

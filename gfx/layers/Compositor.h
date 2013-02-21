@@ -64,6 +64,13 @@ const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
 const TextureFlags NewTile            = 0x20;
 
+enum TextureClientType
+{
+  TEXTURE_CONTENT, // Texture source is dynamically drawn content
+  TEXTURE_SHMEM, // Texture source is shared memory
+  TEXTURE_SHARED_GL // Texture source is an GLContext::SharedTextureHandle
+};
+
 /**
  * A view on a TextureHost where the texture is internally represented as tiles
  * (contrast with a tiled buffer, where each texture is a tile). For iteration by
@@ -373,12 +380,17 @@ public:
   virtual void MakeCurrent(bool aForce = false) = 0;
 
   /**
-   * Create a new texture host of a kind specified by aIdentifier
+   * Create a new texture host to handle surfaces of aDescriptorType
+   *
+   * @param aDescriptorType The SurfaceDescriptor type being passed
+   * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
+   * @param aTextureFlags Flags to pass to the new TextureHost
+   * #@param aDeAllocator A surface deallocator..
    */
   virtual TemporaryRef<TextureHost>
-    CreateTextureHost(TextureHostType aMemoryType,
+    CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+                      uint32_t aTextureHostFlags,
                       uint32_t aTextureFlags,
-                      SurfaceDescriptorType aDescriptorType,
                       ISurfaceDeallocator* aDeAllocator) = 0;
 
   /**

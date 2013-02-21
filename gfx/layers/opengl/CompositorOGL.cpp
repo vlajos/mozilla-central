@@ -701,49 +701,53 @@ CompositorOGL::SetLayerProgramProjectionMatrix(const gfx3DMatrix& aMatrix)
 void
 CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {
-  if (aId.memoryType & TEXTURE_DIRECT) {
-    aId.memoryType |= ~TEXTURE_DIRECT;
-  }
+  // Try again without direct texturing enabled
+  aId.textureHostFlags &= ~TEXTURE_HOST_DIRECT;
 }
 
 TemporaryRef<TextureHost>
-CompositorOGL::CreateTextureHost(TextureHostType aTextureType,
+CompositorOGL::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+                                 uint32_t aTextureHostFlags,
                                  uint32_t aTextureFlags,
-                                 SurfaceDescriptorType aDescriptorType,
                                  ISurfaceDeallocator* aDeAllocator)
 {
-  TextureHostType debugType = aTextureType;
   RefPtr<TextureHost> result = nullptr;
-  if ((aTextureType & TEXTURE_DIRECT) 
-       && ShadowLayerManager::SupportsDirectTexturing()) {
-    aTextureType &= TEXTURE_SHARED;
-  }
-  BufferMode bufferMode = aTextureType & TEXTURE_BUFFERED ? BUFFER_BUFFERED
-                                                          : BUFFER_NONE;
+
+  BufferMode bufferMode = aTextureHostFlags & TEXTURE_HOST_BUFFERED ? BUFFER_BUFFERED 
+                                                                    : BUFFER_NONE;
 
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
     result = new YCbCrTextureHostOGL(mGLContext/*, bufferMode, aDeAllocator*/); 
-  } else {
+  } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
+    result = new SharedTextureHostOGL(mGLContext,
+                                      bufferMode,
+                                      aDeAllocator);
+
+  } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
+    result = new TiledTextureHostOGL(mGLContext);
 #if 0 // FIXME [bjacob] hook up b2g gralloc path here
 #ifdef MOZ_WIDGET_GONK
+    // XXXmattwoodrow: I think this should be:
+    // if (aTextureHostFlags & TEXTURE_DIRECT &&
+    //     aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
+    //   result = new GrallocTextureHostOGL(...);
+    // }
+    // In the case where we don't have the TEXTURE_DIRECT flag (possibly
+    // because of calling FallbackTextureInfo above), then we can fallback
+    // to TextureImageTextureHostOGL, and that should be able to handle
+    // Gralloc surfaces the slow way.
+    //
     if ((aTextureType & TEXTURE_EXTERNAL) &&
         (aTextureType & TEXTURE_DIRECT)) {
       result = new DirectExternalTextureHost(mGLContext);
     }
 #endif
 #endif
-    if (aTextureType & TEXTURE_TILE) {
-      result = new TiledTextureHostOGL(mGLContext);
-    } else if (aTextureType & TEXTURE_SHARED) {
-      result = new SharedTextureHostOGL(mGLContext,
-                                        bufferMode,
-                                        aDeAllocator);
-    } else {
-      result = new TextureImageTextureHostOGL(mGLContext,
-                                              nullptr,
-                                              bufferMode,
-                                              aDeAllocator);
-    }
+  } else {
+    result = new TextureImageTextureHostOGL(mGLContext,
+                                            nullptr,
+                                            bufferMode,
+                                            aDeAllocator);
   }
 
   NS_ASSERTION(result, "Result should have been created.");

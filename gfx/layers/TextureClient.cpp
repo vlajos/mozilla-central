@@ -78,7 +78,6 @@ TextureClientShmem::TextureClientShmem(CompositableForwarder* aForwarder, Compos
   , mSurface(nullptr)
   , mSurfaceAsImage(nullptr)
 {
-  mTextureInfo.memoryType = TEXTURE_SHMEM;
 }
 
 TextureClientShmem::~TextureClientShmem()
@@ -335,7 +334,7 @@ TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
   : TextureClientShared(aForwarder, aCompositableType)
   , mGL(nullptr)
 {
-  mTextureInfo.memoryType = TEXTURE_SHARED|TEXTURE_BUFFERED;
+  mTextureInfo.textureHostFlags = TEXTURE_HOST_BUFFERED;
 }
 
 TextureClientSharedGL::~TextureClientSharedGL()
@@ -384,7 +383,6 @@ TextureClientBridge::TextureClientBridge(CompositableForwarder* aForwarder,
                                          CompositableType aCompositableType)
   : TextureClient(aForwarder, aCompositableType)
 {
-  mTextureInfo.memoryType = TEXTURE_SHMEM;
 }
 
 /* static */ CompositableType

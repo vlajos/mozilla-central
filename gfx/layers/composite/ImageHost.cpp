@@ -35,11 +35,11 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
   mTextureHost->Update(aImage, &result, &success);
   if (!success) {
     TextureInfo id = aTextureInfo;
-    GetCompositor()->FallbackTextureInfo(id);
     id.textureFlags = mTextureHost->GetFlags();
-    mTextureHost = GetCompositor()->CreateTextureHost(id.memoryType,
+    GetCompositor()->FallbackTextureInfo(id);
+    mTextureHost = GetCompositor()->CreateTextureHost(aImage.type(),
+                                                      id.textureHostFlags,
                                                       id.textureFlags,
-                                                      SURFACEDESCRIPTOR_UNKNOWN,
                                                       mTextureHost->GetDeAllocator());
     mTextureHost->Update(aImage, &result, &success);
     if (!success) {

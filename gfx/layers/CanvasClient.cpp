@@ -33,7 +33,7 @@ void
 CanvasClient2D::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_DIRECT, mFlags);
+    mTextureClient = CreateTextureClient(TEXTURE_SHMEM, mFlags);
   }
 
   bool isOpaque = (aLayer->GetContentFlags() & Layer::CONTENT_OPAQUE);
@@ -57,7 +57,7 @@ void
 CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_SHARED|TEXTURE_BUFFERED, mFlags);
+    mTextureClient = CreateTextureClient(TEXTURE_SHARED_GL, mFlags);
   }
 
   NS_ASSERTION(aLayer->mGLContext, "CanvasClientWebGL should only be used with GL canvases");

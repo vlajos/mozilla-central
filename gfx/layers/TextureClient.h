@@ -247,7 +247,6 @@ public:
   TextureClientShared(CompositableForwarder* aForwarder, CompositableType aCompositableType)
     : TextureClient(aForwarder, aCompositableType)
   {
-    mTextureInfo.memoryType = TEXTURE_SHARED;
   }
 
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
@@ -309,7 +308,7 @@ public:
     : TextureClient(aForwarder, aCompositableType)
     , mSurface(nullptr)
   {
-    mTextureInfo.memoryType = TEXTURE_TILE;
+    mTextureInfo.textureHostFlags = TEXTURE_HOST_TILED;
   }
 private:
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;

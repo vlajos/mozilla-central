@@ -325,13 +325,13 @@ CompositorD3D11::GetMaxTextureSize() const
 }
 
 TemporaryRef<TextureHost>
-CompositorD3D11::CreateTextureHost(TextureHostType aTextureType,
+CompositorD3D11::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+                                   uint32_t aTextureHostFlags,
                                    uint32_t aTextureFlags,
-                                   SurfaceDescriptorType aDescriptorType,
                                    ISurfaceDeallocator* aDeAllocator)
 {
-  BufferMode bufferMode = aTextureType & TEXTURE_BUFFERED ? BUFFER_BUFFERED
-                                                          : BUFFER_NONE;
+  BufferMode bufferMode = aTextureHostFlags & TEXTURE_HOST_BUFFERED ? BUFFER_BUFFERED
+                                                                    : BUFFER_NONE;
   RefPtr<TextureHost> result;
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
     result = new TextureHostYCbCrD3D11(bufferMode, aDeAllocator, mDevice);

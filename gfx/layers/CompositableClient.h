@@ -8,6 +8,7 @@
 
 #include "mozilla/layers/PCompositableChild.h"
 #include "mozilla/layers/LayersTypes.h"
+#include "Compositor.h"
 
 namespace mozilla {
 namespace layers {
@@ -121,7 +122,7 @@ public:
 
   LayersBackend GetCompositorBackendType() const;
 
-  TemporaryRef<TextureClient> CreateTextureClient(TextureHostType aTextureHostType,
+  TemporaryRef<TextureClient> CreateTextureClient(TextureClientType aTextureClientType,
                                                   TextureFlags aFlags);
 
   /**
