@@ -36,7 +36,7 @@ public:
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
-  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
+  void BindTexture(GLenum aTextureUnit) {
     MOZ_ASSERT(mTextureHandle != 0);
     mGL->fActiveTexture(aTextureUnit);
     mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
