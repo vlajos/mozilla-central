@@ -98,6 +98,8 @@ CompositorD3D11::Initialize()
     return false;
   }
 
+  memset(&mVSConstants, 0, sizeof(VertexShaderConstants));
+
   int referenceCount = 0;
   UINT size = sizeof(referenceCount);
   // If this isn't there yet it'll fail, count will remain 0, which is correct.
@@ -465,8 +467,8 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
     scissor.top = aClipRect->y;
     scissor.bottom = aClipRect->YMost();
   } else {
-    scissor.left = scissor.top = INT32_MIN;
-    scissor.right = scissor.bottom = INT32_MAX;
+    scissor.left = scissor.top = 0;
+    scissor.right = scissor.bottom = INT16_MAX;
   }
   mContext->RSSetScissorRects(1, &scissor);
   mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
