@@ -20,8 +20,7 @@ namespace gl {
 }
 namespace layers {
 
-class CompositingRenderTargetOGL : public CompositingRenderTarget,
-                                   public TextureSourceOGL
+class CompositingRenderTargetOGL : public CompositingRenderTarget
 {
   typedef gfxASurface::gfxContentType ContentType;
   typedef mozilla::gl::GLContext GLContext;
@@ -31,9 +30,11 @@ public:
     : mGL(aGL), mTextureHandle(aTexure), mFBO(aFBO)
   {}
 
-  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
-
-  gfx::IntSize GetSize() const MOZ_OVERRIDE { return mSize; }
+  ~CompositingRenderTargetOGL()
+  {
+    mGL->fDeleteTextures(1, &mTextureHandle);
+    mGL->fDeleteFramebuffers(1, &mFBO);
+  }
 
   void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE {
     MOZ_ASSERT(mTextureHandle != 0);
@@ -41,24 +42,16 @@ public:
     mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
   }
 
-  bool IsValid() const MOZ_OVERRIDE {
-    return mTextureHandle != 0;
-  }
-
-  GLuint GetFBO() const {
-    return mFBO;
-  }
-
-  ~CompositingRenderTargetOGL()
+  // TextureSourceOGL
+  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
   {
-    mGL->fDeleteTextures(1, &mTextureHandle);
-    mGL->fDeleteFramebuffers(1, &mFBO);
+    MOZ_ASSERT(false, "CompositingRenderTargetOGL should not be used as a TextureSource");
+    return nullptr;
   }
-
-  GLenum GetWrapMode() const MOZ_OVERRIDE {
-    return LOCAL_GL_REPEAT; // TODO[nical] not sure this is the right thing to return by default. [nrc] - Almost certainly not, probably there should not be a default.
-                            // maybe return mWrapMode, although that never gets set. I have no
-    // idea what is going here, TBH
+  gfx::IntSize GetSize() const MOZ_OVERRIDE
+  {
+    MOZ_ASSERT(false, "CompositingRenderTargetOGL should not be used as a TextureSource");
+    return gfx::IntSize(0, 0);
   }
 
 #ifdef MOZ_DUMP_PAINTING
@@ -72,12 +65,6 @@ public:
   GLContext* mGL;
   GLuint mTextureHandle;
   GLuint mFBO;
-
-  //TODO[nical] none of these ever get set!
-  gfx::IntSize mSize;
-  GLenum mWrapMode;
-  ContentType mContentType;
-
 };
 
 

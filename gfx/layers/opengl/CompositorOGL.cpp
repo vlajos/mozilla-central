@@ -770,7 +770,7 @@ CompositorOGL::CreateRenderTargetFromSource(const IntRect &aRect,
   const CompositingRenderTargetOGL* sourceSurface
     = static_cast<const CompositingRenderTargetOGL*>(aSource);
   if (aSource) {
-    CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->GetFBO(),
+    CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->mFBO,
                          &fbo, &tex);
   } else {
     CreateFBOWithTexture(aRect, INIT_MODE_COPY, 0,
