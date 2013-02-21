@@ -328,8 +328,7 @@ private:
 
   void BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                                       const gfx::Rect& aTexCoordRect,
-                                      TextureSource *aTexture,
-                                      bool aFlipped = false);
+                                      TextureSource *aTexture);
 
   void CleanupResources();
 

@@ -23,10 +23,6 @@ TexturedEffect::PrintInfo(nsACString& aTo, const char* aPrefix)
     aTo += " [not-premultiplied]";
   }
 
-  if (mFlipped) {
-    aTo += " [flipped]";
-  }
-
   AppendToString(aTo, mFilter, " [filter=", "]");
 }
 

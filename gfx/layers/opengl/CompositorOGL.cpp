@@ -580,8 +580,7 @@ CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
 void 
 CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                                               const Rect& aTexCoordRect,
-                                              TextureSource *aTexture,
-                                              bool aFlipped /* = false */)
+                                              TextureSource *aTexture)
 {
   NS_ASSERTION(aProg->HasInitialized(), "Shader program not correctly initialized");
   GLuint vertAttribIndex =
@@ -627,13 +626,13 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                   texCoordRect.y / GLfloat(realTexSize.height),
                   texCoordRect.XMost() / GLfloat(realTexSize.width),
                   texCoordRect.YMost() / GLfloat(realTexSize.height),
-                  aFlipped);
+                  false);
   } else {
     nsIntRect tcRect(texCoordRect.x, texCoordRect.y,
                      texCoordRect.width, texCoordRect.height);
     GLContext::DecomposeIntoNoRepeatTriangles(tcRect,
                                               nsIntSize(realTexSize.width, realTexSize.height),
-                                              rects, aFlipped);
+                                              rects, false);
   }
 
   mGLContext->fVertexAttribPointer(vertAttribIndex, 2,
@@ -1205,7 +1204,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
         program->SetMaskLayerTransform(maskQuadTransform);
       }
 
-      BindAndDrawQuadWithTextureRect(program, texturedEffect->mTextureCoords, source, texturedEffect->mFlipped);
+      BindAndDrawQuadWithTextureRect(program, texturedEffect->mTextureCoords, source);
 
       if (!texturedEffect->mPremultiplied) {
         mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,

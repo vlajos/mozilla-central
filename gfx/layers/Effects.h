@@ -46,13 +46,11 @@ struct TexturedEffect : public Effect
   TexturedEffect(EffectTypes aType,
                  TextureSource *aTexture,
                  bool aPremultiplied,
-                 mozilla::gfx::Filter aFilter,
-                 bool aFlipped = false)
+                 mozilla::gfx::Filter aFilter)
      : Effect(aType)
      ,  mTextureCoords(0, 0, 1.0f, 1.0f)
      , mTexture(aTexture)
      , mPremultiplied(aPremultiplied), mFilter(aFilter)
-     , mFlipped(aFlipped)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -63,8 +61,7 @@ struct TexturedEffect : public Effect
   gfx::Rect mTextureCoords;
   TextureSource* mTexture;
   bool mPremultiplied;
-  mozilla::gfx::Filter mFilter;
-  bool mFlipped;
+  mozilla::gfx::Filter mFilter;;
 };
 
 struct EffectMask : public Effect
@@ -92,8 +89,7 @@ struct EffectMask : public Effect
 struct EffectRenderTarget : public TexturedEffect
 {
   EffectRenderTarget(CompositingRenderTarget *aRenderTarget)
-    : TexturedEffect(EFFECT_RENDER_TARGET, aRenderTarget, true, gfx::FILTER_LINEAR,
-                     false)
+    : TexturedEffect(EFFECT_RENDER_TARGET, aRenderTarget, true, gfx::FILTER_LINEAR)
     , mRenderTarget(aRenderTarget)
   {}
 
@@ -111,8 +107,7 @@ struct EffectBGRX : public TexturedEffect
              bool aPremultiplied,
              mozilla::gfx::Filter aFilter,
              bool aFlipped = false)
-    : TexturedEffect(EFFECT_BGRX, aBGRXTexture, aPremultiplied, aFilter,
-                     aFlipped)
+    : TexturedEffect(EFFECT_BGRX, aBGRXTexture, aPremultiplied, aFilter)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -124,10 +119,8 @@ struct EffectRGBX : public TexturedEffect
 {
   EffectRGBX(TextureSource *aRGBXTexture,
              bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : TexturedEffect(EFFECT_RGBX, aRGBXTexture, aPremultiplied, aFilter,
-                     aFlipped)
+             mozilla::gfx::Filter aFilter)
+    : TexturedEffect(EFFECT_RGBX, aRGBXTexture, aPremultiplied, aFilter)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -139,10 +132,8 @@ struct EffectBGRA : public TexturedEffect
 {
   EffectBGRA(TextureSource *aBGRATexture,
              bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : TexturedEffect(EFFECT_BGRA, aBGRATexture, aPremultiplied, aFilter,
-                     aFlipped)
+             mozilla::gfx::Filter aFilter)
+    : TexturedEffect(EFFECT_BGRA, aBGRATexture, aPremultiplied, aFilter)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -154,10 +145,8 @@ struct EffectRGBA : public TexturedEffect
 {
   EffectRGBA(TextureSource *aRGBATexture,
              bool aPremultiplied,
-             mozilla::gfx::Filter aFilter,
-             bool aFlipped = false)
-    : TexturedEffect(EFFECT_RGBA, aRGBATexture, aPremultiplied, aFilter,
-                     aFlipped)
+             mozilla::gfx::Filter aFilter)
+    : TexturedEffect(EFFECT_RGBA, aRGBATexture, aPremultiplied, aFilter)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -170,10 +159,8 @@ struct EffectRGBAExternal : public TexturedEffect
   EffectRGBAExternal(TextureSource *aRGBATexture,
                      const gfx::Matrix4x4 &aTextureTransform,
                      bool aPremultiplied,
-                     mozilla::gfx::Filter aFilter,
-                     bool aFlipped = false)
-    : TexturedEffect(EFFECT_RGBA_EXTERNAL, aRGBATexture, aPremultiplied, aFilter,
-                     aFlipped)
+                     mozilla::gfx::Filter aFilter)
+    : TexturedEffect(EFFECT_RGBA_EXTERNAL, aRGBATexture, aPremultiplied, aFilter)
     , mTextureTransform(aTextureTransform)
   {}
 
@@ -190,8 +177,7 @@ struct EffectYCbCr : public TexturedEffect
   // that way we'd prevent TexturedEffect pushing this bogus bool onto this
   // effect.
   EffectYCbCr(TextureSource *aSource, mozilla::gfx::Filter aFilter)
-    : TexturedEffect(EFFECT_YCBCR, aSource, false, aFilter,
-                     false)
+    : TexturedEffect(EFFECT_YCBCR, aSource, false, aFilter)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -202,7 +188,7 @@ struct EffectYCbCr : public TexturedEffect
 struct EffectComponentAlpha : public TexturedEffect
 {
   EffectComponentAlpha(TextureSource *aOnWhite, TextureSource *aOnBlack)
-    : TexturedEffect(EFFECT_COMPONENT_ALPHA, nullptr, false, gfx::FILTER_LINEAR, false)
+    : TexturedEffect(EFFECT_COMPONENT_ALPHA, nullptr, false, gfx::FILTER_LINEAR)
     , mOnWhite(aOnWhite), mOnBlack(aOnBlack)
   {}
 
