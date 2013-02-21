@@ -72,7 +72,8 @@ struct EffectMask : public Effect
   EffectMask(TextureSource *aMaskTexture,
              gfx::IntSize aSize,
              const gfx::Matrix4x4 &aMaskTransform)
-    : Effect(EFFECT_MASK), mMaskTexture(aMaskTexture)
+    : Effect(EFFECT_MASK)
+    , mMaskTexture(aMaskTexture)
     , mIs3D(false)
     , mSize(aSize)
     , mMaskTransform(aMaskTransform)
@@ -92,7 +93,8 @@ struct EffectRenderTarget : public TexturedEffect
 {
   EffectRenderTarget(CompositingRenderTarget *aRenderTarget)
     : TexturedEffect(EFFECT_RENDER_TARGET, aRenderTarget, true, gfx::FILTER_LINEAR,
-                     false), mRenderTarget(aRenderTarget)
+                     false)
+    , mRenderTarget(aRenderTarget)
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG

@@ -33,7 +33,9 @@ typedef std::vector<CompositableOperation> OpVector;
 struct CompositableTransaction
 {
   CompositableTransaction()
-  : mFinished(true), mSwapRequired(false) {}
+  : mSwapRequired(false)
+  , mFinished(true)
+  {}
   ~CompositableTransaction()
   {
     End();

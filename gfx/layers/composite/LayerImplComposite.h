@@ -296,10 +296,9 @@ protected:
       aManager->RestoreViewport();
       if (!aManager->CompositingDisabled()) {
         EffectChain effectChain;
-        if (aContainer->GetMaskLayer()) {
-          bool is3D = !aContainer->GetTransform().CanDraw2D();
-          LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(), effectChain, is3D);
-        }
+        LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(),
+                                             effectChain,
+                                             !aContainer->GetTransform().CanDraw2D());
 
         effectChain.mPrimaryEffect = new EffectRenderTarget(surface);
         gfx::Matrix4x4 transform;

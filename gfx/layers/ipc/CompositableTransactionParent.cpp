@@ -20,13 +20,6 @@ namespace layers {
 
 //--------------------------------------------------
 // Convenience accessors
-static ShadowLayerParent*
-cast(const PLayerParent* in)
-{
-  return const_cast<ShadowLayerParent*>(
-    static_cast<const ShadowLayerParent*>(in));
-}
-
 template<class OpPaintT>
 static TextureHost*
 AsTextureHost(const OpPaintT& op)
@@ -42,19 +35,6 @@ Layer* GetLayerFromOpPaint(const OpPaintT& op)
   CompositableHost* compoHost
     = static_cast<CompositableParent*>(textureParent->Manager())->GetCompositableHost();
   return compoHost ? compoHost->GetLayer() : nullptr;
-}
-
-template<class OpCreateT>
-static ShadowLayerParent*
-AsShadowLayer(const OpCreateT& op)
-{
-  return cast(op.layerParent());
-}
-
-static ShadowLayerParent*
-AsShadowLayer(const OpSetRoot& op)
-{
-  return cast(op.rootParent());
 }
 
 bool
@@ -83,6 +63,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
 
       // We have to invalidate the pixels painted into the new buffer.
       // They might overlap with our old pixels.
+      // TODO[nical]
       //aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
 
       replyv.push_back(
@@ -133,7 +114,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
 
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
       const SurfaceDescriptor& descriptor = op.image();
-      const TextureInfo& info = textureParent->GetTextureInfo();
       if (compositor) {
         textureParent->GetCompositableHost()->SetCompositor(compositor);
       }
@@ -204,6 +184,9 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       MOZ_ASSERT(compositable);
       compositable->SetPictureRect(op.picture());
       break;
+    }
+    default: {
+      MOZ_ASSERT(false, "bad type");
     }
   }
 

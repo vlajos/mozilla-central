@@ -400,6 +400,7 @@ CompositorD3D11::SetPSForEffect(Effect *aEffect, MaskMode aMaskMode)
   }
 }
 
+// TODO[Bas] this method doesn't actually use aSource
 TemporaryRef<CompositingRenderTarget>
 CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
                                               const CompositingRenderTarget *aSource)

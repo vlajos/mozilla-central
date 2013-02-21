@@ -558,8 +558,7 @@ LayerManagerComposite::CreateShadowRefLayer()
   return nsRefPtr<RefLayerComposite>(new RefLayerComposite(this)).forget();
 }
 
-// TODO[nical: remove this
-bool
+/* static */ bool
 LayerManagerComposite::AddMaskEffect(Layer* aMaskLayer, EffectChain& aEffects, bool aIs3D)
 {
   if (!aMaskLayer) {
