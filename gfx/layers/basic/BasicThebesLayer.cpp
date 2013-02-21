@@ -261,7 +261,7 @@ BasicShadowableThebesLayer::PaintThebes(gfxContext* aContext,
   }
   
   if (!mContentClient) {
-    mContentClient = BasicManager()->CreateContentClientFor(BUFFER_CONTENT_DIRECT, this, NoFlags);
+    mContentClient = BasicManager()->CreateContentClientFor(BUFFER_CONTENT_DIRECT, this);
     if (!mContentClient) {
       return;
     }

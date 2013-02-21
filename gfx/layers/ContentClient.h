@@ -75,7 +75,6 @@ public:
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
-
                                                      uint32_t aFlags);
   virtual CompositableType GetType() const MOZ_OVERRIDE
   {
@@ -92,8 +91,7 @@ class ContentClientRemote : public ContentClient
   using ThebesLayerBuffer::BufferRect;
   using ThebesLayerBuffer::BufferRotation;
 public:
-  ContentClientRemote(CompositableForwarder* aForwarder,
-                      TextureFlags aFlags)
+  ContentClientRemote(CompositableForwarder* aForwarder)
     : ContentClient(aForwarder)
     , mTextureClient(nullptr)
     , mIsNewBuffer(false)
@@ -152,9 +150,8 @@ protected:
 class ContentClientDirect : public ContentClientRemote
 {
 public:
-  ContentClientDirect(CompositableForwarder* aFwd,
-                      TextureFlags aFlags)
-  : ContentClientRemote(aFwd, aFlags)
+  ContentClientDirect(CompositableForwarder* aFwd)
+  : ContentClientRemote(aFwd)
   {}
   ~ContentClientDirect();
 
@@ -176,7 +173,7 @@ private:
                       const nsIntRect& aRect, const nsIntPoint& aRotation)
     // The size policy doesn't really matter here; this constructor is
     // intended to be used for creating temporaries
-    : ContentClientRemote(nullptr, NoFlags)
+    : ContentClientRemote(nullptr)
   {
     SetBuffer(aBuffer, aRect, aRotation);
   }
@@ -194,9 +191,8 @@ private:
 class ContentClientTexture : public ContentClientRemote
 {
 public:
-  ContentClientTexture(CompositableForwarder* aFwd,
-                       TextureFlags aFlags)
-    : ContentClientRemote(aFwd, aFlags)
+  ContentClientTexture(CompositableForwarder* aFwd)
+    : ContentClientRemote(aFwd)
   {}
 
   virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,

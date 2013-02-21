@@ -360,8 +360,7 @@ public:
                                                    ShadowableLayer* aLayer,
                                                    TextureFlags aFlags);
   TemporaryRef<ContentClient> CreateContentClientFor(const CompositableType& aCompositableType,
-                                                     ShadowableLayer* aLayer,
-                                                     TextureFlags aFlags);
+                                                     ShadowableLayer* aLayer);
 
   static void PlatformSyncBeforeUpdate();
 

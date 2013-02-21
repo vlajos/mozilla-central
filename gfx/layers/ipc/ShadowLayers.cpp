@@ -622,12 +622,11 @@ ShadowLayerForwarder::CreateCanvasClientFor(const CompositableType& aCompositabl
 
 TemporaryRef<ContentClient>
 ShadowLayerForwarder::CreateContentClientFor(const CompositableType& aCompositableType,
-                                             ShadowableLayer* aLayer,
-                                             TextureFlags aFlags)
+                                             ShadowableLayer* aLayer)
 {
   RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(GetCompositorBackendType(),
                                                                          aCompositableType,
-                                                                         this, aFlags);
+                                                                         this);
   return client.forget();
 }
 

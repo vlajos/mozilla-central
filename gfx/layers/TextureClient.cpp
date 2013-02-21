@@ -457,20 +457,19 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
 /* static */ TemporaryRef<ContentClient>
 CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
                                         CompositableType aCompositableHostType,
-                                        CompositableForwarder* aForwarder,
-                                        TextureFlags aFlags)
+                                        CompositableForwarder* aForwarder)
 {
   if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
     return nullptr;
   }
   if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientTexture(aForwarder, aFlags);
+    return new ContentClientTexture(aForwarder);
   }
   if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
-      return new ContentClientDirect(aForwarder, aFlags);
+      return new ContentClientDirect(aForwarder);
     }
-    return new ContentClientTexture(aForwarder, aFlags);
+    return new ContentClientTexture(aForwarder);
   }
   if (aCompositableHostType == BUFFER_TILED) {
     NS_RUNTIMEABORT("No CompositableClient for tiled layers");

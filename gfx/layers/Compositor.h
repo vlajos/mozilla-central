@@ -521,8 +521,7 @@ public:
                                                        TextureFlags aFlags);
   static TemporaryRef<ContentClient> CreateContentClient(LayersBackend aBackendType,
                                                          CompositableType aImageHostType,
-                                                         CompositableForwarder* aFwd,
-                                                         TextureFlags aFlags);
+                                                         CompositableForwarder* aFwd);
 
   static CompositableType TypeForImage(Image* aImage);
 };

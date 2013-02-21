@@ -227,10 +227,9 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
     const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
     AutoOpenSurface roFrontBuffer(OPEN_READ_ONLY, roFront.buffer());
     nsIntSize size = roFrontBuffer.Size();
-    mTextureClient = static_cast<TextureClientShmem*>(
-      CreateTextureClient(TEXTURE_SHMEM, AllowRepeat).drop());
-    mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height),
-                                        roFrontBuffer.ContentType());
+    // TODO[nrc] we only want AllowRepeat if we allow buffer rotation, but we
+    // have no idea here
+    CreateBuffer(roFrontBuffer.ContentType(), size, AllowRepeat);
   }
 
   AutoTextureClient autoTexture;
@@ -245,6 +244,7 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().width,
                   mFrontUpdatedRegion.GetBounds().height));
 
+  //TODO[nrc] if we hit the !mTextureClient path above we are prepeating some work here
   const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
   AutoOpenSurface autoROFront(OPEN_READ_ONLY, roFront.buffer());
   SetBackingBufferAndUpdateFrom(backBuffer,
@@ -273,6 +273,8 @@ ContentClientDirect::SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
 
   // FIXME [bjacob] only putting this on the heap to work around impossibility to
   // put RefCounted objects on the stack
+  // TODO[nrc] it is really grim that we create another ContentClientDirect to do this
+  // we ought to factor out some of the code and make a new class or something
   RefPtr<ContentClientDirect> srcBuffer = new ContentClientDirect(aSource, aRect, aRotation);
   srcBuffer->DrawBufferWithRotation(destCtx, 1.0, nullptr, nullptr);
 }
