@@ -1722,3 +1722,62 @@ gfxPlatform::GetOrientationSyncMillis() const
 {
   return mOrientationSyncMillis;
 }
+
+/**
+ * There are a number of layers acceleration (or layers in general) preferences
+ * that should be consistent for the lifetime of the application (bug 840967).
+ * As such, we will evaluate them all as soon as one of them is evaluated
+ * and remember the values.  Changing these preferences during the run will
+ * not have any effect until we restart.
+ */
+static bool sPrefLayersOffMainThreadCompositionEnabled = false;
+static bool sPrefLayersAccelerationForceEnabled = false;
+static bool sPrefLayersAccelerationDisabled = false;
+static bool sPrefLayersPreferOpenGL = false;
+static bool sPrefLayersPreferD3D9 = false;
+
+void InitLayersAccelerationPrefs()
+{
+  static bool sLayersAccelerationPrefsInitialized = false;
+  if (!sLayersAccelerationPrefsInitialized)
+  {
+    sPrefLayersOffMainThreadCompositionEnabled = Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
+    sPrefLayersAccelerationForceEnabled = Preferences::GetBool("layers.acceleration.force-enabled", false);
+    sPrefLayersAccelerationDisabled = Preferences::GetBool("layers.acceleration.disabled", false);
+    sPrefLayersPreferOpenGL = Preferences::GetBool("layers.prefer-opengl", false);
+    sPrefLayersPreferD3D9 = Preferences::GetBool("layers.prefer-d3d9", false);
+
+    sLayersAccelerationPrefsInitialized = true;
+  }
+}
+
+bool gfxPlatform::GetPrefLayersOffMainThreadCompositionEnabled()
+{
+  InitLayersAccelerationPrefs();
+  return sPrefLayersOffMainThreadCompositionEnabled;
+}
+
+bool gfxPlatform::GetPrefLayersAccelerationForceEnabled()
+{
+  InitLayersAccelerationPrefs();
+  return sPrefLayersAccelerationForceEnabled;
+}
+
+bool
+gfxPlatform::GetPrefLayersAccelerationDisabled()
+{
+  InitLayersAccelerationPrefs();
+  return sPrefLayersAccelerationDisabled;
+}
+
+bool gfxPlatform::GetPrefLayersPreferOpenGL()
+{
+  InitLayersAccelerationPrefs();
+  return sPrefLayersPreferOpenGL;
+}
+
+bool gfxPlatform::GetPrefLayersPreferD3D9()
+{
+  InitLayersAccelerationPrefs();
+  return sPrefLayersPreferD3D9;
+}

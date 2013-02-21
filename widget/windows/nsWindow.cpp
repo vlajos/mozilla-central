@@ -3215,16 +3215,11 @@ struct LayerManagerPrefs {
 static void
 GetLayerManagerPrefs(LayerManagerPrefs* aManagerPrefs)
 {
-  Preferences::GetBool("layers.acceleration.disabled",
-                       &aManagerPrefs->mDisableAcceleration);
-  Preferences::GetBool("layers.acceleration.force-enabled",
-                       &aManagerPrefs->mForceAcceleration);
-  Preferences::GetBool("layers.prefer-opengl",
-                       &aManagerPrefs->mPreferOpenGL);
-  Preferences::GetBool("layers.prefer-d3d9",
-                       &aManagerPrefs->mPreferD3D9);
-  Preferences::GetBool("layers.offmainthreadcomposition.enabled",
-                       &aManagerPrefs->mOffMainThreadCompositing);
+  aManagerPrefs->mDisableAcceleration = gfxPlatform::GetPrefLayersAccelerationDisabled();
+  aManagerPrefs->mForceAcceleration = gfxPlatform::GetPrefLayersAccelerationForceEnabled();
+  aManagerPrefs->mPreferOpenGL = gfxPlatform::GetPrefLayersPreferOpenGL();
+  aManagerPrefs->mPreferD3D9 = gfxPlatform::GetPrefLayersPreferD3D9();
+  aManagerPrefs->mOffMainThreadCompositing = gfxPlatform::GetPrefLayersOffMainThreadCompositionEnabled();
 
   const char *acceleratedEnv = PR_GetEnv("MOZ_ACCELERATED");
   aManagerPrefs->mAccelerateByDefault =
