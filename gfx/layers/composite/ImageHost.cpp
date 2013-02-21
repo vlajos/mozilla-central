@@ -78,6 +78,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   TileIterator* it = mTextureHost->AsTextureSource()->AsTileIterator();
   if (it) {
     it->BeginTileIteration();
+    // XXX - TODO - Implement NeedsYFlip?
     do {
       nsIntRect tileRect = it->GetTileRect();
       gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
@@ -95,6 +96,11 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                                     Float(mPictureRect.y) / rect.height,
                                     Float(mPictureRect.width) / rect.width,
                                     Float(mPictureRect.height) / rect.height);
+    }
+
+    if (mTextureHost->GetFlags() & NeedsYFlip) {
+      effect->mTextureCoords.y = effect->mTextureCoords.YMost();
+      effect->mTextureCoords.height = -effect->mTextureCoords.height;
     }
 
     GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain,
