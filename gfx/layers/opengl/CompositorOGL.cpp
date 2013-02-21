@@ -712,6 +712,7 @@ CompositorOGL::CreateTextureHost(TextureHostType aTextureType,
                                  SurfaceDescriptorType aDescriptorType,
                                  ISurfaceDeallocator* aDeAllocator)
 {
+  TextureHostType debugType = aTextureType;
   RefPtr<TextureHost> result = nullptr;
   if ((aTextureType & TEXTURE_DIRECT) 
        && ShadowLayerManager::SupportsDirectTexturing()) {

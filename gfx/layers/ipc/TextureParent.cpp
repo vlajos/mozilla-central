@@ -38,7 +38,7 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
 
   if (compositor) {
     mLastSurfaceType = aSurfaceType;
-    mTextureHost = compositor->CreateTextureHost(mTextureInfo.compositableType,
+    mTextureHost = compositor->CreateTextureHost(mTextureInfo.memoryType,
                                                  mTextureInfo.textureFlags,
                                                  aSurfaceType,
                                                  compParent->GetCompositableManager());

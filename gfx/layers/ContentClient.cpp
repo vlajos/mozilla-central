@@ -99,7 +99,6 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   if (mTextureClient) {
     mTextureClient->Destroyed();
   }
-
   mTextureClient = CreateTextureClient(TEXTURE_SHARED | TEXTURE_DXGI,
                                        aFlags);
 

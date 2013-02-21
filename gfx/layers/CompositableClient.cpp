@@ -89,43 +89,30 @@ CompositableClient::CreateTextureClient(TextureHostType aTextureHostType,
   MOZ_ASSERT(GetForwarder(), "Can't create a texture client if the compositable is not connected to the compositor.");
   LayersBackend parentBackend = GetForwarder()->GetCompositorBackendType();
   RefPtr<TextureClient> result = nullptr;
-  switch (aTextureHostType) {
-  case TEXTURE_SHARED|TEXTURE_BUFFERED:
-    if (parentBackend == LAYERS_OPENGL) {
-      result = new TextureClientSharedGL(GetForwarder(), GetType());
-    }
-    break;
-  case TEXTURE_SHARED:
-    if (parentBackend == LAYERS_OPENGL) {
-      result = new TextureClientShared(GetForwarder(), GetType());
-    }
-    break;
-  case TEXTURE_DIRECT:
-    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
-      result = new TextureClientShmem(GetForwarder(), GetType());
-    }
-    break;
-  case TEXTURE_TILE:
+
+  if (aTextureHostType & TEXTURE_TILE) {
     result = new TextureClientTile(GetForwarder(), GetType());
-    break;
-  case TEXTURE_SHARED|TEXTURE_DXGI:
+  } else if (aTextureHostType & TEXTURE_SHMEM) {
+    result = new TextureClientShmem(GetForwarder(), GetType());
+  } else if (aTextureHostType & TEXTURE_DIRECT) {
+    result = new TextureClientShmem(GetForwarder(), GetType());
+  } else if ((aTextureHostType & TEXTURE_SHARED) &&
+             (aTextureHostType & TEXTURE_BUFFERED)) {
+    result = new TextureClientSharedGL(GetForwarder(), GetType());
+  } else if ((aTextureHostType & TEXTURE_SHARED) &&
+             (aTextureHostType & TEXTURE_DXGI)) {
 #ifdef XP_WIN
     if (GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11) {
       result = new TextureClientD3D11(GetForwarder(), GetType());
-      break;
-    }
+    } else
 #endif
-    // fall through to TEXTURE_SHMEM
-  case TEXTURE_SHMEM:
-    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
+    {
+      // fall through to TEXTURE_SHMEM
       result = new TextureClientShmem(GetForwarder(), GetType());
     }
-    break;
-  default:
-    MOZ_ASSERT(false, "Unhandled texture host type");
   }
 
-  NS_ASSERTION(result, "Failed to create TextureClient");
+  MOZ_ASSERT(result, "Failed to create TextureClient");
   if (result) {
     result->SetFlags(aFlags);
     TextureChild* textureChild
