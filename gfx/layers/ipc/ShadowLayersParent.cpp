@@ -405,10 +405,11 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       CompositableParent* compositableParent = CompositableMap::Get(op.containerID());
       MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");  
       Attach(cast(op.layerParent()), compositableParent);
-      unsigned int nTex = compositableParent->ManagedPTextureParent().Length();
+      compositableParent->SetCompositorID(mLayerManager->GetCompositor()->GetCompositorID());
 
       // make sure we update the texture host with the data that we received before 
       // attaching (if any).
+      unsigned int nTex = compositableParent->ManagedPTextureParent().Length();
       for (unsigned int i = 0; i < nTex; ++i) {
         TextureParent* tex
           = static_cast<TextureParent*>(compositableParent->ManagedPTextureParent()[i]);

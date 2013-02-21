@@ -136,11 +136,22 @@ public:
   {
     return mManager;
   }
+
+  void SetCompositorID(uint64_t aCompositorID)
+  {
+    mCompositorID = aCompositorID;
+  }
+
+  uint64_t GetCompositorID() const
+  {
+    return mCompositorID;
+  }
 private:
   RefPtr<CompositableHost> mHost;
   CompositableParentManager* mManager;
   CompositableType mType;
   uint64_t mID;
+  uint64_t mCompositorID;
 };
 
 

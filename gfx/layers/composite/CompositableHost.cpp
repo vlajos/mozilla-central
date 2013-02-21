@@ -96,6 +96,7 @@ CompositableParent::CompositableParent(CompositableParentManager* aMgr,
 : mManager(aMgr)
 , mType(aType)
 , mID(aID)
+, mCompositorID(0)
 {
   mHost = CompositableHost::Create(aType, aMgr->GetCompositor());
   if (aID) {

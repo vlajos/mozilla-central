@@ -60,6 +60,13 @@ CompositableHost* TextureParent::GetCompositableHost() const
   return actor->GetCompositableHost();
 }
 
+uint64_t
+TextureParent::GetCompositorID()
+{
+  return static_cast<CompositableParent*>(Manager())->GetCompositorID();
+}
+
+
 TextureHost* TextureParent::GetTextureHost() const
 {
   return mTextureHost;

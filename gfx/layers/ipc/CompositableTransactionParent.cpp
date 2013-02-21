@@ -14,6 +14,7 @@
 #include "TiledLayerBuffer.h"
 #include "mozilla/layers/TextureParent.h"
 #include "LayerManagerComposite.h"
+#include "CompositorParent.h"
 
 namespace mozilla {
 namespace layers {
@@ -118,13 +119,17 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         textureParent->GetCompositableHost()->SetCompositor(compositor);
       }
       textureParent->EnsureTextureHost(descriptor.type());
-      
+      if (textureParent->GetCompositorID()) {
+        CompositorParent* cp
+          = CompositorParent::GetCompositor(textureParent->GetCompositorID());
+        cp->ScheduleComposition();
+      }
       if (!textureParent->GetTextureHost()) {
         NS_WARNING("failed to create the texture host");
         // in this case we keep the surface descriptor in the texture parent in
-        // order to update the texture host as soon as it will be created and 
-        // not miss the first frame (this can only happen with async video ath 
-        //the moment).
+        // order to update the texture host as soon as it will be created and
+        // not miss the first frame (this can only happen with async video at
+        // the moment).
         if (textureParent->HasBuffer()) {
           replyv.push_back(OpTextureSwap(textureParent, nullptr, textureParent->GetBuffer()));
         }

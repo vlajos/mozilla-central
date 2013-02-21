@@ -53,6 +53,8 @@ public:
     return mBuffer;
   }
 
+  uint64_t GetCompositorID();
+
   bool EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType);
 private:
   TextureInfo mTextureInfo;
