@@ -108,6 +108,8 @@ public:
     NS_RUNTIMEABORT("If this code is reached it means this method should habe been overridden");
   }
 
+  virtual bool IsBuffered() { return false; }
+
   /**
    * Adds a mask effect using this texture as the mask, if possible.
    * \return true if the effect was added, false otherwise.

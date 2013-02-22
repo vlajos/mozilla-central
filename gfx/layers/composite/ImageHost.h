@@ -93,6 +93,17 @@ protected:
   CompositableType mType;
 };
 
+class ImageHostDirect : public ImageHostSingle
+{
+public:
+  ImageHostDirect(Compositor* aCompositor, CompositableType aType)
+    : ImageHostSingle(aCompositor, aType)
+  {}
+
+  virtual bool IsBuffered() MOZ_OVERRIDE { return true; }
+
+};
+
 }
 }
 

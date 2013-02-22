@@ -22,7 +22,12 @@ void CompositableHost::Update(const SurfaceDescriptor& aImage,
     return;
   }
 
-  GetTextureHost()->Update(aImage, aResult, aIsInitialised, aNeedsReset);
+  if (IsBuffered()) {
+    GetTextureHost()->SwapTextures(aImage, aResult, aIsInitialised, aNeedsReset);
+  } else {
+    GetTextureHost()->Update(aImage, aIsInitialised, aNeedsReset);
+    *aResult = aImage;
+  }
 }
 
 bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
@@ -50,6 +55,8 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
 #endif
 #endif
   case BUFFER_DIRECT:
+    result = new ImageHostDirect(aCompositor, aType);
+    return result;
   case BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE:
   case BUFFER_SINGLE:
     result = new ImageHostSingle(aCompositor, aType);

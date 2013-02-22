@@ -32,7 +32,7 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
 
   SurfaceDescriptor result;
   bool success;
-  mTextureHost->Update(aImage, &result, &success);
+  Update(aImage, &result, &success);
   if (!success) {
     TextureInfo id = aTextureInfo;
     id.textureFlags = mTextureHost->GetFlags();
@@ -41,7 +41,7 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
                                                       id.textureHostFlags,
                                                       id.textureFlags,
                                                       mTextureHost->GetDeAllocator());
-    mTextureHost->Update(aImage, &result, &success);
+    Update(aImage, &result, &success);
     if (!success) {
       mTextureHost = nullptr;
       NS_ASSERTION(result.type() == SurfaceDescriptor::Tnull_t, "fail should give null result");

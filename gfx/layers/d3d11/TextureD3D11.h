@@ -85,9 +85,9 @@ class TextureHostShmemD3D11 : public TextureHost
                             , public TileIterator
 {
 public:
-  TextureHostShmemD3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
+  TextureHostShmemD3D11(ISurfaceDeallocator* aDeallocator,
                         ID3D11Device *aDevice)
-    : TextureHost(aBuffering, aDeallocator)
+    : TextureHost(aDeallocator)
     , mDevice(aDevice)
     , mIsTiled(false)
     , mCurrentTile(0)
@@ -133,9 +133,9 @@ class TextureHostDXGID3D11 : public TextureHost
                            , public TextureSourceD3D11
 {
 public:
-  TextureHostDXGID3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
+  TextureHostDXGID3D11(ISurfaceDeallocator* aDeallocator,
                        ID3D11Device *aDevice)
-    : TextureHost(aBuffering, aDeallocator)
+    : TextureHost(aDeallocator)
     , mDevice(aDevice)
   {
   }
@@ -171,9 +171,9 @@ class TextureHostYCbCrD3D11 : public TextureHost
                             , public TextureSourceD3D11
 {
 public:
-  TextureHostYCbCrD3D11(BufferMode aBuffering, ISurfaceDeallocator* aDeallocator,
+  TextureHostYCbCrD3D11(ISurfaceDeallocator* aDeallocator,
                         ID3D11Device *aDevice)
-    : TextureHost(aBuffering, aDeallocator)
+    : TextureHost(aDeallocator)
     , mDevice(aDevice)
   {
     mFormat = gfx::FORMAT_YUV;

@@ -330,15 +330,13 @@ CompositorD3D11::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                    uint32_t aTextureFlags,
                                    ISurfaceDeallocator* aDeAllocator)
 {
-  BufferMode bufferMode = aTextureHostFlags & TEXTURE_HOST_BUFFERED ? BUFFER_BUFFERED
-                                                                    : BUFFER_NONE;
   RefPtr<TextureHost> result;
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
-    result = new TextureHostYCbCrD3D11(bufferMode, aDeAllocator, mDevice);
+    result = new TextureHostYCbCrD3D11(aDeAllocator, mDevice);
   } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
-    result = new TextureHostDXGID3D11(bufferMode, aDeAllocator, mDevice);
+    result = new TextureHostDXGID3D11(aDeAllocator, mDevice);
   } else {
-    result = new TextureHostShmemD3D11(bufferMode, aDeAllocator, mDevice);
+    result = new TextureHostShmemD3D11(aDeAllocator, mDevice);
   }
 
   result->SetFlags(aTextureFlags);

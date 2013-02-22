@@ -54,8 +54,8 @@ class TextureHostOGL : public TextureHost
                      , public TextureSourceOGL
 {
 public:
-  TextureHostOGL(BufferMode aBufferMode = BUFFER_NONE, ISurfaceDeallocator* aDeAllocator = nullptr)
-  : TextureHost(aBufferMode, aDeAllocator)
+  TextureHostOGL(ISurfaceDeallocator* aDeAllocator = nullptr)
+  : TextureHost(aDeAllocator)
   {}
 
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
@@ -90,9 +90,8 @@ class TextureImageTextureHostOGL : public TextureHost
 public:
   TextureImageTextureHostOGL(gl::GLContext* aGL,
                                gl::TextureImage* aTexImage = nullptr,
-                               BufferMode aBufferMode = BUFFER_NONE,
                                ISurfaceDeallocator* aDeallocator = nullptr)
-  : TextureHost(aBufferMode, aDeallocator), mTexture(aTexImage), mGL(aGL)
+  : TextureHost(aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
   }
@@ -373,10 +372,9 @@ public:
 #endif
 
   SharedTextureHostOGL(GLContext* aGL,
-                       BufferMode aBufferMode = BUFFER_NONE,
                        ISurfaceDeallocator* aDeAllocator = nullptr)
 
-  : TextureHostOGL(aBufferMode, aDeAllocator)
+  : TextureHostOGL(aDeAllocator)
   , mGL(aGL)
   , mTextureHandle(0)
   , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)

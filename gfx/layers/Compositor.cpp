@@ -13,23 +13,18 @@
 namespace mozilla {
 namespace layers {
 
-TextureHost::TextureHost(BufferMode aBufferMode, ISurfaceDeallocator* aDeallocator)
+TextureHost::TextureHost(ISurfaceDeallocator* aDeallocator)
   : mFlags(NoFlags)
-  , mBufferMode(aBufferMode)
   , mFormat(gfx::FORMAT_UNKNOWN)
   , mDeAllocator(aDeallocator)
 {
   MOZ_COUNT_CTOR(TextureHost);
-  if (aBufferMode != BUFFER_NONE) {
-    mBuffer = new SurfaceDescriptor(null_t());
-  } else {
-    mBuffer = nullptr;
-  }
+  mBuffer = new SurfaceDescriptor(null_t());
 }
 
 TextureHost::~TextureHost()
 {
-  if (IsBuffered() && mBuffer) {
+  if (mBuffer) {
     MOZ_ASSERT(mDeAllocator);
     mDeAllocator->DestroySharedSurface(mBuffer);
     delete mBuffer;
@@ -38,24 +33,25 @@ TextureHost::~TextureHost()
 }
 
 void TextureHost::Update(const SurfaceDescriptor& aImage,
-                         SurfaceDescriptor* aResult,
                          bool* aIsInitialised,
                          bool* aNeedsReset,
                          nsIntRegion* aRegion)
 {
   UpdateImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
+}
 
-  // buffering
-  if (IsBuffered()) {
-    if (aResult) {
-      *aResult = *mBuffer;
-    }
-    *mBuffer = aImage;
-  } else {
-    if (aResult) {
-      *aResult = aImage;
-    }
+void TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
+                               SurfaceDescriptor* aResult,
+                               bool* aIsInitialised,
+                               bool* aNeedsReset,
+                               nsIntRegion* aRegion)
+{
+  Update(aImage, aIsInitialised, aNeedsReset, aRegion);
+
+  if (aResult) {
+    *aResult = *mBuffer;
   }
+  *mBuffer = aImage;
 }
 
 #ifdef MOZ_LAYERS_HAVE_LOG

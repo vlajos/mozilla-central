@@ -334,7 +334,6 @@ TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
   : TextureClientShared(aForwarder, aCompositableType)
   , mGL(nullptr)
 {
-  mTextureInfo.textureHostFlags = TEXTURE_HOST_BUFFERED;
 }
 
 TextureClientSharedGL::~TextureClientSharedGL()

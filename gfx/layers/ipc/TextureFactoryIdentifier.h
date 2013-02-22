@@ -26,8 +26,7 @@ enum TextureHostFlags
 {
   TEXTURE_HOST_DEFAULT = 0,       // The default texture host for the given SurfaceDescriptor should be created
   TEXTURE_HOST_TILED = 1 << 0,    // A texture host that supports tiling should be created
-  TEXTURE_HOST_BUFFERED = 1 << 1, // The texture host should support swapping multiple buffers
-  TEXTURE_HOST_DIRECT = 1 << 2    // The texture host should attempt to use the SurfaceDescriptor for direct texturing
+  TEXTURE_HOST_DIRECT = 1 << 1    // The texture host should attempt to use the SurfaceDescriptor for direct texturing
 };
 
 /**

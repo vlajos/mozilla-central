@@ -382,7 +382,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
-  mTextureHost->Update(aNewFront.buffer(), nullptr, nullptr, nullptr, &destRegion);
+  mTextureHost->Update(aNewFront.buffer(), nullptr, nullptr, &destRegion);
   mInitialised = true;
 
   mBufferRect = aNewFront.rect();
@@ -421,8 +421,7 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
 
   bool needsReset;
   SurfaceDescriptor newFrontBuffer;
-  mTextureHost->Update(aNewBack.buffer(), &newFrontBuffer,
-                       &mInitialised, &needsReset);
+  Update(aNewBack.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
   
   if (!mInitialised) {
     // XXX if this happens often we could fallback to a different kind of

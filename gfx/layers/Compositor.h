@@ -174,8 +174,7 @@ public:
 class TextureHost : public TextureSource
 {
 public:
-  TextureHost(BufferMode aBufferMode = BUFFER_NONE,
-              ISurfaceDeallocator* aDeAllocator = nullptr);
+  TextureHost(ISurfaceDeallocator* aDeAllocator = nullptr);
   virtual ~TextureHost();
 
   /**
@@ -199,10 +198,16 @@ public:
    * The BufferMode logic is implemented here rather than in the specialized classes
    */
   void Update(const SurfaceDescriptor& aImage,
-              SurfaceDescriptor* aResult = nullptr,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr,
               nsIntRegion *aRegion = nullptr);
+  
+  void SwapTextures(const SurfaceDescriptor& aImage,
+                    SurfaceDescriptor* aResult = nullptr,
+                    bool* aIsInitialised = nullptr,
+                    bool* aNeedsReset = nullptr,
+                    nsIntRegion *aRegion = nullptr);
+
 
   /**
    * Update for tiled texture hosts could probably have a better signature, but we
@@ -279,18 +284,7 @@ public:
 
 protected:
 
-  // BufferMode
-
-  void SetBufferMode(BufferMode aBufferMode,
-                     ISurfaceDeallocator* aDeAllocator = nullptr) {
-    MOZ_ASSERT (aBufferMode == BUFFER_NONE || aDeAllocator);
-    mBufferMode = aBufferMode;
-    mDeAllocator = aDeAllocator;
-  }
-
-  bool IsBuffered() const { return mBufferMode == BUFFER_BUFFERED; }
   SurfaceDescriptor* GetBuffer() const { return mBuffer; }
-
 
   /**
    * Should be implemented by the backend-specific TextureHost classes 
@@ -312,7 +306,6 @@ protected:
 
   // Texture info
   TextureFlags mFlags;
-  BufferMode mBufferMode;
   SurfaceDescriptor* mBuffer;
   gfx::SurfaceFormat mFormat;
 

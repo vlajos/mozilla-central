@@ -143,7 +143,7 @@ public:
       return nullptr;
     }
 
-    mTextureHost = new TextureImageTextureHostOGL(gl(), texImage, BUFFER_NONE);
+    mTextureHost = new TextureImageTextureHostOGL(gl(), texImage);
     return texImage->GetBackingSurface();
   }
 

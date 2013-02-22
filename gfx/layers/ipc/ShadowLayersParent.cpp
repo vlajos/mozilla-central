@@ -415,7 +415,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
           = static_cast<TextureParent*>(compositableParent->ManagedPTextureParent()[i]);
         if (tex->HasBuffer()) {
           tex->EnsureTextureHost(tex->GetBuffer().type());
-          tex->GetTextureHost()->Update(tex->GetBuffer(), &tex->GetBuffer());
+          compositableParent->GetCompositableHost()->Update(tex->GetBuffer(), &tex->GetBuffer());
         }
       }
       break;
