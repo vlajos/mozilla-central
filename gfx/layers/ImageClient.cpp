@@ -31,8 +31,8 @@ ImageClient::UpdatePictureRect(nsIntRect aRect)
 
 ImageClientTexture::ImageClientTexture(CompositableForwarder* aFwd,
                                        TextureFlags aFlags)
-: ImageClient(aFwd)
-, mFlags(aFlags)
+  : ImageClient(aFwd)
+  , mFlags(aFlags)
 {
 }
 
@@ -73,12 +73,12 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
   return true;
 }
 
-void
+/*void
 ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
                               const SurfaceDescriptor& aBuffer)
 {
   mTextureClient->SetDescriptor(aBuffer);
-}
+}*/
 
 void
 ImageClientTexture::Updated()
@@ -88,7 +88,7 @@ ImageClientTexture::Updated()
 
 ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
-: ImageClient(aFwd)
+  : ImageClient(aFwd)
 {
 }
 
@@ -104,7 +104,7 @@ ImageClientShared::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
   }
 
   CompositableType type = CompositingFactory::TypeForImage(autoLock.GetImage());
-  if (type != BUFFER_SHARED) {
+  if (type != BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE) {
     return type == BUFFER_UNKNOWN;
   }
 

@@ -125,10 +125,10 @@ public:
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
-  virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
+  /*virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
   {
     NS_ERROR("Should not be called.");
-  }
+  }*/
 
   virtual void Disconnect()
   {
@@ -149,9 +149,9 @@ private:
   CompositableType GetCompositableClientType()
   {
     if (mGLContext) {
-      return BUFFER_SHARED;
+      return BUFFER_DIRECT;
     }
-    return BUFFER_DIRECT;
+    return BUFFER_SINGLE;
   }
 
   bool mBufferIsOpaque;

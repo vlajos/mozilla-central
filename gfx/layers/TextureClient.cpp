@@ -392,7 +392,7 @@ CompositingFactory::TypeForImage(Image* aImage) {
   }
 
   if (aImage->GetFormat() == SHARED_TEXTURE) {
-    return BUFFER_SHARED;
+    return BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE;
   }
   return BUFFER_SINGLE;
 }
@@ -405,7 +405,7 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
 {
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {
-  case BUFFER_SHARED:
+  case BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE:
     if (aParentBackend == LAYERS_OPENGL) {
       result = new ImageClientShared(aForwarder, aFlags);
     }
@@ -424,8 +424,6 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
     result = nullptr;
     break;
   default:
-    // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
-    // at least we'll known if we run into them.
     MOZ_NOT_REACHED("unhandled program type");
   }
 
@@ -440,10 +438,10 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
                                        CompositableForwarder* aForwarder,
                                        TextureFlags aFlags)
 {
-  if (aCompositableHostType == BUFFER_DIRECT) {
+  if (aCompositableHostType == BUFFER_SINGLE) {
     return new CanvasClient2D(aForwarder, aFlags);
   }
-  if (aCompositableHostType == BUFFER_SHARED) {
+  if (aCompositableHostType == BUFFER_DIRECT) {
     if (aParentBackend == LAYERS_OPENGL) {
       return new CanvasClientWebGL(aForwarder, aFlags);
     }
@@ -470,7 +468,7 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
     return new ContentClientTexture(aForwarder);
   }
   if (aCompositableHostType == BUFFER_TILED) {
-    NS_RUNTIMEABORT("No CompositableClient for tiled layers");
+    MOZ_NOT_REACHED("No CompositableClient for tiled layers");
   }
   return nullptr;
 }

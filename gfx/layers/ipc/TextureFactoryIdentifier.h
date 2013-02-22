@@ -9,18 +9,17 @@
 namespace mozilla {
 namespace layers {
 
-// TODO which of these are not used or should be combined?
-// TODO Is this the same as TextureClientType
+// TODO Is this the same as TextureHostFlags
 enum CompositableType
 {
   BUFFER_UNKNOWN,
-  BUFFER_SINGLE,
-  BUFFER_SHARED,
-  BUFFER_DIRECT,
-  BUFFER_BRIDGE,
-  BUFFER_CONTENT,
-  BUFFER_CONTENT_DIRECT,
-  BUFFER_TILED
+  BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE, // TODO KILL ME (requires merging CanvasClientDirect with ImageClientShared)
+  BUFFER_SINGLE,  // image host with one texture
+  BUFFER_DIRECT,  // canvas with direct texturing
+  BUFFER_BRIDGE,  // image bridge protocol image layers
+  BUFFER_CONTENT, // thebes layer interface
+  BUFFER_CONTENT_DIRECT,  // thebes layer interface with direct texturing
+  BUFFER_TILED  // tiled thebes layer interface
 };
 
 enum TextureHostFlags

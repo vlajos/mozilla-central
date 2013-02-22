@@ -24,11 +24,6 @@ public:
   ImageClient(CompositableForwarder* aFwd);
   virtual ~ImageClient() {}
 
-  virtual CompositableType GetType() const MOZ_OVERRIDE
-  {
-    return BUFFER_SINGLE; // TODO[nical] maybe not always true, check
-  }
-
   /**
    * Update this ImageClient from aContainer in aLayer
    * returns false if this is the wrong kind of ImageClient for aContainer.
@@ -36,12 +31,14 @@ public:
    */
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags) = 0;
 
+  // TODO I'm pretty sure someone should call this at some point, used to be called
+  // in the layers transaction reply
   /**
    * Set the buffer of a texture client (identified by aTextureInfo) to
    * aBuffer. Intended to be used with a buffer from the compositor
    */
-  virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SurfaceDescriptor& aBuffer) = 0;
+  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
+  //                       const SurfaceDescriptor& aBuffer) = 0;
 
   /**
    * Notify the compositor that this image client has been updated
@@ -61,10 +58,15 @@ public:
   ImageClientTexture(CompositableForwarder* aFwd,
                      TextureFlags aFlags);
 
+  virtual CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_SINGLE;
+  }
+
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
 
-  virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SurfaceDescriptor& aBuffer);
+  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
+  //                       const SurfaceDescriptor& aBuffer);
 
   virtual void Updated();
 private:
@@ -78,10 +80,15 @@ public:
   ImageClientShared(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
+  virtual CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE;
+  }
+
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
 
-  virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SurfaceDescriptor& aBuffer) {}
+  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
+  //                       const SurfaceDescriptor& aBuffer) {}
 
   virtual void Updated();
 private:
@@ -95,9 +102,14 @@ public:
   ImageClientBridge(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
+  virtual CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return BUFFER_BRIDGE;
+  }
+
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
-  virtual void SetBuffer(const TextureInfo& aTextureInfo,
-                         const SurfaceDescriptor& aBuffer) {}
+  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
+  //                       const SurfaceDescriptor& aBuffer) {}
   virtual bool Connect() { return false; }
   virtual void Updated() {}
   void SetLayer(ShadowableLayer* aLayer) {
