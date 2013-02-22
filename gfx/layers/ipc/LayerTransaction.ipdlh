@@ -232,12 +232,6 @@ struct OpRaiseToTopChild  { PLayer container; PLayer childLayer; };
 
 
 // Paint (buffer update)
-struct OpPaintThebesBuffer {
-  PTexture texture;
-  ThebesBuffer newFrontBuffer;
-  nsIntRegion updatedRegion;
-};
-
 struct OpPaintTiledLayerBuffer {
   PLayer layer; // TODO: use PCompositable
   // Bug 747811
@@ -269,7 +263,6 @@ struct OpUpdatePictureRect {
 
 
 union CompositableOperation {
-  OpPaintThebesBuffer;
   OpPaintCanvas;
   OpUpdatePictureRect;
 
