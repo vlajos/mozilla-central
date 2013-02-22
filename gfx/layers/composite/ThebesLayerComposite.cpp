@@ -56,31 +56,6 @@ ThebesLayerComposite::EnsureBuffer(CompositableType aHostType)
 }
 
 void
-ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
-                                  const nsIntRegion& aUpdatedRegion,
-                                  OptionalThebesBuffer* aNewBack,
-                                  nsIntRegion* aNewBackValidRegion,
-                                  OptionalThebesBuffer* aReadOnlyFront,
-                                  nsIntRegion* aFrontUpdatedRegion)
-{
-  if (mDestroyed ||
-      !mBuffer) {
-    // Don't drop buffers on the floor.
-    *aNewBack = aNewFront;
-    *aNewBackValidRegion = aNewFront.rect();
-    return;
-  }
-
-  mBuffer->UpdateThebes(aNewFront,
-                        aUpdatedRegion,
-                        aNewBack,
-                        mValidRegion,
-                        aReadOnlyFront,
-                        aNewBackValidRegion,
-                        aFrontUpdatedRegion);
-}
-
-void
 ThebesLayerComposite::Disconnect()
 {
   Destroy();
@@ -188,7 +163,6 @@ void
 ThebesLayerComposite::DestroyFrontBuffer()
 {
   mBuffer = nullptr;
-  mValidRegionForNextBackBuffer.SetEmpty();
 }
 
 void

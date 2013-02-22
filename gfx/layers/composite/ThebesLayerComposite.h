@@ -37,13 +37,6 @@ public:
     ShadowThebesLayer::SetValidRegion(aRegion);
   }
 
-  void SwapTexture(const ThebesBuffer& aNewFront,
-                   const nsIntRegion& aUpdatedRegion,
-                   OptionalThebesBuffer* aNewBack,
-                   nsIntRegion* aNewBackValidRegion,
-                   OptionalThebesBuffer* aReadOnlyFront,
-                   nsIntRegion* aFrontUpdatedRegion);
-
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE;

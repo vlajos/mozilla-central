@@ -610,22 +610,7 @@ public:
     Mutated();
   }
 
-  /**
-   * Swap[Texture] methods will most likely be removed from layers class at some point in the 
-   * layers refactoring (Swap will only operate at The PTexture/TextureHost level)
-   *
-   * CONSTRUCTION PHASE ONLY
-   *
-   * Publish the remote layer's back ThebesLayerBuffer to this shadow,
-   * swapping out the old front ThebesLayerBuffer (the new back buffer
-   * for the remote layer).
-   */
-  virtual void
-  SwapTexture(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
-              OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
-              OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {
-    NS_RUNTIMEABORT("should be implemented or not used");
-  }
+  const nsIntRegion& GetValidRegion() { return mValidRegion; }
 
   virtual void
   Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,

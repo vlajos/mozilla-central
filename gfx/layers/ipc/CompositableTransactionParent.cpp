@@ -125,27 +125,34 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       const OpPaintTextureRegion& op = aEdit.get_OpPaintTextureRegion();
       ShadowThebesLayer* thebes =
         static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op));
+      TextureParent* textureParent = 
+        static_cast<TextureParent*>(op.textureParent());
+      CompositableHost* compositable =
+        textureParent->GetCompositableHost();
+
       const ThebesBuffer& newFront = op.newFrontBuffer();
 
-      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
-
       RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
-      
+
       textureParent->EnsureTextureHost(newFront.buffer().type());
 
       thebes->SetAllocator(this);
       OptionalThebesBuffer newBack;
       nsIntRegion newValidRegion;
-      OptionalThebesBuffer readonlyFront;
+      OptionalThebesBuffer readOnlyFront;
       nsIntRegion frontUpdatedRegion;
-      thebes->SwapTexture(newFront, op.updatedRegion(),
-                          &newBack, &newValidRegion,
-                          &readonlyFront, &frontUpdatedRegion);
+      compositable->UpdateThebes(newFront,
+                                 op.updatedRegion(),
+                                 &newBack,
+                                 thebes->GetValidRegion(),
+                                 &readOnlyFront,
+                                 &newValidRegion,
+                                 &frontUpdatedRegion);
       replyv.push_back(
         OpThebesBufferSwap(
           op.textureParent(), nullptr,
           newBack, newValidRegion,
-          readonlyFront, frontUpdatedRegion));
+          readOnlyFront, frontUpdatedRegion));
 
       RenderTraceInvalidateEnd(thebes, "FF00FF");
       break;

@@ -48,21 +48,6 @@ void CanvasLayerComposite::SetCompositableHost(CompositableHost* aHost) {
   }
 }
 
-/*
-void
-CanvasLayerComposite::SwapTexture(const TextureInfo& aTextureInfo,
-                                  const SurfaceDescriptor& aFront,
-                                  SurfaceDescriptor* aNewBack)
-{
-  if (mDestroyed ||
-      !mImageHost) {
-    *aNewBack = aFront;
-    return;
-  }
-
-  *aNewBack = mImageHost->UpdateImage(aTextureInfo, aFront);
-}
-*/
 void
 CanvasLayerComposite::Destroy()
 {

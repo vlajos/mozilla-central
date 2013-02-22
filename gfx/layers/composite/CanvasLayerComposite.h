@@ -51,11 +51,7 @@ public:
   }
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
-/*
-  virtual void SwapTexture(const TextureInfo& aTextureInfo,
-                           const SurfaceDescriptor& aFront,
-                           SurfaceDescriptor* aNewBack);
-*/
+  
   virtual void Disconnect()
   {
     Destroy();

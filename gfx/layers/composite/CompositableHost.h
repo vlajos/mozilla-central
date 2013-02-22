@@ -9,6 +9,8 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/PCompositableParent.h"
 #include "mozilla/layers/ISurfaceDeallocator.h"
+#include "ThebesLayerBuffer.h"
+#include "BasicTiledThebesLayer.h" // for BasicTiledLayerBuffer
 
 namespace mozilla {
 namespace layers {
@@ -74,6 +76,27 @@ public:
               SurfaceDescriptor* aResult = nullptr,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr);
+  
+  /**
+   * Update the content host.
+   * aTextureInfo identifies the texture host which should be updated.
+   * aNewBack is the new data
+   * aUpdated is the region which should be updated
+   * aNewfront may point to the old data in this content host after the call
+   * aNewBackResult may point to the updated data in this content host
+   * aNewValidRegionFront is the valid region in aNewFront
+   * aUpdatedRegionBack is the region in aNewBackResult which has been updated
+   */
+  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+                            const nsIntRegion& aUpdated,
+                            OptionalThebesBuffer* aNewFront,
+                            const nsIntRegion& aOldValidRegionBack,
+                            OptionalThebesBuffer* aNewBackResult,
+                            nsIntRegion* aNewValidRegionFront,
+                            nsIntRegion* aUpdatedRegionBack)
+  {
+    NS_RUNTIMEABORT("should be implemented or not used");
+  }
 
   virtual TextureHost* GetTextureHost() { return nullptr; }
 

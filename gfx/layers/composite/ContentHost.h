@@ -74,24 +74,6 @@ public:
   : CompositableHost(aCompositor)
   {}
 
-  /**
-   * Update the content host.
-   * aTextureInfo identifies the texture host which should be updated.
-   * aNewBack is the new data
-   * aUpdated is the region which should be updated
-   * aNewfront may point to the old data in this content host after the call
-   * aNewBackResult may point to the updated data in this content host
-   * aNewValidRegionFront is the valid region in aNewFront
-   * aUpdatedRegionBack is the region in aNewBackResult which has been updated
-   */
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
-                            const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
-                            const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
-                            nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack) = 0;
-
   // Subclasses should implement this method if they support being used as a tiled buffer
   virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
 
