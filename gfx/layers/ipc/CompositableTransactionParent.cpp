@@ -44,30 +44,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
                                                      EditReplyVector& replyv)
 {
   switch (aEdit.type()) {
-    case CompositableOperation::TOpPaintCanvas: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint CanvasLayer"));
-
-      const OpPaintCanvas& op = aEdit.get_OpPaintCanvas();
-      ShadowCanvasLayer* canvas = static_cast<ShadowCanvasLayer*>(GetLayerFromOpPaint(op)->AsShadowLayer());
-
-      RenderTraceInvalidateStart(canvas, "FF00FF", canvas->GetVisibleRegion().GetBounds());
-
-      canvas->SetAllocator(this);
-      TextureHost* textureHost = AsTextureHost(op);
-
-      SurfaceDescriptor newBack;
-      bool success;
-      textureHost->Update(op.newFrontBuffer(), &newBack, &success);
-      if (!success) {
-        NS_ASSERTION(newBack.type() == SurfaceDescriptor::Tnull_t, "fail should give null result");
-      }
-
-      canvas->Updated();
-      replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
-
-      RenderTraceInvalidateEnd(canvas, "FF00FF");
-      break;
-    }
     case CompositableOperation::TOpPaintTexture: {
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
       const OpPaintTexture& op = aEdit.get_OpPaintTexture();

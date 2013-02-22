@@ -239,12 +239,6 @@ struct OpPaintTiledLayerBuffer {
   uintptr_t tiledLayerBuffer;
 };
 
-struct OpPaintCanvas {
-  PTexture texture;
-  SurfaceDescriptor newFrontBuffer;
-  bool needYFlip;
-};
-
 struct OpPaintTexture {
   PTexture texture;
   SurfaceDescriptor image;
@@ -263,7 +257,6 @@ struct OpUpdatePictureRect {
 
 
 union CompositableOperation {
-  OpPaintCanvas;
   OpUpdatePictureRect;
 
   OpPaintTexture;
