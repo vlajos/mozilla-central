@@ -24,15 +24,6 @@
 namespace mozilla {
 namespace layers {
 
-//TODO[nrc] we miss the EnsureBuffer call by using the non-inherited version!
-/*void
-TiledThebesLayerComposite::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
-{
-  EnsureBuffer(aTextureInfo.compositableType);
-
-  mBuffer->AddTextureHost(aTextureInfo, aTextureHost);
-}*/
-
 ThebesLayerComposite::ThebesLayerComposite(LayerManagerComposite *aManager)
   : ShadowThebesLayer(aManager, nullptr)
   , LayerComposite(aManager)
@@ -53,19 +44,14 @@ ThebesLayerComposite::SetCompositableHost(CompositableHost* aHost)
 void
 ThebesLayerComposite::EnsureBuffer(CompositableType aHostType)
 {
+  MOZ_ASSERT(aHostType == BUFFER_TILED, "Should only be called for tiled layers.");
   if (!mBuffer ||
       mBuffer->GetType() != aHostType) {
     RefPtr<CompositableHost> bufferHost
       = CompositableHost::Create(aHostType, mCompositeManager->GetCompositor());
-#ifdef FORCE_BASICTILEDTHEBESLAYER
     NS_ASSERTION(bufferHost->GetType() == BUFFER_TILED, "bad buffer type");
-#else
-    NS_ASSERTION(bufferHost->GetType() == BUFFER_CONTENT ||
-                 bufferHost->GetType() == BUFFER_CONTENT_DIRECT ||
-                 bufferHost->GetType() == BUFFER_TILED, "bad buffer type");
-#endif
     mBuffer = static_cast<AContentHost*>(bufferHost.get());
-    mRequiresTiledProperties = bufferHost->GetType() == BUFFER_TILED;
+    mRequiresTiledProperties = true;
   }
 }
 

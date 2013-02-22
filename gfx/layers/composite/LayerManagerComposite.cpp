@@ -590,17 +590,5 @@ LayerManagerComposite::CreateDrawTarget(const IntSize &aSize,
   return LayerManager::CreateDrawTarget(aSize, aFormat);
 }
 
-
-void
-LayerComposite::EnsureBuffer(CompositableType aHostType)
-{
-  RefPtr<CompositableHost> bufferHost = GetCompositableHost();
-  if (!bufferHost ||
-      bufferHost->GetType() != aHostType) {
-    bufferHost = CompositableHost::Create(aHostType, mCompositor);
-    SetCompositableHost(bufferHost);
-  }
-}
-
 } /* layers */
 } /* mozilla */

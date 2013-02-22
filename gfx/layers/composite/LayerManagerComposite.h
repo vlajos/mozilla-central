@@ -122,7 +122,6 @@ public:
 
   virtual LayersBackend GetBackendType()
   {
-    //TODO[nrc] is being called!
     MOZ_ASSERT(false, "Shouldn't be called for composited layer manager");
     return LAYERS_NONE;
   }
@@ -281,13 +280,19 @@ public:
                            CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
   virtual CompositableHost* GetCompositableHost() = 0;
-  virtual void SetCompositableHost(CompositableHost* aHost) { MOZ_ASSERT(false, "called SetCompositableHost for a layer without a compositable"); }
+  virtual void SetCompositableHost(CompositableHost* aHost)
+  {
+    MOZ_ASSERT(false, "called SetCompositableHost for a layer without a compositable host");
+  }
 
   virtual void CleanupResources() = 0;
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return NULL; }
 
-  virtual void EnsureBuffer(CompositableType aHostType);
+  virtual void EnsureBuffer(CompositableType aHostType)
+  {
+    MOZ_ASSERT(false, "Should not be called unless overriden.");
+  }
 
 protected:
   LayerManagerComposite* mCompositeManager;

@@ -9,15 +9,17 @@
 namespace mozilla {
 namespace layers {
 
+// TODO which of these are not used or should be combined?
+// TODO Is this the same as TextureClientType
 enum CompositableType
 {
   BUFFER_UNKNOWN,
   BUFFER_SINGLE,
-  BUFFER_SHARED, // TODO: is that relevent to compositable?
-  BUFFER_DIRECT, // TODO: is that relevent to compositable?
+  BUFFER_SHARED,
+  BUFFER_DIRECT,
   BUFFER_BRIDGE,
   BUFFER_CONTENT,
-  BUFFER_CONTENT_DIRECT, // TODO: is that relevent to compositable?
+  BUFFER_CONTENT_DIRECT,
   BUFFER_TILED
 };
 
