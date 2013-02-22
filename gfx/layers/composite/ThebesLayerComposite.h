@@ -76,7 +76,6 @@ private:
   gfxRect GetCompositionBounds();
 
   nsRefPtr<AContentHost> mBuffer;
-  nsIntRegion mValidRegionForNextBackBuffer;
   bool mRequiresTiledProperties;
 };
 

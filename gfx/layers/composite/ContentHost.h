@@ -87,7 +87,6 @@ public:
   virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
-                            const nsIntRegion& aOldValidRegionFront,
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
@@ -193,11 +192,12 @@ public:
   virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
-                            const nsIntRegion& aOldValidRegionFront,
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
+
+  nsIntRegion mValidRegionForNextBackBuffer;
 };
 
 // We're using resources owned by our texture as the front buffer.
@@ -215,7 +215,6 @@ public:
   virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
-                            const nsIntRegion& aOldValidRegionFront,
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,
@@ -333,7 +332,6 @@ public:
   virtual void UpdateThebes(const ThebesBuffer& aNewBack,
                             const nsIntRegion& aUpdated,
                             OptionalThebesBuffer* aNewFront,
-                            const nsIntRegion& aOldValidRegionFront,
                             const nsIntRegion& aOldValidRegionBack,
                             OptionalThebesBuffer* aNewBackResult,
                             nsIntRegion* aNewValidRegionFront,

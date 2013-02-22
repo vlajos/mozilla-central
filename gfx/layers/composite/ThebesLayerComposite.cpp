@@ -74,20 +74,10 @@ ThebesLayerComposite::SwapTexture(const ThebesBuffer& aNewFront,
   mBuffer->UpdateThebes(aNewFront,
                         aUpdatedRegion,
                         aNewBack,
-                        mValidRegionForNextBackBuffer,
                         mValidRegion,
                         aReadOnlyFront,
                         aNewBackValidRegion,
                         aFrontUpdatedRegion);
-
-  // Save the current valid region of our front buffer, because if
-  // we're double buffering, it's going to be the valid region for the
-  // next back buffer sent back to the renderer.
-  //
-  // NB: we rely here on the fact that mValidRegion is initialized to
-  // empty, and that the first time Swap() is called we don't have a
-  // valid front buffer that we're going to return to content.
-  mValidRegionForNextBackBuffer = mValidRegion;
 }
 
 void

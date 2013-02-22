@@ -359,7 +359,6 @@ void
 ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  const nsIntRegion& aUpdated,
                                  OptionalThebesBuffer* aNewBack,
-                                 const nsIntRegion& aOldValidRegionFront,
                                  const nsIntRegion& aOldValidRegionBack,
                                  OptionalThebesBuffer* aNewBackResult,
                                  nsIntRegion* aNewValidRegionFront,
@@ -402,7 +401,6 @@ void
 ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
                                 const nsIntRegion& aUpdated,
                                 OptionalThebesBuffer* aNewFront,
-                                const nsIntRegion& aOldValidRegionFront,
                                 const nsIntRegion& aOldValidRegionBack,
                                 OptionalThebesBuffer* aNewBackResult,
                                 nsIntRegion* aNewValidRegionFront,
@@ -445,13 +443,22 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.
   aNewValidRegionFront->Sub(needsReset ? nsIntRegion()
-                                       : aOldValidRegionFront, 
+                                       : mValidRegionForNextBackBuffer, 
                             aUpdated);
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 
   mTextureEffect =
     CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
+    
+  // Save the current valid region of our front buffer, because if
+  // we're double buffering, it's going to be the valid region for the
+  // next back buffer sent back to the renderer.
+  //
+  // NB: we rely here on the fact that mValidRegion is initialized to
+  // empty, and that the first time Swap() is called we don't have a
+  // valid front buffer that we're going to return to content.
+  mValidRegionForNextBackBuffer = aOldValidRegionBack;
 }
 
 void
@@ -618,7 +625,6 @@ void
 TiledContentHost::UpdateThebes(const ThebesBuffer& aNewBack,
                                const nsIntRegion& aUpdated,
                                OptionalThebesBuffer* aNewFront,
-                               const nsIntRegion& aOldValidRegionFront,
                                const nsIntRegion& aOldValidRegionBack,
                                OptionalThebesBuffer* aNewBackResult,
                                nsIntRegion* aNewValidRegionFront,
