@@ -58,9 +58,10 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       }
 
       TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
+      CompositableHost* compositable = textureParent->GetCompositableHost();
       const SurfaceDescriptor& descriptor = op.image();
       if (compositor) {
-        textureParent->GetCompositableHost()->SetCompositor(compositor);
+        compositable->SetCompositor(compositor);
       }
       textureParent->EnsureTextureHost(descriptor.type());
       if (textureParent->GetCompositorID()) {
@@ -85,7 +86,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       shadowLayer->SetAllocator(this);
       SurfaceDescriptor newBack;
       RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
-      host->Update(op.image(), &newBack);
+      compositable->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
 
       if (textureParent->HasBuffer()) {
