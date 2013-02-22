@@ -618,6 +618,17 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                                  aTexCoordRect.width * aTexture->GetSize().width,
                                  aTexCoordRect.height * aTexture->GetSize().height);
 
+  // This is fairly disgusting - if the texture should be flipped it will have a
+  // negative height, in which case we un-invert the texture coords and pass the
+  // flipped 'flag' to the functions below. We can't just use the inverted coords
+  // because our GL funtions use an explicit flag.
+  bool flipped = false;
+  if (texCoordRect.height < 0) {
+    flipped = true;
+    texCoordRect.y = texCoordRect.YMost();
+    texCoordRect.height = -texCoordRect.height;
+  }
+
   if (wrapMode == LOCAL_GL_REPEAT) {
     rects.addRect(/* dest rectangle */
                   0.0f, 0.0f, 1.0f, 1.0f,
@@ -626,13 +637,13 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                   texCoordRect.y / GLfloat(realTexSize.height),
                   texCoordRect.XMost() / GLfloat(realTexSize.width),
                   texCoordRect.YMost() / GLfloat(realTexSize.height),
-                  false);
+                  flipped);
   } else {
     nsIntRect tcRect(texCoordRect.x, texCoordRect.y,
                      texCoordRect.width, texCoordRect.height);
     GLContext::DecomposeIntoNoRepeatTriangles(tcRect,
                                               nsIntSize(realTexSize.width, realTexSize.height),
-                                              rects, false);
+                                              rects, flipped);
   }
 
   mGLContext->fVertexAttribPointer(vertAttribIndex, 2,

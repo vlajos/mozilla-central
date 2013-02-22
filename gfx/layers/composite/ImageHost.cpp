@@ -78,7 +78,6 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   TileIterator* it = mTextureHost->AsTextureSource()->AsTileIterator();
   if (it) {
     it->BeginTileIteration();
-    // XXX - TODO - Implement NeedsYFlip?
     do {
       nsIntRect tileRect = it->GetTileRect();
       gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
