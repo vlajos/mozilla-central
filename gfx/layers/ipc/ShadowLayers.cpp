@@ -275,20 +275,6 @@ ShadowLayerForwarder::RepositionChild(ShadowableLayer* aContainer,
 }
 
 void
-ShadowLayerForwarder::PaintedThebesBuffer(PTextureChild* aTexture,
-                                          const nsIntRegion& aUpdatedRegion,
-                                          const nsIntRect& aBufferRect,
-                                          const nsIntPoint& aBufferRotation,
-                                          const SurfaceDescriptor& aNewFrontBuffer)
-{
-  mTxn->AddPaint(OpPaintThebesBuffer(NULL, aTexture,
-                                     ThebesBuffer(aNewFrontBuffer,
-                                                  aBufferRect,
-                                                  aBufferRotation),
-                                     aUpdatedRegion));
-}
-
-void
 ShadowLayerForwarder::PaintedTiledLayerBuffer(ShadowableLayer* aLayer,
                                               BasicTiledLayerBuffer* aTiledLayerBuffer)
 {

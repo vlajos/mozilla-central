@@ -44,38 +44,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
                                                      EditReplyVector& replyv)
 {
   switch (aEdit.type()) {
-    case CompositableOperation::TOpPaintThebesBuffer: {
-      MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
-
-      const OpPaintThebesBuffer& op = aEdit.get_OpPaintThebesBuffer();
-      ShadowThebesLayer* thebes =
-        static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op)->AsShadowLayer());
-      const ThebesBuffer& newFront = op.newFrontBuffer();
-
-      RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
-
-      OptionalThebesBuffer newBack;
-      nsIntRegion newValidRegion;
-      OptionalThebesBuffer readonlyFront;
-      nsIntRegion frontUpdatedRegion;
-      thebes->Swap(newFront, op.updatedRegion(),
-                   &newBack, &newValidRegion,
-                   &readonlyFront, &frontUpdatedRegion);
-
-      // We have to invalidate the pixels painted into the new buffer.
-      // They might overlap with our old pixels.
-      // TODO[nical]
-      //aNewValidRegionFront->Sub(needsReset ? nsIntRegion() : aOldValidRegionFront, aUpdated);
-
-      replyv.push_back(
-        OpThebesBufferSwap(
-          op.textureParent(), NULL,
-          newBack, newValidRegion,
-          readonlyFront, frontUpdatedRegion));
-
-      RenderTraceInvalidateEnd(thebes, "FF00FF");
-      break;
-    }
     case CompositableOperation::TOpPaintCanvas: {
       MOZ_LAYERS_LOG(("[ParentSide] Paint CanvasLayer"));
 

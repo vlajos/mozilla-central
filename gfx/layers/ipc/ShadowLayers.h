@@ -209,23 +209,6 @@ public:
                ShadowableLayer* aMaskLayer);
 
   /**
-   * Notify the shadow manager that the specified layer's back buffer
-   * has new pixels and should become the new front buffer, and be
-   * re-rendered, in the compositing process.  The former front buffer
-   * is swapped for |aNewFrontBuffer| and becomes the new back buffer
-   * for the "real" layer.
-   *
-   * |aBufferRect| is the screen rect covered as a whole by the
-   * possibly-toroidally-rotated |aNewFrontBuffer|.  |aBufferRotation|
-   * is buffer's rotation, if any.
-   */
-  void PaintedThebesBuffer(PTextureChild* aTexture,
-                           const nsIntRegion& aUpdatedRegion,
-                           const nsIntRect& aBufferRect,
-                           const nsIntPoint& aBufferRotation,
-                           const SurfaceDescriptor& aNewFrontBuffer);
-
-  /**
    * Notify the compositor that a tiled layer buffer has changed
    * that needs to be synced to the shadow retained copy. The tiled
    * layer buffer will operate directly on the shadow retained buffer
