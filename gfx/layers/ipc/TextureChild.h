@@ -15,8 +15,7 @@ namespace layers {
 
 class TextureClient;
 
-class TextureChild : public PTextureChild,
-                     public SurfaceDeallocator<TextureChild>
+class TextureChild : public PTextureChild
 {
 public:
   TextureChild()

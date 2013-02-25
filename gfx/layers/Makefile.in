@@ -161,7 +161,7 @@ EXPORTS_mozilla/layers =\
         ImageBridgeChild.h \
         ImageBridgeParent.h \
         ImageHost.h \
-        ISurfaceDeallocator.h \
+        ISurfaceAllocator.h \
         LayersTypes.h \
         SurfaceDeallocatorIPC.h \
         ShadowLayers.h \
@@ -175,6 +175,7 @@ EXPORTS_mozilla/layers =\
         RenderTrace.h \
         SharedImageUtils.h \
         SharedRGBImage.h \
+        SharedPlanarYCbCrImage.h \
         ShmemYCbCrImage.h \
         TaskThrottler.h \
         CompositingRenderTargetOGL.h \
@@ -202,6 +203,7 @@ CPPSRCS += \
         ShadowLayersChild.cpp \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
+        SharedPlanarYCbCrImage.cpp \
         ShmemYCbCrImage.cpp \
         SharedRGBImage.cpp \
         TaskThrottler.cpp \

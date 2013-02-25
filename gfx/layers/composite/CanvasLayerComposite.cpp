@@ -28,6 +28,10 @@ CanvasLayerComposite::CanvasLayerComposite(LayerManagerComposite* aManager)
 CanvasLayerComposite::~CanvasLayerComposite()
 {
   MOZ_COUNT_DTOR(CanvasLayerComposite);
+  if (mImageHost) {
+    mImageHost->SetLayer(nullptr);
+  }
+
 }
 
 void
@@ -128,7 +132,7 @@ CanvasLayerComposite::CleanupResources()
 }
 
 void
-CanvasLayerComposite::SetAllocator(ISurfaceDeallocator* aAllocator)
+CanvasLayerComposite::SetAllocator(ISurfaceAllocator* aAllocator)
 {
   mImageHost->SetDeAllocator(aAllocator);
 }

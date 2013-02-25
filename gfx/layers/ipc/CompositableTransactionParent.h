@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/layers/ISurfaceDeallocator.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 #include "mozilla/layers/LayerTransaction.h"
 
 namespace mozilla {
@@ -20,7 +20,7 @@ typedef std::vector<mozilla::layers::EditReply> EditReplyVector;
 // the Manager() method usually generated when there's one manager protocol,
 // so both manager protocols implement this and we keep a reference to them
 // through this interface.
-class CompositableParentManager : public ISurfaceDeallocator
+class CompositableParentManager : public ISurfaceAllocator
 {
 public:
   virtual Compositor* GetCompositor() = 0;

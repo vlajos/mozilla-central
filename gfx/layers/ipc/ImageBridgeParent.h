@@ -40,12 +40,9 @@ public:
   // CompositableManager
   Compositor* GetCompositor() MOZ_OVERRIDE { return nullptr; } // TODO[nical] this is actually a bad idea
 
-  // ISurfaceDeallocator
+  // ISurfaceAllocator
   virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE;
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
-  virtual bool AllocateUnsafe(size_t aSize,
-                              ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem);
 
   // PImageBridge
   virtual bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
@@ -55,11 +52,29 @@ public:
                                           uint64_t*) MOZ_OVERRIDE;
   bool DeallocPCompositable(PCompositableParent* aActor) MOZ_OVERRIDE;
 
-
   // Overriden from PImageBridgeParent.
   bool RecvStop() MOZ_OVERRIDE;
 
   MessageLoop * GetMessageLoop();
+
+  bool AllocShmem(size_t aSize,
+                  ipc::SharedMemory::SharedMemoryType aType,
+                  ipc::Shmem* aShmem) MOZ_OVERRIDE
+  {
+    return AllocShmem(aSize, aType, aShmem);
+  }
+
+  bool AllocUnsafeShmem(size_t aSize,
+                           ipc::SharedMemory::SharedMemoryType aType,
+                           ipc::Shmem* aShmem) MOZ_OVERRIDE
+  {
+    return AllocUnsafeShmem(aSize, aType, aShmem);
+  }
+
+  void DeallocShmem(ipc::Shmem& aShmem) MOZ_OVERRIDE
+  {
+    PImageBridgeParent::DeallocShmem(aShmem);
+  }
 
 private:
   MessageLoop * mMessageLoop;

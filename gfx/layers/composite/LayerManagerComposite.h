@@ -262,7 +262,7 @@ public:
     , mDestroyed(false)
   { }
 
-  virtual ~LayerComposite() { }
+  virtual ~LayerComposite() {}
 
   virtual LayerComposite *GetFirstChildComposite() {
     return nullptr;
@@ -279,11 +279,11 @@ public:
                            const nsIntRect& aClipRect,
                            CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
 
-  virtual CompositableHost* GetCompositableHost() = 0;
   virtual void SetCompositableHost(CompositableHost* aHost)
   {
     MOZ_ASSERT(false, "called SetCompositableHost for a layer without a compositable host");
   }
+  virtual CompositableHost* GetCompositableHost() = 0;
 
   virtual void CleanupResources() = 0;
 

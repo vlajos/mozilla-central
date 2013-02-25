@@ -15,7 +15,7 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/ipc/SharedMemory.h"
 #include "mozilla/WidgetUtils.h"
-#include "mozilla/layers/ISurfaceDeallocator.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 #include "mozilla/dom/ScreenOrientation.h"
 #include "mozilla/layers/CompositableForwarder.h"
 
@@ -307,10 +307,10 @@ public:
    * In the absence of platform-specific buffers these fall back to
    * Shmem/gfxSharedImageSurface.
    */
+/*
   virtual bool AllocBuffer(const gfxIntSize& aSize,
                            gfxASurface::gfxContentType aContent,
                            SurfaceDescriptor* aBuffer) MOZ_OVERRIDE;
-
   virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
                                    gfxASurface::gfxContentType aContent,
                                    uint32_t aCaps,
@@ -320,7 +320,15 @@ public:
                               ipc::SharedMemory::SharedMemoryType aType,
                               ipc::Shmem* aShmem) MOZ_OVERRIDE;
 
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
+*/
+  // ISurfaceAllocator
+  virtual bool AllocUnsafeShmem(size_t aSize,
+                                ipc::SharedMemory::SharedMemoryType aType,
+                                ipc::Shmem* aShmem) MOZ_OVERRIDE;
+  virtual bool AllocShmem(size_t aSize,
+                          ipc::SharedMemory::SharedMemoryType aType,
+                          ipc::Shmem* aShmem) MOZ_OVERRIDE;
+  virtual void DeallocShmem(ipc::Shmem& aShmem) MOZ_OVERRIDE;
 
   /**
    * Construct a shadow of |aLayer| on the "other side", at the
@@ -334,7 +342,7 @@ public:
   void SetIsFirstPaint() { mIsFirstPaint = true; }
 
   /**
-   * Create compositable clients, see comments in CompositingFactory
+ * Create compositable clients, see comments in CompositingFactory
    */
   TemporaryRef<ImageClient> CreateImageClientFor(const CompositableType& aCompositableType,
                                                  ShadowableLayer* aLayer,
@@ -356,6 +364,7 @@ protected:
   PLayersChild* mShadowManager;
 
 private:
+/*
   bool AllocBuffer(const gfxIntSize& aSize,
                    gfxASurface::gfxContentType aContent,
                    gfxSharedImageSurface** aBuffer);
@@ -364,7 +373,7 @@ private:
                            gfxASurface::gfxContentType aContent,
                            uint32_t aCaps,
                            SurfaceDescriptor* aBuffer);
-
+*/
   /**
    * Try to query the content type efficiently, but at worst map the
    * surface and return it in *aSurface.
@@ -419,11 +428,13 @@ public:
 
   virtual void GetBackendName(nsAString& name) { name.AssignLiteral("Shadow"); }
 
+/*
   void DestroySharedSurface(gfxSharedImageSurface* aSurface,
                             PLayersParent* aDeallocator);
 
   void DestroySharedSurface(SurfaceDescriptor* aSurface,
                             PLayersParent* aDeallocator);
+*/
 
   /** CONSTRUCTION PHASE ONLY */
   virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer() = 0;
@@ -532,7 +543,7 @@ public:
   // XXX this is only used by non-Compositor ShadowLayers, Compositor ShadowLayers
   // should override it and pass aAllocator to their image host
   // remove when we move to Compositor everywhere
-  virtual void SetAllocator(ISurfaceDeallocator* aAllocator)
+  virtual void SetAllocator(ISurfaceAllocator* aAllocator)
   {
     NS_ASSERTION(!mAllocator || mAllocator == aAllocator, "Stomping allocator?");
     mAllocator = aAllocator;
@@ -583,7 +594,7 @@ protected:
     , mUseShadowClipRect(false)
   {}
 
-  ISurfaceDeallocator* mAllocator;
+  ISurfaceAllocator* mAllocator;
   nsIntRegion mShadowVisibleRegion;
   gfx3DMatrix mShadowTransform;
   nsIntRect mShadowClipRect;

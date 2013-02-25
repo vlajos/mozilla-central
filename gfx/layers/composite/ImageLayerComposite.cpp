@@ -26,11 +26,17 @@ ImageLayerComposite::ImageLayerComposite(LayerManagerComposite* aManager)
   , LayerComposite(aManager)
   , mImageHost(nullptr)
 {
+  MOZ_COUNT_CTOR(ImageLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
 }
 
 ImageLayerComposite::~ImageLayerComposite()
-{}
+{
+  MOZ_COUNT_DTOR(ImageLayerComposite);
+  if (mImageHost) {
+    mImageHost->SetLayer(nullptr);
+  }
+}
 
 void
 ImageLayerComposite::SetCompositableHost(CompositableHost* aHost)

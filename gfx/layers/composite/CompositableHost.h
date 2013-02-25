@@ -8,7 +8,7 @@
 
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/PCompositableParent.h"
-#include "mozilla/layers/ISurfaceDeallocator.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 #include "ThebesLayerBuffer.h"
 #include "BasicTiledThebesLayer.h" // for BasicTiledLayerBuffer
 
@@ -100,7 +100,7 @@ public:
 
   virtual TextureHost* GetTextureHost() { return nullptr; }
 
-  virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator) {}
+  virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator) {}
 
   virtual LayerRenderState GetRenderState() = 0;
 

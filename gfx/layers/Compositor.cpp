@@ -5,7 +5,7 @@
 
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/LayersSurfaces.h"
-#include "mozilla/layers/ISurfaceDeallocator.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 //#include "mozilla/layers/ImageContainerParent.h"
 #include "LayersLogging.h"
 #include "nsPrintfCString.h"
@@ -13,7 +13,7 @@
 namespace mozilla {
 namespace layers {
 
-TextureHost::TextureHost(ISurfaceDeallocator* aDeallocator)
+TextureHost::TextureHost(ISurfaceAllocator* aDeallocator)
   : mFlags(NoFlags)
   , mFormat(gfx::FORMAT_UNKNOWN)
   , mDeAllocator(aDeallocator)

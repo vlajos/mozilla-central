@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "gfxASurface.h"
 #include "GLDefs.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 
 namespace mozilla {
 namespace layers {
@@ -32,7 +33,7 @@ class TextureClient;
  * additionally forward modifications of the Layer tree).
  * ImageBridgeChild is another CompositableForwarder.
  */
-class CompositableForwarder
+class CompositableForwarder : public ISurfaceAllocator
 {
   friend class AutoOpenSurface;
   friend class TextureClientShmem;
@@ -98,6 +99,7 @@ public:
    * In the absence of platform-specific buffers these fall back to
    * Shmem/gfxSharedImageSurface.
    */
+/*
   virtual bool AllocBuffer(const gfxIntSize& aSize,
                            gfxASurface::gfxContentType aContent,
                            SurfaceDescriptor* aBuffer) = 0;
@@ -107,12 +109,10 @@ public:
                                    uint32_t aCaps,
                                    SurfaceDescriptor* aBuffer) = 0;
 
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) = 0;
-  
   virtual bool AllocateUnsafe(size_t aSize,
                               ipc::SharedMemory::SharedMemoryType aType,
                               ipc::Shmem* aShmem) = 0;
-
+*/
   void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
 
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }

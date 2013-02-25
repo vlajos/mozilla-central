@@ -111,7 +111,7 @@ public:
     return PaintState();
   }
 
-  virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
+  virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
   {
     if (mTextureHost) {
       mTextureHost->SetDeAllocator(aDeAllocator);

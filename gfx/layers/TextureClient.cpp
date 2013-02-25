@@ -103,7 +103,7 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     mContentType = aContentType;
     mSize = aSize;
 
-    if (!mLayerForwarder->AllocBuffer(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
+    if (!mLayerForwarder->AllocSurfaceDescriptor(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
       NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
     }
   }
@@ -123,9 +123,9 @@ bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
     if (IsSurfaceDescriptorValid(*mDescriptor)) {
       mTextureClient->GetLayerForwarder()->DestroySharedSurface(mDescriptor);
     }
-    if (!mTextureClient->GetLayerForwarder()->AllocBuffer(aSize,
-                                                          surface->GetContentType(),
-                                                          mDescriptor)) {
+    if (!mTextureClient->GetLayerForwarder()->AllocSurfaceDescriptor(aSize,
+                                                                     surface->GetContentType(),
+                                                                     mDescriptor)) {
       NS_WARNING("creating SurfaceDescriptor failed!");
       return false;
     }
@@ -246,7 +246,7 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
   size_t size = ShmemYCbCrImage::ComputeMinBufferSize(data->mYSize,
                                                       data->mCbCrSize);
   ipc::Shmem shmem;
-  if (!mTextureClient->GetLayerForwarder()->AllocateUnsafe(size, shmType, &shmem)) {
+  if (!mTextureClient->GetLayerForwarder()->AllocUnsafeShmem(size, shmType, &shmem)) {
     NS_RUNTIMEABORT("buddy, you need a better allocator");
     return false;
   }

@@ -29,11 +29,17 @@ ThebesLayerComposite::ThebesLayerComposite(LayerManagerComposite *aManager)
   , LayerComposite(aManager)
   , mBuffer(nullptr)
 {
+  MOZ_COUNT_CTOR(ThebesLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
 }
 
 ThebesLayerComposite::~ThebesLayerComposite()
-{}
+{
+  MOZ_COUNT_DTOR(ThebesLayerComposite);
+  if (mBuffer) {
+    mBuffer->SetLayer(nullptr);
+  }
+}
 
 void
 ThebesLayerComposite::SetCompositableHost(CompositableHost* aHost)
@@ -172,7 +178,7 @@ ThebesLayerComposite::CleanupResources()
 }
 
 void
-ThebesLayerComposite::SetAllocator(ISurfaceDeallocator* aAllocator)
+ThebesLayerComposite::SetAllocator(ISurfaceAllocator* aAllocator)
 {
   mBuffer->SetDeAllocator(aAllocator);
 }

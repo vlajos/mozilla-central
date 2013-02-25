@@ -39,7 +39,7 @@ struct Effect;
 struct EffectChain;
 class SurfaceDescriptor;
 class Image;
-class ISurfaceDeallocator;
+class ISurfaceAllocator;
 class CompositableHost;
 class TextureHost;
 class TextureInfo;
@@ -174,7 +174,7 @@ public:
 class TextureHost : public TextureSource
 {
 public:
-  TextureHost(ISurfaceDeallocator* aDeAllocator = nullptr);
+  TextureHost(ISurfaceAllocator* aDeAllocator = nullptr);
   virtual ~TextureHost();
 
   /**
@@ -239,11 +239,11 @@ public:
   virtual void CleanupResources() {}
   virtual void SetCompositor(Compositor* aCompositor) {}
 
-  void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
+  void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
   {
     mDeAllocator = aDeAllocator;
   }
-  ISurfaceDeallocator* GetDeAllocator()
+  ISurfaceAllocator* GetDeAllocator()
   {
     return mDeAllocator;
   }
@@ -310,7 +310,7 @@ protected:
   gfx::SurfaceFormat mFormat;
 
   TextureParent* mTextureParent;
-  ISurfaceDeallocator* mDeAllocator;
+  ISurfaceAllocator* mDeAllocator;
 };
 
 /**
@@ -384,7 +384,7 @@ public:
     CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                       uint32_t aTextureHostFlags,
                       uint32_t aTextureFlags,
-                      ISurfaceDeallocator* aDeAllocator) = 0;
+                      ISurfaceAllocator* aDeAllocator) = 0;
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId

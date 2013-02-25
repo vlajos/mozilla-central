@@ -184,12 +184,6 @@ void ImageBridgeParent::DestroySharedSurface(SurfaceDescriptor* aSurface)
   NS_RUNTIMEABORT("Implement me");
   // TODO[nical]
 }
-bool ImageBridgeParent::AllocateUnsafe(size_t aSize,
-                            ipc::SharedMemory::SharedMemoryType aType,
-                            ipc::Shmem* aShmem)
-{
-  return AllocUnsafeShmem(aSize, aType, aShmem);
-}
 
 } // layers
 } // mozilla

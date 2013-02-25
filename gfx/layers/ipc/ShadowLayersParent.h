@@ -46,14 +46,24 @@ public:
   uint64_t GetId() const { return mId; }
   ContainerLayer* GetRoot() const { return mRoot; }
 
-  // ISurfaceDeallocator
-  virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE;
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
-  virtual bool AllocateUnsafe(size_t aSize,
-                              ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) {
-    return AllocUnsafeShmem(aSize, aType, aShmem);
+  // ISurfaceAllocator
+  virtual bool AllocShmem(size_t aSize,
+                          ipc::SharedMemory::SharedMemoryType aType,
+                          ipc::Shmem* aShmem) {
+    return PLayersParent::AllocShmem(aSize, aType, aShmem);
   }
+
+  virtual bool AllocUnsafeShmem(size_t aSize,
+                                ipc::SharedMemory::SharedMemoryType aType,
+                                ipc::Shmem* aShmem) {
+    return PLayersParent::AllocUnsafeShmem(aSize, aType, aShmem);
+  }
+
+  virtual void DeallocShmem(ipc::Shmem& aShmem) MOZ_OVERRIDE
+  {
+    PLayersParent::DeallocShmem(aShmem);
+  }
+
 
 protected:
   virtual bool RecvUpdate(const EditArray& cset,

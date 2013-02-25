@@ -116,7 +116,7 @@ BufferRecycleBin::GetBuffer(uint32_t aSize)
   return result;
 }
 
-ImageContainer::ImageContainer(int flag) 
+ImageContainer::ImageContainer(int flag)
 : mReentrantMonitor("ImageContainer.mReentrantMonitor"),
   mPaintCount(0),
   mPreviousImagePainted(false),
@@ -129,7 +129,9 @@ ImageContainer::ImageContainer(int flag)
   mImageClient(nullptr)
 {
   if (flag == ENABLE_ASYNC && ImageBridgeChild::IsCreated()) {
-    mImageClient = ImageBridgeChild::GetSingleton()->CreateImageClient(BUFFER_SINGLE);
+    // the refcount of this ImageClient is 1. we don't use a RefPtr here because the refcount
+    // of this class must be done on the ImageBridge thread.
+    mImageClient = ImageBridgeChild::GetSingleton()->CreateImageClient(BUFFER_SINGLE).drop();
     MOZ_ASSERT(mImageClient);
   }
 }

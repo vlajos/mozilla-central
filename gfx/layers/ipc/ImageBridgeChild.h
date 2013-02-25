@@ -262,30 +262,19 @@ public:
    * TODO[nical]
    */
   virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
-  // TODO[nical]
-  virtual bool AllocBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           SurfaceDescriptor* aBuffer) MOZ_OVERRIDE {
-    NS_RUNTIMEABORT("Implement me");
-    return false;
-  }
-  // TODO[nical]
-  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
-                                   gfxASurface::gfxContentType aContent,
-                                   uint32_t aCaps,
-                                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE {
-    NS_RUNTIMEABORT("Implement me");
-    return false;
-  }
 
-  virtual bool AllocateUnsafe(size_t aSize,
-                              ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) MOZ_OVERRIDE {
-    return AllocUnsafeShmem(aSize, aType, aShmem);
+  virtual bool AllocUnsafeShmem(size_t aSize,
+                                   ipc::SharedMemory::SharedMemoryType aType,
+                                   ipc::Shmem* aShmem) MOZ_OVERRIDE {
+    return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
   }
-  // TODO[nical]
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {
-    NS_RUNTIMEABORT("Implement me");
+  virtual bool AllocShmem(size_t aSize,
+                          ipc::SharedMemory::SharedMemoryType aType,
+                          ipc::Shmem* aShmem) MOZ_OVERRIDE {
+    return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
+  }
+  virtual void DeallocShmem(ipc::Shmem& aShmem) MOZ_OVERRIDE {
+    PImageBridgeChild::DeallocShmem(aShmem);
   }
 
   TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);

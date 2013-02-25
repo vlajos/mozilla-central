@@ -54,7 +54,7 @@ class TextureHostOGL : public TextureHost
                      , public TextureSourceOGL
 {
 public:
-  TextureHostOGL(ISurfaceDeallocator* aDeAllocator = nullptr)
+  TextureHostOGL(ISurfaceAllocator* aDeAllocator = nullptr)
   : TextureHost(aDeAllocator)
   {}
 
@@ -90,7 +90,7 @@ class TextureImageTextureHostOGL : public TextureHost
 public:
   TextureImageTextureHostOGL(gl::GLContext* aGL,
                                gl::TextureImage* aTexImage = nullptr,
-                               ISurfaceDeallocator* aDeallocator = nullptr)
+                               ISurfaceAllocator* aDeallocator = nullptr)
   : TextureHost(aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
@@ -372,7 +372,7 @@ public:
 #endif
 
   SharedTextureHostOGL(GLContext* aGL,
-                       ISurfaceDeallocator* aDeAllocator = nullptr)
+                       ISurfaceAllocator* aDeAllocator = nullptr)
 
   : TextureHostOGL(aDeAllocator)
   , mGL(aGL)

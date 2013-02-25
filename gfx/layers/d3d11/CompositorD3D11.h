@@ -59,7 +59,7 @@ public:
     CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                       uint32_t aTextureHostFlags,
                       uint32_t aTextureFlags,
-                      ISurfaceDeallocator* aDeAllocator);
+                      ISurfaceAllocator* aDeAllocator);
 
   virtual TemporaryRef<CompositingRenderTarget>
     CreateRenderTarget(const gfx::IntRect &aRect,

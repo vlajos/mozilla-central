@@ -17,8 +17,16 @@ class ImageContainer;
 class ImageLayer;
 class PlanarYCbCrImage;
 
+class SharedImageFactory
+{
+public:
+  virtual already_AddRefed<Image> CreateImage(const uint32_t *aFormats,
+                                              uint32_t aNumFormats) = 0;
+};
+
 // abstract. Used for image and canvas layers
-class ImageClient : public CompositableClient
+class ImageClient : public CompositableClient,
+                    public SharedImageFactory
 {
 public:
   ImageClient(CompositableForwarder* aFwd);
@@ -46,6 +54,9 @@ public:
   virtual void Updated() = 0;
 
   virtual void UpdatePictureRect(nsIntRect aPictureRect);
+
+  virtual already_AddRefed<Image> CreateImage(const uint32_t *aFormats,
+                                              uint32_t aNumFormats) MOZ_OVERRIDE;
 
 protected:
   int32_t mLastPaintedImageSerial;

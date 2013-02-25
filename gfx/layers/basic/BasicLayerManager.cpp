@@ -1181,8 +1181,8 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
         }
         nsRefPtr<gfxASurface> target = mShadowTarget->OriginalSurface();
         SurfaceDescriptor inSnapshot, snapshot;
-        if (AllocBuffer(size, contentType,
-                        &inSnapshot) &&
+        if (AllocSurfaceDescriptor(size, contentType,
+                                   &inSnapshot) &&
             // The compositor will usually reuse |snapshot| and return
             // it through |outSnapshot|, but if it doesn't, it's
             // responsible for freeing |snapshot|.

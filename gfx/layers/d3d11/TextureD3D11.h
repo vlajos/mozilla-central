@@ -85,7 +85,7 @@ class TextureHostShmemD3D11 : public TextureHost
                             , public TileIterator
 {
 public:
-  TextureHostShmemD3D11(ISurfaceDeallocator* aDeallocator,
+  TextureHostShmemD3D11(ISurfaceAllocator* aDeallocator,
                         ID3D11Device *aDevice)
     : TextureHost(aDeallocator)
     , mDevice(aDevice)
@@ -133,7 +133,7 @@ class TextureHostDXGID3D11 : public TextureHost
                            , public TextureSourceD3D11
 {
 public:
-  TextureHostDXGID3D11(ISurfaceDeallocator* aDeallocator,
+  TextureHostDXGID3D11(ISurfaceAllocator* aDeallocator,
                        ID3D11Device *aDevice)
     : TextureHost(aDeallocator)
     , mDevice(aDevice)
@@ -171,7 +171,7 @@ class TextureHostYCbCrD3D11 : public TextureHost
                             , public TextureSourceD3D11
 {
 public:
-  TextureHostYCbCrD3D11(ISurfaceDeallocator* aDeallocator,
+  TextureHostYCbCrD3D11(ISurfaceAllocator* aDeallocator,
                         ID3D11Device *aDevice)
     : TextureHost(aDeallocator)
     , mDevice(aDevice)

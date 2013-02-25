@@ -27,7 +27,7 @@ public:
   ImageLayerComposite(LayerManagerComposite* aManager);
   virtual ~ImageLayerComposite();
 
-  virtual void SetAllocator(ISurfaceDeallocator* aAllocator) {}
+  virtual void SetAllocator(ISurfaceAllocator* aAllocator) {}
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 

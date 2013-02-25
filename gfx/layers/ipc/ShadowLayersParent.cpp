@@ -545,18 +545,6 @@ ShadowLayersParent::DeallocPCompositable(PCompositableParent* actor)
   return true;
 }
 
-void
-ShadowLayersParent::DestroySharedSurface(gfxSharedImageSurface* aSurface)
-{
-  layer_manager()->DestroySharedSurface(aSurface, this);
-}
-
-void
-ShadowLayersParent::DestroySharedSurface(SurfaceDescriptor* aSurface)
-{
-  layer_manager()->DestroySharedSurface(aSurface, this);
-}
-
 Compositor*
 ShadowLayersParent::GetCompositor()
 {

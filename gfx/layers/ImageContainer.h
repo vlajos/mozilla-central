@@ -566,8 +566,7 @@ protected:
   // In this case the ImageContainer is perfectly usable, but it will forward 
   // frames to the compositor through transactions in the main thread rather than 
   // asynchronusly using the ImageBridge IPDL protocol.
-  //nsRefPtr<ImageContainerChild> mImageContainerChild;
-  RefPtr<ImageClient> mImageClient;
+  ImageClient* mImageClient;
 };
 
 class AutoLockImage
@@ -867,7 +866,6 @@ public:
   gfxIntSize mSize;
   RemoteImageData::Format mFormat;
 };
-
 
 } //namespace
 } //namespace

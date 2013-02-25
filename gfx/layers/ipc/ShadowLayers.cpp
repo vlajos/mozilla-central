@@ -30,6 +30,7 @@
 #include "ImageClient.h"
 #include "CanvasClient.h"
 #include "ContentClient.h"
+#include "ISurfaceAllocator.h"
 
 using namespace mozilla::ipc;
 using namespace mozilla::gl;
@@ -433,17 +434,15 @@ OptimalShmemType()
 }
 
 bool
-ShadowLayerForwarder::AllocBuffer(const gfxIntSize& aSize,
-                                  gfxASurface::gfxContentType aContent,
-                                  gfxSharedImageSurface** aBuffer)
+ISurfaceAllocator::AllocSharedImageSurface(const gfxIntSize& aSize,
+                               gfxASurface::gfxContentType aContent,
+                               gfxSharedImageSurface** aBuffer)
 {
-  NS_ABORT_IF_FALSE(HasShadowManager(), "no manager to forward to");
-
   SharedMemory::SharedMemoryType shmemType = OptimalShmemType();
   gfxASurface::gfxImageFormat format = gfxPlatform::GetPlatform()->OptimalFormatForContent(aContent);
 
   nsRefPtr<gfxSharedImageSurface> back =
-    gfxSharedImageSurface::CreateUnsafe(mShadowManager, aSize, format, shmemType);
+    gfxSharedImageSurface::CreateUnsafe(this, aSize, format, shmemType);
   if (!back)
     return false;
 
@@ -453,43 +452,56 @@ ShadowLayerForwarder::AllocBuffer(const gfxIntSize& aSize,
 }
 
 bool
-ShadowLayerForwarder::AllocBuffer(const gfxIntSize& aSize,
-                                  gfxASurface::gfxContentType aContent,
-                                  SurfaceDescriptor* aBuffer)
+ISurfaceAllocator::AllocSurfaceDescriptor(const gfxIntSize& aSize,
+                                          gfxASurface::gfxContentType aContent,
+                                          SurfaceDescriptor* aBuffer)
 {
-  return AllocBufferWithCaps(aSize, aContent, DEFAULT_BUFFER_CAPS, aBuffer);
+  return AllocSurfaceDescriptorWithCaps(aSize, aContent, DEFAULT_BUFFER_CAPS, aBuffer);
 }
 
 bool
-ShadowLayerForwarder::AllocBufferWithCaps(const gfxIntSize& aSize,
-                                          gfxASurface::gfxContentType aContent,
-                                          uint32_t aCaps,
-                                          SurfaceDescriptor* aBuffer)
+ISurfaceAllocator::AllocSurfaceDescriptorWithCaps(const gfxIntSize& aSize,
+                                                  gfxASurface::gfxContentType aContent,
+                                                  uint32_t aCaps,
+                                                  SurfaceDescriptor* aBuffer)
 {
   bool tryPlatformSurface = true;
 #ifdef DEBUG
   tryPlatformSurface = !PR_GetEnv("MOZ_LAYERS_FORCE_SHMEM_SURFACES");
 #endif
   if (tryPlatformSurface &&
-      PlatformAllocBuffer(aSize, aContent, aCaps, aBuffer)) {
+      PlatformAllocSurfaceDescriptor(aSize, aContent, aCaps, aBuffer)) {
     return true;
   }
 
   nsRefPtr<gfxSharedImageSurface> buffer;
-  if (!AllocBuffer(aSize, aContent,
-                   getter_AddRefs(buffer)))
+  if (!AllocSharedImageSurface(aSize, aContent,
+                               getter_AddRefs(buffer))) {
     return false;
+  }
 
   *aBuffer = buffer->GetShmem();
   return true;
 }
 
 bool
-ShadowLayerForwarder::AllocateUnsafe(size_t aSize,
-                                     ipc::SharedMemory::SharedMemoryType aType,
-                                     ipc::Shmem* aShmem)
+ShadowLayerForwarder::AllocShmem(size_t aSize,
+                                 ipc::SharedMemory::SharedMemoryType aType,
+                                 ipc::Shmem* aShmem)
+{
+  return mShadowManager->AllocShmem(aSize, aType, aShmem);
+}
+bool
+ShadowLayerForwarder::AllocUnsafeShmem(size_t aSize,
+                                          ipc::SharedMemory::SharedMemoryType aType,
+                                          ipc::Shmem* aShmem)
 {
   return mShadowManager->AllocUnsafeShmem(aSize, aType, aShmem);
+}
+void
+ShadowLayerForwarder::DeallocShmem(ipc::Shmem& aShmem)
+{
+  mShadowManager->DeallocShmem(aShmem);
 }
 
 /*static*/ already_AddRefed<gfxASurface>
@@ -570,16 +582,39 @@ DestroySharedShmemSurface(SurfaceDescriptor* aSurface,
   }
 }
 
+static void
+DestroySharedShmemSurface(SurfaceDescriptor* aSurface,
+                          ISurfaceAllocator* aDeallocator)
+{
+  switch (aSurface->type()) {
+  case SurfaceDescriptor::TShmem: {
+    aDeallocator->DeallocShmem(aSurface->get_Shmem());
+    *aSurface = SurfaceDescriptor();
+    return;
+  }
+  default:
+    NS_RUNTIMEABORT("unexpected SurfaceDescriptor type!");
+    return;
+  }
+}
+
 void
-ShadowLayerForwarder::DestroySharedSurface(SurfaceDescriptor* aSurface)
+ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
 {
   if (PlatformDestroySharedSurface(aSurface)) {
     return;
   }
   if (aSurface->type() == SurfaceDescriptor::TShmem) {
-    DestroySharedShmemSurface(aSurface, mShadowManager);
+    DestroySharedShmemSurface(aSurface, this);
   }
 }
+
+void
+ISurfaceAllocator::DestroySharedSurface(gfxSharedImageSurface* aSurface)
+{
+  NS_RUNTIMEABORT("TODO");
+}
+
 
 TemporaryRef<ImageClient>
 ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositableType,
@@ -623,7 +658,7 @@ ShadowLayerForwarder::ConstructShadowFor(ShadowableLayer* aLayer)
   return mShadowManager->SendPLayerConstructor(new ShadowLayerChild(aLayer));
 }
 
-
+/*
 void
 ShadowLayerManager::DestroySharedSurface(gfxSharedImageSurface* aSurface,
                                          PLayersParent* aDeallocator)
@@ -645,11 +680,13 @@ ShadowLayerManager::DestroySharedSurface(SurfaceDescriptor* aSurface,
 
 #if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 
+*/
+#if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 bool
-ShadowLayerForwarder::PlatformAllocBuffer(const gfxIntSize&,
-                                          gfxASurface::gfxContentType,
-                                          uint32_t,
-                                          SurfaceDescriptor*)
+ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize&,
+                                                  gfxASurface::gfxContentType,
+                                                  uint32_t,
+                                                  SurfaceDescriptor*)
 {
   return false;
 }
@@ -699,7 +736,7 @@ ShadowLayerForwarder::PlatformSyncBeforeUpdate()
 }
 
 bool
-ShadowLayerManager::PlatformDestroySharedSurface(SurfaceDescriptor*)
+ISurfaceAllocator::PlatformestroySharedSurface(SurfaceDescriptor*)
 {
   return false;
 }

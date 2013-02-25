@@ -9,6 +9,8 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "SharedTextureImage.h"
 #include "ImageContainer.h" // For PlanarYCbCrImage
+#include "mozilla/layers/SharedRGBImage.h"
+#include "mozilla/layers/SharedPlanarYCbCrImage.h"
 
 namespace mozilla {
 namespace layers {
@@ -144,6 +146,32 @@ ImageClientBridge::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
   mAsyncContainerID = aContainer->GetAsyncContainerID();
   GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, mLayer);
   return true;
+}
+
+already_AddRefed<Image>
+ImageClient::CreateImage(const uint32_t *aFormats,
+                         uint32_t aNumFormats)
+{
+  nsRefPtr<Image> img;
+  for (uint32_t i = 0; i < aNumFormats; i++) {
+    switch (aFormats[i]) {
+      case PLANAR_YCBCR:
+        img = new SharedPlanarYCbCrImage(this);
+        return img.forget();
+//      case SHARED_RGB:  // TODO[nical]
+//        img = new SharedRGBImage(this);
+//        return img.forget();
+#ifdef MOZ_WIDGET_GONK
+      case GONK_IO_SURFACE:
+        img = new GonkIOSurfaceImage();
+        return img.forget();
+      case GRALLOC_PLANAR_YCBCR:
+        img = new GrallocPlanarYCbCrImage();
+        return img.forget();
+#endif
+    }
+  }
+  return nullptr;
 }
 
 }

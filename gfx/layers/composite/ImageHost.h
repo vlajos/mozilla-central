@@ -61,7 +61,7 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr,
                          TiledLayerProperties* aLayerProperties = nullptr);
 
-  virtual void SetDeAllocator(ISurfaceDeallocator* aDeAllocator)
+  virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
   {
     mTextureHost->SetDeAllocator(aDeAllocator);
   }
