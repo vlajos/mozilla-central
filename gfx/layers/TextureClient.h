@@ -206,8 +206,6 @@ protected:
 
 
 
-
-
 class TextureClientShmem : public TextureClient
 {
 public:

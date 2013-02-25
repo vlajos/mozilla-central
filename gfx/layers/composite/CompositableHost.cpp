@@ -57,7 +57,6 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
   case BUFFER_DIRECT:
     result = new ImageHostDirect(aCompositor, aType);
     return result;
-  case BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE:
   case BUFFER_SINGLE:
     result = new ImageHostSingle(aCompositor, aType);
     return result;

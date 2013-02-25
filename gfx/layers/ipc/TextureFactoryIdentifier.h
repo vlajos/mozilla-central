@@ -13,7 +13,6 @@ namespace layers {
 enum CompositableType
 {
   BUFFER_UNKNOWN,
-  BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE, // TODO KILL ME (requires merging CanvasClientDirect with ImageClientShared)
   BUFFER_SINGLE,  // image host with one texture
   BUFFER_DIRECT,  // canvas with direct texturing
   BUFFER_BRIDGE,  // image bridge protocol image layers

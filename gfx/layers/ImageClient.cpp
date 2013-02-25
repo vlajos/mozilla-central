@@ -69,6 +69,15 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
       return false;
     }
     UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
+  } else if (image->GetFormat() == SHARED_TEXTURE) {
+    SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
+    const SharedTextureImage::Data *data = sharedImage->GetData();
+
+    SharedTextureDescriptor texture(data->mShareType, 
+                                    data->mHandle, 
+                                    data->mSize, 
+                                    data->mInverted);
+    mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else {
     AutoLockShmemClient clientLock(mTextureClient);
     if (!clientLock.Update(image, aContentFlags, surface)) {
@@ -92,44 +101,6 @@ ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
 
 void
 ImageClientTexture::Updated()
-{
-  mTextureClient->Updated();
-}
-
-ImageClientShared::ImageClientShared(CompositableForwarder* aFwd,
-                                     TextureFlags aFlags)
-  : ImageClient(aFwd)
-{
-}
-
-bool
-ImageClientShared::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
-{
-  gfxASurface* dontCare = nullptr;
-  AutoLockImage autoLock(aContainer, &dontCare);
-  Image *image = autoLock.GetImage();
-
-  if (mLastPaintedImageSerial == image->GetSerial()) {
-    return true;
-  }
-
-  CompositableType type = CompositingFactory::TypeForImage(autoLock.GetImage());
-  if (type != BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE) {
-    return type == BUFFER_UNKNOWN;
-  }
-
-  SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
-  const SharedTextureImage::Data *data = sharedImage->GetData();
-
-  SharedTextureDescriptor texture(data->mShareType, data->mHandle, data->mSize, data->mInverted);
-  mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
-
-  mLastPaintedImageSerial = image->GetSerial();
-  return true;
-}
-
-void
-ImageClientShared::Updated()
 {
   mTextureClient->Updated();
 }

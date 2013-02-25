@@ -390,9 +390,6 @@ CompositingFactory::TypeForImage(Image* aImage) {
     return BUFFER_UNKNOWN;
   }
 
-  if (aImage->GetFormat() == SHARED_TEXTURE) {
-    return BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE;
-  }
   return BUFFER_SINGLE;
 }
 
@@ -404,11 +401,6 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
 {
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {
-  case BUFFER_DIRECT_USING_SHAREDTEXTUREIMAGE:
-    if (aParentBackend == LAYERS_OPENGL) {
-      result = new ImageClientShared(aForwarder, aFlags);
-    }
-    // fall through to BUFFER_SINGLE
   case BUFFER_SINGLE:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
       result = new ImageClientTexture(aForwarder, aFlags);
