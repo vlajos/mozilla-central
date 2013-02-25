@@ -49,7 +49,10 @@ public:
 
   virtual CompositableType GetType() = 0;
 
-  virtual void CleanupResources() {}
+  virtual void CleanupResources() {
+    mCompositor = nullptr;
+    mLayer = nullptr;
+  }
 
   virtual void SetCompositor(Compositor* aCompositor)
   {

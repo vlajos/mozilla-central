@@ -21,24 +21,21 @@ namespace layers {
 ImageBridgeParent::ImageBridgeParent(MessageLoop* aLoop)
 : mMessageLoop(aLoop)
 {
-  // TODO[nical] b2g can have several bridges, so this should not be done here
+  // creates the map only if it has not been created already, so it is safe
+  // with several bridges
   CompositableMap::Create();
 }
 
 ImageBridgeParent::~ImageBridgeParent()
 {
-  // TODO[nical] b2g can have several bridges, so this should not be done here
-  CompositableMap::Destroy();
 }
 
 bool
 ImageBridgeParent::RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply)
 {
-  printf("ImageBridgeParent::RecvUpdate");
   EditReplyVector replyv;
   for (EditArray::index_type i = 0; i < aEdits.Length(); ++i) {
     bool isFirstPaint = false;
-    printf("ImageBridgeParent::ReceiveCompositableUpdate");
     ReceiveCompositableUpdate(aEdits[i],
                               isFirstPaint,
                               replyv);
@@ -61,7 +58,6 @@ ImageBridgeParent::RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply)
 bool
 ImageBridgeParent::RecvUpdateNoSwap(const EditArray& aEdits)
 {
-  printf("ImageBridgeParent::RecvUpdateNoSwap");
   InfallibleTArray<EditReply> noReplies;
   bool success = RecvUpdate(aEdits, &noReplies);
   NS_ABORT_IF_FALSE(noReplies.Length() == 0, "RecvUpdateNoSwap requires a sync Update to carry Edits");

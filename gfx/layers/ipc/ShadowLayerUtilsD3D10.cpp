@@ -72,7 +72,7 @@ ShadowLayerForwarder::PlatformSyncBeforeUpdate()
 }
 
 bool
-ISurfaceAllocator::PlatformestroySharedSurface(SurfaceDescriptor*)
+ISurfaceAllocator::PlatformDestroySharedSurface(SurfaceDescriptor*)
 {
   return false;
 }
