@@ -13,11 +13,11 @@ namespace layers {
 enum CompositableType
 {
   BUFFER_UNKNOWN,
-  BUFFER_SINGLE,  // image host with one texture
-  BUFFER_DIRECT,  // canvas with direct texturing
+  BUFFER_IMAGE_SINGLE,  // image/canvas host with one texture
+  BUFFER_IMAGE_BUFFERED,  // image/canvas host with buffering
   BUFFER_BRIDGE,  // image bridge protocol image layers
-  BUFFER_CONTENT, // thebes layer interface
-  BUFFER_CONTENT_DIRECT,  // thebes layer interface with direct texturing
+  BUFFER_CONTENT, // thebes layer interface (unbuffered)
+  BUFFER_CONTENT_DIRECT,  // thebes layer interface with direct texturing (buffered)
   BUFFER_TILED  // tiled thebes layer interface
 };
 

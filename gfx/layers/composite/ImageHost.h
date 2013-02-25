@@ -93,10 +93,10 @@ protected:
   CompositableType mType;
 };
 
-class ImageHostDirect : public ImageHostSingle
+class ImageHostBuffered : public ImageHostSingle
 {
 public:
-  ImageHostDirect(Compositor* aCompositor, CompositableType aType)
+  ImageHostBuffered(Compositor* aCompositor, CompositableType aType)
     : ImageHostSingle(aCompositor, aType)
   {}
 

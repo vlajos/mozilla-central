@@ -54,10 +54,10 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
   case BUFFER_DIRECT_EXTERNAL:
 #endif
 #endif
-  case BUFFER_DIRECT:
-    result = new ImageHostDirect(aCompositor, aType);
+  case BUFFER_IMAGE_BUFFERED:
+    result = new ImageHostBuffered(aCompositor, aType);
     return result;
-  case BUFFER_SINGLE:
+  case BUFFER_IMAGE_SINGLE:
     result = new ImageHostSingle(aCompositor, aType);
     return result;
   case BUFFER_TILED:

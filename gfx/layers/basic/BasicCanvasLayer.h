@@ -149,9 +149,9 @@ private:
   CompositableType GetCompositableClientType()
   {
     if (mGLContext) {
-      return BUFFER_DIRECT;
+      return BUFFER_IMAGE_BUFFERED;
     }
-    return BUFFER_SINGLE;
+    return BUFFER_IMAGE_SINGLE;
   }
 
   bool mBufferIsOpaque;

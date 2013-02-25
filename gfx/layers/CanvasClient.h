@@ -47,7 +47,7 @@ public:
 
   CompositableType GetType() const MOZ_OVERRIDE
   {
-    return BUFFER_SINGLE;
+    return BUFFER_IMAGE_SINGLE;
   }
 
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);
@@ -63,7 +63,7 @@ public:
 
   CompositableType GetType() const MOZ_OVERRIDE
   {
-    return BUFFER_DIRECT;
+    return BUFFER_IMAGE_BUFFERED;
   }
 
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);

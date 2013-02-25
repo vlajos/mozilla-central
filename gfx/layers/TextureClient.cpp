@@ -140,7 +140,7 @@ bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
 bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxASurface* surface)
 {
   CompositableType type = CompositingFactory::TypeForImage(aImage);
-  if (type != BUFFER_SINGLE) {
+  if (type != BUFFER_IMAGE_SINGLE) {
     return type == BUFFER_UNKNOWN;
   }
 
@@ -390,7 +390,7 @@ CompositingFactory::TypeForImage(Image* aImage) {
     return BUFFER_UNKNOWN;
   }
 
-  return BUFFER_SINGLE;
+  return BUFFER_IMAGE_SINGLE;
 }
 
 /* static */ TemporaryRef<ImageClient>
@@ -401,7 +401,7 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
 {
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {
-  case BUFFER_SINGLE:
+  case BUFFER_IMAGE_SINGLE:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
       result = new ImageClientTexture(aForwarder, aFlags);
     }
@@ -429,10 +429,10 @@ CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
                                        CompositableForwarder* aForwarder,
                                        TextureFlags aFlags)
 {
-  if (aCompositableHostType == BUFFER_SINGLE) {
+  if (aCompositableHostType == BUFFER_IMAGE_SINGLE) {
     return new CanvasClient2D(aForwarder, aFlags);
   }
-  if (aCompositableHostType == BUFFER_DIRECT) {
+  if (aCompositableHostType == BUFFER_IMAGE_BUFFERED) {
     if (aParentBackend == LAYERS_OPENGL) {
       return new CanvasClientWebGL(aForwarder, aFlags);
     }

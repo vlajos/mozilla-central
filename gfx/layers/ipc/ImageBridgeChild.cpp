@@ -565,7 +565,7 @@ already_AddRefed<ImageContainerChild> ImageBridgeChild::CreateImageContainerChil
 already_AddRefed<ImageContainerChild> ImageBridgeChild::CreateImageContainerChildNow()
 {
   nsRefPtr<ImageContainerChild> ctnChild = new ImageContainerChild();
-  RefPtr<ImageClient> compositable = CompositingFactory::CreateImageClient(LAYERS_OPENGL,BUFFER_SINGLE,this,0);
+  RefPtr<ImageClient> compositable = CompositingFactory::CreateImageClient(LAYERS_OPENGL,BUFFER_IMAGE_SINGLE,this,0);
   compositable->Connect();
   uint64_t id = 0;
   SendPImageContainerConstructor(ctnChild, &id);

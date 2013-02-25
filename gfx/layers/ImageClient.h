@@ -71,7 +71,7 @@ public:
 
   virtual CompositableType GetType() const MOZ_OVERRIDE
   {
-    return BUFFER_SINGLE;
+    return BUFFER_IMAGE_SINGLE;
   }
 
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
