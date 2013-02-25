@@ -65,6 +65,11 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     return;
   }
 
+  if (!GetCompositor()) {
+    // should only happen during tabswitch if async-video is still sending frames.
+    return;
+  }
+
   RefPtr<TexturedEffect> effect =
     CreateTexturedEffect(mTextureHost, aFilter);
 

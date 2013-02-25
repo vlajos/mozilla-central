@@ -54,8 +54,16 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
   }
 
   if (image->GetFormat() == PLANAR_YCBCR) {
-    AutoLockYCbCrClient clientLock(mTextureClient);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
+    if (ycbcr->AsSharedPlanarYCbCrImage()) {
+      SurfaceDescriptor* desc = mTextureClient->LockSurfaceDescriptor();
+      if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(*desc)) {
+        mTextureClient->Unlock();
+        return false;
+      }
+      mTextureClient->Unlock();
+    }
+    AutoLockYCbCrClient clientLock(mTextureClient);
     if (!clientLock.Update(ycbcr)) {
       NS_WARNING("failed to update TextureClient (YCbCr)");
       return false;

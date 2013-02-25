@@ -127,7 +127,6 @@ public:
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix) { }
 #endif
 
-  // temporary hack, will be removed when layer won't need to be notfied after texture update
   Layer* GetLayer() const { return mLayer; }
   void SetLayer(Layer* aLayer) { mLayer = aLayer; }
 protected:

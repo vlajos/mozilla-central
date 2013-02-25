@@ -51,7 +51,7 @@ public:
     return mAllocated;
   }
 
-  SurfaceDescriptor* ToSurfaceDescriptor();
+  bool ToSurfaceDescriptor(SurfaceDescriptor& aDesc);
 
 private:
   ipc::Shmem mShmem;

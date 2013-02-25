@@ -96,15 +96,14 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrImage::Data& aData)
   return true;
 }
 
-SurfaceDescriptor*
-SharedPlanarYCbCrImage::ToSurfaceDescriptor() {
-  if (mAllocated) {
-    return new SurfaceDescriptor(YCbCrImage(mShmem, 0));
+bool
+SharedPlanarYCbCrImage::ToSurfaceDescriptor(SurfaceDescriptor& aDesc) {
+  if (!mAllocated) {
+    return false;
   }
-  return nullptr;
+  aDesc = YCbCrImage(mShmem, 0);
+  return true;
 }
-
-
 
 } // namespace
 } // namespace

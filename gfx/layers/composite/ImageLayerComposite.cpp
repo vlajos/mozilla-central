@@ -33,9 +33,7 @@ ImageLayerComposite::ImageLayerComposite(LayerManagerComposite* aManager)
 ImageLayerComposite::~ImageLayerComposite()
 {
   MOZ_COUNT_DTOR(ImageLayerComposite);
-  if (mImageHost) {
-    mImageHost->SetLayer(nullptr);
-  }
+  MOZ_ASSER(mDestroyed);
 }
 
 void
@@ -123,6 +121,7 @@ ImageLayerComposite::CleanupResources()
   if (mImageHost) {
     mImageHost->CleanupResources();
     mImageHost->SetCompositor(nullptr);
+    mImageHost->SetLayer(nullptr);
   }
   mImageHost = nullptr;
 }
