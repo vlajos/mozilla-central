@@ -46,7 +46,7 @@ void TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
                                bool* aNeedsReset,
                                nsIntRegion* aRegion)
 {
-  Update(aImage, aIsInitialised, aNeedsReset, aRegion);
+  SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
 
   if (aResult) {
     *aResult = *mBuffer;

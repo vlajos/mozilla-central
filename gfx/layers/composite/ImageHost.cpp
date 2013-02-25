@@ -40,6 +40,7 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     mTextureHost = GetCompositor()->CreateTextureHost(aImage.type(),
                                                       id.textureHostFlags,
                                                       id.textureFlags,
+                                                      IsBuffered(),
                                                       mTextureHost->GetDeAllocator());
     Update(aImage, &result, &success);
     if (!success) {

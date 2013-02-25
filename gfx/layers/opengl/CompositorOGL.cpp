@@ -719,6 +719,7 @@ TemporaryRef<TextureHost>
 CompositorOGL::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                  uint32_t aTextureHostFlags,
                                  uint32_t aTextureFlags,
+                                 bool aBuffered,
                                  ISurfaceAllocator* aDeAllocator)
 {
   RefPtr<TextureHost> result = nullptr;

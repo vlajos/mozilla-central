@@ -41,6 +41,7 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
     mTextureHost = compositor->CreateTextureHost(aSurfaceType,
                                                  mTextureInfo.textureHostFlags,
                                                  mTextureInfo.textureFlags,
+                                                 compositable->IsBuffered(),
                                                  compParent->GetCompositableManager());
     compositable->AddTextureHost(mTextureHost);
     return true;

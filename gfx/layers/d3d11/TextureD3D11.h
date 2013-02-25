@@ -156,8 +156,8 @@ public:
 #endif
 
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
-                          bool *aNeedsReset, nsIntRegion* aRegion);
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
+                                bool *aNeedsReset, nsIntRegion* aRegion);
 private:
   void LockTexture();
   void ReleaseTexture();

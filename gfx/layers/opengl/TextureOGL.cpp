@@ -144,6 +144,17 @@ SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                  bool* aNeedsReset,
                                  nsIntRegion* aRegion)
 {
+  // Just retain a reference to the new image, rather than making a copy.
+  // This seems potentially bad, but it's what the existing code did.
+  SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
+}
+
+void
+SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                       bool* aIsInitialised,
+                                       bool* aNeedsReset,
+                                       nsIntRegion* aRegion)
+{
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSharedTextureDescriptor,
               "Invalid descriptor");
 
@@ -172,7 +183,6 @@ SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
       NS_RUNTIMEABORT("Shader type not yet supported");
     }
   }
-
 
   if (aIsInitialised) {
     *aIsInitialised = true;

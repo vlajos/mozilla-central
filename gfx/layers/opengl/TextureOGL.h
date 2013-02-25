@@ -325,11 +325,16 @@ public:
 
   bool IsValid() const MOZ_OVERRIDE { return GetFormat() != gfx::FORMAT_UNKNOWN; }
 
-  // override from TextureHost
+  // override from TextureHost, we support both buffered
+  // and unbuffered operation.
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised = nullptr,
                           bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr);
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                bool* aIsInitialised = nullptr,
+                                bool* aNeedsReset = nullptr,
+                                nsIntRegion* aRegion = nullptr);
   virtual bool Lock();
   virtual void Unlock();
 

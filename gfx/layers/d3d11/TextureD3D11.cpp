@@ -290,7 +290,7 @@ TextureHostDXGID3D11::Unlock()
 }
 
 void
-TextureHostDXGID3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
+TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
                              bool *aNeedsReset, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);

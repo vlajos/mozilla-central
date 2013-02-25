@@ -328,12 +328,14 @@ TemporaryRef<TextureHost>
 CompositorD3D11::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                    uint32_t aTextureHostFlags,
                                    uint32_t aTextureFlags,
+                                   bool aBuffered,
                                    ISurfaceAllocator* aDeAllocator)
 {
   RefPtr<TextureHost> result;
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
     result = new TextureHostYCbCrD3D11(aDeAllocator, mDevice);
   } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
+    MOZ_ASSERT(aBuffered, "Can't support SurfaceDescriptorD3D10 without buffering!");
     result = new TextureHostDXGID3D11(aDeAllocator, mDevice);
   } else {
     result = new TextureHostShmemD3D11(aDeAllocator, mDevice);

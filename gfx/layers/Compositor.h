@@ -192,22 +192,22 @@ public:
   virtual bool IsValid() const { return true; }
 
   /**
-   * Update the texture host from a SurfaceDescriptor, aResult may contain the old
-   * content of the texture, a pointer to the new image, or null. The
-   * texture client should know what to expect
-   * The BufferMode logic is implemented here rather than in the specialized classes
+   * Update the texture host using the data from aSurfaceDescriptor.
    */
   void Update(const SurfaceDescriptor& aImage,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr,
               nsIntRegion *aRegion = nullptr);
   
+  /**
+   * Change the current surface of the texture host to aImage. aResult will return 
+   * the previous surface.
+   */
   void SwapTextures(const SurfaceDescriptor& aImage,
                     SurfaceDescriptor* aResult = nullptr,
                     bool* aIsInitialised = nullptr,
                     bool* aNeedsReset = nullptr,
                     nsIntRegion *aRegion = nullptr);
-
 
   /**
    * Update for tiled texture hosts could probably have a better signature, but we
@@ -288,6 +288,9 @@ protected:
 
   /**
    * Should be implemented by the backend-specific TextureHost classes 
+   * 
+   * It should not take a reference to aImage, unless it knows the data 
+   * to be thread-safe.
    */
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised,
@@ -295,6 +298,23 @@ protected:
                           nsIntRegion *aRegion)
   {
     NS_RUNTIMEABORT("Should not be reached");
+  }
+ 
+  /**
+   * Should be implemented by the backend-specific TextureHost classes.
+   *
+   * Doesn't need to do the actual surface descriptor swap, just
+   * any preparation work required to use the new descriptor.
+   *
+   * If the implementation doesn't define anything in particular
+   * for handling swaps, then we can just do an update instead.
+   */
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                bool* aIsInitialised,
+                                bool* aNeedsReset,
+                                nsIntRegion *aRegion)
+  {
+    UpdateImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
   }
 
   // An internal identifier for this texture host. Two texture hosts
@@ -378,12 +398,15 @@ public:
    * @param aDescriptorType The SurfaceDescriptor type being passed
    * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
    * @param aTextureFlags Flags to pass to the new TextureHost
+   * @param aBuffered True if the texture will be buffered (and updated via SwapTextures), or false if it will be used
+   * unbuffered (and updated using Update).
    * #@param aDeAllocator A surface deallocator..
    */
   virtual TemporaryRef<TextureHost>
     CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                       uint32_t aTextureHostFlags,
                       uint32_t aTextureFlags,
+                      bool aBuffered,
                       ISurfaceAllocator* aDeAllocator) = 0;
 
   /**
