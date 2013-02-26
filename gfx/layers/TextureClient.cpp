@@ -34,7 +34,9 @@ TextureClient::TextureClient(CompositableForwarder* aForwarder,
 }
 
 TextureClient::~TextureClient()
-{}
+{
+  ReleaseResources();
+}
 
 void
 TextureClient::Updated()
@@ -80,7 +82,8 @@ TextureClientShmem::TextureClientShmem(CompositableForwarder* aForwarder, Compos
 {
 }
 
-TextureClientShmem::~TextureClientShmem()
+void
+TextureClientShmem::ReleaseResources()
 {
   if (mSurface) {
     mSurface = nullptr;
@@ -329,7 +332,8 @@ TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
 {
 }
 
-TextureClientSharedGL::~TextureClientSharedGL()
+void
+TextureClientSharedGL::ReleaseResources()
 {
   if (!IsSurfaceDescriptorValid(mDescriptor) ||
       mDescriptor.type() != SurfaceDescriptor::TSharedTextureDescriptor) {

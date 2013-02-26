@@ -208,7 +208,6 @@ protected:
 class TextureClientShmem : public TextureClient
 {
 public:
-  virtual ~TextureClientShmem();
   TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 
   virtual already_AddRefed<gfxContext> LockContext();
@@ -217,6 +216,7 @@ public:
   virtual void Unlock();
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
+  virtual void ReleaseResources();
 private:
   gfxASurface* GetSurface();
 
@@ -238,10 +238,11 @@ public:
 class TextureClientSharedGL : public TextureClient
 {
 public:
-  virtual ~TextureClientSharedGL();
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+  
+  virtual void ReleaseResources();
 protected:
 
   gl::GLContext* mGL;
