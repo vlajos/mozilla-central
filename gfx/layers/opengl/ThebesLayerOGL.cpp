@@ -143,7 +143,7 @@ public:
       return nullptr;
     }
 
-    mTextureHost = new TextureImageTextureHostOGL(gl(), texImage);
+    mTextureHost = new TextureImageTextureHostOGL(gl(), nullptr, texImage);
     return texImage->GetBackingSurface();
   }
 
@@ -542,7 +542,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   if (mTextureHost) {
     static_cast<TextureImageTextureHostOGL*>(mTextureHost.get())->SetTextureImage(texImage);
   } else {
-    mTextureHost = new TextureImageTextureHostOGL(gl(), texImage);
+    mTextureHost = new TextureImageTextureHostOGL(gl(), nullptr, texImage);
   }
 
   if (!texImageOnWhite) {
@@ -551,7 +551,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
     if (mTextureHostOnWhite) {
       static_cast<TextureImageTextureHostOGL*>(mTextureHostOnWhite.get())->SetTextureImage(texImageOnWhite);
     } else if (texImageOnWhite) {
-      mTextureHostOnWhite = new TextureImageTextureHostOGL(gl(), texImageOnWhite);
+      mTextureHostOnWhite = new TextureImageTextureHostOGL(gl(), nullptr, texImageOnWhite);
     }
   }
 

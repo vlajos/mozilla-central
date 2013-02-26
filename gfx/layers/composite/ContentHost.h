@@ -222,7 +222,8 @@ public:
     mTextureHost = o.mTextureHost;
   }
   TiledTexture& operator=(const TiledTexture& o) {
-    if (this == &o) return *this;
+    if (this == &o)
+      return *this;
     mTextureHost = o.mTextureHost;
     return *this;
   }
@@ -283,10 +284,6 @@ private:
   const BasicTiledLayerBuffer* mMainMemoryTiledBuffer;
   gfxSize mFrameResolution;
 };
-
-
-
-
 
 class TiledThebesLayerComposite;
 class ReusableTileStoreComposite;

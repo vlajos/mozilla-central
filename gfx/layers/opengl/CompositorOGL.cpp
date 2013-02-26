@@ -725,13 +725,13 @@ CompositorOGL::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
   RefPtr<TextureHost> result = nullptr;
 
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
-    result = new YCbCrTextureHostOGL(mGLContext/*, bufferMode, aDeAllocator*/); 
+    result = new YCbCrTextureHostOGL(mGLContext, aDeAllocator /*, bufferMode*/); 
   } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
     result = new SharedTextureHostOGL(mGLContext,
                                       aDeAllocator);
 
   } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
-    result = new TiledTextureHostOGL(mGLContext);
+    result = new TiledTextureHostOGL(mGLContext, aDeAllocator);
 #if 0 // FIXME [bjacob] hook up b2g gralloc path here
 #ifdef MOZ_WIDGET_GONK
     // XXXmattwoodrow: I think this should be:
@@ -752,7 +752,6 @@ CompositorOGL::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
 #endif
   } else {
     result = new TextureImageTextureHostOGL(mGLContext,
-                                            nullptr,
                                             aDeAllocator);
   }
 

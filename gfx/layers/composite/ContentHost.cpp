@@ -382,6 +382,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
+  //TODO[nrc] should we check that mTextureHost exists as in ContentHostDirect?
   mTextureHost->Update(aNewFront.buffer(), nullptr, nullptr, &destRegion);
   mInitialised = true;
 

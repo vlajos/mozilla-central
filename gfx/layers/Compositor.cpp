@@ -15,11 +15,14 @@ namespace layers {
 
 TextureHost::TextureHost(ISurfaceAllocator* aDeallocator)
   : mFlags(NoFlags)
+  , mBuffer(nullptr)
   , mFormat(gfx::FORMAT_UNKNOWN)
   , mDeAllocator(aDeallocator)
 {
   MOZ_COUNT_CTOR(TextureHost);
-  mBuffer = new SurfaceDescriptor(null_t());
+  if (aDeallocator) {
+    mBuffer = new SurfaceDescriptor(null_t());
+  }
 }
 
 TextureHost::~TextureHost()
@@ -48,10 +51,12 @@ void TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
 {
   SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
 
-  if (aResult) {
-    *aResult = *mBuffer;
+  if (mBuffer) {
+    if (aResult) {
+      *aResult = *mBuffer;
+    }
+    *mBuffer = aImage;
   }
-  *mBuffer = aImage;
 }
 
 #ifdef MOZ_LAYERS_HAVE_LOG

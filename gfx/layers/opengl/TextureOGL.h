@@ -49,20 +49,6 @@ public:
   virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
 };
 
-// we actually don't need this class anymore
-class TextureHostOGL : public TextureHost
-                     , public TextureSourceOGL
-{
-public:
-  TextureHostOGL(ISurfaceAllocator* aDeAllocator = nullptr)
-  : TextureHost(aDeAllocator)
-  {}
-
-  TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE {
-    return this;
-  }
-};
-
 inline gl::ShaderProgramType
 GetProgramTypeForTexture(const TextureHost *aTextureHost)
 {
@@ -84,13 +70,13 @@ GetProgramTypeForTexture(const TextureHost *aTextureHost)
  * TextureHost implementation using a TextureImage as the underlying texture.
  */
 class TextureImageTextureHostOGL : public TextureHost
-                                   , public TextureSourceOGL
-                                   , public TileIterator
+                                 , public TextureSourceOGL
+                                 , public TileIterator
 {
 public:
   TextureImageTextureHostOGL(gl::GLContext* aGL,
-                               gl::TextureImage* aTexImage = nullptr,
-                               ISurfaceAllocator* aDeallocator = nullptr)
+                             ISurfaceAllocator* aDeallocator,
+                             gl::TextureImage* aTexImage = nullptr)
   : TextureHost(aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
@@ -211,7 +197,9 @@ protected:
 class YCbCrTextureHostOGL : public TextureHost
 {
 public:
-  YCbCrTextureHostOGL(gl::GLContext* aGL) : mGL(aGL)
+  YCbCrTextureHostOGL(gl::GLContext* aGL, ISurfaceAllocator* aDeAllocator)
+    : TextureHost(aDeAllocator)
+    , mGL(aGL)
   {
     MOZ_COUNT_CTOR(YCbCrTextureHostOGL);
     mYTexture  = new Channel;
@@ -297,12 +285,24 @@ private:
   gl::GLContext* mGL;
 };
 
-class SharedTextureHostOGL : public TextureHostOGL
+class SharedTextureHostOGL : public TextureHost
+                           , public TextureSourceOGL
 {
 public:
   typedef gfxASurface::gfxContentType ContentType;
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
+
+  SharedTextureHostOGL(GLContext* aGL,
+                       ISurfaceAllocator* aDeAllocator)
+
+    : TextureHost(aDeAllocator)
+    , mGL(aGL)
+    , mTextureHandle(0)
+    , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
+    , mSharedHandle(0)
+    , mShareType(GLContext::SameProcess)
+  {}
 
   virtual ~SharedTextureHostOGL()
   {
@@ -314,14 +314,14 @@ public:
       mGL->fDeleteTextures(1, &mTextureHandle);
     }
   }
+
   virtual GLuint GetTextureHandle()
   {
     return mTextureHandle;
   }
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE {
-    return this;
-  }
+  TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
+  virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
 
   bool IsValid() const MOZ_OVERRIDE { return GetFormat() != gfx::FORMAT_UNKNOWN; }
 
@@ -338,12 +338,8 @@ public:
   virtual bool Lock();
   virtual void Unlock();
 
-  virtual GLenum GetWrapMode() const {
-    return mWrapMode;
-  }
-  virtual void SetWrapMode(GLenum aMode) {
-    mWrapMode = aMode;
-  }
+  virtual GLenum GetWrapMode() const { return mWrapMode; }
+  virtual void SetWrapMode(GLenum aMode) { mWrapMode = aMode; }
 
   gl::ShaderProgramType GetShaderProgram() const MOZ_OVERRIDE
   {
@@ -359,14 +355,15 @@ public:
     return mTextureTarget;
   }
 
-  void BindTexture(GLenum activetex) {
+  void BindTexture(GLenum activetex)
+  {
     mGL->fActiveTexture(activetex);
     mGL->fBindTexture(mTextureTarget, mTextureHandle);
   }
-  void ReleaseTexture() {
-  }
+  void ReleaseTexture() {}
   GLuint GetTextureID() { return mTextureHandle; }
-  ContentType GetContentType() {
+  ContentType GetContentType()
+  {
     return (mFormat == gfx::FORMAT_B8G8R8A8) ?
              gfxASurface::CONTENT_COLOR_ALPHA :
              gfxASurface::CONTENT_COLOR;
@@ -376,20 +373,7 @@ public:
   virtual const char* Name() { return "SharedTextureHostOGL"; }
 #endif
 
-  SharedTextureHostOGL(GLContext* aGL,
-                       ISurfaceAllocator* aDeAllocator = nullptr)
-
-  : TextureHostOGL(aDeAllocator)
-  , mGL(aGL)
-  , mTextureHandle(0)
-  , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
-  , mSharedHandle(0)
-  , mShareType(GLContext::SameProcess)
-  {
-  }
-
 protected:
-
   gfx::IntSize mSize;
   nsRefPtr<gl::GLContext> mGL;
   GLuint mTextureHandle;
@@ -400,11 +384,13 @@ protected:
   gl::GLContext::SharedTextureShareType mShareType;
 };
 
-class TiledTextureHostOGL : public TextureHostOGL
+class TiledTextureHostOGL : public TextureHost
+                          , public TextureSourceOGL
 {
 public:
-  TiledTextureHostOGL(gl::GLContext* aGL) 
-    : mTextureHandle(0)
+  TiledTextureHostOGL(gl::GLContext* aGL, ISurfaceAllocator* aDeAllocator) 
+    : TextureHost(aDeAllocator)
+    , mTextureHandle(0)
     , mGL(aGL)
   {}
   ~TiledTextureHostOGL();
@@ -415,6 +401,7 @@ public:
   virtual void Unlock() MOZ_OVERRIDE {}
 
   virtual TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
+  virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
   virtual bool IsValid() const MOZ_OVERRIDE { return true; }
   virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE
   {
