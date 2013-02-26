@@ -83,7 +83,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         break;
       }
 
-      TextureHost* host = AsTextureHost(op);
       SurfaceDescriptor newBack;
       compositable->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));

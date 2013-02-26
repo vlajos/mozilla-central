@@ -63,7 +63,9 @@ public:
 
   virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
   {
-    mTextureHost->SetDeAllocator(aDeAllocator);
+    if (mTextureHost) {
+      mTextureHost->SetDeAllocator(aDeAllocator);
+    }
   }
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE

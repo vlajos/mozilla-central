@@ -405,9 +405,8 @@ public:
     return mTextureHandle;
   }
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE {
-    return this;
-  }
+  TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
+  virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
 
   bool IsValid() const MOZ_OVERRIDE { return true; }
 
