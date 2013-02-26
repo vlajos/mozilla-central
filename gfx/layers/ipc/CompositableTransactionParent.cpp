@@ -52,7 +52,8 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       Layer* layer = GetLayerFromOpPaint(op);
       ShadowLayer* shadowLayer = layer ? layer->AsShadowLayer() : nullptr;
       if (shadowLayer) {
-         compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+        shadowLayer->SetAllocator(this);
+        compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       } else {
         NS_WARNING("Trying to paint before OpAttachAsyncTexture?");
       }
@@ -83,11 +84,13 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       }
 
       TextureHost* host = AsTextureHost(op);
-      shadowLayer->SetAllocator(this);
       SurfaceDescriptor newBack;
-      RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
       compositable->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
+
+      if (layer) {
+        RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
+      }
 
       if (textureParent->HasBuffer()) {
         // TODO[nical] release texureParent->GetBuffer();

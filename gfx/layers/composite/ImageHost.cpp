@@ -18,6 +18,14 @@ using namespace gfx;
 namespace layers {
 
 void
+ImageHostSingle::SetCompositor(Compositor* aCompositor) {
+  CompositableHost::SetCompositor(aCompositor);
+  if (mTextureHost) {
+    mTextureHost->SetCompositor(aCompositor);
+  }
+}
+
+void
 ImageHostSingle::AddTextureHost(TextureHost* aHost) {
   mTextureHost = aHost;
 }
@@ -34,6 +42,10 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
   bool success;
   Update(aImage, &result, &success);
   if (!success) {
+    // TODO: right now Compositables are not responsible for setting their
+    // textures this will change when we remove PTexture.
+    return aImage;
+
     TextureInfo id = aTextureInfo;
     id.textureFlags = mTextureHost->GetFlags();
     GetCompositor()->FallbackTextureInfo(id);

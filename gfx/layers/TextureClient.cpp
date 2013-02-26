@@ -250,7 +250,6 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
                                                       data->mCbCrSize);
   ipc::Shmem shmem;
   if (!mTextureClient->GetLayerForwarder()->AllocUnsafeShmem(size, shmType, &shmem)) {
-    NS_RUNTIMEABORT("buddy, you need a better allocator");
     return false;
   }
 

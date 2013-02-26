@@ -186,7 +186,6 @@ ImageContainer::SetCurrentImage(Image *aImage)
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
   if (IsAsync()) {
     if (aImage) {
-      printf("ImageContainer::SetCurrentImage\n");
       ImageBridgeChild::DispatchImageClientUpdate(mImageClient, this);
     } else {
       //mImageContainerChild->SetIdle();

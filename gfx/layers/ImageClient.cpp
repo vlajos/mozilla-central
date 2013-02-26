@@ -63,23 +63,23 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
   if (image->GetFormat() == PLANAR_YCBCR) {
     EnsureTextureClient(TEXTURE_YCBCR);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
-#if 0
     /// TODO: this doesn't actually do anything, since we fallback to
     // the normal code if it succeeds.
-    if (ycbcr->AsSharedPlanarYCbCrImage()) {
+    if (false && ycbcr->AsSharedPlanarYCbCrImage()) { // WIP (nical)
       SurfaceDescriptor* desc = mTextureClient->LockSurfaceDescriptor();
       if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(*desc)) {
         mTextureClient->Unlock();
         return false;
       }
       mTextureClient->Unlock();
+    } else {
+      AutoLockYCbCrClient clientLock(mTextureClient);
+      if (!clientLock.Update(ycbcr)) {
+        NS_WARNING("failed to update TextureClient (YCbCr)");
+        return false;
+      }
     }
-#endif
-    AutoLockYCbCrClient clientLock(mTextureClient);
-    if (!clientLock.Update(ycbcr)) {
-      NS_WARNING("failed to update TextureClient (YCbCr)");
-      return false;
-    }
+
     UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
   } else if (image->GetFormat() == SHARED_TEXTURE) {
     EnsureTextureClient(TEXTURE_SHARED_GL_EXTERNAL);

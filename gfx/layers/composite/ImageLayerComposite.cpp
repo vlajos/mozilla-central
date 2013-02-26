@@ -40,6 +40,7 @@ void
 ImageLayerComposite::SetCompositableHost(CompositableHost* aHost)
 {
   mImageHost = static_cast<ImageHost*>(aHost);
+  mImageHost->SetCompositor(mCompositor);
 }
 
 void
@@ -93,7 +94,7 @@ ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-
+  mImageHost->SetCompositor(mCompositor);
   mImageHost->Composite(effectChain,
                         GetEffectiveOpacity(),
                         transform,

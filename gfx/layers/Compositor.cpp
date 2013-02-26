@@ -28,9 +28,11 @@ TextureHost::TextureHost(ISurfaceAllocator* aDeallocator)
 TextureHost::~TextureHost()
 {
   if (mBuffer) {
-    MOZ_ASSERT(mDeAllocator);
-    mDeAllocator->DestroySharedSurface(mBuffer);
-    delete mBuffer;
+    if (mDeAllocator) {
+      mDeAllocator->DestroySharedSurface(mBuffer);
+    } else {
+      MOZ_ASSERT(mBuffer->type() == SurfaceDescriptor::Tnull_t);
+    }    delete mBuffer;
   }
   MOZ_COUNT_DTOR(TextureHost);
 }
