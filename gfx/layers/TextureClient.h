@@ -76,7 +76,6 @@ public:
   // XXX[nical] these will be removed
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
-  virtual SharedTextureHandle LockHandle(GLContext* aGL, GLContext::SharedTextureShareType aFlags) { return 0; }
   // XXX[nical] only this one should remain (and be called just "Lock")
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
   virtual void ReleaseResources() {}
@@ -236,29 +235,11 @@ public:
   void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
 };
 
-// this class is just a place holder really
-class TextureClientShared : public TextureClient
-{
-public:
-  virtual ~TextureClientShared();
-
-  TextureClientShared(CompositableForwarder* aForwarder, CompositableType aCompositableType)
-    : TextureClient(aForwarder, aCompositableType)
-  {
-  }
-
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
-
-protected:
-};
-
-class TextureClientSharedGL : public TextureClientShared
+class TextureClientSharedGL : public TextureClient
 {
 public:
   virtual ~TextureClientSharedGL();
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
-  virtual gl::SharedTextureHandle LockHandle(GLContext* aGL, gl::GLContext::SharedTextureShareType aFlags);
-  virtual void Unlock();
 
   TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 protected:

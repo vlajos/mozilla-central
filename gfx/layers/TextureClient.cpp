@@ -322,16 +322,9 @@ TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,
   NS_RUNTIMEABORT("not enough arguments to do this (need both Y and CbCr sizes)");
 }
 
-TextureClientShared::~TextureClientShared()
-{
-  if (IsSurfaceDescriptorValid(mDescriptor)) {
-    mLayerForwarder->DestroySharedSurface(&mDescriptor);
-  }
-}
-
 TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
                                              CompositableType aCompositableType)
-  : TextureClientShared(aForwarder, aCompositableType)
+  : TextureClient(aForwarder, aCompositableType)
   , mGL(nullptr)
 {
 }
@@ -352,30 +345,6 @@ void
 TextureClientSharedGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aContentType)
 {
   mSize = aSize;
-}
-
-SharedTextureHandle
-TextureClientSharedGL::LockHandle(GLContext* aGL, gl::GLContext::SharedTextureShareType aFlags)
-{
-  mGL = aGL;
-
-  SharedTextureHandle handle = 0;
-  if (mDescriptor.type() == SurfaceDescriptor::TSharedTextureDescriptor) {
-    handle = mDescriptor.get_SharedTextureDescriptor().handle();
-  } else {
-    handle = mGL->CreateSharedHandle(aFlags);
-    if (!handle) {
-      return 0;
-    }
-    mDescriptor = SharedTextureDescriptor(aFlags, handle, nsIntSize(mSize.width, mSize.height), false);
-  }
-
-  return handle;
-}
-
-void
-TextureClientSharedGL::Unlock()
-{
 }
 
 TextureClientBridge::TextureClientBridge(CompositableForwarder* aForwarder,
