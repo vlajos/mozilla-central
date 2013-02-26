@@ -384,7 +384,8 @@ protected:
   gl::GLContext::SharedTextureShareType mShareType;
 };
 
-class SurfaceStreamHostOGL : public TextureHostOGL
+class SurfaceStreamHostOGL : public TextureHost
+                           , public TextureSourceOGL
 {
 public:
   typedef gfxASurface::gfxContentType ContentType;
@@ -459,7 +460,7 @@ public:
   SurfaceStreamHostOGL(GLContext* aGL,
                        ISurfaceAllocator* aDeAllocator = nullptr)
 
-  : TextureHostOGL(aDeAllocator)
+  : TextureHost(aDeAllocator)
   , mGL(aGL)
   , mTextureHandle(0)
   , mUploadTexture(0)
