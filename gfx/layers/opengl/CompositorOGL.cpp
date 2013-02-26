@@ -725,7 +725,9 @@ CompositorOGL::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
   RefPtr<TextureHost> result = nullptr;
 
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
-    result = new YCbCrTextureHostOGL(mGLContext, aDeAllocator /*, bufferMode*/); 
+    result = new YCbCrTextureHostOGL(mGLContext, aDeAllocator /*, bufferMode*/);
+  } else if (aDescriptorType == SurfaceDescriptor::TSurfaceStreamDescriptor) {
+    result = new SurfaceStreamHostOGL(mGLContext);
   } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
     result = new SharedTextureHostOGL(mGLContext,
                                       aDeAllocator);

@@ -10,6 +10,7 @@
 #include "SharedTextureImage.h"
 #include "nsXULAppAPI.h"
 #include "GLContext.h"
+#include "SurfaceStream.h"
 
 using namespace mozilla::gl;
 
@@ -57,7 +58,7 @@ void
 CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
 {
   if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_SHARED_GL, mFlags);
+    mTextureClient = CreateTextureClient(TEXTURE_STREAM_GL, mFlags);
   }
 
   NS_ASSERTION(aLayer->mGLContext, "CanvasClientWebGL should only be used with GL canvases");
@@ -65,21 +66,12 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   // the content type won't be used
   mTextureClient->EnsureTextureClient(aSize, gfxASurface::CONTENT_COLOR);
 
-  gl::GLContext::SharedTextureShareType flags;
-  // if process type is default, then it is single-process (non-e10s)
-  if (XRE_GetProcessType() == GeckoProcessType_Default)
-    flags = gl::GLContext::SameProcess;
-  else
-    flags = gl::GLContext::CrossProcess;
+  GLScreenBuffer* screen = aLayer->mGLContext->Screen();
+  SurfaceStreamHandle handle = screen->Stream()->GetShareHandle();
 
-  AutoLockHandleClient autolLock(mTextureClient, aLayer->mGLContext, aSize, flags);
-  SharedTextureHandle handle = autolLock.GetHandle();
+  mTextureClient->SetDescriptor(SurfaceStreamDescriptor(handle, false));
 
-  if (handle) {
-    aLayer->mGLContext->MakeCurrent();
-    aLayer->mGLContext->UpdateSharedHandle(flags, handle);
-    aLayer->Painted();
-  }
+  aLayer->Painted();
 }
 
 }

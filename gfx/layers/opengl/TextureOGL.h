@@ -384,6 +384,99 @@ protected:
   gl::GLContext::SharedTextureShareType mShareType;
 };
 
+class SurfaceStreamHostOGL : public TextureHostOGL
+{
+public:
+  typedef gfxASurface::gfxContentType ContentType;
+  typedef mozilla::gl::GLContext GLContext;
+  typedef mozilla::gl::TextureImage TextureImage;
+
+  virtual ~SurfaceStreamHostOGL()
+  {
+    if (mUploadTexture) {
+      mGL->MakeCurrent();
+      mGL->fDeleteTextures(1, &mUploadTexture);
+    }
+  }
+
+  virtual GLuint GetTextureHandle()
+  {
+    return mTextureHandle;
+  }
+
+  TextureSource* AsTextureSource() MOZ_OVERRIDE {
+    return this;
+  }
+
+  bool IsValid() const MOZ_OVERRIDE { return true; }
+
+  // override from TextureHost
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                bool* aIsInitialised = nullptr,
+                                bool* aNeedsReset = nullptr,
+                                nsIntRegion* aRegion = nullptr);
+  virtual bool Lock();
+  virtual void Unlock() {}
+
+  virtual GLenum GetWrapMode() const {
+    return mWrapMode;
+  }
+  virtual void SetWrapMode(GLenum aMode) {
+    mWrapMode = aMode;
+  }
+
+  gl::ShaderProgramType GetShaderProgram() const MOZ_OVERRIDE
+  {
+    return mShaderProgram;
+  }
+
+  gfx::IntSize GetSize() const {
+    return mSize;
+  }
+
+  virtual GLenum GetTextureTarget() const MOZ_OVERRIDE
+  {
+    return LOCAL_GL_TEXTURE_2D;
+  }
+
+  void BindTexture(GLenum activetex) {
+    mGL->fActiveTexture(activetex);
+    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
+  }
+  void ReleaseTexture() {
+  }
+  GLuint GetTextureID() { return mTextureHandle; }
+  ContentType GetContentType() {
+    return (mFormat == gfx::FORMAT_B8G8R8A8) ?
+             gfxASurface::CONTENT_COLOR_ALPHA :
+             gfxASurface::CONTENT_COLOR;
+  }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "SurfaceStreamHostOGL"; }
+#endif
+
+  SurfaceStreamHostOGL(GLContext* aGL,
+                       ISurfaceAllocator* aDeAllocator = nullptr)
+
+  : TextureHostOGL(aDeAllocator)
+  , mGL(aGL)
+  , mTextureHandle(0)
+  , mUploadTexture(0)
+  , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
+  {
+  }
+
+protected:
+
+  gfx::IntSize mSize;
+  nsRefPtr<gl::GLContext> mGL;
+  GLuint mTextureHandle;
+  GLuint mUploadTexture;
+  GLenum mWrapMode;
+  gl::ShaderProgramType mShaderProgram;
+};
+
 class TiledTextureHostOGL : public TextureHost
                           , public TextureSourceOGL
 {

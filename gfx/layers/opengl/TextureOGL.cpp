@@ -9,6 +9,10 @@
 #include "ShmemYCbCrImage.h"
 #include "GLContext.h"
 #include "gfxImageSurface.h"
+#include "SurfaceStream.h"
+#include "SharedSurface.h"
+#include "SharedSurfaceGL.h"
+#include "SharedSurfaceEGL.h"
 
 using namespace mozilla::gl;
 
@@ -209,6 +213,103 @@ SharedTextureHostOGL::Unlock()
 {
   mGL->DetachSharedHandle(mShareType, mSharedHandle);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
+}
+
+void
+SurfaceStreamHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                       bool* aIsInitialised,
+                                       bool* aNeedsReset,
+                                       nsIntRegion* aRegion)
+{
+  NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSurfaceStreamDescriptor,
+              "Invalid descriptor");
+
+  // TODO: Can we read this without have to call SwapConsumer, or is it
+  // fine to call SwapConsumer at this point.
+  mFormat = gfx::FORMAT_B8G8R8A8;
+
+  if (aIsInitialised) {
+    *aIsInitialised = true;
+  }
+}
+
+bool
+SurfaceStreamHostOGL::Lock()
+{
+  mGL->MakeCurrent();
+  SurfaceStream* surfStream = nullptr;
+  SharedSurface* sharedSurf = nullptr;
+  const SurfaceStreamDescriptor& streamDesc =
+    mBuffer->get_SurfaceStreamDescriptor();
+
+  surfStream = SurfaceStream::FromHandle(streamDesc.handle());
+  MOZ_ASSERT(surfStream);
+
+  sharedSurf = surfStream->SwapConsumer();
+  if (!sharedSurf) {
+    // We don't have a valid surf to show yet.
+    return false;
+  }
+
+  mGL->MakeCurrent();
+
+  mFormat = sharedSurf->HasAlpha() ? gfx::FORMAT_B8G8R8A8 : gfx::FORMAT_B8G8R8X8;
+  mSize = IntSize(sharedSurf->Size().width, sharedSurf->Size().height);
+
+  gfxImageSurface* toUpload = nullptr;
+  switch (sharedSurf->Type()) {
+    case SharedSurfaceType::GLTextureShare: {
+      mTextureHandle = SharedSurface_GLTexture::Cast(sharedSurf)->Texture();
+      MOZ_ASSERT(mTextureHandle);
+      mShaderProgram = sharedSurf->HasAlpha() ? RGBALayerProgramType
+                                              : RGBXLayerProgramType;
+      break;
+    }
+    case SharedSurfaceType::EGLImageShare: {
+      SharedSurface_EGLImage* eglImageSurf =
+          SharedSurface_EGLImage::Cast(sharedSurf);
+
+      mTextureHandle = eglImageSurf->AcquireConsumerTexture(mGL);
+      if (!mTextureHandle) {
+        toUpload = eglImageSurf->GetPixels();
+        MOZ_ASSERT(toUpload);
+      } else {
+        mShaderProgram = sharedSurf->HasAlpha() ? RGBALayerProgramType
+                                                : RGBXLayerProgramType;
+      }
+      break;
+    }
+    case SharedSurfaceType::Basic: {
+      toUpload = SharedSurface_Basic::Cast(sharedSurf)->GetData();
+      MOZ_ASSERT(toUpload);
+      break;
+    }
+    default:
+      MOZ_NOT_REACHED("Invalid SharedSurface type.");
+      return false;
+  }
+
+  if (toUpload) {
+    // mBounds seems to end up as (0,0,0,0) a lot, so don't use it?
+    nsIntSize size(toUpload->GetSize());
+    nsIntRect rect(nsIntPoint(0,0), size);
+    nsIntRegion bounds(rect);
+    mShaderProgram = mGL->UploadSurfaceToTexture(toUpload,
+                                                 bounds,
+                                                 mUploadTexture,
+                                                 true);
+    mTextureHandle = mUploadTexture;
+  }
+
+  MOZ_ASSERT(mTextureHandle);
+  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
+  mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D,
+                      LOCAL_GL_TEXTURE_WRAP_S,
+                      LOCAL_GL_CLAMP_TO_EDGE);
+  mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D,
+                      LOCAL_GL_TEXTURE_WRAP_T, 
+                      LOCAL_GL_CLAMP_TO_EDGE);
+  return true;
 }
 
 void

@@ -101,6 +101,11 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
        result = new TextureClientSharedGLExternal(GetForwarder(), GetType());
      }
      break;
+  case TEXTURE_STREAM_GL:
+     if (parentBackend == LAYERS_OPENGL) {
+       result = new TextureClientStreamGL(GetForwarder(), GetType());
+     }
+     break;
   case TEXTURE_YCBCR:
      result = new TextureClientShmemYCbCr(GetForwarder(), GetType());
      break;

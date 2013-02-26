@@ -265,6 +265,18 @@ public:
   virtual void ReleaseResources() {}
 };
 
+class TextureClientStreamGL : public TextureClient
+{
+public:
+  TextureClientStreamGL(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClient(aForwarder, aCompositableType)
+  {}
+  
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) { }
+
+  virtual void ReleaseResources() {}
+};
+
 // there is no corresponding texture host for ImageBridge clients
 // we only use the texture client to update the host
 class TextureClientBridge : public TextureClient
