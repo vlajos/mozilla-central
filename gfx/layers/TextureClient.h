@@ -202,9 +202,6 @@ protected:
   gl::SharedTextureHandle mHandle;
 };
 
-
-
-
 class TextureClientShmem : public TextureClient
 {
 public:
@@ -232,7 +229,13 @@ private:
 class TextureClientShmemYCbCr : public TextureClient
 {
 public:
+  TextureClientShmemYCbCr(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClient(aForwarder, aCompositableType)
+  { }
+
   void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
+  
+  virtual void ReleaseResources();
 };
 
 class TextureClientSharedGL : public TextureClient
@@ -249,6 +252,16 @@ protected:
   gfx::IntSize mSize;
 
   friend class CompositingFactory;
+};
+
+// Doesn't own the surface descriptor, so we shouldn't delete it
+class TextureClientSharedGLExternal : public TextureClientSharedGL
+{
+  TextureClientSharedGLExternal(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClientSharedGL(aForwarder, aCompositableType)
+  {}
+
+  virtual void ReleaseResources();
 };
 
 // there is no corresponding texture host for ImageBridge clients

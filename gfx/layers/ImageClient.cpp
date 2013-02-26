@@ -35,16 +35,23 @@ ImageClientTexture::ImageClientTexture(CompositableForwarder* aFwd,
                                        TextureFlags aFlags)
   : ImageClient(aFwd)
   , mFlags(aFlags)
+  , mType(TEXTURE_SHMEM)
 {
+}
+
+void
+ImageClientTexture::EnsureTextureClient(TextureClientType aType)
+{
+  if (mTextureClient && mType == aType) {
+    return;
+  }
+
+  mTextureClient = CreateTextureClient(aType, mFlags);
 }
 
 bool
 ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
 {
-  if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_SHMEM, mFlags);
-  }
-
   nsRefPtr<gfxASurface> surface;
   AutoLockImage autoLock(aContainer, getter_AddRefs(surface));
   Image *image = autoLock.GetImage();
@@ -54,7 +61,11 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
   }
 
   if (image->GetFormat() == PLANAR_YCBCR) {
+    EnsureTextureClient(TEXTURE_YCBCR);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
+#if 0
+    /// TODO: this doesn't actually do anything, since we fallback to
+    // the normal code if it succeeds.
     if (ycbcr->AsSharedPlanarYCbCrImage()) {
       SurfaceDescriptor* desc = mTextureClient->LockSurfaceDescriptor();
       if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(*desc)) {
@@ -63,6 +74,7 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
       }
       mTextureClient->Unlock();
     }
+#endif
     AutoLockYCbCrClient clientLock(mTextureClient);
     if (!clientLock.Update(ycbcr)) {
       NS_WARNING("failed to update TextureClient (YCbCr)");
@@ -70,6 +82,7 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
     }
     UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
   } else if (image->GetFormat() == SHARED_TEXTURE) {
+    EnsureTextureClient(TEXTURE_SHARED_GL_EXTERNAL);
     SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
     const SharedTextureImage::Data *data = sharedImage->GetData();
 
@@ -79,14 +92,12 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
                                     data->mInverted);
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else {
+    EnsureTextureClient(TEXTURE_SHMEM);
     AutoLockShmemClient clientLock(mTextureClient);
     if (!clientLock.Update(image, aContentFlags, surface)) {
       NS_WARNING("failed to update TextureClient");
       return false;
     }
-    UpdatePictureRect(nsIntRect(0, 0,
-                                image->GetSize().width,
-                                image->GetSize().height));
   }
   mLastPaintedImageSerial = image->GetSerial();
   return true;

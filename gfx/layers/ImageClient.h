@@ -76,6 +76,8 @@ public:
 
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
 
+  void EnsureTextureClient(TextureClientType aType);
+
   //virtual void SetBuffer(const TextureInfo& aTextureInfo,
   //                       const SurfaceDescriptor& aBuffer);
 
@@ -83,6 +85,7 @@ public:
 private:
   RefPtr<TextureClient> mTextureClient;
   TextureFlags mFlags;
+  TextureClientType mType;
 };
 
 // we store the ImageBridge id in the TextureClientIdentifier

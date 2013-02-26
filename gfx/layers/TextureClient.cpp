@@ -319,6 +319,18 @@ TextureClientShmem::LockImageSurface()
 }
 
 void
+TextureClientShmemYCbCr::ReleaseResources()
+{
+  if (!IsSurfaceDescriptorValid(mDescriptor) ||
+      mDescriptor.type() != SurfaceDescriptor::TYCbCrImage) {
+    return;
+  }
+    
+  ipc::Shmem& shmem = mDescriptor.get_YCbCrImage().data();
+  GetLayerForwarder()->DeallocShmem(shmem);
+}
+
+void
 TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,
                                              gfxASurface::gfxContentType aType)
 {

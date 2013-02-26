@@ -96,6 +96,14 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
        result = new TextureClientSharedGL(GetForwarder(), GetType());
      }
      break;
+  case TEXTURE_SHARED_GL_EXTERNAL:
+     if (parentBackend == LAYERS_OPENGL) {
+       result = new TextureClientSharedGLExternal(GetForwarder(), GetType());
+     }
+     break;
+  case TEXTURE_YCBCR:
+     result = new TextureClientShmemYCbCr(GetForwarder(), GetType());
+     break;
   case TEXTURE_CONTENT:
  #ifdef XP_WIN
      if (GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11) {
