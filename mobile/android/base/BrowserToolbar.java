@@ -8,6 +8,7 @@ package org.mozilla.gecko;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
 import android.graphics.Rect;
@@ -60,7 +61,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
     private int mTitlePadding;
     private boolean mSiteSecurityVisible;
     private boolean mAnimateSiteSecurity;
-    private GeckoImageButton mTabs;
+    private TabsButton mTabs;
     private int mTabsPaneWidth;
     private ImageButton mBack;
     private ImageButton mForward;
@@ -185,7 +186,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
             }
         });
 
-        mTabs = (GeckoImageButton) mLayout.findViewById(R.id.tabs);
+        mTabs = (TabsButton) mLayout.findViewById(R.id.tabs);
         mTabs.setOnClickListener(new Button.OnClickListener() {
             public void onClick(View v) {
                 toggleTabs();
@@ -507,7 +508,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
     }
 
     public void fromAwesomeBarSearch() {
-        if (mActivity.hasTabsSideBar() || Build.VERSION.SDK_INT < 11) {
+        if (mActivity.isTablet() || Build.VERSION.SDK_INT < 11) {
             return;
         }
 
@@ -622,7 +623,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
 
     private void onAwesomeBarSearch() {
         // This animation doesn't make much sense in a sidebar UI
-        if (mActivity.hasTabsSideBar() || Build.VERSION.SDK_INT < 11) {
+        if (mActivity.isTablet() || Build.VERSION.SDK_INT < 11) {
             mActivity.onSearchRequested();
             return;
         }
@@ -822,6 +823,11 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
         setPageActionVisibility(mStop.getVisibility() == View.VISIBLE);
     }
 
+    public void adjustForTabsLayout(int width) {
+        mTabsPaneWidth = width;
+        adjustTabsAnimation(false);
+    }
+
     public void updateTabs(boolean areTabsShown) {
         if (areTabsShown) {
             mTabs.getBackground().setLevel(TABS_EXPANDED);
@@ -848,6 +854,13 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
         // A level change will not trigger onMeasure() for the tabs, where the path is created.
         // Manually requesting a layout to re-calculate the path.
         mTabs.requestLayout();
+    }
+
+    public void setIsSideBar(boolean isSideBar) {
+        mTabs.setIsSideBar(isSideBar);
+
+        mTabs.setImageResource(R.drawable.tabs_level);
+        mTabs.setBackgroundResource(R.drawable.tabs_button);
     }
 
     public void setProgressVisibility(boolean visible) {
@@ -1231,7 +1244,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
                 return;
 
             StateListDrawable stateList = new StateListDrawable();
-            stateList.addState(new int[] { R.attr.state_private }, mActivity.getResources().getDrawable(R.drawable.address_bar_bg_private));
+            stateList.addState(new int[] { R.attr.state_private }, new ColorDrawable(mActivity.getResources().getColor(R.color.background_private)));
             stateList.addState(new int[] {}, drawable);
 
             int[] padding =  new int[] { getPaddingLeft(),

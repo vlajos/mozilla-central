@@ -133,6 +133,9 @@ static PRLogModuleInfo* gJSDiagnostics;
 
 #define JAVASCRIPT nsIProgrammingLanguage::JAVASCRIPT
 
+// Large value used to specify that a script should run essentially forever
+#define NS_UNLIMITED_SCRIPT_RUNTIME (0x40000000LL << 32)
+
 // if you add statics here, add them to the list in nsJSRuntime::Startup
 
 static nsITimer *sGCTimer;
@@ -886,8 +889,13 @@ nsJSContext::DOMOperationCallback(JSContext *cx)
     // Allow the script to continue running
 
     if (neverShowDlgChk) {
-      Preferences::SetInt(isTrackingChromeCodeTime ?
-        "dom.max_chrome_script_run_time" : "dom.max_script_run_time", 0);
+      if (isTrackingChromeCodeTime) {
+        Preferences::SetInt("dom.max_chrome_script_run_time", 0);
+        sMaxChromeScriptRunTime = NS_UNLIMITED_SCRIPT_RUNTIME;
+      } else {
+        Preferences::SetInt("dom.max_script_run_time", 0);
+        sMaxScriptRunTime = NS_UNLIMITED_SCRIPT_RUNTIME;
+      }
     }
 
     ctx->mOperationCallbackTime = PR_Now();
@@ -1114,8 +1122,6 @@ nsJSContext::nsJSContext(JSRuntime *aRuntime, bool aGCOnDestruction,
                                   js_options_dot_str, this);
 
     ::JS_SetOperationCallback(mContext, DOMOperationCallback);
-
-    xpc_LocalizeContext(mContext);
   }
   mIsInitialized = false;
   mTerminations = nullptr;
@@ -3234,7 +3240,7 @@ DOMGCSliceCallback(JSRuntime *aRt, JS::GCProgress aProgress, const JS::GCDescrip
     sHasRunGC = true;
     nsJSContext::MaybePokeCC();
 
-    if (aDesc.isCompartment) {
+    if (aDesc.isCompartment_) {
       ++sCompartmentGCCount;
       if (!sFullGCTimer && !sShuttingDown) {
         CallCreateInstance("@mozilla.org/timer;1", &sFullGCTimer);
@@ -3379,8 +3385,7 @@ MaxScriptRunTimePrefChangedCallback(const char *aPrefName, void *aClosure)
 
   PRTime t;
   if (time <= 0) {
-    // Let scripts run for a really, really long time.
-    t = 0x40000000LL << 32;
+    t = NS_UNLIMITED_SCRIPT_RUNTIME;
   } else {
     t = time * PR_USEC_PER_SEC;
   }
@@ -3583,95 +3588,67 @@ nsJSRuntime::Init()
   SetDOMCallbacks(sRuntime, &DOMcallbacks);
 
   // Set these global xpconnect options...
-  Preferences::RegisterCallback(MaxScriptRunTimePrefChangedCallback,
-                                "dom.max_script_run_time");
-  MaxScriptRunTimePrefChangedCallback("dom.max_script_run_time", nullptr);
+  Preferences::RegisterCallbackAndCall(MaxScriptRunTimePrefChangedCallback,
+                                       "dom.max_script_run_time");
 
-  Preferences::RegisterCallback(MaxScriptRunTimePrefChangedCallback,
-                                "dom.max_chrome_script_run_time");
-  MaxScriptRunTimePrefChangedCallback("dom.max_chrome_script_run_time",
-                                      nullptr);
+  Preferences::RegisterCallbackAndCall(MaxScriptRunTimePrefChangedCallback,
+                                       "dom.max_chrome_script_run_time");
 
-  Preferences::RegisterCallback(ReportAllJSExceptionsPrefChangedCallback,
-                                "dom.report_all_js_exceptions");
-  ReportAllJSExceptionsPrefChangedCallback("dom.report_all_js_exceptions",
-                                           nullptr);
+  Preferences::RegisterCallbackAndCall(ReportAllJSExceptionsPrefChangedCallback,
+                                       "dom.report_all_js_exceptions");
 
-  Preferences::RegisterCallback(SetMemoryHighWaterMarkPrefChangedCallback,
-                                "javascript.options.mem.high_water_mark");
-  SetMemoryHighWaterMarkPrefChangedCallback("javascript.options.mem.high_water_mark",
-                                            nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryHighWaterMarkPrefChangedCallback,
+                                       "javascript.options.mem.high_water_mark");
 
-  Preferences::RegisterCallback(SetMemoryMaxPrefChangedCallback,
-                                "javascript.options.mem.max");
-  SetMemoryMaxPrefChangedCallback("javascript.options.mem.max",
-                                  nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryMaxPrefChangedCallback,
+                                       "javascript.options.mem.max");
 
-  Preferences::RegisterCallback(SetMemoryGCModePrefChangedCallback,
-                                "javascript.options.mem.gc_per_compartment");
-  SetMemoryGCModePrefChangedCallback("javascript.options.mem.gc_per_compartment",
-                                     nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCModePrefChangedCallback,
+                                       "javascript.options.mem.gc_per_compartment");
 
-  Preferences::RegisterCallback(SetMemoryGCModePrefChangedCallback,
-                                "javascript.options.mem.gc_incremental");
-  SetMemoryGCModePrefChangedCallback("javascript.options.mem.gc_incremental",
-                                     nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCModePrefChangedCallback,
+                                       "javascript.options.mem.gc_incremental");
 
-  Preferences::RegisterCallback(SetMemoryGCSliceTimePrefChangedCallback,
-                                "javascript.options.mem.gc_incremental_slice_ms");
-  SetMemoryGCSliceTimePrefChangedCallback("javascript.options.mem.gc_incremental_slice_ms",
-                                          nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCSliceTimePrefChangedCallback,
+                                       "javascript.options.mem.gc_incremental_slice_ms");
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.gc_high_frequency_time_limit_ms");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_high_frequency_time_limit_ms",
-                                 (void *)JSGC_HIGH_FREQUENCY_TIME_LIMIT);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_high_frequency_time_limit_ms",
+                                       (void *)JSGC_HIGH_FREQUENCY_TIME_LIMIT);
 
-  Preferences::RegisterCallback(SetMemoryGCDynamicMarkSlicePrefChangedCallback,
-                                "javascript.options.mem.gc_dynamic_mark_slice");
-  SetMemoryGCDynamicMarkSlicePrefChangedCallback("javascript.options.mem.gc_dynamic_mark_slice",
-                                                 nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCDynamicMarkSlicePrefChangedCallback,
+                                       "javascript.options.mem.gc_dynamic_mark_slice");
 
-  Preferences::RegisterCallback(SetMemoryGCDynamicHeapGrowthPrefChangedCallback,
-                                "javascript.options.mem.gc_dynamic_heap_growth");
-  SetMemoryGCDynamicHeapGrowthPrefChangedCallback("javascript.options.mem.gc_dynamic_heap_growth",
-                                                  nullptr);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCDynamicHeapGrowthPrefChangedCallback,
+                                       "javascript.options.mem.gc_dynamic_heap_growth");
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.gc_low_frequency_heap_growth");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_low_frequency_heap_growth",
-                                 (void *)JSGC_LOW_FREQUENCY_HEAP_GROWTH);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_low_frequency_heap_growth",
+                                       (void *)JSGC_LOW_FREQUENCY_HEAP_GROWTH);
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.gc_high_frequency_heap_growth_min");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_high_frequency_heap_growth_min",
-                                 (void *)JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_high_frequency_heap_growth_min",
+                                       (void *)JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN);
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.gc_high_frequency_heap_growth_max");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_high_frequency_heap_growth_max",
-                                 (void *)JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_high_frequency_heap_growth_max",
+                                       (void *)JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX);
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.gc_high_frequency_low_limit_mb");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_high_frequency_low_limit_mb",
-                                 (void *)JSGC_HIGH_FREQUENCY_LOW_LIMIT);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_high_frequency_low_limit_mb",
+                                       (void *)JSGC_HIGH_FREQUENCY_LOW_LIMIT);
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.gc_high_frequency_high_limit_mb");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_high_frequency_high_limit_mb",
-                                 (void *)JSGC_HIGH_FREQUENCY_HIGH_LIMIT);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_high_frequency_high_limit_mb",
+                                       (void *)JSGC_HIGH_FREQUENCY_HIGH_LIMIT);
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                                "javascript.options.mem.analysis_purge_mb",
-                                (void *)JSGC_ANALYSIS_PURGE_TRIGGER);
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.analysis_purge_mb",
-                                 (void *)JSGC_ANALYSIS_PURGE_TRIGGER);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.analysis_purge_mb",
+                                       (void *)JSGC_ANALYSIS_PURGE_TRIGGER);
 
-  Preferences::RegisterCallback(SetMemoryGCPrefChangedCallback,
-                               "javascript.options.mem.gc_allocation_threshold_mb");
-  SetMemoryGCPrefChangedCallback("javascript.options.mem.gc_allocation_threshold_mb",
-                                (void *)JSGC_ALLOCATION_THRESHOLD);
+  Preferences::RegisterCallbackAndCall(SetMemoryGCPrefChangedCallback,
+                                       "javascript.options.mem.gc_allocation_threshold_mb",
+                                       (void *)JSGC_ALLOCATION_THRESHOLD);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (!obs)
     return NS_ERROR_FAILURE;

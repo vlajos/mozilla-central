@@ -266,7 +266,7 @@ bool
 js::RunScript(JSContext *cx, StackFrame *fp)
 {
     JS_ASSERT(fp == cx->fp());
-    JSScript *script = fp->script();
+    RootedScript script(cx, fp->script());
 
     JS_ASSERT_IF(!fp->isGeneratorFrame(), cx->regs().pc == script->code);
     JS_ASSERT_IF(fp->isEvalFrame(), script->isActiveEval);
@@ -430,7 +430,7 @@ js::InvokeConstructorKernel(JSContext *cx, CallArgs args)
 
     JSObject &callee = args.callee();
     if (callee.isFunction()) {
-        JSFunction *fun = callee.toFunction();
+        RootedFunction fun(cx, callee.toFunction());
 
         if (fun->isNativeConstructor()) {
             Probes::calloutBegin(cx, fun);
@@ -488,11 +488,13 @@ js::InvokeGetterOrSetter(JSContext *cx, JSObject *obj, const Value &fval, unsign
 }
 
 bool
-js::ExecuteKernel(JSContext *cx, HandleScript script, JSObject &scopeChain, const Value &thisv,
+js::ExecuteKernel(JSContext *cx, HandleScript script, JSObject &scopeChainArg, const Value &thisv,
                   ExecuteType type, AbstractFramePtr evalInFrame, Value *result)
 {
+    RootedObject scopeChain(cx, &scopeChainArg);
+
     JS_ASSERT_IF(evalInFrame, type == EXECUTE_DEBUG);
-    JS_ASSERT_IF(type == EXECUTE_GLOBAL, !scopeChain.isScope());
+    JS_ASSERT_IF(type == EXECUTE_GLOBAL, !scopeChain->isScope());
 
     if (script->isEmpty()) {
         if (result)
@@ -585,17 +587,6 @@ js::LooselyEqual(JSContext *cx, const Value &lval, const Value &rval, bool *resu
         if (lval.isObject()) {
             JSObject *l = &lval.toObject();
             JSObject *r = &rval.toObject();
-
-            if (JSEqualityOp eq = l->getClass()->ext.equality) {
-                JSBool res;
-                RootedObject lobj(cx, l);
-                RootedValue r(cx, rval);
-                if (!eq(cx, lobj, r, &res))
-                    return false;
-                *result = !!res;
-                return true;
-            }
-
             *result = l == r;
             return true;
         }
@@ -720,7 +711,7 @@ js::TypeOfValue(JSContext *cx, const Value &vref)
         return JSTYPE_VOID;
     if (v.isObject()) {
         RootedObject obj(cx, &v.toObject());
-        return JSObject::typeOf(cx, obj);
+        return baseops::TypeOf(cx, obj);
     }
     JS_ASSERT(v.isBoolean());
     return JSTYPE_BOOLEAN;
@@ -2327,16 +2318,18 @@ BEGIN_CASE(JSOP_FUNCALL)
     bool construct = (*regs.pc == JSOP_NEW);
 
     RootedFunction &fun = rootFunction0;
+    RootedScript &funScript = rootScript0;
     bool isFunction = IsFunctionObject(args.calleev(), fun.address());
 
     /*
      * Some builtins are marked as clone-at-callsite to increase precision of
      * TI and JITs.
      */
-    if (isFunction) {
-        if (fun->isInterpretedLazy() && !fun->getOrCreateScript(cx))
+    if (isFunction && fun->isInterpreted()) {
+        funScript = fun->getOrCreateScript(cx);
+        if (!funScript)
             goto error;
-        if (cx->typeInferenceEnabled() && fun->isCloneAtCallsite()) {
+        if (cx->typeInferenceEnabled() && funScript->shouldCloneAtCallsite) {
             fun = CloneFunctionAtCallsite(cx, fun, script, regs.pc);
             if (!fun)
                 goto error;
@@ -2365,7 +2358,6 @@ BEGIN_CASE(JSOP_FUNCALL)
 
     InitialFrameFlags initial = construct ? INITIAL_CONSTRUCT : INITIAL_NONE;
     bool newType = cx->typeInferenceEnabled() && UseNewType(cx, script, regs.pc);
-    RootedScript &funScript = rootScript0;
     funScript = fun->nonLazyScript();
     if (!cx->stack.pushInlineFrame(cx, regs, args, fun, funScript, initial))
         goto error;
@@ -2454,7 +2446,7 @@ BEGIN_CASE(JSOP_IMPLICITTHIS)
     if (!LookupNameWithGlobalDefault(cx, name, scopeObj, &scope))
         goto error;
 
-    Value v;
+    RootedValue &v = rootValue0;
     if (!ComputeImplicitThis(cx, scope, &v))
         goto error;
     PUSH_COPY(v);
@@ -3588,6 +3580,18 @@ js::SetObjectElement(JSContext *cx, HandleObject obj, HandleValue index, HandleV
     if (!FetchElementId(cx, obj, indexval, &id, &indexval))
         return false;
     return SetObjectElementOperation(cx, obj, id, value, strict);
+}
+
+bool
+js::SetObjectElement(JSContext *cx, HandleObject obj, HandleValue index, HandleValue value,
+                     JSBool strict, HandleScript script, jsbytecode *pc)
+{
+    JS_ASSERT(pc);
+    RootedId id(cx);
+    RootedValue indexval(cx, index);
+    if (!FetchElementId(cx, obj, indexval, &id, &indexval))
+        return false;
+    return SetObjectElementOperation(cx, obj, id, value, strict, script, pc);
 }
 
 bool

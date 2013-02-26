@@ -866,9 +866,9 @@ js_GetLocalizedErrorMessage(JSContext* cx, void *userRef, const char *locale,
 {
     const JSErrorFormatString *errorString = NULL;
 
-    if (cx->localeCallbacks && cx->localeCallbacks->localeGetErrorMessage) {
-        errorString = cx->localeCallbacks
-                        ->localeGetErrorMessage(userRef, locale, errorNumber);
+    if (cx->runtime->localeCallbacks && cx->runtime->localeCallbacks->localeGetErrorMessage) {
+        errorString = cx->runtime->localeCallbacks
+                                 ->localeGetErrorMessage(userRef, locale, errorNumber);
     }
     if (!errorString)
         errorString = js_GetErrorMessage(userRef, locale, errorNumber);
@@ -1086,7 +1086,7 @@ js_ReportUncaughtException(JSContext *cx)
         if (JS_GetProperty(cx, exnObject, filename_str, &roots[4])) {
             RawString tmp = ToString<CanGC>(cx, roots[4]);
             if (tmp)
-                filename.encode(cx, tmp);
+                filename.encodeLatin1(cx, tmp);
         }
 
         uint32_t lineno;
@@ -1118,7 +1118,7 @@ js_ReportUncaughtException(JSContext *cx)
     JSAutoByteString bytesStorage;
     const char *bytes = NULL;
     if (str)
-        bytes = bytesStorage.encode(cx, str);
+        bytes = bytesStorage.encodeLatin1(cx, str);
     if (!bytes)
         bytes = "unknown (can't convert to string)";
 

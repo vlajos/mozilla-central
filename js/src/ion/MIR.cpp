@@ -504,6 +504,32 @@ MGoto::New(MBasicBlock *target)
     return new MGoto(target);
 }
 
+void
+MUnbox::printOpcode(FILE *fp)
+{
+    PrintOpcodeName(fp, op());
+    fprintf(fp, " ");
+    getOperand(0)->printName(fp);
+    fprintf(fp, " ");
+
+    switch (type()) {
+      case MIRType_Int32: fprintf(fp, "to Int32"); break;
+      case MIRType_Double: fprintf(fp, "to Double"); break;
+      case MIRType_Boolean: fprintf(fp, "to Boolean"); break;
+      case MIRType_String: fprintf(fp, "to String"); break;
+      case MIRType_Object: fprintf(fp, "to Object"); break;
+      default: break;
+    }
+
+    switch (mode()) {
+      case Fallible: fprintf(fp, " (fallible)"); break;
+      case Infallible: fprintf(fp, " (infallible)"); break;
+      case TypeBarrier: fprintf(fp, " (typebarrier)"); break;
+      case TypeGuard: fprintf(fp, " (typeguard)"); break;
+      default: break;
+    }
+}
+
 MPhi *
 MPhi::New(uint32_t slot)
 {
@@ -1227,16 +1253,14 @@ CanDoValueBitwiseCmp(JSContext *cx, types::StackTypeSet *lhs, types::StackTypeSe
         return false;
     }
 
-    // Objects with special equality or that emulates undefined are not supported.
+    // Objects that emulate undefined are not supported.
     if (lhs->maybeObject() &&
-        (lhs->hasObjectFlags(cx, types::OBJECT_FLAG_SPECIAL_EQUALITY) ||
-         lhs->hasObjectFlags(cx, types::OBJECT_FLAG_EMULATES_UNDEFINED)))
+        lhs->hasObjectFlags(cx, types::OBJECT_FLAG_EMULATES_UNDEFINED))
     {
         return false;
     }
     if (rhs->maybeObject() &&
-        (rhs->hasObjectFlags(cx, types::OBJECT_FLAG_SPECIAL_EQUALITY) ||
-         rhs->hasObjectFlags(cx, types::OBJECT_FLAG_EMULATES_UNDEFINED)))
+        rhs->hasObjectFlags(cx, types::OBJECT_FLAG_EMULATES_UNDEFINED))
     {
         return false;
     }
@@ -1359,12 +1383,6 @@ MCompare::infer(const TypeOracle::BinaryTypes &b, JSContext *cx)
 
     // Handle object comparison.
     if (!relationalEq && lhs == MIRType_Object && rhs == MIRType_Object) {
-        if (b.lhsTypes->hasObjectFlags(cx, types::OBJECT_FLAG_SPECIAL_EQUALITY) ||
-            b.rhsTypes->hasObjectFlags(cx, types::OBJECT_FLAG_SPECIAL_EQUALITY))
-        {
-            return;
-        }
-
         compareType_ = Compare_Object;
         return;
     }
@@ -1581,7 +1599,7 @@ MTruncateToInt32::foldsTo(bool useValueNumbers)
 
     if (input->type() == MIRType_Double && input->isConstant()) {
         const Value &v = input->toConstant()->value();
-        uint32_t ret = ToInt32(v.toDouble());
+        int32_t ret = ToInt32(v.toDouble());
         return MConstant::New(Int32Value(ret));
     }
 
@@ -1916,4 +1934,34 @@ MLoadSlot::mightAlias(MDefinition *store)
     if (store->isStoreSlot() && store->toStoreSlot()->slot() != slot())
         return false;
     return true;
+}
+
+void
+InlinePropertyTable::trimToAndMaybePatchTargets(AutoObjectVector &targets,
+                                                AutoObjectVector &originals)
+{
+    IonSpew(IonSpew_Inlining, "Got inlineable property cache with %d cases",
+            (int)numEntries());
+
+    size_t i = 0;
+    while (i < numEntries()) {
+        bool foundFunc = false;
+        // Compare using originals, but if we find a matching function,
+        // patch it to the target, which might be a clone.
+        for (size_t j = 0; j < originals.length(); j++) {
+            if (entries_[i]->func == originals[j]) {
+                if (entries_[i]->func != targets[j])
+                    entries_[i] = new Entry(entries_[i]->typeObj, targets[j]->toFunction());
+                foundFunc = true;
+                break;
+            }
+        }
+        if (!foundFunc)
+            entries_.erase(&(entries_[i]));
+        else
+            i++;
+    }
+
+    IonSpew(IonSpew_Inlining, "%d inlineable cases left after trimming to %d targets",
+            (int)numEntries(), (int)targets.length());
 }

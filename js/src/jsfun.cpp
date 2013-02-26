@@ -85,13 +85,6 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
     RootedFunction fun(cx, obj->toFunction());
 
     /*
-     * Callsite clones should never escape to script, so get the original
-     * function.
-     */
-    if (fun->isCallsiteClone())
-        fun = fun->getExtendedSlot(0).toObject().toFunction();
-
-    /*
      * Mark the function's script as uninlineable, to expand any of its
      * frames on the stack before we go looking for them. This allows the
      * below walk to only check each explicit frame rather than needing to
@@ -102,6 +95,13 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
             return false;
         fun->nonLazyScript()->uninlineable = true;
         MarkTypeObjectFlags(cx, fun, OBJECT_FLAG_UNINLINEABLE);
+
+        /* If we're a callsite clone, mark the original as unlineable also. */
+        if (fun->nonLazyScript()->isCallsiteClone) {
+            RootedFunction original(cx, fun->nonLazyScript()->originalFunction());
+            original->nonLazyScript()->uninlineable = true;
+            MarkTypeObjectFlags(cx, original, OBJECT_FLAG_UNINLINEABLE);
+        }
     }
 
     /* Set to early to null in case of error */
@@ -175,7 +175,13 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
             return true;
         }
 
-        vp.set(iter.calleev());
+        /* Callsite clones should never escape to script. */
+        JSObject &maybeClone = iter.calleev().toObject();
+        if (maybeClone.isFunction() && maybeClone.toFunction()->nonLazyScript()->isCallsiteClone)
+            vp.setObject(*maybeClone.toFunction()->nonLazyScript()->originalFunction());
+        else
+            vp.set(iter.calleev());
+
         if (!cx->compartment->wrap(cx, vp))
             return false;
 
@@ -566,7 +572,7 @@ FindBody(JSContext *cx, HandleFunction fun, StableCharPtr chars, size_t length,
     CompileOptions options(cx);
     options.setFileAndLine("internal-findBody", 0)
            .setVersion(fun->nonLazyScript()->getVersion());
-    TokenStream ts(cx, options, chars, length, NULL);
+    TokenStream ts(cx, options, chars.get(), length, NULL);
     JS_ASSERT(chars[0] == '(');
     int nest = 0;
     bool onward = true;
@@ -1230,7 +1236,7 @@ js::Function(JSContext *cx, unsigned argc, Value *vp)
 
     /* Block this call if security callbacks forbid it. */
     Rooted<GlobalObject*> global(cx, &args.callee().global());
-    if (!global->isRuntimeCodeGenEnabled(cx)) {
+    if (!GlobalObject::isRuntimeCodeGenEnabled(cx, global)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_CSP_BLOCKED_FUNCTION);
         return false;
     }
@@ -1328,7 +1334,7 @@ js::Function(JSContext *cx, unsigned argc, Value *vp)
          * here (duplicate argument names, etc.) will be detected when we
          * compile the function body.
          */
-        TokenStream ts(cx, options, collected_args, args_length, /* strictModeGetter = */ NULL);
+        TokenStream ts(cx, options, collected_args.get(), args_length, /* strictModeGetter = */ NULL);
 
         /* The argument string may be empty or contain no tokens. */
         TokenKind tt = ts.getToken();
@@ -1388,13 +1394,13 @@ js::Function(JSContext *cx, unsigned argc, Value *vp)
         str = ToString<CanGC>(cx, args[args.length() - 1]);
     if (!str)
         return false;
-    JSStableString *stable = str->ensureStable(cx);
-    if (!stable)
+    JSLinearString *linear = str->ensureLinear(cx);
+    if (!linear)
         return false;
 
     JS::Anchor<JSString *> strAnchor(str);
-    StableCharPtr chars = stable->chars();
-    size_t length = stable->length();
+    const jschar *chars = linear->chars();
+    size_t length = linear->length();
 
     /*
      * NB: (new Function) is not lexically closed by its caller, it's just an
@@ -1482,7 +1488,7 @@ js::CloneFunctionObject(JSContext *cx, HandleFunction fun, HandleObject parent, 
                                                  allocKind, newKind);
     if (!cloneobj)
         return NULL;
-    JSFunction *clone = cloneobj->toFunction();
+    RootedFunction clone(cx, cloneobj->toFunction());
 
     clone->nargs = fun->nargs;
     clone->flags = fun->flags & ~JSFunction::EXTENDED;

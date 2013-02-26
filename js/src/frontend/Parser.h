@@ -116,7 +116,7 @@ struct ParseContext                 /* tree context for semantic checks */
      *    'pn' if they are in the scope of 'pn'.
      *  + Pre-existing placeholders in the scope of 'pn' have been removed.
      */
-    bool define(JSContext *cx, PropertyName *name, ParseNode *pn, Definition::Kind);
+    bool define(JSContext *cx, HandlePropertyName name, ParseNode *pn, Definition::Kind);
 
     /*
      * Let definitions may shadow same-named definitions in enclosing scopes.
@@ -265,7 +265,7 @@ struct Parser : private AutoGCRooter
 
   public:
     Parser(JSContext *cx, const CompileOptions &options,
-           StableCharPtr chars, size_t length, bool foldConstants);
+           const jschar *chars, size_t length, bool foldConstants);
     ~Parser();
 
     friend void AutoGCRooter::trace(JSTracer *trc);
@@ -291,7 +291,7 @@ struct Parser : private AutoGCRooter
      * cx->tempLifoAlloc.
      */
     ObjectBox *newObjectBox(JSObject *obj);
-
+    ModuleBox *newModuleBox(Module *module, ParseContext *pc);
     FunctionBox *newFunctionBox(JSFunction *fun, ParseContext *pc, bool strict);
 
     /*
@@ -374,6 +374,7 @@ struct Parser : private AutoGCRooter
      * Some parsers have two versions:  an always-inlined version (with an 'i'
      * suffix) and a never-inlined version (with an 'n' suffix).
      */
+    ParseNode *moduleDecl();
     ParseNode *functionStmt();
     ParseNode *functionExpr();
     ParseNode *statements(bool *hasFunctionStmt = NULL);

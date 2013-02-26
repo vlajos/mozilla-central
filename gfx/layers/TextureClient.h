@@ -257,11 +257,12 @@ protected:
 // Doesn't own the surface descriptor, so we shouldn't delete it
 class TextureClientSharedGLExternal : public TextureClientSharedGL
 {
+public:
   TextureClientSharedGLExternal(CompositableForwarder* aForwarder, CompositableType aCompositableType)
     : TextureClientSharedGL(aForwarder, aCompositableType)
   {}
 
-  virtual void ReleaseResources();
+  virtual void ReleaseResources() {}
 };
 
 // there is no corresponding texture host for ImageBridge clients

@@ -65,7 +65,7 @@ protected:
   
   uint32_t mCanvasFramebuffer;
 
-  bool mGLBufferIsPremultiplied;
+  bool mIsGLAlphaPremult;
   bool mNeedsYFlip;
   bool mForceReadback;
 

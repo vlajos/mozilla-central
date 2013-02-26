@@ -145,6 +145,10 @@ JSRuntime::sizeOfIncludingThis(JSMallocSizeOfFun mallocSizeOf, RuntimeSizes *rtS
     rtSizes->scriptFilenames = scriptFilenameTable.sizeOfExcludingThis(mallocSizeOf);
     for (ScriptFilenameTable::Range r = scriptFilenameTable.all(); !r.empty(); r.popFront())
         rtSizes->scriptFilenames += mallocSizeOf(r.front());
+
+    rtSizes->scriptData = scriptDataTable.sizeOfExcludingThis(mallocSizeOf);
+    for (ScriptDataTable::Range r = scriptDataTable.all(); !r.empty(); r.popFront())
+        rtSizes->scriptData += mallocSizeOf(r.front());
 }
 
 size_t
@@ -268,9 +272,9 @@ RawFunction
 js::CloneFunctionAtCallsite(JSContext *cx, HandleFunction fun, HandleScript script, jsbytecode *pc)
 {
     JS_ASSERT(cx->typeInferenceEnabled());
-    JS_ASSERT(fun->isCloneAtCallsite());
-    JS_ASSERT(types::UseNewTypeForClone(fun));
+    JS_ASSERT(fun->nonLazyScript()->shouldCloneAtCallsite);
     JS_ASSERT(!fun->nonLazyScript()->enclosingStaticScope());
+    JS_ASSERT(types::UseNewTypeForClone(fun));
 
     typedef CallsiteCloneKey Key;
     typedef CallsiteCloneTable Table;
@@ -280,6 +284,7 @@ js::CloneFunctionAtCallsite(JSContext *cx, HandleFunction fun, HandleScript scri
         return NULL;
 
     Key key;
+    SkipRoot skipKey(cx, &key); /* Stop the analysis complaining about unrooted key. */
     key.script = script;
     key.offset = pc - script->code;
     key.original = fun;
@@ -296,7 +301,8 @@ js::CloneFunctionAtCallsite(JSContext *cx, HandleFunction fun, HandleScript scri
         return NULL;
 
     // Store a link back to the original for function.caller.
-    clone->setExtendedSlot(0, ObjectValue(*fun));
+    clone->nonLazyScript()->isCallsiteClone = true;
+    clone->nonLazyScript()->setOriginalFunctionObject(fun);
 
     // Recalculate the hash if script or fun have been moved.
     if (key.script != script && key.original != fun) {
@@ -1169,9 +1175,7 @@ JSContext::JSContext(JSRuntime *rt)
     throwing(false),
     exception(UndefinedValue()),
     options_(0),
-    defaultLocale(NULL),
     reportGranularity(JS_DEFAULT_JITREPORT_GRANULARITY),
-    localeCallbacks(NULL),
     resolvingList(NULL),
     generatingError(false),
     enterCompartmentDepth_(0),
@@ -1215,7 +1219,6 @@ JSContext::JSContext(JSRuntime *rt)
 JSContext::~JSContext()
 {
     /* Free the stuff hanging off of cx. */
-    js_free(defaultLocale);
     if (parseMapPool_)
         js_delete(parseMapPool_);
 
@@ -1223,7 +1226,7 @@ JSContext::~JSContext()
 }
 
 bool
-JSContext::setDefaultLocale(const char *locale)
+JSRuntime::setDefaultLocale(const char *locale)
 {
     if (!locale)
         return false;
@@ -1233,14 +1236,14 @@ JSContext::setDefaultLocale(const char *locale)
 }
 
 void
-JSContext::resetDefaultLocale()
+JSRuntime::resetDefaultLocale()
 {
     js_free(defaultLocale);
     defaultLocale = NULL;
 }
 
 const char *
-JSContext::getDefaultLocale()
+JSRuntime::getDefaultLocale()
 {
     if (defaultLocale)
         return defaultLocale;
@@ -1253,7 +1256,7 @@ JSContext::getDefaultLocale()
 #endif
     // convert to a well-formed BCP 47 language tag
     if (!locale || !strcmp(locale, "C"))
-        locale = (char *) "und";
+        locale = const_cast<char*>("und");
     lang = JS_strdup(this, locale);
     if (!lang)
         return NULL;

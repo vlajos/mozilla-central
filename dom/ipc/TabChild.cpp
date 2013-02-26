@@ -47,7 +47,6 @@
 #include "nsIDOMWindow.h"
 #include "nsIDOMWindowUtils.h"
 #include "nsIDocShell.h"
-#include "nsIDocShellTreeItem.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIJSContextStack.h"
@@ -2060,7 +2059,8 @@ TabChild::InitTabChildGlobal(FrameScriptLoading aScriptLoading)
 
     nsISupports* scopeSupports = NS_ISUPPORTS_CAST(nsIDOMEventTarget*, scope);
 
-    NS_ENSURE_TRUE(InitTabChildGlobalInternal(scopeSupports), false); 
+    NS_NAMED_LITERAL_CSTRING(globalId, "outOfProcessTabChildGlobal");
+    NS_ENSURE_TRUE(InitTabChildGlobalInternal(scopeSupports, globalId), false);
 
     scope->Init();
 

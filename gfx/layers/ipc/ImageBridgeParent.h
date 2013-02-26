@@ -20,12 +20,16 @@ class CompositorParent;
 class ImageBridgeParent : public PImageBridgeParent,
                           public CompositableParentManager
 {
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ImageBridgeParent)
+
 public:
   typedef InfallibleTArray<CompositableOperation> EditArray;
   typedef InfallibleTArray<EditReply> EditReplyArray;
-
-  ImageBridgeParent(MessageLoop* aLoop);
+  
+  ImageBridgeParent(MessageLoop* aLoop, Transport* aTransport);
   ~ImageBridgeParent();
+
+  virtual void ActorDestroy(ActorDestroyReason aWhy) MOZ_OVERRIDE;
 
   static PImageBridgeParent*
   Create(Transport* aTransport, ProcessId aOtherProcess);
@@ -77,7 +81,13 @@ public:
   }
 
 private:
-  MessageLoop * mMessageLoop;
+  void DeferredDestroy();
+
+  MessageLoop* mMessageLoop;
+  Transport* mTransport;
+  // This keeps us alive until ActorDestroy(), at which point we do a
+  // deferred destruction of ourselves.
+  nsRefPtr<ImageBridgeParent> mSelfRef;
 };
 
 } // layers

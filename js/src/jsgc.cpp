@@ -195,30 +195,23 @@ static const AllocKind FinalizePhaseIonCode[] = {
     FINALIZE_IONCODE
 };
 
-static const AllocKind FinalizePhaseShapes[] = {
-    FINALIZE_TYPE_OBJECT
-};
-
 static const AllocKind* FinalizePhases[] = {
     FinalizePhaseStrings,
     FinalizePhaseScripts,
-    FinalizePhaseIonCode,
-    FinalizePhaseShapes
+    FinalizePhaseIonCode
 };
 static const int FinalizePhaseCount = sizeof(FinalizePhases) / sizeof(AllocKind*);
 
 static const int FinalizePhaseLength[] = {
     sizeof(FinalizePhaseStrings) / sizeof(AllocKind),
     sizeof(FinalizePhaseScripts) / sizeof(AllocKind),
-    sizeof(FinalizePhaseIonCode) / sizeof(AllocKind),
-    sizeof(FinalizePhaseShapes) / sizeof(AllocKind)
+    sizeof(FinalizePhaseIonCode) / sizeof(AllocKind)
 };
 
 static const gcstats::Phase FinalizePhaseStatsPhase[] = {
     gcstats::PHASE_SWEEP_STRING,
     gcstats::PHASE_SWEEP_SCRIPT,
-    gcstats::PHASE_SWEEP_IONCODE,
-    gcstats::PHASE_SWEEP_SHAPE
+    gcstats::PHASE_SWEEP_IONCODE
 };
 
 /*
@@ -241,7 +234,8 @@ static const AllocKind BackgroundPhaseStrings[] = {
 
 static const AllocKind BackgroundPhaseShapes[] = {
     FINALIZE_SHAPE,
-    FINALIZE_BASE_SHAPE
+    FINALIZE_BASE_SHAPE,
+    FINALIZE_TYPE_OBJECT
 };
 
 static const AllocKind* BackgroundPhases[] = {
@@ -1480,10 +1474,9 @@ ArenaLists::queueShapesForSweep(FreeOp *fop)
 {
     gcstats::AutoPhase ap(fop->runtime()->gcStats, gcstats::PHASE_SWEEP_SHAPE);
 
-    queueForForegroundSweep(fop, FINALIZE_TYPE_OBJECT);
-
     queueForBackgroundSweep(fop, FINALIZE_SHAPE);
     queueForBackgroundSweep(fop, FINALIZE_BASE_SHAPE);
+    queueForBackgroundSweep(fop, FINALIZE_TYPE_OBJECT);
 }
 
 static void *
@@ -3844,8 +3837,10 @@ EndSweepPhase(JSRuntime *rt, JSGCInvocationKind gckind, bool lastGC)
          * script and calls rt->destroyScriptHook, the hook can still access the
          * script's filename. See bug 323267.
          */
-        if (rt->gcIsFull)
+        if (rt->gcIsFull) {
             SweepScriptFilenames(rt);
+            SweepScriptData(rt);
+        }
 
         /* Clear out any small pools that we're hanging on to. */
         if (JSC::ExecutableAllocator *execAlloc = rt->maybeExecAlloc())
@@ -4341,13 +4336,6 @@ GCCycle(JSRuntime *rt, bool incremental, int64_t budget, JSGCInvocationKind gcki
         JS_ASSERT_IF(rt->gcMode == JSGC_MODE_GLOBAL, zone->isGCScheduled());
 #endif
 
-    /*
-     * Don't GC if we are reporting an OOM or in an interactive debugging
-     * session.
-     */
-    if (rt->mainThread.suppressGC)
-        return;
-
     AutoGCSession gcsession(rt);
 
     /*
@@ -4416,6 +4404,9 @@ Collect(JSRuntime *rt, bool incremental, int64_t budget,
     JS_ASSERT(!InParallelSection());
 
     JS_AbortIfWrongThread(rt);
+
+    if (rt->mainThread.suppressGC)
+        return;
 
 #if JS_TRACE_LOGGING
     AutoTraceLog logger(TraceLogging::defaultLogger(),
@@ -4588,6 +4579,12 @@ JS::ShrinkGCBuffers(JSRuntime *rt)
         rt->gcHelperThread.startBackgroundShrink();
 }
 
+void
+js::gc::FinishBackgroundFinalize(JSRuntime *rt)
+{
+    rt->gcHelperThread.waitBackgroundSweepEnd();
+}
+
 AutoFinishGC::AutoFinishGC(JSRuntime *rt)
 {
     if (IsIncrementalGCInProgress(rt)) {
@@ -4595,7 +4592,7 @@ AutoFinishGC::AutoFinishGC(JSRuntime *rt)
         FinishIncrementalGC(rt, gcreason::API);
     }
 
-    rt->gcHelperThread.waitBackgroundSweepEnd();
+    gc::FinishBackgroundFinalize(rt);
 }
 
 AutoPrepareForTracing::AutoPrepareForTracing(JSRuntime *rt)

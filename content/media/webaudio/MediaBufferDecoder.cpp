@@ -52,6 +52,8 @@
 
 namespace mozilla {
 
+using namespace dom;
+
 #ifdef PR_LOGGING
 extern PRLogModuleInfo* gMediaDecoderLog;
 #endif
@@ -417,7 +419,7 @@ MediaDecodeTask::CreateReader()
 
   BufferMediaResource* resource =
     new BufferMediaResource(static_cast<uint8_t*> (mBuffer),
-                            mLength, mPrincipal);
+                            mLength, mPrincipal, mContentType);
 
   MOZ_ASSERT(!mBufferDecoder);
   mBufferDecoder = new BufferDecoder(resource);

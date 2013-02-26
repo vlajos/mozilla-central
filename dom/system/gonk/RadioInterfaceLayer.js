@@ -96,6 +96,9 @@ const RIL_IPC_MOBILECONNECTION_MSG_NAMES = [
   "RIL:SendStkMenuSelection",
   "RIL:SendStkTimerExpiration",
   "RIL:SendStkEventDownload",
+  "RIL:IccOpenChannel",
+  "RIL:IccExchangeAPDU",
+  "RIL:IccCloseChannel",
   "RIL:RegisterMobileConnectionMsg",
   "RIL:SetCallForwardingOption",
   "RIL:GetCallForwardingOption"
@@ -150,6 +153,12 @@ XPCOMUtils.defineLazyGetter(this, "WAP", function () {
   let WAP = {};
   Cu.import("resource://gre/modules/WapPushManager.js", WAP);
   return WAP;
+});
+
+XPCOMUtils.defineLazyGetter(this, "PhoneNumberUtils", function () {
+  let ns = {};
+  Cu.import("resource://gre/modules/PhoneNumberUtils.jsm", ns);
+  return ns.PhoneNumberUtils;
 });
 
 function convertRILCallState(state) {
@@ -487,6 +496,18 @@ RadioInterfaceLayer.prototype = {
       case "RIL:SendStkEventDownload":
         this.sendStkEventDownload(msg.json);
         break;
+      case "RIL:IccOpenChannel":
+        this.saveRequestTarget(msg);
+        this.iccOpenChannel(msg.json);
+        break;
+      case "RIL:IccCloseChannel":
+        this.saveRequestTarget(msg);
+        this.iccCloseChannel(msg.json);
+        break;
+      case "RIL:IccExchangeAPDU":
+        this.saveRequestTarget(msg);
+        this.iccExchangeAPDU(msg.json);
+        break;
       case "RIL:RegisterMobileConnectionMsg":
         this.registerMessageTarget("mobileconnection", msg.target);
         break;
@@ -545,6 +566,15 @@ RadioInterfaceLayer.prototype = {
       case "callError":
         this.handleCallError(message);
         break;
+      case "iccOpenChannel":
+        this.handleIccOpenChannel(message);
+        break;
+      case "iccCloseChannel":
+        this.handleIccCloseChannel(message);
+        break;
+      case "iccExchangeAPDU":
+        this.handleIccExchangeAPDU(message);
+        break;
       case "getAvailableNetworks":
         this.handleGetAvailableNetworks(message);
         break;
@@ -586,7 +616,13 @@ RadioInterfaceLayer.prototype = {
         this.handleCallWaitingStatusChange(message);
         break;
       case "sms-received":
-        this.handleSmsReceived(message);
+        let ackOk = this.handleSmsReceived(message);
+        if (ackOk) {
+          this.worker.postMessage({
+            rilMessageType: "ackSMS",
+            result: RIL.PDU_FCS_OK
+          });
+        }
         return;
       case "sms-sent":
         this.handleSmsSent(message);
@@ -1353,6 +1389,30 @@ RadioInterfaceLayer.prototype = {
   },
 
   /**
+   * Open Logical UICC channel (aid) for Secure Element access
+   */
+  handleIccOpenChannel: function handleIccOpenChannel(message) {
+    debug("handleIccOpenChannel: " + JSON.stringify(message));
+    this._sendRequestResults("RIL:IccOpenChannel", message);
+  },
+
+  /**
+   * Close Logical UICC channel
+   */
+  handleIccCloseChannel: function handleIccCloseChannel(message) {
+    debug("handleIccCloseChannel: " + JSON.stringify(message));
+    this._sendRequestResults("RIL:IccCloseChannel", message);
+  },
+
+  /**
+   * Exchange APDU data on an open Logical UICC channel
+   */
+  handleIccExchangeAPDU: function handleIccExchangeAPDU(message) {
+    debug("handleIccExchangeAPDU: " + JSON.stringify(message));
+    this._sendRequestResults("RIL:IccExchangeAPDU", message);
+  },
+
+  /**
    * Handle available networks returned by the 'getAvailableNetworks' request.
    */
   handleGetAvailableNetworks: function handleGetAvailableNetworks(message) {
@@ -1433,12 +1493,12 @@ RadioInterfaceLayer.prototype = {
       if (handler) {
         handler(message);
       }
-      return;
+      return true;
     }
 
     if (message.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
       // Don't know how to handle binary data yet.
-      return;
+      return true;
     }
 
     // TODO: Bug #768441
@@ -1451,7 +1511,7 @@ RadioInterfaceLayer.prototype = {
       mwi.returnNumber = message.sender || null;
       mwi.returnMessage = message.fullBody || null;
       this._sendTargetMessage("voicemail", "RIL:VoicemailNotification", mwi);
-      return;
+      return true;
     }
 
     let notifyReceived = function notifyReceived(rv, sms) {
@@ -1505,6 +1565,9 @@ RadioInterfaceLayer.prototype = {
                                              false);
       notifyReceived(Cr.NS_OK, sms);
     }
+
+    // SMS ACK will be sent in notifyReceived. Return false here.
+    return false;
   },
 
   /**
@@ -1975,6 +2038,14 @@ RadioInterfaceLayer.prototype = {
 
   dial: function dial(number) {
     debug("Dialing " + number);
+    if (!PhoneNumberUtils.isViablePhoneNumber(number)) {
+      this.handleCallError({
+        callIndex: -1,
+        error: RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[RIL.CALL_FAIL_UNOBTAINABLE_NUMBER]
+      });
+      debug("Number '" + number + "' doesn't seem to be a viable number. Drop.");
+      return;
+    }
     this.worker.postMessage({rilMessageType: "dial",
                              number: number,
                              isDialEmergency: false});
@@ -2072,6 +2143,24 @@ RadioInterfaceLayer.prototype = {
 
   sendStkEventDownload: function sendStkEventDownload(message) {
     message.rilMessageType = "sendStkEventDownload";
+    this.worker.postMessage(message);
+  },
+
+  iccOpenChannel: function iccOpenChannel(message) {
+    debug("ICC Open Channel");
+    message.rilMessageType = "iccOpenChannel";
+    this.worker.postMessage(message);
+  },
+
+  iccCloseChannel: function iccCloseChannel(message) {
+    debug("ICC Close Channel");
+    message.rilMessageType = "iccCloseChannel";
+    this.worker.postMessage(message);
+  },
+
+  iccExchangeAPDU: function iccExchangeAPDU(message) {
+    debug("ICC Exchange APDU");
+    message.rilMessageType = "iccExchangeAPDU";
     this.worker.postMessage(message);
   },
 

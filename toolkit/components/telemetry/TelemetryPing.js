@@ -19,6 +19,10 @@ Cu.import("resource://gre/modules/ctypes.jsm");
 // When modifying the payload in incompatible ways, please bump this version number
 const PAYLOAD_VERSION = 1;
 
+// This is the HG changeset of the Histogram.json file, used to associate
+// submitted ping data with its histogram definition (bug 832007)
+#expand const HISTOGRAMS_FILE_VERSION = "__HISTOGRAMS_FILE_VERSION__";
+
 const PREF_SERVER = "toolkit.telemetry.server";
 #ifdef MOZ_TELEMETRY_ON_BY_DEFAULT
 const PREF_ENABLED = "toolkit.telemetry.enabledPreRelease";
@@ -359,6 +363,7 @@ TelemetryPing.prototype = {
       appBuildID: ai.appBuildID,
       appUpdateChannel: UpdateChannel.get(),
       platformBuildID: ai.platformBuildID,
+      revision: HISTOGRAMS_FILE_VERSION,
       locale: getLocale()
     };
 
@@ -368,7 +373,7 @@ TelemetryPing.prototype = {
                   "device", "manufacturer", "hardware",
                   "hasMMX", "hasSSE", "hasSSE2", "hasSSE3",
                   "hasSSSE3", "hasSSE4A", "hasSSE4_1", "hasSSE4_2",
-                  "hasEDSP", "hasARMv6", "hasARMv7", "hasNEON"];
+                  "hasEDSP", "hasARMv6", "hasARMv7", "hasNEON", "isWow64"];
     for each (let field in fields) {
       let value;
       try {

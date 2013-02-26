@@ -71,6 +71,7 @@ webidl_files = \
   HTMLElement.webidl \
   HTMLFieldSetElement.webidl \
   HTMLFontElement.webidl \
+  HTMLFrameElement.webidl \
   HTMLFrameSetElement.webidl \
   HTMLHeadElement.webidl \
   HTMLHeadingElement.webidl \
@@ -78,18 +79,24 @@ webidl_files = \
   HTMLHtmlElement.webidl \
   HTMLImageElement.webidl \
   HTMLLabelElement.webidl \
+  HTMLLegendElement.webidl \
   HTMLLIElement.webidl \
   HTMLLinkElement.webidl \
   HTMLMapElement.webidl \
+  HTMLMenuElement.webidl \
+  HTMLMenuItemElement.webidl \
   HTMLMetaElement.webidl \
   HTMLMeterElement.webidl \
   HTMLModElement.webidl \
   HTMLOListElement.webidl \
   HTMLOptGroupElement.webidl \
+  HTMLOptionElement.webidl \
   HTMLOptionsCollection.webidl \
+  HTMLOutputElement.webidl \
   HTMLParagraphElement.webidl \
   HTMLParamElement.webidl \
   HTMLPreElement.webidl \
+  HTMLProgressElement.webidl \
   HTMLPropertiesCollection.webidl \
   HTMLQuoteElement.webidl \
   HTMLScriptElement.webidl \
@@ -101,11 +108,15 @@ webidl_files = \
   HTMLTableElement.webidl \
   HTMLTableRowElement.webidl \
   HTMLTableSectionElement.webidl \
+  HTMLTextAreaElement.webidl \
+  HTMLTimeElement.webidl \
   HTMLTitleElement.webidl \
   HTMLUListElement.webidl \
   ImageData.webidl \
   LinkStyle.webidl \
+  LocalMediaStream.webidl \
   Location.webidl \
+  MediaStream.webidl \
   MutationObserver.webidl \
   Node.webidl \
   NodeFilter.webidl \
@@ -119,7 +130,7 @@ webidl_files = \
   ProcessingInstruction.webidl \
   Rect.webidl \
   RGBColor.webidl \
-  RTCIceServer.webidl \
+  RTCConfiguration.webidl \
   Screen.webidl \
   SVGAElement.webidl \
   SVGAltGlyphElement.webidl \
@@ -139,10 +150,16 @@ webidl_files = \
   SVGAnimationElement.webidl \
   SVGCircleElement.webidl \
   SVGClipPathElement.webidl \
+  SVGComponentTransferFunctionElement.webidl \
   SVGDefsElement.webidl \
   SVGDescElement.webidl \
   SVGElement.webidl \
   SVGEllipseElement.webidl \
+  SVGFilterElement.webidl \
+  SVGFEFuncAElement.webidl \
+  SVGFEFuncBElement.webidl \
+  SVGFEFuncGElement.webidl \
+  SVGFEFuncRElement.webidl \
   SVGFitToViewBox.webidl \
   SVGForeignObjectElement.webidl \
   SVGGElement.webidl \
@@ -216,6 +233,7 @@ endif
 ifdef MOZ_MEDIA
 webidl_files += \
   HTMLSourceElement.webidl \
+  MediaError.webidl \
   $(NULL)
 endif
 

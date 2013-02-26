@@ -51,9 +51,9 @@ public:
   NS_DECL_QUERYFRAME
 
   // nsIFrame
-  NS_IMETHOD BuildDisplayList(nsDisplayListBuilder*   aBuilder,
-                              const nsRect&           aDirtyRect,
-                              const nsDisplayListSet& aLists);
+  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+                                const nsRect&           aDirtyRect,
+                                const nsDisplayListSet& aLists) MOZ_OVERRIDE;
 
   NS_IMETHOD Init(nsIContent*      aContent,
                   nsIFrame*        aParent,
@@ -173,7 +173,7 @@ public:
   
   virtual bool IsEmpty();
   virtual bool IsSelfEmpty() { return IsEmpty(); }
-  virtual nscoord GetBaseline() const;
+  virtual nscoord GetBaseline() const MOZ_OVERRIDE;
   
   /**
    * @return true if this text frame ends with a newline character.  It

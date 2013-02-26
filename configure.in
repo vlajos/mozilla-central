@@ -1404,6 +1404,17 @@ if test "$GNU_CC"; then
     CFLAGS=$_SAVE_CFLAGS
     AC_SUBST(HAVE_TOOLCHAIN_SUPPORT_MSSSE3)
 
+    # Check for -msse4.1 on $CC
+    AC_MSG_CHECKING([if toolchain supports -msse4.1 option])
+    HAVE_TOOLCHAIN_SUPPORT_MSSE4_1=
+    _SAVE_CFLAGS=$CFLAGS
+    CFLAGS="$CFLAGS -msse4.1"
+    AC_TRY_COMPILE([asm ("pmulld %xmm6,%xmm0");],,AC_MSG_RESULT([yes])
+                     [HAVE_TOOLCHAIN_SUPPORT_MSSE4_1=1],
+                     AC_MSG_RESULT([no]))
+    CFLAGS=$_SAVE_CFLAGS
+    AC_SUBST(HAVE_TOOLCHAIN_SUPPORT_MSSE4_1)
+
     # Turn on GNU-specific warnings:
     # -Wall - turn on a lot of warnings
     # -Wpointer-arith - good to have
@@ -3856,7 +3867,7 @@ MOZ_ARG_WITH_BOOL(system-nspr,
     _USE_SYSTEM_NSPR=1 )
 
 if test -n "$_USE_SYSTEM_NSPR"; then
-    AM_PATH_NSPR(4.9.4, [MOZ_NATIVE_NSPR=1], [AC_MSG_ERROR([your don't have NSPR installed or your version is too old])])
+    AM_PATH_NSPR(4.9.6, [MOZ_NATIVE_NSPR=1], [AC_MSG_ERROR([your don't have NSPR installed or your version is too old])])
 fi
 
 if test -n "$MOZ_NATIVE_NSPR"; then
@@ -4232,7 +4243,6 @@ MOZ_SAFE_BROWSING=
 MOZ_HELP_VIEWER=
 MOZ_SPELLCHECK=1
 MOZ_ANDROID_OMTC=
-MOZ_ANDROID_ANR_REPORTER=
 MOZ_ONLY_TOUCH_EVENTS=
 MOZ_TOOLKIT_SEARCH=1
 MOZ_UI_LOCALE=en-US
@@ -4242,7 +4252,7 @@ MOZ_XUL=1
 MOZ_ZIPWRITER=1
 NS_PRINTING=1
 MOZ_PDF_PRINTING=
-MOZ_DISABLE_DOMCRYPTO=
+MOZ_DISABLE_CRYPTOLEGACY=
 NSS_DISABLE_DBM=
 NECKO_WIFI=1
 NECKO_COOKIES=1
@@ -4252,7 +4262,6 @@ BUILD_CTYPES=1
 MOZ_USE_NATIVE_POPUP_WINDOWS=
 MOZ_ANDROID_HISTORY=
 MOZ_WEBSMS_BACKEND=
-MOZ_GRAPHITE=1
 ACCESSIBILITY=1
 MOZ_SYS_MSG=
 MOZ_TIME_MANAGER=
@@ -5088,13 +5097,6 @@ if test -n "$MOZ_ANDROID_OMTC"; then
 fi
 
 dnl ========================================================
-dnl = Android App Not Responding (ANR) reporter
-dnl ========================================================
-if test -n "$MOZ_ANDROID_ANR_REPORTER"; then
-    AC_DEFINE(MOZ_ANDROID_ANR_REPORTER)
-fi
-
-dnl ========================================================
 dnl = Disable WebSMS backend
 dnl ========================================================
 MOZ_ARG_DISABLE_BOOL(websms-backend,
@@ -5728,9 +5730,7 @@ if test "$MOZ_GSTREAMER"; then
     # API version, eg 0.10, 1.0 etc
     GST_API_VERSION=0.10
     # core/base release number
-    # depend on >= 0.10.33 as that's when the playbin2 source-setup signal was
-    # introduced
-    GST_VERSION=0.10.33
+    GST_VERSION=0.10.25
     PKG_CHECK_MODULES(GSTREAMER,
                       gstreamer-$GST_API_VERSION >= $GST_VERSION
                       gstreamer-app-$GST_API_VERSION
@@ -6333,6 +6333,28 @@ MOZ_ARG_DISABLE_BOOL(tests,
     ENABLE_TESTS=,
     ENABLE_TESTS=1 )
 
+# Currently GTest is linked into libxul. This means it must be off by default.
+# Follow up will be to generate libxul.so and libxul-test.so to let GTest
+# be compiled along with ENABLE_TESTS
+MOZ_ARG_ENABLE_BOOL(gtest,
+[  --enable-gtest
+                          Enable GTest libxul unit test.],
+    MOZ_ENABLE_GTEST=1,
+    MOZ_ENABLE_GTEST= )
+
+if test -n "$MOZ_ENABLE_GTEST"; then
+    if test "${OS_TARGET}" = "WINNT" -o "${OS_TARGET}" = "Darwin" -o "${OS_TARGET}" = "Linux"; then
+        MOZ_ENABLE_GTEST=1
+        GTEST_HAS_RTTI=0
+        AC_DEFINE(MOZ_ENABLE_GTEST)
+        AC_DEFINE_UNQUOTED(GTEST_HAS_RTTI, 0)
+        AC_SUBST(MOZ_ENABLE_GTEST)
+        AC_SUBST(GTEST_HAS_RTTI)
+    else
+        AC_MSG_ERROR([Cannot build with --enable-gtest on this platform.])
+    fi
+fi
+
 dnl ========================================================
 dnl parental controls (for Windows Vista)
 dnl ========================================================
@@ -6350,9 +6372,10 @@ AC_SUBST(MOZ_DISABLE_PARENTAL_CONTROLS)
 dnl ========================================================
 dnl = Disable DOMCrypto
 dnl ========================================================
-if test -n "$MOZ_DISABLE_DOMCRYPTO"; then
-    AC_DEFINE(MOZ_DISABLE_DOMCRYPTO)
+if test -n "$MOZ_DISABLE_CRYPTOLEGACY"; then
+    AC_DEFINE(MOZ_DISABLE_CRYPTOLEGACY)
 fi
+AC_SUBST(MOZ_DISABLE_CRYPTOLEGACY)
 
 dnl ========================================================
 dnl =
@@ -7692,8 +7715,6 @@ dnl done during packaging with omnijar.
 if test "$MOZ_CHROME_FILE_FORMAT" = "omni"; then
     MOZ_OMNIJAR=1
     AC_DEFINE(MOZ_OMNIJAR)
-elif test "$MOZ_CHROME_FILE_FORMAT" = "jar"; then
-    AC_DEFINE(MOZ_CHROME_FILE_FORMAT_JAR)
 fi
 MOZ_PACKAGER_FORMAT="$MOZ_CHROME_FILE_FORMAT"
 if test "$OS_ARCH" = "WINNT" -o "$OS_ARCH" = "OS2" -o "$MOZ_WIDGET_TOOLKIT" = "android"; then
@@ -8207,13 +8228,7 @@ AC_SUBST(MOZ_HARFBUZZ_LIBS)
 dnl ========================================================
 dnl SIL Graphite
 dnl ========================================================
-if test "$MOZ_GRAPHITE"; then
-  MOZ_GRAPHITE_LIBS='$(DEPTH)/gfx/graphite2/src/$(LIB_PREFIX)mozgraphite2.$(LIB_SUFFIX)'
-  AC_DEFINE(MOZ_GRAPHITE)
-else
-  MOZ_GRAPHITE_LIBS=
-fi
-AC_SUBST(MOZ_GRAPHITE)
+MOZ_GRAPHITE_LIBS='$(DEPTH)/gfx/graphite2/src/$(LIB_PREFIX)mozgraphite2.$(LIB_SUFFIX)'
 AC_SUBST(MOZ_GRAPHITE_LIBS)
 
 dnl ========================================================
@@ -8389,9 +8404,9 @@ if test -n "$MOZ_SERVICES_SYNC"; then
 fi
 
 dnl Build Captive Portal Detector if required
-AC_SUBST(MOZ_SERVICES_CAPTIVEDETECT)
-if test -n "$MOZ_SERVICES_CAPTIVEDETECT"; then
-  AC_DEFINE(MOZ_SERVICES_CAPTIVEDETECT)
+AC_SUBST(MOZ_CAPTIVEDETECT)
+if test -n "$MOZ_CAPTIVEDETECT"; then
+  AC_DEFINE(MOZ_CAPTIVEDETECT)
 fi
 
 dnl ========================================================
@@ -8994,6 +9009,11 @@ elif test "${OS_TARGET}" = "Android"; then
    else
       EXTRA_GYP_DEFINES+=" -D armv7=1 "
    fi
+fi
+
+# Don't try to compile sse4.1 code if toolchain doesn't support
+if test -z "$HAVE_TOOLCHAIN_SUPPORT_MSSE4_1"; then
+  EXTRA_GYP_DEFINES="$EXTRA_GYP_DEFINES -D yuv_disable_asm=1"
 fi
 
 if test -n "$MOZ_WEBRTC"; then

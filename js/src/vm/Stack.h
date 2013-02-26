@@ -307,7 +307,8 @@ class AbstractFramePtr
 
     inline bool prevUpToDate() const;
     inline void setPrevUpToDate() const;
-    inline AbstractFramePtr evalPrev() const;
+
+    JSObject *evalPrevScopeChain(JSRuntime *rt) const;
 
     inline void *maybeHookData() const;
     inline void setHookData(void *data) const;
@@ -627,7 +628,7 @@ class StackFrame
     inline bool forEachCanonicalActualArg(Op op, unsigned start = 0, unsigned count = unsigned(-1));
     template <class Op> inline bool forEachFormalArg(Op op);
 
-
+    void cleanupTornValues();
 
     /*
      * Arguments object
@@ -1675,8 +1676,8 @@ class ContextStack
                          InitialFrameFlags initial, InvokeFrameGuard *ifg);
 
     /* Called by Execute for execution of eval or global code. */
-    bool pushExecuteFrame(JSContext *cx, JSScript *script, const Value &thisv,
-                          JSObject &scopeChain, ExecuteType type,
+    bool pushExecuteFrame(JSContext *cx, HandleScript script, const Value &thisv,
+                          HandleObject scopeChain, ExecuteType type,
                           AbstractFramePtr evalInFrame, ExecuteFrameGuard *efg);
 
     /* Allocate actual argument space for the bailed frame */

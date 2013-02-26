@@ -30,7 +30,7 @@ DEFINES += -DD3D_DEBUG_INFO
 endif
 
 EXPORTS = \
-        BasicCanvasLayer.h \
+		BasicCanvasLayer.h \
         BasicImplData.h \
         BasicLayers.h \
         BasicLayersImpl.h \
@@ -98,6 +98,10 @@ CPPSRCS = \
         LayerTreeInvalidation.cpp \
         ImageLayers.cpp \
         TexturePoolOGL.cpp \
+        $(NULL)
+
+GTEST_CPPSRCS = \
+        TestTiledLayerBuffer.cpp \
         $(NULL)
 
 ifeq ($(MOZ_WIDGET_TOOLKIT),windows)

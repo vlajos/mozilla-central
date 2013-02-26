@@ -69,7 +69,6 @@ using parallel::SpewCompile;
 class ParallelArrayVisitor : public MInstructionVisitor
 {
     JSContext *cx_;
-    ParallelCompileContext &compileContext_;
     MIRGraph &graph_;
     bool unsafe_;
     MDefinition *parSlice_;
@@ -97,10 +96,9 @@ class ParallelArrayVisitor : public MInstructionVisitor
   public:
     AutoObjectVector callTargets;
 
-    ParallelArrayVisitor(JSContext *cx, ParallelCompileContext &compileContext,
+    ParallelArrayVisitor(JSContext *cx,
                          MIRGraph &graph)
       : cx_(cx),
-        compileContext_(compileContext),
         graph_(graph),
         unsafe_(false),
         parSlice_(NULL),
@@ -143,6 +141,8 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(PassArg)
     CUSTOM_OP(Call)
     UNSAFE_OP(ApplyArgs)
+    UNSAFE_OP(GetDynamicName)
+    UNSAFE_OP(CallDirectEval)
     SAFE_OP(BitNot)
     UNSAFE_OP(TypeOf)
     SAFE_OP(ToId)
@@ -193,6 +193,7 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(FunctionEnvironment) // just a load of func env ptr
     SAFE_OP(TypeBarrier) // causes a bailout if the type is not found: a-ok with us
     SAFE_OP(MonitorTypes) // causes a bailout if the type is not found: a-ok with us
+    SAFE_OP(ExcludeType) // causes a bailout if the type is not found: a-ok with us
     UNSAFE_OP(GetPropertyCache)
     UNSAFE_OP(GetElementCache)
     UNSAFE_OP(BindNameCache)
@@ -331,7 +332,7 @@ ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &grap
     // We don't need a worklist, though, because the graph is sorted
     // in RPO.  Therefore, we just use the marked flags to tell us
     // when we visited some predecessor of the current block.
-    ParallelArrayVisitor visitor(cx_, *this, graph);
+    ParallelArrayVisitor visitor(cx_, graph);
     graph.entryBlock()->mark();  // Note: in par. exec., we never enter from OSR.
     uint32_t marked = 0;
     for (ReversePostorderIterator block(graph.rpoBegin()); block != graph.rpoEnd(); block++) {
@@ -740,7 +741,7 @@ GetPossibleCallees(JSContext *cx, HandleScript script, jsbytecode *pc,
                 continue;
         }
 
-        if (fun->isCloneAtCallsite()) {
+        if (fun->isInterpreted() && fun->nonLazyScript()->shouldCloneAtCallsite) {
             fun = CloneFunctionAtCallsite(cx, fun, script, pc);
             if (!fun)
                 return false;

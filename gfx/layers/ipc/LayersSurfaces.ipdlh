@@ -23,6 +23,7 @@ using mozilla::null_t;
 using mozilla::WindowsHandle;
 using mozilla::gl::SharedTextureHandle;
 using mozilla::gl::GLContext::SharedTextureShareType;
+using mozilla::gfx::SurfaceStreamHandle;
 
 namespace mozilla {
 namespace layers {
@@ -57,6 +58,11 @@ struct SurfaceDescriptorGralloc {
   bool external;
 };
 
+struct SurfaceStreamDescriptor {
+  SurfaceStreamHandle handle;
+  bool yflip;
+};
+
 struct YCbCrImage {
   Shmem data;
   size_t offset;
@@ -67,7 +73,6 @@ struct RGBImage {
   uint32_t rgbFormat;
 };
 
-
 union SurfaceDescriptor {
   Shmem;
   SurfaceDescriptorD3D10;
@@ -76,6 +81,28 @@ union SurfaceDescriptor {
   YCbCrImage;
   RGBImage;
   SharedTextureDescriptor;
+  SurfaceStreamDescriptor;
+  null_t;
+};
+
+// Will be removed in the near future
+struct YUVImage {
+  Shmem Ydata;
+  Shmem Udata;
+  Shmem Vdata;
+  nsIntRect picture;
+};
+
+struct SharedImageID {
+  uint64_t id;
+};
+
+union SharedImage {
+  SurfaceDescriptor;
+  RGBImage;
+  YCbCrImage;
+  YUVImage;
+  SharedImageID;
   null_t;
 };
 

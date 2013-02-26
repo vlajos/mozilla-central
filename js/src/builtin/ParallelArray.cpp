@@ -974,7 +974,6 @@ Class ParallelArrayObject::class_ = {
         deleteElement,
         deleteSpecial,
         NULL,                // enumerate
-        NULL,                // typeof
         NULL,                // thisObject
     }
 };
@@ -1419,7 +1418,7 @@ ParallelArrayObject::scatter(JSContext *cx, CallArgs args)
         return false;
 
     // The default value is optional and defaults to undefined.
-    Value defaultValue;
+    RootedValue defaultValue(cx);
     if (args.length() >= 2)
         defaultValue = args[1];
     else
@@ -1608,7 +1607,7 @@ ParallelArrayObject::dimensionsGetter(JSContext *cx, CallArgs args)
 {
     RootedObject dimArray(cx, as(&args.thisv().toObject())->dimensionArray());
     RootedObject copy(cx, NewDenseCopiedArray(cx, dimArray->getDenseInitializedLength(),
-                                              dimArray->getDenseElements()));
+                                              dimArray, 0));
     if (!copy)
         return false;
     // Reuse the existing dimension array's type.

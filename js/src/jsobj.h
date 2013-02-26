@@ -284,7 +284,7 @@ class JSObject : public js::ObjectImpl
     friend class  js::NewObjectCache;
 
     /* Make the type object to use for LAZY_TYPE objects. */
-    js::types::TypeObject *makeLazyType(JSContext *cx);
+    static js::types::TypeObject *makeLazyType(JSContext *cx, js::HandleObject obj);
 
   public:
     /*
@@ -925,12 +925,11 @@ class JSObject : public js::ObjectImpl
                                  JS::MutableHandleValue statep, JS::MutableHandleId idp);
     static inline bool defaultValue(JSContext *cx, js::HandleObject obj,
                                     JSType hint, js::MutableHandleValue vp);
-    static inline JSType typeOf(JSContext *cx, js::HandleObject obj);
     static inline JSObject *thisObject(JSContext *cx, js::HandleObject obj);
 
     static bool thisObject(JSContext *cx, const js::Value &v, js::Value *vp);
 
-    bool swap(JSContext *cx, JSObject *other);
+    static bool swap(JSContext *cx, JS::HandleObject a, JS::HandleObject b);
 
     inline void initArrayClass();
 

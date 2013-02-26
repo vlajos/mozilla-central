@@ -352,13 +352,11 @@ public:
      */
     bool UseCmapsDuringSystemFallback();
 
-#ifdef MOZ_GRAPHITE
     /**
      * Whether to use the SIL Graphite rendering engine
      * (for fonts that include Graphite tables)
      */
     bool UseGraphiteShaping();
-#endif
 
     /**
      * Whether to use the harfbuzz shaper (depending on script complexity).
@@ -575,9 +573,7 @@ protected:
     }
 
     int8_t  mAllowDownloadableFonts;
-#ifdef MOZ_GRAPHITE
     int8_t  mGraphiteShapingEnabled;
-#endif
 
     int8_t  mBidiNumeralOption;
 

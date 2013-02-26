@@ -100,6 +100,7 @@ static JSBool
 str_encodeURI_Component(JSContext *cx, unsigned argc, Value *vp);
 
 static const uint32_t INVALID_UTF8 = UINT32_MAX;
+static const uint32_t REPLACE_UTF8 = 0xFFFD;
 
 static uint32_t
 Utf8ToOneUcs4Char(const uint8_t *utf8Buffer, int utf8Length);
@@ -679,13 +680,13 @@ str_toLocaleLowerCase(JSContext *cx, unsigned argc, Value *vp)
      * Forcefully ignore the first (or any) argument and return toLowerCase(),
      * ECMA has reserved that argument, presumably for defining the locale.
      */
-    if (cx->localeCallbacks && cx->localeCallbacks->localeToLowerCase) {
+    if (cx->runtime->localeCallbacks && cx->runtime->localeCallbacks->localeToLowerCase) {
         RootedString str(cx, ThisToStringForStringProto(cx, args));
         if (!str)
             return false;
 
         Value result;
-        if (!cx->localeCallbacks->localeToLowerCase(cx, str, &result))
+        if (!cx->runtime->localeCallbacks->localeToLowerCase(cx, str, &result))
             return false;
 
         args.rval().set(result);
@@ -746,13 +747,13 @@ str_toLocaleUpperCase(JSContext *cx, unsigned argc, Value *vp)
      * Forcefully ignore the first (or any) argument and return toUpperCase(),
      * ECMA has reserved that argument, presumably for defining the locale.
      */
-    if (cx->localeCallbacks && cx->localeCallbacks->localeToUpperCase) {
+    if (cx->runtime->localeCallbacks && cx->runtime->localeCallbacks->localeToUpperCase) {
         RootedString str(cx, ThisToStringForStringProto(cx, args));
         if (!str)
             return false;
 
         Value result;
-        if (!cx->localeCallbacks->localeToUpperCase(cx, str, &result))
+        if (!cx->runtime->localeCallbacks->localeToUpperCase(cx, str, &result))
             return false;
 
         args.rval().set(result);
@@ -775,11 +776,9 @@ str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
     if (!thatStr)
         return false;
 
-    if (cx->localeCallbacks && cx->localeCallbacks->localeCompare) {
-        args[0].setString(thatStr);
-
+    if (cx->runtime->localeCallbacks && cx->runtime->localeCallbacks->localeCompare) {
         Value result;
-        if (!cx->localeCallbacks->localeCompare(cx, str, thatStr, &result))
+        if (!cx->runtime->localeCallbacks->localeCompare(cx, str, thatStr, &result))
             return false;
 
         args.rval().set(result);
@@ -1715,12 +1714,12 @@ static bool
 DoMatch(JSContext *cx, RegExpStatics *res, JSString *str, RegExpShared &re,
         DoMatchCallback callback, void *data, MatchControlFlags flags, MutableHandleValue rval)
 {
-    Rooted<JSStableString*> stableStr(cx, str->ensureStable(cx));
-    if (!stableStr)
+    Rooted<JSLinearString*> linearStr(cx, str->ensureLinear(cx));
+    if (!linearStr)
         return false;
 
-    StableCharPtr chars = stableStr->chars();
-    size_t charsLen = stableStr->length();
+    const jschar *chars = linearStr->chars();
+    size_t charsLen = linearStr->length();
 
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
 
@@ -1739,8 +1738,8 @@ DoMatch(JSContext *cx, RegExpStatics *res, JSString *str, RegExpShared &re,
                 break;
             }
 
-            res->updateFromMatchPairs(cx, stableStr, matches);
-            if (!isTest && !CreateRegExpMatchResult(cx, stableStr, matches, rval))
+            res->updateFromMatchPairs(cx, linearStr, matches);
+            if (!isTest && !CreateRegExpMatchResult(cx, linearStr, matches, rval))
                 return false;
 
             if (!callback(cx, res, count, data))
@@ -1763,12 +1762,12 @@ DoMatch(JSContext *cx, RegExpStatics *res, JSString *str, RegExpShared &re,
             return true;
         }
 
-        res->updateFromMatchPairs(cx, stableStr, matches);
+        res->updateFromMatchPairs(cx, linearStr, matches);
 
         if (isTest) {
             rval.setBoolean(true);
         } else {
-            if (!CreateRegExpMatchResult(cx, stableStr, matches, rval))
+            if (!CreateRegExpMatchResult(cx, linearStr, matches, rval))
                 return false;
         }
 
@@ -1887,12 +1886,12 @@ js::str_search(JSContext *cx, unsigned argc, Value *vp)
     if (!g.normalizeRegExp(cx, false, 1, args))
         return false;
 
-    Rooted<JSStableString*> stableStr(cx, str->ensureStable(cx));
-    if (!stableStr)
+    Rooted<JSLinearString*> linearStr(cx, str->ensureLinear(cx));
+    if (!linearStr)
         return false;
 
-    StableCharPtr chars = stableStr->chars();
-    size_t length = stableStr->length();
+    const jschar *chars = linearStr->chars();
+    size_t length = linearStr->length();
     RegExpStatics *res = cx->regExpStatics();
 
     /* Per ECMAv5 15.5.4.12 (5) The last index property is ignored and left unchanged. */
@@ -1904,7 +1903,7 @@ js::str_search(JSContext *cx, unsigned argc, Value *vp)
         return false;
 
     if (status == RegExpRunStatus_Success)
-        res->updateLazily(cx, stableStr, &g.regExp(), 0);
+        res->updateLazily(cx, linearStr, &g.regExp(), 0);
 
     JS_ASSERT_IF(status == RegExpRunStatus_Success_NotFound, match.start == -1);
     args.rval().setInt32(match.start);
@@ -2410,7 +2409,7 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
         if (!JS_CHECK_OPERATION_LIMIT(cx))
             return false;
 
-        RegExpRunStatus status = re.executeMatchOnly(cx, chars, charsLen, &startIndex, match);
+        RegExpRunStatus status = re.executeMatchOnly(cx, chars.get(), charsLen, &startIndex, match);
         if (status == RegExpRunStatus_Error)
             return false;
         if (status == RegExpRunStatus_Success_NotFound)
@@ -2648,11 +2647,9 @@ js::str_replace(JSContext *cx, unsigned argc, Value *vp)
             return false;
 
         /* We're about to store pointers into the middle of our string. */
-        JSStableString *stable = rdata.repstr->ensureStable(cx);
-        if (!stable)
-            return false;
-        rdata.dollarEnd = stable->chars().get() + stable->length();
-        rdata.dollar = js_strchr_limit(stable->chars().get(), '$', rdata.dollarEnd);
+        JSLinearString *linear = rdata.repstr;
+        rdata.dollarEnd = linear->chars() + linear->length();
+        rdata.dollar = js_strchr_limit(linear->chars(), '$', rdata.dollarEnd);
     }
 
     rdata.fig.initFunction(ObjectOrNullValue(rdata.lambda));
@@ -2720,7 +2717,7 @@ class SplitMatchResult {
 
 template<class Matcher>
 static JSObject *
-SplitHelper(JSContext *cx, Handle<JSStableString*> str, uint32_t limit, const Matcher &splitMatch,
+SplitHelper(JSContext *cx, Handle<JSLinearString*> str, uint32_t limit, const Matcher &splitMatch,
             Handle<TypeObject*> type)
 {
     size_t strLength = str->length();
@@ -2863,11 +2860,11 @@ class SplitRegExpMatcher
 
     static const bool returnsCaptures = true;
 
-    bool operator()(JSContext *cx, Handle<JSStableString*> str, size_t index,
+    bool operator()(JSContext *cx, Handle<JSLinearString*> str, size_t index,
                     SplitMatchResult *result) const
     {
         AssertCanGC();
-        StableCharPtr chars = str->chars();
+        const jschar *chars = str->chars();
         size_t length = str->length();
 
         ScopedMatchPairs matches(&cx->tempLifoAlloc());
@@ -2978,18 +2975,18 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
         args.rval().setObject(*aobj);
         return true;
     }
-    Rooted<JSStableString*> stableStr(cx, str->ensureStable(cx));
-    if (!stableStr)
+    Rooted<JSLinearString*> linearStr(cx, str->ensureLinear(cx));
+    if (!linearStr)
         return false;
 
     /* Steps 11-15. */
     RootedObject aobj(cx);
     if (!re.initialized()) {
         SplitStringMatcher matcher(cx, sepstr);
-        aobj = SplitHelper(cx, stableStr, limit, matcher, type);
+        aobj = SplitHelper(cx, linearStr, limit, matcher, type);
     } else {
         SplitRegExpMatcher matcher(*re, cx->regExpStatics());
-        aobj = SplitHelper(cx, stableStr, limit, matcher, type);
+        aobj = SplitHelper(cx, linearStr, limit, matcher, type);
     }
     if (!aobj)
         return false;
@@ -3629,7 +3626,7 @@ js_ValueToPrintable(JSContext *cx, const Value &v, JSAutoByteString *bytes, bool
     str = js_QuoteString(cx, str, 0);
     if (!str)
         return NULL;
-    return bytes->encode(cx, str);
+    return bytes->encodeLatin1(cx, str);
 }
 
 template <AllowGC allowGC>
@@ -3693,14 +3690,14 @@ js::ValueToSource(JSContext *cx, const Value &v)
         return ToString<CanGC>(cx, v);
     }
 
-    Value rval = NullValue();
+    RootedValue rval(cx, NullValue());
     RootedValue fval(cx);
     RootedId id(cx, NameToId(cx->names().toSource));
     Rooted<JSObject*> obj(cx, &v.toObject());
     if (!GetMethod(cx, obj, id, 0, &fval))
         return NULL;
     if (js_IsCallable(fval)) {
-        if (!Invoke(cx, ObjectValue(*obj), fval, 0, NULL, &rval))
+        if (!Invoke(cx, ObjectValue(*obj), fval, 0, NULL, rval.address()))
             return NULL;
     }
 
@@ -3934,6 +3931,97 @@ js::InflateStringToBuffer(JSContext *maybecx, const char *src, size_t srclen,
     }
     *dstlenp = srclen;
     return JS_TRUE;
+}
+
+bool
+js::InflateUTF8StringToBufferReplaceInvalid(JSContext *cx, const char *src,
+                                            size_t srclen, jschar *dst,
+                                            size_t *dstlenp)
+{
+    mozilla::Maybe<AutoSuppressGC> suppress;
+    if (cx)
+        suppress.construct(cx);
+
+    size_t dstlen, origDstlen, offset, j, n;
+    uint32_t v;
+
+    dstlen = dst ? *dstlenp : (size_t) -1;
+    origDstlen = dstlen;
+    offset = 0;
+
+    while (srclen) {
+        v = (uint8_t) *src;
+        n = 1;
+        if (v & 0x80) {
+            while (v & (0x80 >> n))
+                n++;
+            if (n > srclen || n == 1 || n > 4) {
+                /* Incorrect length for decoding. */
+                v = REPLACE_UTF8;
+                n = 1;
+                goto appendCharacter;
+            }
+
+            /*
+             * Check for invalid second byte.
+             *
+             * @From Unicode Standard v6.2, Table 3-7 Well-Formed UTF-8 Byte Sequences.
+             */
+            if ((v == 0xE0 && ((uint8_t)src[1] & 0xE0) != 0xA0) ||  // E0 A0~BF
+                (v == 0xED && ((uint8_t)src[1] & 0xE0) != 0x80) ||  // ED 80~9F
+                (v == 0xF0 && ((uint8_t)src[1] & 0xF0) == 0x80) ||  // F0 90~BF
+                (v == 0xF4 && ((uint8_t)src[1] & 0xF0) != 0x80))    // F4 80~8F
+            {
+                v = REPLACE_UTF8;
+                n = 1;
+                goto appendCharacter;
+            }
+
+            for (j = 1; j < n; j++) {
+                if ((src[j] & 0xC0) != 0x80) {
+                    /* Invalid sub-sequence. */
+                    v = REPLACE_UTF8;
+                    n = j;
+                    goto appendCharacter;
+                }
+            }
+
+            v = Utf8ToOneUcs4Char((uint8_t *)src, n);
+            if (v >= 0x10000) {
+                v -= 0x10000;
+                if (v > 0xFFFFF || dstlen < 2) {
+                    /* Incorrect code point. */
+                    v = REPLACE_UTF8;
+                    n = 1;
+                    goto appendCharacter;
+                }
+                if (dst) {
+                    *dst++ = (jschar)((v >> 10) + 0xD800);
+                    v = (jschar)((v & 0x3FF) + 0xDC00);
+                }
+                dstlen--;
+            }
+        }
+appendCharacter:
+        if (!dstlen)
+            goto bufferTooSmall;
+        if (dst)
+            *dst++ = (jschar) v;
+        dstlen--;
+        offset += n;
+        src += n;
+        srclen -= n;
+    }
+    *dstlenp = (origDstlen - dstlen);
+    return true;
+
+bufferTooSmall:
+    *dstlenp = (origDstlen - dstlen);
+    if (cx) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             JSMSG_BUFFER_TOO_SMALL);
+    }
+    return false;
 }
 
 bool

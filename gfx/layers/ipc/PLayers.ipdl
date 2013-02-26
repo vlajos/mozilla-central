@@ -31,7 +31,6 @@ include "gfxipc/ShadowLayerUtils.h";
 namespace mozilla {
 namespace layers {
 
-
 sync protocol PLayers {
   manager PRenderFrame or PCompositor;
   manages PGrallocBuffer;
