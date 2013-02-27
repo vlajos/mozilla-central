@@ -80,9 +80,6 @@ public:
   : TextureHost(aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
-    if (aTexImage) {
-      ComputeFormat();
-    }
   }
 
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE

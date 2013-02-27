@@ -120,7 +120,6 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 
   // XXX - Bas - Get YFlip data out!
-  mFormat = FormatFromShaderType(mTexture->GetShaderProgramType());
 }
 
 bool
@@ -133,6 +132,8 @@ TextureImageTextureHostOGL::Lock()
 
   NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
                 "Image layer has alpha image");
+  
+  mFormat = FormatFromShaderType(mTexture->GetShaderProgramType());
 
   return true;
 }
