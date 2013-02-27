@@ -567,7 +567,9 @@ ShadowLayerForwarder::CloseDescriptor(const SurfaceDescriptor& aDescriptor)
 void
 ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
 {
+#ifdef GFX_COMPOSITOR_LOGGING
   printf(" -- ISurfaceAllocator::DestroySharedSurface\n");
+#endif
   MOZ_ASSERT(aSurface);
   if (!aSurface) {
     return;
@@ -589,7 +591,9 @@ ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
       break;
     case SurfaceDescriptor::Tnull_t:
     case SurfaceDescriptor::T__None:
+#ifdef GFX_COMPOSITOR_LOGGING
       printf("    DestroySharedSurface: empty surface\n");
+#endif
       break;
     default:
       NS_RUNTIMEABORT("surface type not implemented!");

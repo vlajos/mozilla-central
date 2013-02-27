@@ -38,19 +38,21 @@ TextureHost::~TextureHost()
   MOZ_COUNT_DTOR(TextureHost);
 }
 
-void TextureHost::Update(const SurfaceDescriptor& aImage,
-                         bool* aIsInitialised,
-                         bool* aNeedsReset,
-                         nsIntRegion* aRegion)
+void
+TextureHost::Update(const SurfaceDescriptor& aImage,
+                    bool* aIsInitialised,
+                    bool* aNeedsReset,
+                    nsIntRegion* aRegion)
 {
   UpdateImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
 }
 
-void TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
-                               SurfaceDescriptor* aResult,
-                               bool* aIsInitialised,
-                               bool* aNeedsReset,
-                               nsIntRegion* aRegion)
+void
+TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
+                          SurfaceDescriptor* aResult,
+                          bool* aIsInitialised,
+                          bool* aNeedsReset,
+                          nsIntRegion* aRegion)
 {
   SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
 

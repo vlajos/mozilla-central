@@ -398,6 +398,7 @@ public:
       mGL->MakeCurrent();
       mGL->fDeleteTextures(1, &mUploadTexture);
     }
+    *mBuffer = SurfaceDescriptor();
   }
 
   virtual GLuint GetTextureHandle()
