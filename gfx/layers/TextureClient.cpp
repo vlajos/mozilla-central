@@ -55,7 +55,6 @@ TextureClient::Destroyed()
   // The owning layer must be locked at some point in the chain of callers
   // by calling Hold.
   mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
-  ReleaseResources();
 }
 
 void
