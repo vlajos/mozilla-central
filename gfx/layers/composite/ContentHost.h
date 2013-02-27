@@ -153,7 +153,6 @@ protected:
   nsIntPoint mBufferRotation;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
-  RefPtr<TexturedEffect> mTextureEffect;
   bool mPaintWillResample;
   bool mInitialised;
 };

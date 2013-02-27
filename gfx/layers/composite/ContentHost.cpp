@@ -214,7 +214,10 @@ ContentHost::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  aEffectChain.mPrimaryEffect = mTextureEffect;
+  RefPtr<TexturedEffect> effect =
+    CreateTexturedEffect(mTextureHost, aFilter);
+
+  aEffectChain.mPrimaryEffect = effect;
 
   nsIntRegion tmpRegion;
   const nsIntRegion* renderRegion;
@@ -322,7 +325,7 @@ ContentHost::Composite(EffectChain& aEffectChain,
             gfx::Rect rect(tileScreenRect.x, tileScreenRect.y,
                            tileScreenRect.width, tileScreenRect.height);
 
-            mTextureEffect->mTextureCoords = Rect(Float(tileRegionRect.x) / texRect.width,
+            effect->mTextureCoords = Rect(Float(tileRegionRect.x) / texRect.width,
                                                   Float(tileRegionRect.y) / texRect.height,
                                                   Float(tileRegionRect.width) / texRect.width,
                                                   Float(tileRegionRect.height) / texRect.height);
@@ -380,9 +383,6 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
 
   mBufferRect = aNewFront.rect();
   mBufferRotation = aNewFront.rotation();
-
-  mTextureEffect =
-    CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
 }
 
 void
@@ -435,9 +435,6 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
   *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 
-  mTextureEffect =
-    CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
-    
   // Save the current valid region of our front buffer, because if
   // we're double buffering, it's going to be the valid region for the
   // next back buffer sent back to the renderer.
@@ -800,11 +797,6 @@ ContentHost::PrintInfo(nsACString& aTo, const char* aPrefix)
 
   nsAutoCString pfx(aPrefix);
   pfx += "  ";
-
-  if (mTextureEffect) {
-    aTo += "\n";
-    mTextureEffect->PrintInfo(aTo, pfx.get());
-  }
 
   if (mTextureHost) {
     aTo += "\n";
