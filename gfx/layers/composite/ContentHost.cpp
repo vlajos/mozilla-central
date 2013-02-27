@@ -347,6 +347,16 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                                  nsIntRegion* aNewValidRegionFront,
                                  nsIntRegion* aUpdatedRegionBack)
 {
+  *aNewBackResult = null_t();
+  *aNewBack = aNewFront;
+  *aNewValidRegionFront = aOldValidRegionBack;
+  aUpdatedRegionBack->SetEmpty();
+
+  if (!mTextureHost) {
+    mInitialised = false;
+    return;
+  }
+
   // updated is in screen coordinates. Convert it to buffer coordinates.
   nsIntRegion destRegion(aUpdated);
   destRegion.MoveBy(-aNewFront.rect().TopLeft());
@@ -365,17 +375,11 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
-  //TODO[nrc] should we check that mTextureHost exists as in ContentHostDirect?
   mTextureHost->Update(aNewFront.buffer(), nullptr, nullptr, &destRegion);
   mInitialised = true;
 
   mBufferRect = aNewFront.rect();
   mBufferRotation = aNewFront.rotation();
-
-  *aNewBack = aNewFront;
-  *aNewValidRegionFront = aOldValidRegionBack;
-  *aNewBackResult = null_t();
-  aUpdatedRegionBack->SetEmpty();
 
   mTextureEffect =
     CreateTexturedEffect(mTextureHost, FILTER_LINEAR);
