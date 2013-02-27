@@ -564,49 +564,35 @@ ShadowLayerForwarder::CloseDescriptor(const SurfaceDescriptor& aDescriptor)
   // There's no "close" needed for Shmem surfaces.
 }
 
-// Destroy the Shmem SurfaceDescriptor |aSurface|.
-template<class ShmemDeallocator>
-static void
-DestroySharedShmemSurface(SurfaceDescriptor* aSurface,
-                          ShmemDeallocator* aDeallocator)
-{
-  switch (aSurface->type()) {
-  case SurfaceDescriptor::TShmem: {
-    aDeallocator->DeallocShmem(aSurface->get_Shmem());
-    *aSurface = SurfaceDescriptor();
-    return;
-  }
-  default:
-    NS_RUNTIMEABORT("unexpected SurfaceDescriptor type!");
-    return;
-  }
-}
-
-static void
-DestroySharedShmemSurface(SurfaceDescriptor* aSurface,
-                          ISurfaceAllocator* aDeallocator)
-{
-  switch (aSurface->type()) {
-  case SurfaceDescriptor::TShmem: {
-    aDeallocator->DeallocShmem(aSurface->get_Shmem());
-    *aSurface = SurfaceDescriptor();
-    return;
-  }
-  default:
-    NS_RUNTIMEABORT("unexpected SurfaceDescriptor type!");
-    return;
-  }
-}
-
 void
 ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
 {
+  printf(" -- ISurfaceAllocator::DestroySharedSurface\n");
+  MOZ_ASSERT(aSurface);
+  if (!aSurface) {
+    return;
+  }
   if (PlatformDestroySharedSurface(aSurface)) {
     return;
   }
-  if (aSurface->type() == SurfaceDescriptor::TShmem) {
-    DestroySharedShmemSurface(aSurface, this);
+  switch (aSurface->type()) {
+    case SurfaceDescriptor::TShmem:
+      DeallocShmem(aSurface->get_Shmem());
+      break;
+    case SurfaceDescriptor::TYCbCrImage:
+      DeallocShmem(aSurface->get_YCbCrImage().data());
+      break;
+    case SurfaceDescriptor::TRGBImage:
+      DeallocShmem(aSurface->get_RGBImage().data());
+      break;
+    case SurfaceDescriptor::Tnull_t:
+    case SurfaceDescriptor::T__None:
+      printf("    DestroySharedSurface: empty surface\n");
+      break;
+    default:
+      NS_RUNTIMEABORT("surface type not implemented!");
   }
+  *aSurface = SurfaceDescriptor();
 }
 
 void

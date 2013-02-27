@@ -44,6 +44,7 @@ TextureClient::Updated()
   if (mDescriptor.type() != SurfaceDescriptor::T__None &&
       mDescriptor.type() != SurfaceDescriptor::Tnull_t) {
     mLayerForwarder->UpdateTexture(this, SurfaceDescriptor(mDescriptor));
+    mDescriptor = SurfaceDescriptor();
   } else {
     NS_WARNING("Trying to send a null SurfaceDescriptor.");
   }
@@ -150,7 +151,7 @@ bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxASurf
   nsRefPtr<gfxPattern> pat = new gfxPattern(surface);
   if (!pat)
     return false;
-/*
+/* TODO[nical]
   pat->SetFilter(aLayer->GetFilter());
   gfxMatrix mat = pat->GetMatrix();
   aLayer->ScaleMatrix(surface->GetSize(), mat);
@@ -188,8 +189,7 @@ bool
 AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
 {
   MOZ_ASSERT(aImage);
-  SurfaceDescriptor* descriptor = mTextureClient->LockSurfaceDescriptor();
-  MOZ_ASSERT(descriptor);
+  MOZ_ASSERT(mDescriptor);
 
   const PlanarYCbCrImage::Data *data = aImage->GetData();
   NS_ASSERTION(data, "Must be able to retrieve yuv data from image!");
@@ -202,7 +202,7 @@ AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
     return false;
   }
 
-  ipc::Shmem& shmem = descriptor->get_YCbCrImage().data();
+  ipc::Shmem& shmem = mDescriptor->get_YCbCrImage().data();
 
   ShmemYCbCrImage shmemImage(shmem);
   if (!shmemImage.CopyData(data->mYChannel, data->mCbChannel, data->mCrChannel,
@@ -320,14 +320,21 @@ TextureClientShmem::LockImageSurface()
 void
 TextureClientShmemYCbCr::ReleaseResources()
 {
-  if (!IsSurfaceDescriptorValid(mDescriptor) ||
-      mDescriptor.type() != SurfaceDescriptor::TYCbCrImage) {
-    return;
-  }
-    
-  ipc::Shmem& shmem = mDescriptor.get_YCbCrImage().data();
-  GetLayerForwarder()->DeallocShmem(shmem);
+  GetLayerForwarder()->DestroySharedSurface(&mDescriptor);
 }
+
+void
+TextureClientShmemYCbCr::SetDescriptor(const SurfaceDescriptor& aDescriptor)
+{
+  MOZ_ASSERT(aDescriptor.type() == SurfaceDescriptor::TYCbCrImage);
+
+  if (IsSurfaceDescriptorValid(mDescriptor)) {
+    GetLayerForwarder()->DestroySharedSurface(&mDescriptor);
+  }
+  mDescriptor = aDescriptor;
+  MOZ_ASSERT(IsSurfaceDescriptorValid(mDescriptor));
+}
+
 
 void
 TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,

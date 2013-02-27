@@ -85,28 +85,5 @@ union SurfaceDescriptor {
   null_t;
 };
 
-// Will be removed in the near future
-struct YUVImage {
-  Shmem Ydata;
-  Shmem Udata;
-  Shmem Vdata;
-  nsIntRect picture;
-};
-
-struct SharedImageID {
-  uint64_t id;
-};
-
-union SharedImage {
-  SurfaceDescriptor;
-  RGBImage;
-  YCbCrImage;
-  YUVImage;
-  SharedImageID;
-  null_t;
-};
-
-
-
 } // namespace
 } // namespace

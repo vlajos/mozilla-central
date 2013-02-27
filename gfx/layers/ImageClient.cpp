@@ -45,7 +45,7 @@ ImageClientTexture::EnsureTextureClient(TextureClientType aType)
   if (mTextureClient && mType == aType) {
     return;
   }
-
+  mType = aType;
   mTextureClient = CreateTextureClient(aType, mFlags);
 }
 

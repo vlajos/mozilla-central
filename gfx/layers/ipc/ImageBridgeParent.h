@@ -44,10 +44,6 @@ public:
   // CompositableManager
   Compositor* GetCompositor() MOZ_OVERRIDE { return nullptr; } // TODO[nical] this is actually a bad idea
 
-  // ISurfaceAllocator
-  virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE;
-  virtual void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE;
-
   // PImageBridge
   virtual bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
   virtual bool RecvUpdateNoSwap(const EditArray& aEdits);

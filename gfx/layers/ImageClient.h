@@ -85,6 +85,7 @@ public:
 private:
   RefPtr<TextureClient> mTextureClient;
   TextureFlags mFlags;
+  // TODO[nical] this member is source of sadness, we should really remove it.
   TextureClientType mType;
 };
 

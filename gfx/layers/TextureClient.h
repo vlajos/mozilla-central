@@ -236,7 +236,9 @@ public:
   ~TextureClientShmemYCbCr() { ReleaseResources(); }
 
   void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
-  
+
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
+
   virtual void ReleaseResources();
 };
 
@@ -247,10 +249,10 @@ public:
 
   TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
   ~TextureClientSharedGL() { ReleaseResources(); }
-  
-  virtual void ReleaseResources();
-protected:
 
+  virtual void ReleaseResources();
+
+protected:
   gl::GLContext* mGL;
   gfx::IntSize mSize;
 

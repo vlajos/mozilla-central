@@ -9,6 +9,7 @@
 #include "mozilla/layers/PImageBridgeChild.h"
 #include "nsAutoPtr.h"
 #include "mozilla/layers/CompositableForwarder.h"
+#include "mozilla/layers/LayersTypes.h"
 
 class gfxSharedImageSurface;
 
@@ -264,18 +265,12 @@ public:
   virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
 
   virtual bool AllocUnsafeShmem(size_t aSize,
-                                   ipc::SharedMemory::SharedMemoryType aType,
-                                   ipc::Shmem* aShmem) MOZ_OVERRIDE {
-    return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
-  }
+                                ipc::SharedMemory::SharedMemoryType aType,
+                                ipc::Shmem* aShmem) MOZ_OVERRIDE;
   virtual bool AllocShmem(size_t aSize,
                           ipc::SharedMemory::SharedMemoryType aType,
-                          ipc::Shmem* aShmem) MOZ_OVERRIDE {
-    return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
-  }
-  virtual void DeallocShmem(ipc::Shmem& aShmem) MOZ_OVERRIDE {
-    PImageBridgeChild::DeallocShmem(aShmem);
-  }
+                          ipc::Shmem* aShmem) MOZ_OVERRIDE;
+  virtual void DeallocShmem(ipc::Shmem& aShmem);
 
   TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);
   TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);
@@ -286,11 +281,13 @@ public:
 protected:
   ImageBridgeChild();
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  int mDebugAllocCount;
+#endif
   CompositableTransaction* mTxn;
 };
 
 } // layers
 } // mozilla
-
 
 #endif

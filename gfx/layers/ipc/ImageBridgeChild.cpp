@@ -21,6 +21,7 @@
 #include "TextureClient.h"
 
 #include "ImageClient.h"
+#include "Layers.h" // for MOZ_LAYERS_LOG
 
 using namespace base;
 using namespace mozilla::ipc;
@@ -239,11 +240,19 @@ static void ConnectImageBridge(ImageBridgeChild * child, ImageBridgeParent * par
 
 ImageBridgeChild::ImageBridgeChild()
 {
+#ifdef MOZ_LAYERS_HAVE_LOG
+  mDebugAllocCount = 0;
+#endif
   mTxn = new CompositableTransaction();
 }
 ImageBridgeChild::~ImageBridgeChild()
 {
   delete mTxn;
+#ifdef MOZ_LAYERS_HAVE_LOG
+  if (mDebugAllocCount != 0) {
+    printf("ImageBirdgeChild deleted [alloc - dealloc = %i]\n", mDebugAllocCount);
+  }
+#endif
 }
 
 void
@@ -420,7 +429,7 @@ ImageBridgeChild::StartUpInChildProcess(Transport* aTransport,
     FROM_HERE,
     NewRunnableFunction(ConnectImageBridgeInChildProcess,
                         aTransport, processHandle));
-  
+
   return sImageBridgeChildSingleton;
 }
 
@@ -683,6 +692,36 @@ ImageBridgeChild::DeallocSurfaceDescriptorGrallocNow(const SurfaceDescriptor& aB
   return false;
 #endif
 }
+
+bool
+ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
+                                   ipc::SharedMemory::SharedMemoryType aType,
+                                   ipc::Shmem* aShmem)
+{
+#ifdef MOZ_LAYERS_HAVE_LOG
+  printf(" ++ [%i] ImageBirdge AllocShmem (unsafe)\n", ++mDebugAllocCount);
+#endif
+  return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
+}
+bool 
+ImageBridgeChild::AllocShmem(size_t aSize,
+                             ipc::SharedMemory::SharedMemoryType aType,
+                             ipc::Shmem* aShmem)
+{
+#ifdef MOZ_LAYERS_HAVE_LOG
+  printf(" ++ [%i] ImageBirdge AllocShmem\n", ++mDebugAllocCount);
+#endif
+  return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
+}
+void
+ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
+{
+#ifdef MOZ_LAYERS_HAVE_LOG
+  printf(" -- [%i] ImageBirdge DeallocShmem\n", --mDebugAllocCount);
+#endif
+  PImageBridgeChild::DeallocShmem(aShmem);
+}
+
 
 } // layers
 } // mozilla

@@ -190,17 +190,6 @@ ImageBridgeParent::DeferredDestroy()
   mSelfRef = nullptr;
   // |this| was just destroyed, hands off
 }
-void ImageBridgeParent::DestroySharedSurface(gfxSharedImageSurface* aSurface)
-{
-  NS_RUNTIMEABORT("Implement me");
-  // TODO[nical]
-}
-void ImageBridgeParent::DestroySharedSurface(SurfaceDescriptor* aSurface)
-{
-  NS_RUNTIMEABORT("Implement me");
-  // TODO[nical]
-}
 
 } // layers
 } // mozilla
-

@@ -8,6 +8,19 @@
 
 #include "nsPoint.h"
 
+#if defined(DEBUG) || defined(PR_LOGGING)
+#  include <stdio.h>            // FILE
+#  include "prlog.h"
+#  ifndef MOZ_LAYERS_HAVE_LOG
+#    define MOZ_LAYERS_HAVE_LOG
+#  endif
+#  define MOZ_LAYERS_LOG(_args)                             \
+  PR_LOG(LayerManager::GetLog(), PR_LOG_DEBUG, _args)
+#else
+struct PRLogModuleInfo;
+#  define MOZ_LAYERS_LOG(_args)
+#endif  // if defined(DEBUG) || defined(PR_LOGGING)
+
 namespace mozilla {
 namespace layers {
 

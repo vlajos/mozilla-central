@@ -49,7 +49,7 @@ ISurfaceAllocator() {}
                                       gfxASurface::gfxContentType aContent,
                                       SurfaceDescriptor* aBuffer);
 
-  // AllocBufferWithCaps<<
+  // AllocBufferWithCaps
   virtual bool AllocSurfaceDescriptorWithCaps(const gfxIntSize& aSize,
                                               gfxASurface::gfxContentType aContent,
                                               uint32_t aCaps,
