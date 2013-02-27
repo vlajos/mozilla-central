@@ -42,8 +42,6 @@ public:
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 
-  virtual void SetPictureRect(const nsIntRect& aPictureRect);
-
   // LayerOGL impl
   virtual void Destroy();
 

@@ -698,8 +698,6 @@ public:
    */
   virtual ShadowLayer* AsShadowLayer() { return this; }
 
-  virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
-
   MOZ_LAYER_DECL_NAME("ShadowImageLayer", TYPE_SHADOW)
 
 protected:
