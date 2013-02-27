@@ -41,26 +41,15 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   }
 
   RefPtr<TexturedEffect> effect = CreateTexturedEffect(mTextureHost, aFilter);
-  aEffectChain.mPrimaryEffect = effect;
-#if 0
-  // TODO[Bas] - Disabled as per new Lock API.
-  if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
-    if (mTextureHostOnWhite) {
-      if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
-        TextureSource* sourceOnBlack = mTextureHost->AsTextureSource();
-        TextureSource* sourceOnWhite = mTextureHostOnWhite->AsTextureSource();
-        aEffectChain.mPrimaryEffect =
-          new EffectComponentAlpha(sourceOnBlack, sourceOnWhite);
-      } else {
-        return;
-      }
-    } else {
-        aEffectChain.mPrimaryEffect = effect;
-    }
+  if (mTextureHostOnWhite) {
+    RefPtr<TexturedEffect> effectOnWhite = CreateTexturedEffect(mTextureHostOnWhite, aFilter);
+    TextureSource* sourceOnBlack = mTextureHost->AsTextureSource();
+    TextureSource* sourceOnWhite = mTextureHostOnWhite->AsTextureSource();
+    aEffectChain.mPrimaryEffect =
+      new EffectComponentAlpha(sourceOnBlack, sourceOnWhite);
   } else {
-    return;
+      aEffectChain.mPrimaryEffect = effect;
   }
-#endif
 
   nsIntRegion tmpRegion;
   const nsIntRegion* renderRegion;
