@@ -111,7 +111,7 @@ public:
     return mTextureChild;
   }
 
-  CompositableForwarder* GetLayerForwarder() const {
+  CompositableForwarder* GetForwarder() const {
     return mLayerForwarder;
   }
 
@@ -180,7 +180,7 @@ class AutoLockShmemClient : public AutoLockTextureClient
 {
 public:
   AutoLockShmemClient(TextureClient* aTexture) : AutoLockTextureClient(aTexture) {}
-  bool Update(Image* aImage, uint32_t aContentFlags, gfxASurface* surface);
+  bool Update(Image* aImage, uint32_t aContentFlags, gfxPattern* pat);
 protected:
   bool EnsureTextureClient(nsIntSize aSize,
                            gfxASurface* surface,

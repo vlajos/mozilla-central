@@ -18,6 +18,7 @@ namespace layers {
 ImageClient::ImageClient(CompositableForwarder* aFwd)
 : CompositableClient(aFwd)
 , mLastPaintedImageSerial(0)
+, mFilter(gfxPattern::FILTER_GOOD)
 {}
 
 void
@@ -63,8 +64,7 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
   if (image->GetFormat() == PLANAR_YCBCR) {
     EnsureTextureClient(TEXTURE_YCBCR);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
-    /// TODO: this doesn't actually do anything, since we fallback to
-    // the normal code if it succeeds.
+
     if (false && ycbcr->AsSharedPlanarYCbCrImage()) { // WIP (nical)
       SurfaceDescriptor* desc = mTextureClient->LockSurfaceDescriptor();
       if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(*desc)) {
@@ -93,8 +93,16 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else {
     EnsureTextureClient(TEXTURE_SHMEM);
+
+    nsRefPtr<gfxPattern> pattern = new gfxPattern(surface);
+    pattern->SetFilter(mFilter);
+    gfxMatrix mat = pattern->GetMatrix();
+    mat.Scale(float(surface->GetSize().width) / mPictureRect.width,
+              float(surface->GetSize().height) / mPictureRect.height);
+    pattern->SetMatrix(mat);
+
     AutoLockShmemClient clientLock(mTextureClient);
-    if (!clientLock.Update(image, aContentFlags, surface)) {
+    if (!clientLock.Update(image, aContentFlags, pattern)) {
       NS_WARNING("failed to update TextureClient");
       return false;
     }

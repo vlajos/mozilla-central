@@ -9,6 +9,7 @@
 #include "mozilla/layers/LayersSurfaces.h"
 #include "CompositableClient.h"
 #include "TextureClient.h"
+#include "gfxPattern.h"
 
 namespace mozilla {
 namespace layers {
@@ -59,6 +60,7 @@ public:
                                               uint32_t aNumFormats) MOZ_OVERRIDE;
 
 protected:
+  gfxPattern::GraphicsFilter mFilter;
   int32_t mLastPaintedImageSerial;
   nsIntRect mPictureRect;
 };
