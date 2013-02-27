@@ -99,10 +99,6 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
 
     nsRefPtr<gfxPattern> pattern = new gfxPattern(surface);
     pattern->SetFilter(mFilter);
-    gfxMatrix mat = pattern->GetMatrix();
-    mat.Scale(float(surface->GetSize().width) / mPictureRect.width,
-              float(surface->GetSize().height) / mPictureRect.height);
-    pattern->SetMatrix(mat);
 
     AutoLockShmemClient clientLock(mTextureClient);
     if (!clientLock.Update(image, aContentFlags, pattern)) {

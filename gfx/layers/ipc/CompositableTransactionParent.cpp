@@ -52,7 +52,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       Layer* layer = GetLayerFromOpPaint(op);
       ShadowLayer* shadowLayer = layer ? layer->AsShadowLayer() : nullptr;
       if (shadowLayer) {
-        shadowLayer->SetAllocator(this);
         compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
       } else {
         NS_WARNING("Trying to paint before OpAttachAsyncTexture?");
@@ -118,7 +117,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
 
       textureParent->EnsureTextureHost(newFront.buffer().type());
 
-      thebes->SetAllocator(this);
       OptionalThebesBuffer newBack;
       nsIntRegion newValidRegion;
       OptionalThebesBuffer readOnlyFront;

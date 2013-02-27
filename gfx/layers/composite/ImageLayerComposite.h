@@ -27,8 +27,6 @@ public:
   ImageLayerComposite(LayerManagerComposite* aManager);
   virtual ~ImageLayerComposite();
 
-  virtual void SetAllocator(ISurfaceAllocator* aAllocator) {}
-
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   // ShadowImageLayer impl
@@ -41,8 +39,6 @@ public:
   virtual void Disconnect();
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
-
-  virtual void SetPictureRect(const nsIntRect& aPictureRect);
 
   // LayerOGL impl
   virtual void Destroy();

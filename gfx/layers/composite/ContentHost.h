@@ -111,13 +111,6 @@ public:
     return PaintState();
   }
 
-  virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
-  {
-    if (mTextureHost) {
-      mTextureHost->SetDeAllocator(aDeAllocator);
-    }
-  }
-
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
   {
     LayerRenderState result = mTextureHost->GetRenderState();

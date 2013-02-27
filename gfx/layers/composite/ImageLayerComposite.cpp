@@ -109,14 +109,6 @@ ImageLayerComposite::GetCompositableHost() {
 }
 
 void
-ImageLayerComposite::SetPictureRect(const nsIntRect& aPictureRect)
-{
-  if (mImageHost) {
-    mImageHost->SetPictureRect(aPictureRect);
-  }
-}
-
-void
 ImageLayerComposite::CleanupResources()
 {
   if (mImageHost) {

@@ -106,8 +106,6 @@ public:
 
   virtual TextureHost* GetTextureHost() { return nullptr; }
 
-  virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator) {}
-
   virtual LayerRenderState GetRenderState() = 0;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {

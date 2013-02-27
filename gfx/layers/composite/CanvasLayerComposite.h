@@ -38,8 +38,6 @@ public:
   // This isn't meaningful for shadow canvas.
   virtual void Updated(const nsIntRect&) {}
 
-  virtual void SetAllocator(ISurfaceAllocator* aAllocator);
-
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   // ShadowCanvasLayer impl

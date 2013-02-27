@@ -242,10 +242,6 @@ public:
   virtual void CleanupResources() {}
   virtual void SetCompositor(Compositor* aCompositor) {}
 
-  void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
-  {
-    mDeAllocator = aDeAllocator;
-  }
   ISurfaceAllocator* GetDeAllocator()
   {
     return mDeAllocator;

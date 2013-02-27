@@ -535,20 +535,6 @@ class ShadowLayer
 public:
   virtual ~ShadowLayer() {}
 
-  /**
-   * Set deallocator for data recieved from IPC protocol
-   * We should be able to set allocator right before swap call
-   * that is why allowed multiple call with the same Allocator
-   */
-  // XXX this is only used by non-Compositor ShadowLayers, Compositor ShadowLayers
-  // should override it and pass aAllocator to their image host
-  // remove when we move to Compositor everywhere
-  virtual void SetAllocator(ISurfaceAllocator* aAllocator)
-  {
-    NS_ASSERTION(!mAllocator || mAllocator == aAllocator, "Stomping allocator?");
-    mAllocator = aAllocator;
-  }
-
   virtual void DestroyFrontBuffer() { }
 
   /**
@@ -589,12 +575,10 @@ public:
 
 protected:
   ShadowLayer()
-    : mAllocator(nullptr)
-    , mShadowOpacity(1.0f)
+    : mShadowOpacity(1.0f)
     , mUseShadowClipRect(false)
   {}
 
-  ISurfaceAllocator* mAllocator;
   nsIntRegion mShadowVisibleRegion;
   gfx3DMatrix mShadowTransform;
   nsIntRect mShadowClipRect;
@@ -697,8 +681,6 @@ public:
    * @see ShadowCanvasLayer::Swap
    */
   virtual ShadowLayer* AsShadowLayer() { return this; }
-
-  virtual void SetPictureRect(const nsIntRect& aPictureRect) {}
 
   MOZ_LAYER_DECL_NAME("ShadowImageLayer", TYPE_SHADOW)
 

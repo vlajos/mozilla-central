@@ -177,12 +177,6 @@ ThebesLayerComposite::CleanupResources()
   DestroyFrontBuffer();
 }
 
-void
-ThebesLayerComposite::SetAllocator(ISurfaceAllocator* aAllocator)
-{
-  mBuffer->SetDeAllocator(aAllocator);
-}
-
 gfxSize
 ThebesLayerComposite::GetEffectiveResolution()
 {
