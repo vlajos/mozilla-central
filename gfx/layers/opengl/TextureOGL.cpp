@@ -100,6 +100,12 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 
   // XXX - Bas - Get YFlip data out!
+  ComputeFormat();
+}
+
+void
+TextureImageTextureHostOGL::ComputeFormat()
+{
   switch (mTexture->GetShaderProgramType()) {
   case gl::RGBXLayerProgramType :
     mFormat = FORMAT_R8G8B8X8;
@@ -114,10 +120,8 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
     mFormat = FORMAT_B8G8R8A8;
     break;
   default:
-    // FIXME [bjacob] unhandled cases were reported as GCC warnings; with this,
-    // at least we'll known if we run into them.
     MOZ_NOT_REACHED("unhandled program type");
-  }
+  } 
 }
 
 bool

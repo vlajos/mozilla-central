@@ -80,6 +80,9 @@ public:
   : TextureHost(aDeallocator), mTexture(aTexImage), mGL(aGL)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
+    if (aTexImage) {
+      ComputeFormat();
+    }
   }
 
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
@@ -178,6 +181,9 @@ public:
 #endif
 
 protected:
+  // Compute and set mFormat based on mTexture
+  void ComputeFormat();
+
   RefPtr<gl::TextureImage> mTexture;
   gl::GLContext* mGL;
 };
@@ -510,6 +516,12 @@ public:
   {
     return GetProgramTypeForTexture(this);
   }
+
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                bool* aIsInitialised = nullptr,
+                                bool* aNeedsReset = nullptr,
+                                nsIntRegion* aRegion = nullptr)
+  { MOZ_ASSERT(false, "Tiles should not use this path"); }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual const char* Name() { return "TiledTextureHostOGL"; }

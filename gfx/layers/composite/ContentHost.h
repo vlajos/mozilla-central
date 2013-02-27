@@ -18,8 +18,7 @@ class OptionalThebesBuffer;
 struct TexturedEffect;
 
 // Base class for Thebes layer buffers, used by main thread and off-main thread
-// compositing. This is the only place we use *Hosts/*Clients for main thread
-// compositing.
+// compositing. Unusually, we use *Hosts/*Clients for main thread compositing.
 class CompositingThebesLayerBuffer
 {
   NS_INLINE_DECL_REFCOUNTING(CompositingThebesLayerBuffer)

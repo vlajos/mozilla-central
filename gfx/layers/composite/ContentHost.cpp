@@ -40,11 +40,10 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  // TODO[BenWa] sorry, please use mCompositor->CreateEffect()
-  Effect* effect = nullptr; // new EffectBGRA(mTextureHost->AsTextureSource(), false, aFilter, false);
+  RefPtr<TexturedEffect> effect = CreateTexturedEffect(mTextureHost, aFilter);
   aEffectChain.mPrimaryEffect = effect;
-  NS_RUNTIMEABORT("Not implemented");
 #if 0
+  // TODO[Bas] - Disabled as per new Lock API.
   if (RefPtr<Effect> effect = mTextureHost->Lock(aFilter)) {
     if (mTextureHostOnWhite) {
       if (RefPtr<Effect> effectOnWhite = mTextureHostOnWhite->Lock(aFilter)) {
@@ -61,9 +60,6 @@ CompositingThebesLayerBuffer::Composite(EffectChain& aEffectChain,
   } else {
     return;
   }
-#else
-  // XXX - Bas - Disabled as per new Lock API.
-  //return;
 #endif
 
   nsIntRegion tmpRegion;
@@ -204,8 +200,6 @@ ContentHost::~ContentHost()
 void 
 ContentHost::AddTextureHost(TextureHost* aTextureHost)
 {
-  //TODO[nrc] I would like to be able to assert that we can cope with the texture host
-  // are we sure we don't have to?
   mTextureHost = aTextureHost;
 }
 

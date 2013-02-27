@@ -32,7 +32,8 @@ TextureHost::~TextureHost()
       mDeAllocator->DestroySharedSurface(mBuffer);
     } else {
       MOZ_ASSERT(mBuffer->type() == SurfaceDescriptor::Tnull_t);
-    }    delete mBuffer;
+    }
+    delete mBuffer;
   }
   MOZ_COUNT_DTOR(TextureHost);
 }
@@ -53,12 +54,11 @@ void TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
 {
   SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
 
-  if (mBuffer) {
-    if (aResult) {
-      *aResult = *mBuffer;
-    }
-    *mBuffer = aImage;
+  MOZ_ASSERT(mBuffer, "trying to swap a non-buffered texture host?");
+  if (aResult) {
+    *aResult = *mBuffer;
   }
+  *mBuffer = aImage;
 }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
