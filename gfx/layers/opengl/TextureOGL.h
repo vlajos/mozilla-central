@@ -181,9 +181,6 @@ public:
 #endif
 
 protected:
-  // Compute and set mFormat based on mTexture
-  void ComputeFormat();
-
   RefPtr<gl::TextureImage> mTexture;
   gl::GLContext* mGL;
 };
@@ -422,7 +419,7 @@ public:
                                 bool* aNeedsReset = nullptr,
                                 nsIntRegion* aRegion = nullptr);
   virtual bool Lock();
-  virtual void Unlock() {}
+  virtual void Unlock();
 
   virtual GLenum GetWrapMode() const {
     return mWrapMode;

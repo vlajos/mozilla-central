@@ -83,13 +83,13 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     return;
   }
 
-  RefPtr<TexturedEffect> effect =
-    CreateTexturedEffect(mTextureHost, aFilter);
-
   if (!mTextureHost->Lock()) {
     MOZ_ASSERT(false, "failed to lock texture host");
     return;
   }
+  
+  RefPtr<TexturedEffect> effect =
+    CreateTexturedEffect(mTextureHost, aFilter);
   
   aEffectChain.mPrimaryEffect = effect;
 

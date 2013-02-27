@@ -64,6 +64,26 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
+gfx::SurfaceFormat FormatFromShaderType(ShaderProgramType aShaderType)
+{
+  switch (aShaderType) {
+  case RGBALayerProgramType:
+  case RGBALayerExternalProgramType:
+  case RGBARectLayerProgramType:
+  case RGBAExternalLayerProgramType:
+    return FORMAT_R8G8B8A8;
+  case RGBXLayerProgramType:
+    return FORMAT_R8G8B8X8;
+  case BGRALayerProgramType:
+    return FORMAT_B8G8R8A8;
+  case BGRXLayerProgramType:
+    return FORMAT_B8G8R8X8;
+  default:
+    MOZ_NOT_REACHED("Unsupported texture shader type");
+    return FORMAT_UNKNOWN;
+  }
+}
+
 void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                               bool* aIsInitialised,
                                               bool* aNeedsReset,
@@ -100,28 +120,7 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   }
 
   // XXX - Bas - Get YFlip data out!
-  ComputeFormat();
-}
-
-void
-TextureImageTextureHostOGL::ComputeFormat()
-{
-  switch (mTexture->GetShaderProgramType()) {
-  case gl::RGBXLayerProgramType :
-    mFormat = FORMAT_R8G8B8X8;
-    break;
-  case gl::RGBALayerProgramType :
-    mFormat = FORMAT_R8G8B8A8;
-    break;
-  case gl::BGRXLayerProgramType :
-    mFormat = FORMAT_B8G8R8X8;
-    break;
-  case gl::BGRALayerProgramType :
-    mFormat = FORMAT_B8G8R8A8;
-    break;
-  default:
-    MOZ_NOT_REACHED("unhandled program type");
-  } 
+  mFormat = FormatFromShaderType(mTexture->GetShaderProgramType());
 }
 
 bool
@@ -182,14 +181,7 @@ SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
   if (mGL->GetSharedHandleDetails(mShareType, mSharedHandle, handleDetails)) {
     mTextureTarget = handleDetails.mTarget;
     mShaderProgram = handleDetails.mProgramType;
-    if (mFlags & UseOpaqueSurface) {
-      mFormat = gfx::FORMAT_B8G8R8X8;
-    } else if (mShaderProgram == gl::RGBALayerProgramType ||
-               mShaderProgram == gl::RGBARectLayerProgramType) {
-      mFormat = gfx::FORMAT_B8G8R8A8;
-    } else {
-      NS_RUNTIMEABORT("Shader type not yet supported");
-    }
+    mFormat = FormatFromShaderType(mShaderProgram);
   }
 
   if (aIsInitialised) {
@@ -228,13 +220,16 @@ SurfaceStreamHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSurfaceStreamDescriptor,
               "Invalid descriptor");
 
-  // TODO: Can we read this without have to call SwapConsumer, or is it
-  // fine to call SwapConsumer at this point.
-  mFormat = gfx::FORMAT_B8G8R8A8;
-
   if (aIsInitialised) {
     *aIsInitialised = true;
   }
+}
+
+void
+SurfaceStreamHostOGL::Unlock()
+{
+  // We don't know what this is unless we're locked
+  mFormat = gfx::FORMAT_UNKNOWN;
 }
 
 bool
@@ -257,7 +252,6 @@ SurfaceStreamHostOGL::Lock()
 
   mGL->MakeCurrent();
 
-  mFormat = sharedSurf->HasAlpha() ? gfx::FORMAT_B8G8R8A8 : gfx::FORMAT_B8G8R8X8;
   mSize = IntSize(sharedSurf->Size().width, sharedSurf->Size().height);
 
   gfxImageSurface* toUpload = nullptr;
@@ -304,6 +298,8 @@ SurfaceStreamHostOGL::Lock()
                                                  true);
     mTextureHandle = mUploadTexture;
   }
+    
+  mFormat = FormatFromShaderType(mShaderProgram);
 
   MOZ_ASSERT(mTextureHandle);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
