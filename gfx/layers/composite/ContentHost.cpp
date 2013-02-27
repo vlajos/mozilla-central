@@ -674,7 +674,6 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
 {
   MOZ_ASSERT(aTile.mTextureHost, "Trying to render a placeholder tile?");
 
-  //TODO y flip
   RefPtr<TexturedEffect> effect =
     CreateTexturedEffect(aTile.mTextureHost, aFilter);
   if (aTile.mTextureHost->Lock()) {
