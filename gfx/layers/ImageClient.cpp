@@ -53,8 +53,7 @@ ImageClientTexture::EnsureTextureClient(TextureClientType aType)
 bool
 ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
 {
-  nsRefPtr<gfxASurface> surface;
-  AutoLockImage autoLock(aContainer, getter_AddRefs(surface));
+  AutoLockImage autoLock(aContainer);
   Image *image = autoLock.GetImage();
 
   if (mLastPaintedImageSerial == image->GetSerial()) {
@@ -92,6 +91,10 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
                                     data->mInverted);
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else {
+    nsRefPtr<gfxASurface> surface;
+    surface = image->GetAsSurface();
+    MOZ_ASSERT(surface);
+
     EnsureTextureClient(TEXTURE_SHMEM);
 
     nsRefPtr<gfxPattern> pattern = new gfxPattern(surface);

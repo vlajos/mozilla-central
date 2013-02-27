@@ -64,7 +64,6 @@ ImageBridgeParent::RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply)
   // other's buffer contents.
   ShadowLayerManager::PlatformSyncBeforeReplyUpdate();
 
-  // TODO[nical] schedule composition
   return true;
 }
 

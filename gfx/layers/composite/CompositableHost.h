@@ -75,7 +75,10 @@ public:
 
   virtual void AddTextureHost(TextureHost* aTextureHost) = 0;
 
-  void Update(const SurfaceDescriptor& aImage,
+  /**
+   * @return true if we should schedule a composition.
+   */
+  bool Update(const SurfaceDescriptor& aImage,
               SurfaceDescriptor* aResult = nullptr,
               bool* aIsInitialised = nullptr,
               bool* aNeedsReset = nullptr);

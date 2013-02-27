@@ -45,20 +45,6 @@ ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
     // TODO: right now Compositables are not responsible for setting their
     // textures this will change when we remove PTexture.
     return aImage;
-
-    TextureInfo id = aTextureInfo;
-    id.textureFlags = mTextureHost->GetFlags();
-    GetCompositor()->FallbackTextureInfo(id);
-    mTextureHost = GetCompositor()->CreateTextureHost(aImage.type(),
-                                                      id.textureHostFlags,
-                                                      id.textureFlags,
-                                                      IsBuffered(),
-                                                      mTextureHost->GetDeAllocator());
-    Update(aImage, &result, &success);
-    if (!success) {
-      mTextureHost = nullptr;
-      NS_ASSERTION(result.type() == SurfaceDescriptor::Tnull_t, "fail should give null result");
-    }
   }
   return result;
 }
@@ -73,8 +59,12 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                            const nsIntRegion* aVisibleRegion,
                            TiledLayerProperties* aLayerProperties)
 {
-  if (!mTextureHost || !mTextureHost->IsValid()) {
+  if (!mTextureHost) {
     NS_WARNING("Can't composite an invalid or null TextureHost");
+    return;
+  }
+
+  if (!mTextureHost->IsValid()) {
     return;
   }
 

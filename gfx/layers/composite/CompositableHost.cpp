@@ -13,21 +13,21 @@
 namespace mozilla {
 namespace layers {
 
-void CompositableHost::Update(const SurfaceDescriptor& aImage,
+bool CompositableHost::Update(const SurfaceDescriptor& aImage,
                         SurfaceDescriptor* aResult,
                         bool* aIsInitialised,
                         bool* aNeedsReset) {
   if (!GetTextureHost()) {
     *aResult = aImage;
-    return;
+    return false;
   }
-
   if (IsBuffered()) {
     GetTextureHost()->SwapTextures(aImage, aResult, aIsInitialised, aNeedsReset);
   } else {
     GetTextureHost()->Update(aImage, aIsInitialised, aNeedsReset);
     *aResult = aImage;
   }
+  return GetTextureHost()->IsValid();
 }
 
 bool CompositableHost::AddMaskEffect(EffectChain& aEffects,

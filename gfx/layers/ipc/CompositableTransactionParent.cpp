@@ -65,11 +65,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         compositable->SetCompositor(compositor);
       }
       textureParent->EnsureTextureHost(descriptor.type());
-      if (textureParent->GetCompositorID()) {
-        CompositorParent* cp
-          = CompositorParent::GetCompositor(textureParent->GetCompositorID());
-        cp->ScheduleComposition();
-      }
       if (!textureParent->GetTextureHost()) {
         NS_WARNING("failed to create the texture host");
         // in this case we keep the surface descriptor in the texture parent in
@@ -84,8 +79,16 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       }
 
       SurfaceDescriptor newBack;
-      compositable->Update(op.image(), &newBack);
+      bool shouldRecomposite = compositable->Update(op.image(), &newBack);
       replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
+
+      MOZ_ASSERT(shouldRecomposite);
+      if (shouldRecomposite && textureParent->GetCompositorID()) {
+        CompositorParent* cp
+          = CompositorParent::GetCompositor(textureParent->GetCompositorID());
+        MOZ_ASSERT(cp);
+        cp->ScheduleComposition();
+      }
 
       if (layer) {
         RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
