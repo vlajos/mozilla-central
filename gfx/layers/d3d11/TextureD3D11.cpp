@@ -45,10 +45,16 @@ TextureClientD3D11::TextureClientD3D11(CompositableForwarder* aCompositableForwa
   mTextureInfo.compositableType = aCompositableType;
 }
 
+TextureClientD3D11::~TextureClientD3D11()
+{
+  mDescriptor = SurfaceDescriptor();
+}
+
 void
 TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
 {
   D3D10_TEXTURE2D_DESC desc;
+
   if (mTexture) {
     mTexture->GetDesc(&desc);
 
@@ -60,6 +66,8 @@ TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
       return;
     }
   }
+
+  mSize = aSize;
 
   ID3D10Device *device = gfxWindowsPlatform::GetPlatform()->GetD3D10Device();
 
@@ -97,19 +105,29 @@ TextureClientD3D11::LockSurface()
   EnsureSurface();
 
   LockTexture();
+  mSurface->SetAllowUseAsSource(true);
   return mSurface.get();
 }
 
 void
 TextureClientD3D11::Unlock()
 {
+  // TODO - Things seem to believe they can hold on to our surface... well...
+  // They shouldn't!!
+  mSurface->SetAllowUseAsSource(false);
   ReleaseTexture();
 }
 
 void
 TextureClientD3D11::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 {
+  if (aDescriptor.type() == SurfaceDescriptor::Tnull_t) {
+    EnsureTextureClient(mSize, mContentType);
+    return;
+  }
+
   mDescriptor = aDescriptor;
+  mSurface = nullptr;
 
   MOZ_ASSERT(aDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
   ID3D10Device *device = gfxWindowsPlatform::GetPlatform()->GetD3D10Device();
@@ -117,8 +135,6 @@ TextureClientD3D11::SetDescriptor(const SurfaceDescriptor& aDescriptor)
   device->OpenSharedResource((HANDLE)aDescriptor.get_SurfaceDescriptorD3D10().handle(),
                              __uuidof(ID3D10Texture2D),
                              (void**)(ID3D10Texture2D**)byRef(mTexture));
-
-  mSurface = nullptr;
 }
 
 void
@@ -131,7 +147,6 @@ TextureClientD3D11::EnsureSurface()
   LockTexture();
   mSurface = new gfxD2DSurface(mTexture, mContentType);
   ReleaseTexture();
-  mSurface->SetAllowUseAsSource(false);
 }
 
 void
@@ -291,7 +306,7 @@ TextureHostDXGID3D11::Unlock()
 
 void
 TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
-                             bool *aNeedsReset, nsIntRegion *aRegion)
+                                       bool *aNeedsReset, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
   
@@ -303,6 +318,10 @@ TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, bool *aI
   mTextures[0]->GetDesc(&desc);
 
   mSize = IntSize(desc.Width, desc.Height);
+
+  if (aIsInitialised) {
+    *aIsInitialised = true;
+  }
 }
 
 void

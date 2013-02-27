@@ -125,9 +125,9 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       nsIntRegion frontUpdatedRegion;
       compositable->UpdateThebes(newFront,
                                  op.updatedRegion(),
-                                 &newBack,
-                                 thebes->GetValidRegion(),
                                  &readOnlyFront,
+                                 thebes->GetValidRegion(),
+                                 &newBack,
                                  &newValidRegion,
                                  &frontUpdatedRegion);
       replyv.push_back(

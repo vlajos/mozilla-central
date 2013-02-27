@@ -56,11 +56,10 @@ public:
 
   virtual void EmptyBufferUpdate() {}
 
-  virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
-                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                              const nsIntRegion& aFrontUpdatedRegion,
-                              const nsIntRect& aBufferRect,
-                              const nsIntPoint& aBufferRotation) {}
+  virtual void SwapBuffers(const ThebesBuffer &aBackBuffer,
+                           const nsIntRegion& aValidRegion,
+                           const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                           const nsIntRegion& aFrontUpdatedRegion) {}
 
   // call before and after painting into this content client
   virtual void BeginPaint() {}
@@ -95,6 +94,8 @@ public:
     : ContentClient(aForwarder)
     , mTextureClient(nullptr)
     , mIsNewBuffer(false)
+    , mFrontAndBackBufferDiffer(false)
+    , mContentType(gfxASurface::CONTENT_COLOR_ALPHA)
   {}
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
@@ -145,6 +146,8 @@ protected:
 
   bool mIsNewBuffer;
   bool mFrontAndBackBufferDiffer;
+  ContentType mContentType;
+  gfx::IntSize mSize;
 };
 
 class ContentClientDirect : public ContentClientRemote
@@ -160,11 +163,10 @@ public:
     return BUFFER_CONTENT_DIRECT;
   }
 
-  virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
-                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                              const nsIntRegion& aFrontUpdatedRegion,
-                              const nsIntRect& aBufferRect,
-                              const nsIntPoint& aBufferRotation) MOZ_OVERRIDE;
+  virtual void SwapBuffers(const ThebesBuffer &aBackBuffer,
+                           const nsIntRegion& aValidRegion,
+                           const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                           const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
   virtual void SyncFrontBufferToBackBuffer();
 
@@ -178,13 +180,14 @@ private:
     SetBuffer(aBuffer, aRect, aRotation);
   }
 
-  void SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
-                                     gfxASurface* aSource,
-                                     const nsIntRect& aRect,
-                                     const nsIntPoint& aRotation,
-                                     const nsIntRegion& aUpdateRegion);
+  void UpdateDestinationFrom(gfxASurface* aDestination,
+                             gfxASurface* aSource,
+                             const nsIntRect& aRect,
+                             const nsIntPoint& aRotation,
+                             const nsIntRegion& aUpdateRegion);
 
   OptionalThebesBuffer mROFrontBuffer;
+  RefPtr<TextureClient> mROFrontClient;
   nsIntRegion mFrontUpdatedRegion;
 };
 
@@ -195,11 +198,10 @@ public:
     : ContentClientRemote(aFwd)
   {}
 
-  virtual void SetBufferAttrs(const nsIntRegion& aValidRegion,
-                              const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                              const nsIntRegion& aFrontUpdatedRegion,
-                              const nsIntRect& aBufferRect,
-                              const nsIntPoint& aBufferRotation) MOZ_OVERRIDE;
+  virtual void SwapBuffers(const ThebesBuffer &aBackBuffer,
+                           const nsIntRegion& aValidRegion,
+                           const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                           const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
   virtual void EmptyBufferUpdate() MOZ_OVERRIDE
   {

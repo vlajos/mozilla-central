@@ -62,6 +62,7 @@ class TextureClientD3D11 : public TextureClient
 {
 public:
   TextureClientD3D11(CompositableForwarder* aCompositableForwarder, CompositableType aCompositableType);
+  ~TextureClientD3D11();
 
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
@@ -77,6 +78,7 @@ private:
 
   RefPtr<ID3D10Texture2D> mTexture;
   nsRefPtr<gfxD2DSurface> mSurface;
+  gfx::IntSize mSize;
   gfxContentType mContentType;
 };
 

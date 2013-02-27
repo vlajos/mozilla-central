@@ -1246,12 +1246,10 @@ BasicShadowLayerManager::ForwardTransaction()
           textureClient->SetDescriptor(SurfaceDescriptor());
           contentClient->EmptyBufferUpdate();
         } else {
-          textureClient->SetDescriptor(obs.newBackBuffer().get_ThebesBuffer().buffer());
-          contentClient->SetBufferAttrs(obs.newValidRegion(),
-                                        obs.readOnlyFrontBuffer(),
-                                        obs.frontUpdatedRegion(),
-                                        obs.newBackBuffer().get_ThebesBuffer().rect(),
-                                        obs.newBackBuffer().get_ThebesBuffer().rotation());
+          contentClient->SwapBuffers(obs.newBackBuffer().get_ThebesBuffer(),
+                                     obs.newValidRegion(),
+                                     obs.readOnlyFrontBuffer(),
+                                     obs.frontUpdatedRegion());
         }
 
         break;

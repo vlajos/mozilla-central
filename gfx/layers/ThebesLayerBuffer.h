@@ -225,7 +225,7 @@ protected:
   
   static bool IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegion);
 
-private:
+protected:
   // Buffer helpers.  Don't use mBuffer directly; instead use one of
   // these helpers.
 

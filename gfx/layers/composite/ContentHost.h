@@ -76,6 +76,7 @@ public:
   // Subclasses should implement this method if they support being used as a tiled buffer
   virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
 
+  virtual bool IsBuffered() { return true; }
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }

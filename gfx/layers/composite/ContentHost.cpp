@@ -386,30 +386,30 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
 }
 
 void
-ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
+ContentHostDirect::UpdateThebes(const ThebesBuffer& aFront,
                                 const nsIntRegion& aUpdated,
                                 OptionalThebesBuffer* aNewFront,
                                 const nsIntRegion& aOldValidRegionBack,
-                                OptionalThebesBuffer* aNewBackResult,
+                                OptionalThebesBuffer* aNewBack,
                                 nsIntRegion* aNewValidRegionFront,
                                 nsIntRegion* aUpdatedRegionBack)
 {
-  mBufferRect = aNewBack.rect();
-  mBufferRotation = aNewBack.rotation();
+  mBufferRect = aFront.rect();
+  mBufferRotation = aFront.rotation();
 
   if (!mTextureHost) {
     *aNewFront = null_t();
     mInitialised = false;
 
     aNewValidRegionFront->SetEmpty();
-    *aNewBackResult = null_t();
+    *aNewBack = null_t();
     *aUpdatedRegionBack = aUpdated;
     return;
   }
 
   bool needsReset;
   SurfaceDescriptor newFrontBuffer;
-  Update(aNewBack.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
+  Update(aFront.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
   
   if (!mInitialised) {
     // XXX if this happens often we could fallback to a different kind of
@@ -420,19 +420,19 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aNewBack,
     mInitialised = false;
 
     aNewValidRegionFront->SetEmpty();
-    *aNewBackResult = null_t();
+    *aNewBack = null_t();
     *aUpdatedRegionBack = aUpdated;
     return;
   }
 
-  *aNewFront = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
+  *aNewBack = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
+  *aNewFront = aFront;
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.
   aNewValidRegionFront->Sub(needsReset ? nsIntRegion()
                                        : mValidRegionForNextBackBuffer, 
                             aUpdated);
-  *aNewBackResult = *aNewFront;
   *aUpdatedRegionBack = aUpdated;
 
   // Save the current valid region of our front buffer, because if

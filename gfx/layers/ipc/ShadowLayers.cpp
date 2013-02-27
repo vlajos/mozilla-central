@@ -585,6 +585,8 @@ ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
     case SurfaceDescriptor::TRGBImage:
       DeallocShmem(aSurface->get_RGBImage().data());
       break;
+    case SurfaceDescriptor::TSurfaceDescriptorD3D10:
+      break;
     case SurfaceDescriptor::Tnull_t:
     case SurfaceDescriptor::T__None:
       printf("    DestroySharedSurface: empty surface\n");

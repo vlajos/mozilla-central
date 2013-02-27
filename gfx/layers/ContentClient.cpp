@@ -102,15 +102,21 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
                                        aFlags);
 
-  mTextureClient->EnsureTextureClient(gfx::IntSize(aSize.width, aSize.height),
+  mSize = gfx::IntSize(aSize.width, aSize.height);
+  mTextureClient->EnsureTextureClient(mSize,
                                       aType);
   nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
+
+  mContentType = aType;
+
   return ret.forget();
 }
 
 void
 ContentClientRemote::BeginPaint()
 {
+  // WOAH! Crazy! So we might not have a TextureClient yet.. because it will
+  // only be created by CreateBuffer.. which will deliver a locked surface!.
   if (mTextureClient) {
     SetBuffer(mTextureClient->LockSurface());
   }
@@ -119,9 +125,12 @@ ContentClientRemote::BeginPaint()
 void
 ContentClientRemote::EndPaint()
 {
+  // More WOAH! We might still not have a texture client if PaintThebes
+  // decided we didn't need one yet because the region to draw was empty.
   if (mTextureClient) {
     mTextureClient->Unlock();
   }
+
   SetBuffer(nullptr);
   mOldTextures.Clear();
 }
@@ -178,17 +187,28 @@ ContentClientDirect::~ContentClientDirect()
 }
 
 void
-ContentClientDirect::SetBufferAttrs(const nsIntRegion& aValidRegion,
-                                    const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                    const nsIntRegion& aFrontUpdatedRegion,
-                                    const nsIntRect& aBufferRect,
-                                    const nsIntPoint& aBufferRotation)
+ContentClientDirect::SwapBuffers(const ThebesBuffer &aBackBuffer,
+                                 const nsIntRegion& aValidRegion,
+                                 const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                                 const nsIntRegion& aFrontUpdatedRegion)
 {
   MOZ_ASSERT(OptionalThebesBuffer::Tnull_t != aReadOnlyFrontBuffer.type());
 
   mFrontAndBackBufferDiffer = true;
   mROFrontBuffer = aReadOnlyFrontBuffer;
   mFrontUpdatedRegion = aFrontUpdatedRegion;
+
+  RefPtr<TextureClient> oldBack = mTextureClient;
+  mTextureClient = mROFrontClient;
+  mROFrontClient = oldBack;
+
+  if (!mTextureClient) {
+    mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
+                                         0);
+    mTextureClient->EnsureTextureClient(mSize, mContentType);
+  }
+  mTextureClient->SetDescriptor(aBackBuffer.buffer());
+  mROFrontClient->SetDescriptor(aReadOnlyFrontBuffer.get_ThebesBuffer().buffer());
 }
 
 struct AutoTextureClient {
@@ -218,23 +238,10 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
     return;
   }
 
-  gfxASurface* backBuffer = GetBuffer();
-
-  if (!mTextureClient) {
-    MOZ_ASSERT(!backBuffer);
-    MOZ_ASSERT(mROFrontBuffer.type() == OptionalThebesBuffer::TThebesBuffer);
-    const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
-    AutoOpenSurface roFrontBuffer(OPEN_READ_ONLY, roFront.buffer());
-    nsIntSize size = roFrontBuffer.Size();
-    // TODO[nrc] we only want AllowRepeat if we allow buffer rotation, but we
-    // have no idea here
-    CreateBuffer(roFrontBuffer.ContentType(), size, AllowRepeat);
-  }
+  MOZ_ASSERT(mROFrontClient);
 
   AutoTextureClient autoTexture;
-  if (!backBuffer) {
-    backBuffer = autoTexture.GetSurface(mTextureClient);
-  }
+  nsRefPtr<gfxASurface> frontBuffer = autoTexture.GetSurface(mROFrontClient);
 
   MOZ_LAYERS_LOG(("BasicShadowableThebes(%p): reading back <x=%d,y=%d,w=%d,h=%d>",
                   this,
@@ -245,24 +252,24 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
 
   //TODO[nrc] if we hit the !mTextureClient path above we are repeating some work here
   const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
-  AutoOpenSurface autoROFront(OPEN_READ_ONLY, roFront.buffer());
-  SetBackingBufferAndUpdateFrom(backBuffer,
-                                autoROFront.Get(),
-                                roFront.rect(),
-                                roFront.rotation(),
-                                mFrontUpdatedRegion);
+  UpdateDestinationFrom(GetBuffer(),
+                        frontBuffer,
+                        roFront.rect(),
+                        roFront.rotation(),
+                        mFrontUpdatedRegion);
   mIsNewBuffer = false;
   mFrontAndBackBufferDiffer = false;
 }
 
 void
-ContentClientDirect::SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
-                                                   gfxASurface* aSource,
-                                                   const nsIntRect& aRect,
-                                                   const nsIntPoint& aRotation,
-                                                   const nsIntRegion& aUpdateRegion)
+ContentClientDirect::UpdateDestinationFrom(gfxASurface* aBuffer,
+                                           gfxASurface* aSource,
+                                           const nsIntRect& aRect,
+                                           const nsIntPoint& aRotation,
+                                           const nsIntRegion& aUpdateRegion)
 {
-  SetBackingBuffer(aBuffer, aRect, aRotation);
+  mBufferRect = aRect;
+  mBufferRotation = aRotation;
   nsRefPtr<gfxContext> destCtx =
     GetContextForQuadrantUpdate(aUpdateRegion.GetBounds());
   destCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
@@ -279,11 +286,10 @@ ContentClientDirect::SetBackingBufferAndUpdateFrom(gfxASurface* aBuffer,
 }
 
 void
-ContentClientTexture::SetBufferAttrs(const nsIntRegion& aValidRegion,
-                                     const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                     const nsIntRegion& aFrontUpdatedRegion,
-                                     const nsIntRect& aBufferRect,
-                                     const nsIntPoint& aBufferRotation)
+ContentClientTexture::SwapBuffers(const ThebesBuffer &aBackBuffer,
+                                  const nsIntRegion& aValidRegion,
+                                  const OptionalThebesBuffer& aReadOnlyFrontBuffer,
+                                  const nsIntRegion& aFrontUpdatedRegion)
 {
   // We didn't get back a read-only ref to our old back buffer (the
   // parent's new front buffer).  If the parent is pushing updates
@@ -291,8 +297,8 @@ ContentClientTexture::SetBufferAttrs(const nsIntRegion& aValidRegion,
   // we pushed in the update and all is well.  If not, ...
   MOZ_ASSERT(OptionalThebesBuffer::Tnull_t == aReadOnlyFrontBuffer.type());
 
-  mBackBufferRect = aBufferRect;
-  mBackBufferRectRotation = aBufferRotation;
+  mBackBufferRect = aBackBuffer.rect();
+  mBackBufferRectRotation = aBackBuffer.rotation();
   mFrontAndBackBufferDiffer = true;
 }
 
