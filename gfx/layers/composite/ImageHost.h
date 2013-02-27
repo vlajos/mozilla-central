@@ -61,13 +61,6 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr,
                          TiledLayerProperties* aLayerProperties = nullptr);
 
-  virtual void SetDeAllocator(ISurfaceAllocator* aDeAllocator)
-  {
-    if (mTextureHost) {
-      mTextureHost->SetDeAllocator(aDeAllocator);
-    }
-  }
-
   virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE
   {
     mPictureRect = aPictureRect;

@@ -131,12 +131,6 @@ CanvasLayerComposite::CleanupResources()
   mImageHost = nullptr;
 }
 
-void
-CanvasLayerComposite::SetAllocator(ISurfaceAllocator* aAllocator)
-{
-  mImageHost->SetDeAllocator(aAllocator);
-}
-
 #ifdef MOZ_LAYERS_HAVE_LOG
 nsACString&
 CanvasLayerComposite::PrintInfo(nsACString& aTo, const char* aPrefix)
