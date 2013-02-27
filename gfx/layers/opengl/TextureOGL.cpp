@@ -98,7 +98,7 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
     mTexture = mGL->CreateTextureImage(size,
                                        surf.ContentType(),
                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                       FlagsToGLFlags(mFlags)).get();
+                                       FlagsToGLFlags(mFlags));
   }
 
   // XXX this is always just ridiculously slow

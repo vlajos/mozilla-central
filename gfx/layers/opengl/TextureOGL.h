@@ -181,7 +181,7 @@ public:
 #endif
 
 protected:
-  RefPtr<gl::TextureImage> mTexture;
+  nsRefPtr<gl::TextureImage> mTexture;
   gl::GLContext* mGL;
 };
 
