@@ -35,7 +35,7 @@ TextureClient::TextureClient(CompositableForwarder* aForwarder,
 
 TextureClient::~TextureClient()
 {
-  ReleaseResources();
+  MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::T__None, "Need to release surface!");
 }
 
 void
@@ -55,6 +55,7 @@ TextureClient::Destroyed()
   // The owning layer must be locked at some point in the chain of callers
   // by calling Hold.
   mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
+  ReleaseResources();
 }
 
 void

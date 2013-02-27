@@ -206,6 +206,7 @@ class TextureClientShmem : public TextureClient
 {
 public:
   TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+  ~TextureClientShmem() { ReleaseResources(); }
 
   virtual already_AddRefed<gfxContext> LockContext();
   virtual gfxImageSurface* LockImageSurface();
@@ -232,6 +233,7 @@ public:
   TextureClientShmemYCbCr(CompositableForwarder* aForwarder, CompositableType aCompositableType)
     : TextureClient(aForwarder, aCompositableType)
   { }
+  ~TextureClientShmemYCbCr() { ReleaseResources(); }
 
   void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
   
@@ -244,6 +246,7 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+  ~TextureClientSharedGL() { ReleaseResources(); }
   
   virtual void ReleaseResources();
 protected:
@@ -271,10 +274,11 @@ public:
   TextureClientStreamGL(CompositableForwarder* aForwarder, CompositableType aCompositableType)
     : TextureClient(aForwarder, aCompositableType)
   {}
+  ~TextureClientStreamGL() { ReleaseResources(); }
   
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) { }
 
-  virtual void ReleaseResources() {}
+  virtual void ReleaseResources() { mDescriptor = SurfaceDescriptor(); }
 };
 
 // there is no corresponding texture host for ImageBridge clients
