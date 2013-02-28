@@ -107,6 +107,7 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
     }
   }
   mLastPaintedImageSerial = image->GetSerial();
+  aContainer->NotifyPaintedImage(image);
   return true;
 }
 
@@ -142,6 +143,8 @@ ImageClientBridge::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
   }
   mAsyncContainerID = aContainer->GetAsyncContainerID();
   GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, mLayer);
+  AutoLockImage autoLock(aContainer);
+  aContainer->NotifyPaintedImage(autoLock.GetImage());
   return true;
 }
 
