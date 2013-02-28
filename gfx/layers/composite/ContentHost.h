@@ -278,7 +278,6 @@ private:
 };
 
 class TiledThebesLayerComposite;
-class ReusableTileStoreComposite;
 
 class TiledContentHost : public AContentHost,
                          public TiledLayerComposer
@@ -288,7 +287,6 @@ public:
     : AContentHost(aCompositor)
     , mVideoMemoryTiledBuffer(aCompositor)
     , mLowPrecisionVideoMemoryTiledBuffer(aCompositor)
-    , mReusableTileStore(nullptr)
     , mPendingUpload(false)
     , mPendingLowPrecisionUpload(false)
   {}
@@ -370,7 +368,6 @@ private:
   BasicTiledLayerBuffer        mLowPrecisionMainMemoryTiledBuffer;
   TiledLayerBufferComposite    mVideoMemoryTiledBuffer;
   TiledLayerBufferComposite    mLowPrecisionVideoMemoryTiledBuffer;
-  ReusableTileStoreComposite*  mReusableTileStore;
   TiledLayerProperties         mLayerProperties;
   bool                         mPendingUpload : 1;
   bool                         mPendingLowPrecisionUpload : 1;

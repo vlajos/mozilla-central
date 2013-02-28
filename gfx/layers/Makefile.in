@@ -152,7 +152,6 @@ EXPORTS_mozilla/layers =\
         CompositableClient.h \
         CompositableTransactionParent.h \
         Compositor.h \
-		ReusableTileStoreComposite.h \
         CompositorOGL.h \
         ContentHost.h \
         CompositorCocoaWidgetHelper.h \
@@ -201,7 +200,6 @@ CPPSRCS += \
         GestureEventListener.cpp \
         ImageBridgeChild.cpp \
         ImageBridgeParent.cpp \
-        ReusableTileStoreComposite.cpp \
         ShadowLayers.cpp \
         ShadowLayerChild.cpp \
         ShadowLayersChild.cpp \

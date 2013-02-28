@@ -8,7 +8,6 @@
 #include "mozilla/layers/ContentHost.h"
 #include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
-#include "ReusableTileStoreComposite.h"
 #include "gfxPlatform.h"
 #include "LayersLogging.h"
 #include "nsPrintfCString.h"
@@ -491,17 +490,11 @@ TiledContentHost::~TiledContentHost()
 {
   mMainMemoryTiledBuffer.ReadUnlock();
   mLowPrecisionMainMemoryTiledBuffer.ReadUnlock();
-  if (mReusableTileStore)
-    delete mReusableTileStore;
 }
 
 void
 TiledContentHost::MemoryPressure()
 {
-  if (mReusableTileStore) {
-    delete mReusableTileStore;
-    mReusableTileStore = new ReusableTileStoreComposite(1);
-  }
 }
 
 void
@@ -558,16 +551,6 @@ TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion)
   if (!mPendingUpload)
     return;
 
-  if (mReusableTileStore) {
-    mReusableTileStore->HarvestTiles(mLayerProperties.mVisibleRegion,
-                                     mLayerProperties.mDisplayPort,
-                                     &mVideoMemoryTiledBuffer,
-                                     mVideoMemoryTiledBuffer.GetValidRegion(),
-                                     mMainMemoryTiledBuffer.GetValidRegion(),
-                                     mVideoMemoryTiledBuffer.GetFrameResolution(),
-                                     mLayerProperties.mEffectiveResolution);
-  }
-
   // If we coalesce uploads while the layers' valid region is changing we will
   // end up trying to upload area outside of the valid region. (bug 756555)
   mRegionToUpload.And(mRegionToUpload, mMainMemoryTiledBuffer.GetValidRegion());
@@ -592,17 +575,6 @@ TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion)
 void
 TiledContentHost::EnsureTileStore()
 {
-  // We should only be retaining old tiles if we're not fixed position.
-  // Fixed position layers don't/shouldn't move on the screen, so retaining
-  // tiles is not useful and often results in rendering artifacts.
-  if (mReusableTileStore && !mLayerProperties.mRetainTiles) {
-    delete mReusableTileStore;
-    mReusableTileStore = nullptr;
-  } else if (gfxPlatform::UseReusableTileStore() &&
-             !mReusableTileStore && mLayerProperties.mRetainTiles) {
-    // XXX Add a pref for reusable tile store size
-    mReusableTileStore = new ReusableTileStoreComposite(1);
-  }
 }
 
 void
@@ -636,15 +608,6 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
   // the RenderLayerBuffer calls below and then sent back to the layer.
   ProcessUploadQueue(&mLayerProperties.mValidRegion);
   ProcessLowPrecisionUploadQueue();
-
-  // Render old tiles to fill in gaps we haven't had the time to render yet.
-  if (mReusableTileStore) {
-    mReusableTileStore->DrawTiles(this,
-                                  mVideoMemoryTiledBuffer.GetValidRegion(),
-                                  mVideoMemoryTiledBuffer.GetFrameResolution(),
-                                  aTransform, aOffset, aEffectChain, aOpacity, aFilter,
-                                  aClipRect, mLayerProperties.mCompositionBounds);
-  }
 
   // Render valid tiles.
   nsIntRect visibleRect = aVisibleRegion->GetBounds();
