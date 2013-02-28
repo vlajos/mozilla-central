@@ -17,8 +17,8 @@ namespace layers {
 
 ImageClient::ImageClient(CompositableForwarder* aFwd)
 : CompositableClient(aFwd)
-, mLastPaintedImageSerial(0)
 , mFilter(gfxPattern::FILTER_GOOD)
+, mLastPaintedImageSerial(0)
 {}
 
 void
