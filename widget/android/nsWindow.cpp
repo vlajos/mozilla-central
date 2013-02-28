@@ -40,6 +40,7 @@ using mozilla::unused;
 #include "Layers.h"
 #include "BasicLayers.h"
 #include "LayerManagerOGL.h"
+#include "LayerManagerComposite.h"
 #include "GLContext.h"
 #include "GLContextProvider.h"
 
@@ -2183,7 +2184,7 @@ nsWindow::GetIMEUpdatePreference()
 }
 
 void
-nsWindow::DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect)
+nsWindow::DrawWindowUnderlay()
 {
     JNIEnv *env = GetJNIForThread();
     NS_ABORT_IF_FALSE(env, "No JNI environment at DrawWindowUnderlay()!");
@@ -2205,7 +2206,7 @@ nsWindow::DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect)
 }
 
 void
-nsWindow::DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect)
+nsWindow::DrawWindowOverlay()
 {
     JNIEnv *env = GetJNIForThread();
     NS_ABORT_IF_FALSE(env, "No JNI environment at DrawWindowOverlay()!");
@@ -2277,8 +2278,8 @@ float
 nsWindow::ComputeRenderIntegrity()
 {
     if (sCompositorParent) {
-        mozilla::layers::LayerManagerOGL* manager =
-          static_cast<mozilla::layers::LayerManagerOGL*>(sCompositorParent->GetLayerManager());
+        mozilla::layers::LayerManagerComposite* manager =
+          static_cast<mozilla::layers::LayerManagerComposite*>(sCompositorParent->GetLayerManager());
         if (manager) {
             return manager->ComputeRenderIntegrity();
         }

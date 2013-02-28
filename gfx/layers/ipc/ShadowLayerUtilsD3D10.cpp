@@ -19,10 +19,10 @@ namespace layers {
 // Platform-specific shadow-layers interfaces.  See ShadowLayers.h.
 // D3D10 doesn't need all these yet.
 bool
-ShadowLayerForwarder::PlatformAllocBuffer(const gfxIntSize&,
-                                          gfxASurface::gfxContentType,
-                                          uint32_t,
-                                          SurfaceDescriptor*)
+ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize&,
+                                                  gfxASurface::gfxContentType,
+                                                  uint32_t,
+                                                  SurfaceDescriptor*)
 {
   return false;
 }
@@ -72,7 +72,7 @@ ShadowLayerForwarder::PlatformSyncBeforeUpdate()
 }
 
 bool
-ShadowLayerManager::PlatformDestroySharedSurface(SurfaceDescriptor*)
+ISurfaceAllocator::PlatformDestroySharedSurface(SurfaceDescriptor*)
 {
   return false;
 }
@@ -83,6 +83,12 @@ ShadowLayerManager::OpenDescriptorForDirectTexturing(GLContext*,
                                                      GLenum)
 {
   return nullptr;
+}
+
+/*static*/ bool
+ShadowLayerManager::SupportsDirectTexturing()
+{
+  return true;
 }
 
 /*static*/ void

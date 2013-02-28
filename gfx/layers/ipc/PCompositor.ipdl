@@ -8,12 +8,15 @@
 include LayersSurfaces;
 include protocol PGrallocBuffer;
 include protocol PLayers;
+include "mozilla/layers/TextureFactoryIdentifier.h";
 
-using mozilla::layers::LayersBackend;
 using mozilla::null_t;
+using mozilla::layers::TextureFactoryIdentifier;
+using mozilla::layers::LayersBackend;
 
 namespace mozilla {
 namespace layers {
+
 
 /**
  * The PCompositor protocol is used to manage communication between
@@ -54,8 +57,8 @@ parent:
   sync MakeSnapshot(SurfaceDescriptor inSnapshot)
     returns (SurfaceDescriptor outSnapshot);
 
-  sync PLayers(LayersBackend backendHint, uint64_t id)
-    returns (LayersBackend backend, int32_t maxTextureSize);
+  sync PLayers(LayersBackend layersBackendHint, uint64_t id)
+    returns (TextureFactoryIdentifier textureFactoryIdentifier);
 
   // FIXME/bug 783451
   sync PGrallocBuffer(gfxIntSize size, uint32_t format, uint32_t usage)

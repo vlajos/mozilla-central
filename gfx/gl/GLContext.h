@@ -171,8 +171,8 @@ public:
 #ifdef DEBUG
         PR_SetThreadPrivate(sCurrentGLContextTLS, this);
 
-	// XXX this assertion is disabled because it's triggering on Mac;
-	// we need to figure out why and reenable it.
+  // XXX this assertion is disabled because it's triggering on Mac;
+  // we need to figure out why and reenable it.
 #if 0
         // IsOwningThreadCurrent is a bit of a misnomer;
         // the "owning thread" is the creation thread,
@@ -2129,7 +2129,9 @@ public:
             height = -1;
             border = -1;
         }
-
+        if ((GLint)format != internalformat) {
+          NS_WARNING("format mismatch in texture upload is sloooow");
+        }
         raw_fTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
     }
 

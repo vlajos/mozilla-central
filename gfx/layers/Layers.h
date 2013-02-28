@@ -8,6 +8,7 @@
 
 #include "mozilla/DebugOnly.h"
 
+#include "mozilla/layers/LayersTypes.h"
 #include "gfxTypes.h"
 #include "gfxASurface.h"
 #include "nsRegion.h"
@@ -21,23 +22,9 @@
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
 #include "nsStyleAnimation.h"
-#include "LayersTypes.h"
 #include "FrameMetrics.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/TimeStamp.h"
-
-#if defined(DEBUG) || defined(PR_LOGGING)
-#  include <stdio.h>            // FILE
-#  include "prlog.h"
-#  ifndef MOZ_LAYERS_HAVE_LOG
-#    define MOZ_LAYERS_HAVE_LOG
-#  endif
-#  define MOZ_LAYERS_LOG(_args)                             \
-  PR_LOG(LayerManager::GetLog(), PR_LOG_DEBUG, _args)
-#else
-struct PRLogModuleInfo;
-#  define MOZ_LAYERS_LOG(_args)
-#endif  // if defined(DEBUG) || defined(PR_LOGGING)
 
 class gfxContext;
 class nsPaintEvent;
@@ -77,6 +64,12 @@ class ShadowableLayer;
 class ShadowLayerForwarder;
 class ShadowLayerManager;
 class SpecificLayerAttributes;
+class SurfaceDescriptor;
+class Compositor;
+class LayerComposite;
+struct TextureIdentifier;
+struct TextureFactoryIdentifier;
+struct EffectMask;
 
 #define MOZ_LAYER_DECL_NAME(n, e)                           \
   virtual const char* Name() const { return n; }            \
@@ -395,6 +388,12 @@ public:
                      mozilla::gfx::SurfaceFormat aFormat);
 
   virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) { return true; }
+
+  /**
+   * Returns a TextureFactoryIdentifier which describes properties of the backend
+   * used to decide what kind of texture and buffer clients to create
+   */
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier();
 
   /**
    * returns the maximum texture size on this layer backend, or INT32_MAX
@@ -986,6 +985,12 @@ public:
    */
   virtual ShadowableLayer* AsShadowableLayer() { return nullptr; }
 
+  /**
+   * Dynamic cast to a LayerComposite.  Return null if this is not a
+   * ShadowableLayer.  Can be used anytime.
+   */
+  virtual LayerComposite* AsLayerComposite() { return nullptr; }
+
   // These getters can be used anytime.  They return the effective
   // values that should be used when drawing this layer to screen,
   // accounting for this layer possibly being a shadow.
@@ -1106,6 +1111,8 @@ public:
   void SetDebugColorIndex(uint32_t aIndex) { mDebugColorIndex = aIndex; }
   uint32_t GetDebugColorIndex() { return mDebugColorIndex; }
 #endif
+
+  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
 protected:
   Layer(LayerManager* aManager, void* aImplData);
@@ -1785,6 +1792,7 @@ protected:
 #ifdef MOZ_DUMP_PAINTING
 void WriteSnapshotToDumpFile(Layer* aLayer, gfxASurface* aSurf);
 void WriteSnapshotToDumpFile(LayerManager* aManager, gfxASurface* aSurf);
+void WriteSnapshotToDumpFile(Compositor* aCompositor, gfxASurface* aSurf);
 #endif
 
 }

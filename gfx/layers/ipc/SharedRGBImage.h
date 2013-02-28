@@ -42,7 +42,7 @@ public:
   static uint8_t BytesPerPixel(gfxImageFormat aImageFormat);
   already_AddRefed<gfxASurface> GetAsSurface();
 
-  SharedImage *ToSharedImage();
+  SurfaceDescriptor* ToSurfaceDescriptor();
 
 private:
   bool AllocateBuffer(nsIntSize aSize, gfxImageFormat aImageFormat);

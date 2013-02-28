@@ -321,7 +321,7 @@ protected:
 
     GLuint mTexture;
     TextureState mTextureState;
-    GLContext* mGLContext;
+    nsRefPtr<GLContext> mGLContext;
     nsRefPtr<gfxASurface> mUpdateSurface;
     nsIntRegion mUpdateRegion;
 

@@ -9,9 +9,11 @@ srcdir      = @srcdir@
 VPATH       = \
   $(srcdir) \
   $(srcdir)/basic \
+  $(srcdir)/composite \
   $(srcdir)/opengl \
   $(srcdir)/d3d9 \
   $(srcdir)/d3d10 \
+  $(srcdir)/d3d11 \
   $(srcdir)/ipc \
   $(NULL)
 
@@ -28,9 +30,14 @@ DEFINES += -DD3D_DEBUG_INFO
 endif
 
 EXPORTS = \
-        BasicLayers.h \
-        BasicTiledThebesLayer.h \
+		BasicCanvasLayer.h \
         BasicImplData.h \
+        BasicLayers.h \
+        BasicLayersImpl.h \
+        BasicTiledThebesLayer.h \
+        BasicThebesLayer.h \
+        CompositableHost.h \
+        LayerManagerComposite.h \
         Composer2D.h \
         GonkIOSurfaceImage.h \
         FrameMetrics.h \
@@ -38,9 +45,12 @@ EXPORTS = \
         CompositorParent.h \
         ImageContainer.h \
         ImageLayers.h \
+        ImageLayerOGL.h \
+        ImageHost.h \
+        LayerImplComposite.h \
         ImageTypes.h \
         Layers.h \
-        LayersTypes.h \
+		LayersLogging.h \
         LayerManagerOGLShaders.h \
         LayerManagerOGL.h \
         LayerManagerOGLProgram.h \
@@ -50,6 +60,7 @@ EXPORTS = \
         ShadowLayersManager.h \
         SharedTextureImage.h \
         TexturePoolOGL.h \
+        ShmemYCbCrImage.h \
         $(NULL)
 
 CPPSRCS = \
@@ -61,10 +72,12 @@ CPPSRCS = \
         BasicImageLayer.cpp \
         BasicLayersImpl.cpp \
         BasicThebesLayer.cpp \
-        BasicBuffers.cpp \
         BasicTiledThebesLayer.cpp \
+        CompositableHost.cpp \
+        CompositableTransactionParent.cpp \
         ImageContainer.cpp \
         Layers.cpp \
+        LayersLogging.cpp \
         RenderTrace.cpp \
         ReadbackProcessor.cpp \
         ThebesLayerBuffer.cpp \
@@ -74,9 +87,13 @@ CPPSRCS = \
         ImageLayerOGL.cpp \
         LayerManagerOGL.cpp \
         ThebesLayerOGL.cpp \
-        TiledThebesLayerOGL.cpp \
-        ReusableTileStoreOGL.cpp \
         LayerManagerOGLProgram.cpp \
+        CanvasLayerComposite.cpp \
+        ColorLayerComposite.cpp \
+        ContainerLayerComposite.cpp \
+        ImageLayerComposite.cpp \
+        LayerManagerComposite.cpp \
+        ThebesLayerComposite.cpp \
         LayerSorter.cpp \
         LayerTreeInvalidation.cpp \
         ImageLayers.cpp \
@@ -119,8 +136,10 @@ CPPSRCS += \
         ImageLayerD3D10.cpp \
         LayerManagerD3D10.cpp \
         ReadbackManagerD3D10.cpp \
-	ShadowLayerUtilsD3D10.cpp \
+        ShadowLayerUtilsD3D10.cpp \
         ThebesLayerD3D10.cpp \
+        CompositorD3D11.cpp \
+        TextureD3D11.cpp \
         $(NULL)
 endif
 endif
@@ -130,45 +149,74 @@ EXPORTS_gfxipc = ShadowLayerUtils.h
 EXPORTS_mozilla/layers =\
         AsyncPanZoomController.h \
         Axis.h \
+        CompositableClient.h \
+        CompositableTransactionParent.h \
+        Compositor.h \
+		ReusableTileStoreComposite.h \
+        CompositorOGL.h \
+        ContentHost.h \
         CompositorCocoaWidgetHelper.h \
         CompositorChild.h \
         CompositorParent.h \
+        CompositableForwarder.h \
+        Effects.h \
         GeckoContentController.h \
         GestureEventListener.h \
         ImageBridgeChild.h \
         ImageBridgeParent.h \
-        ImageContainerChild.h \
-        ImageContainerParent.h \
+        ImageHost.h \
+        ISurfaceAllocator.h \
+        LayersTypes.h \
+        SurfaceDeallocatorIPC.h \
         ShadowLayers.h \
         ShadowLayersChild.h \
         ShadowLayersParent.h \
         ShadowLayersManager.h \
+        TextureChild.h \
+        TextureOGL.h \
+        TextureFactoryIdentifier.h \
+        TextureParent.h \
         RenderTrace.h \
         SharedImageUtils.h \
         SharedRGBImage.h \
+        SharedPlanarYCbCrImage.h \
         ShmemYCbCrImage.h \
         TaskThrottler.h \
+        CompositingRenderTargetOGL.h \
         $(NULL)
 
 CPPSRCS += \
         AsyncPanZoomController.cpp \
         Axis.cpp \
+        CanvasClient.cpp \
+        CompositableClient.cpp \
+        Compositor.cpp \
+        CompositorOGL.cpp \
         CompositorCocoaWidgetHelper.cpp \
         CompositorChild.cpp \
         CompositorParent.cpp \
+        ContentClient.cpp \
+        ContentHost.cpp \
+        Effects.cpp \
         GestureEventListener.cpp \
         ImageBridgeChild.cpp \
         ImageBridgeParent.cpp \
-        ImageContainerChild.cpp \
-        ImageContainerParent.cpp \
+        ReusableTileStoreComposite.cpp \
         ShadowLayers.cpp \
         ShadowLayerChild.cpp \
         ShadowLayersChild.cpp \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
-        SharedRGBImage.cpp \
+        SharedPlanarYCbCrImage.cpp \
         ShmemYCbCrImage.cpp \
+        SharedRGBImage.cpp \
         TaskThrottler.cpp \
+        ImageClient.cpp \
+        ImageHost.cpp \
+        TextureClient.cpp \
+        TextureOGL.cpp \
+        TextureChild.cpp \
+        TextureParent.cpp \
         $(NULL)
 
 ifdef MOZ_X11 #{
@@ -177,7 +225,11 @@ CPPSRCS += ShadowLayerUtilsX11.cpp
 endif #}
 
 ifdef MOZ_ENABLE_D3D10_LAYER
-EXPORTS_mozilla/layers += ShadowLayerUtilsD3D10.h
+EXPORTS_mozilla/layers += \
+                       ShadowLayerUtilsD3D10.h \
+                       CompositorD3D11.h \
+                       TextureD3D11.h \
+                       $(NULL)
 DEFINES	+= -DMOZ_ENABLE_D3D10_LAYER
 endif
 

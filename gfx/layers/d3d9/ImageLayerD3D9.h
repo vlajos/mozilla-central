@@ -65,8 +65,8 @@ public:
   virtual ~ShadowImageLayerD3D9();
 
   // ShadowImageLayer impl
-  virtual void Swap(const SharedImage& aFront,
-                    SharedImage* aNewBack);
+  virtual void Swap(const SurfaceDescriptor& aFront,
+                    SurfaceDescriptor* aNewBack);
 
   virtual void Disconnect();
 

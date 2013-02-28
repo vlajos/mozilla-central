@@ -21,6 +21,7 @@
 #include "mozilla/Preferences.h"
 #include "BasicLayers.h"
 #include "LayerManagerOGL.h"
+#include "mozilla/layers/Compositor.h"
 #include "nsIXULRuntime.h"
 #include "nsIXULWindow.h"
 #include "nsIBaseWindow.h"
@@ -34,6 +35,7 @@
 #include "prenv.h"
 #include "mozilla/Attributes.h"
 #include "nsContentUtils.h"
+#include "gfxPlatform.h"
 
 #ifdef ACCESSIBILITY
 #include "nsAccessibilityService.h"
@@ -803,10 +805,8 @@ nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
   bool isSmallPopup = ((mWindowType == eWindowType_popup) &&
                       (mPopupType != ePopupTypePanel));
   // we should use AddBoolPrefVarCache
-  bool disableAcceleration = isSmallPopup ||
-    Preferences::GetBool("layers.acceleration.disabled", false);
-  mForceLayersAcceleration =
-    Preferences::GetBool("layers.acceleration.force-enabled", false);
+  bool disableAcceleration = isSmallPopup || gfxPlatform::GetPrefLayersAccelerationDisabled();
+  mForceLayersAcceleration = gfxPlatform::GetPrefLayersAccelerationForceEnabled();
 
   const char *acceleratedEnv = PR_GetEnv("MOZ_ACCELERATED");
   accelerateByDefault = accelerateByDefault ||
@@ -873,13 +873,16 @@ void nsBaseWidget::CreateCompositor()
   AsyncChannel *parentChannel = mCompositorParent->GetIPCChannel();
   AsyncChannel::Side childSide = mozilla::ipc::AsyncChannel::Child;
   mCompositorChild->Open(parentChannel, childMessageLoop, childSide);
-  int32_t maxTextureSize;
+  TextureFactoryIdentifier textureFactoryIdentifier;
   PLayersChild* shadowManager;
-  mozilla::layers::LayersBackend backendHint =
-    mUseLayersAcceleration ? mozilla::layers::LAYERS_OPENGL : mozilla::layers::LAYERS_BASIC;
-  mozilla::layers::LayersBackend parentBackend;
+#ifdef MOZ_ENABLE_D3D10_LAYER
+  mozilla::layers::LayersBackend backendHint = mozilla::layers::LAYERS_D3D11;
+  //mUseLayersAcceleration ? mozilla::layers::LAYERS_D3D11 : mozilla::layers::LAYERS_BASIC;
+#else
+  mozilla::layers::LayersBackend backendHint = mozilla::layers::LAYERS_OPENGL;
+#endif
   shadowManager = mCompositorChild->SendPLayersConstructor(
-    backendHint, 0, &parentBackend, &maxTextureSize);
+    backendHint, 0, &textureFactoryIdentifier);
 
   if (shadowManager) {
     ShadowLayerForwarder* lf = lm->AsShadowForwarder();
@@ -889,8 +892,7 @@ void nsBaseWidget::CreateCompositor()
       return;
     }
     lf->SetShadowManager(shadowManager);
-    lf->SetParentBackendType(parentBackend);
-    lf->SetMaxTextureSize(maxTextureSize);
+    lf->IdentifyTextureHost(textureFactoryIdentifier);
 
     mLayerManager = lm;
   } else {
@@ -936,7 +938,7 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
          * deal with it though!
          */
 
-        if (layerManager->Initialize(mForceLayersAcceleration)) {
+        if (layerManager->Initialize(nullptr, mForceLayersAcceleration)) {
           mLayerManager = layerManager;
         }
       }
@@ -1179,11 +1181,13 @@ nsBaseWidget::SetLayersAcceleration(bool aEnabled)
   if (usedAcceleration == mUseLayersAcceleration) {
     return NS_OK;
   }
-
+// XXX - Bas - Disabled for now.
+#if 0
   if (mLayerManager) {
     mLayerManager->Destroy();
   }
   mLayerManager = NULL;
+#endif
   return NS_OK;
 }
 
@@ -1262,7 +1266,7 @@ void
 nsBaseWidget::ResolveIconName(const nsAString &aIconName,
                               const nsAString &aIconSuffix,
                               nsIFile **aResult)
-{
+{ 
   *aResult = nullptr;
 
   nsCOMPtr<nsIProperties> dirSvc = do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
@@ -1617,7 +1621,7 @@ static int32_t
 _GetPrintCount()
 {
   static int32_t sCount = 0;
-
+  
   return ++sCount;
 }
 //////////////////////////////////////////////////////////////

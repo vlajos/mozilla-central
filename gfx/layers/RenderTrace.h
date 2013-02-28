@@ -23,6 +23,10 @@ namespace layers {
 
 class Layer;
 
+/**
+ * TODO: document these funtions!
+ */
+
 void RenderTraceLayers(Layer *aLayer, const char *aColor, const gfx3DMatrix aRootTransform = gfx3DMatrix(), bool aReset = true);
 
 void RenderTraceInvalidateStart(Layer *aLayer, const char *aColor, const nsIntRect aRect);

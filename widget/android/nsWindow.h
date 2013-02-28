@@ -143,8 +143,8 @@ public:
     NS_IMETHOD ReparentNativeWidget(nsIWidget* aNewParent);
 
     virtual bool NeedsPaint();
-    virtual void DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect);
-    virtual void DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect);
+    virtual void DrawWindowUnderlay();
+    virtual void DrawWindowOverlay();
 
     static void SetCompositor(mozilla::layers::LayerManager* aLayerManager,
                               mozilla::layers::CompositorParent* aCompositorParent,

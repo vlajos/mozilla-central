@@ -279,7 +279,6 @@ public:
 
   static void             SetupKeyModifiersSequence(nsTArray<KeyPair>* aArray, uint32_t aModifiers);
 
-  virtual bool            UseOffMainThreadCompositing();
 protected:
 
   // A magic number to identify the FAKETRACKPOINTSCROLLABLE window created

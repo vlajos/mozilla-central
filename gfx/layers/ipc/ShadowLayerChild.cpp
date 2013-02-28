@@ -8,6 +8,7 @@
 #include "ShadowLayerChild.h"
 #include "Layers.h"
 #include "ShadowLayers.h"
+#include "mozilla/layers/TextureChild.h"
 
 namespace mozilla {
 namespace layers {

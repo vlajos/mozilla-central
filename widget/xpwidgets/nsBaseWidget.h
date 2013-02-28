@@ -111,8 +111,8 @@ public:
                                           bool* aAllowRetaining = nullptr);
 
   virtual void            CreateCompositor();
-  virtual void            DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect) {}
-  virtual void            DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect) {}
+  virtual void            DrawWindowUnderlay() {}
+  virtual void            DrawWindowOverlay() {}
   virtual void            UpdateThemeGeometries(const nsTArray<ThemeGeometry>& aThemeGeometries) {}
   virtual gfxASurface*    GetThebesSurface();
   NS_IMETHOD              SetModal(bool aModal); 

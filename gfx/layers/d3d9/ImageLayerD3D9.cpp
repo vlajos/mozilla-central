@@ -545,44 +545,14 @@ ShadowImageLayerD3D9::~ShadowImageLayerD3D9()
 {}
 
 void
-ShadowImageLayerD3D9::Swap(const SharedImage& aNewFront,
-                           SharedImage* aNewBack)
+ShadowImageLayerD3D9::Swap(const SurfaceDescriptor& aNewFront,
+                           SurfaceDescriptor* aNewBack)
 {
-  if (aNewFront.type() == SharedImage::TSurfaceDescriptor) {
-    if (!mBuffer) {
-      mBuffer = new ShadowBufferD3D9(this);
-    }
-    AutoOpenSurface surf(OPEN_READ_ONLY, aNewFront.get_SurfaceDescriptor());
-    mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
-  } else {
-    const YUVImage& yuv = aNewFront.get_YUVImage();
-
-    AutoOpenSurface asurfY(OPEN_READ_ONLY, yuv.Ydata());
-    AutoOpenSurface asurfU(OPEN_READ_ONLY, yuv.Udata());
-    AutoOpenSurface asurfV(OPEN_READ_ONLY, yuv.Vdata());
-    gfxImageSurface* surfY = asurfY.GetAsImage();
-    gfxImageSurface* surfU = asurfU.GetAsImage();
-    gfxImageSurface* surfV = asurfV.GetAsImage();
-
-    PlanarYCbCrImage::Data data;
-    data.mYChannel = surfY->Data();
-    data.mYStride = surfY->Stride();
-    data.mYSize = surfY->GetSize();
-    data.mCbChannel = surfU->Data();
-    data.mCrChannel = surfV->Data();
-    data.mCbCrStride = surfU->Stride();
-    data.mCbCrSize = surfU->GetSize();
-    data.mPicSize = surfY->GetSize();
-    data.mPicX = 0;
-    data.mPicY = 0;
-
-    if (!mYCbCrImage) {
-      mYCbCrImage = new PlanarYCbCrImage(new BufferRecycleBin());
-    }
-
-    mYCbCrImage->SetData(data);
-
+  if (!mBuffer) {
+    mBuffer = new ShadowBufferD3D9(this);
   }
+  AutoOpenSurface surf(OPEN_READ_ONLY, aNewFront);
+  mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
   
   *aNewBack = aNewFront;
 }

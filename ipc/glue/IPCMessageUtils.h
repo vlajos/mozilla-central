@@ -32,9 +32,10 @@
 #include "nsRegion.h"
 #include "gfxASurface.h"
 #include "jsapi.h"
-#include "LayersTypes.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "FrameMetrics.h"
 #include "nsCSSProperty.h"
+#include "mozilla/layers/TextureFactoryIdentifier.h"
 
 #ifdef _MSC_VER
 #pragma warning( disable : 4800 )
@@ -132,7 +133,7 @@ struct EnumSerializer {
   typedef E paramType;
 
   static bool IsLegalValue(const paramType &aValue) {
-    return smallestLegal <= aValue && aValue < highBound;
+    return smallestLegal <= aValue && aValue <= highBound;
   }
 
   static void Write(Message* aMsg, const paramType& aValue) {
@@ -1030,6 +1031,52 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
             ReadParam(aMsg, aIter, &aResult->mMayHaveTouchListeners));
   }
 };
+
+template<>
+struct ParamTraits<mozilla::layers::TextureFactoryIdentifier>
+{
+  typedef mozilla::layers::TextureFactoryIdentifier paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
+    WriteParam(aMsg, aParam.mParentBackend);
+    WriteParam(aMsg, aParam.mMaxTextureSize);
+  }
+
+  static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
+  {
+    return ReadParam(aMsg, aIter, &aResult->mParentBackend) &&
+           ReadParam(aMsg, aIter, &aResult->mMaxTextureSize);
+  }
+};
+
+template<>
+struct ParamTraits<mozilla::layers::TextureInfo>
+{
+  typedef mozilla::layers::TextureInfo paramType;
+  
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
+    WriteParam(aMsg, aParam.compositableType);
+    WriteParam(aMsg, aParam.textureHostFlags);
+    WriteParam(aMsg, aParam.textureFlags);
+  }
+
+  static bool Read(const Message* aMsg, void** aIter, paramType* aResult)
+  {
+    return ReadParam(aMsg, aIter, &aResult->compositableType) &&
+           ReadParam(aMsg, aIter, &aResult->textureHostFlags) &&
+           ReadParam(aMsg, aIter, &aResult->textureFlags);
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::layers::CompositableType>
+  : public EnumSerializer<mozilla::layers::CompositableType,
+                          mozilla::layers::BUFFER_UNKNOWN,
+                          mozilla::layers::BUFFER_TILED
+>
+{};
 
 } /* namespace IPC */
 

@@ -52,9 +52,11 @@ public:
 
   ThebesLayerBuffer(BufferSizePolicy aBufferSizePolicy)
     : mBufferProvider(nullptr)
+    , mBuffer(nullptr)
     , mBufferRotation(0,0)
     , mBufferSizePolicy(aBufferSizePolicy)
   {
+    mBufferRect.SetEmpty();
     MOZ_COUNT_CTOR(ThebesLayerBuffer);
   }
   virtual ~ThebesLayerBuffer()
@@ -134,6 +136,14 @@ public:
    */
   gfxASurface* GetBuffer() { return mBuffer; }
 
+  /**
+   * Complete the drawing operation. The region to draw must have been
+   * drawn before this is called. The contents of the buffer are drawn
+   * to aTarget.
+   */
+  void DrawTo(ThebesLayer* aLayer, gfxContext* aTarget, float aOpacity,
+              gfxASurface* aMask, const gfxMatrix* aMaskTransform);
+
 protected:
   enum XSide {
     LEFT, RIGHT
@@ -152,8 +162,8 @@ protected:
                           gfxASurface* aMask,
                           const gfxMatrix* aMaskTransform);
   void DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
-                              gfxASurface* aMask = nullptr,
-                              const gfxMatrix* aMaskTransform = nullptr);
+                              gfxASurface* aMask,
+                              const gfxMatrix* aMaskTransform);
 
   /**
    * |BufferRect()| is the rect of device pixels that this
@@ -197,14 +207,25 @@ protected:
     }
   }
 
+  // XXX[nrc] this replaces the above method, remove the above when 
+  // BasicShadow layers are refactored.
+  void SetBuffer(gfxASurface* aBuffer)
+  {
+    NS_ASSERTION(!mBufferProvider, "Can't have a buffer and a buffer provider");
+    NS_ASSERTION(!aBuffer || !mBuffer, "Can't reset a buffer");
+    mBuffer = aBuffer;
+  }
+
   /**
    * Get a context at the specified resolution for updating |aBounds|,
    * which must be contained within a single quadrant.
    */
   already_AddRefed<gfxContext>
   GetContextForQuadrantUpdate(const nsIntRect& aBounds);
+  
+  static bool IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegion);
 
-private:
+protected:
   // Buffer helpers.  Don't use mBuffer directly; instead use one of
   // these helpers.
 
@@ -224,12 +245,13 @@ private:
    */
   bool HaveBuffer();
 
-  nsRefPtr<gfxASurface> mBuffer;
   /**
    * This member is only set transiently.  It's used to map mBuffer
    * when we're using surfaces that require explicit map/unmap.
    */
   AutoOpenSurface* mBufferProvider;
+
+  nsRefPtr<gfxASurface> mBuffer;
   /** The area of the ThebesLayer that is covered by the buffer as a whole */
   nsIntRect             mBufferRect;
   /**

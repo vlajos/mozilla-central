@@ -399,7 +399,7 @@ GLXLibrary::CreatePixmap(gfxASurface* aSurface)
         break;
     }
     if (matchIndex == -1) {
-        NS_WARNING("[GLX] Couldn't find a FBConfig matching Pixmap format");
+        NS_WARN_IF_FALSE(format->depth == 8, "[GLX] Couldn't find a FBConfig matching Pixmap format");
         return None;
     }
 
@@ -583,8 +583,8 @@ GLXLibrary::xCreateNewContext(Display* display,
 {
     BEFORE_GLX_CALL;
     GLXContext result = xCreateNewContextInternal(display, config, 
-	                                              render_type,
-	                                              share_list, direct);
+                                                  render_type,
+                                                  share_list, direct);
     AFTER_GLX_CALL;
     return result;
 }
@@ -1106,6 +1106,7 @@ GLContextGLX::CreateTextureImage(const nsIntSize& aSize,
         gfxXlibSurface::Create(ScreenOfDisplay(display, xscreen),
                                xrenderFormat,
                                gfxIntSize(aSize.width, aSize.height));
+
     NS_ASSERTION(surface, "Failed to create xlib surface!");
 
     if (aContentType == gfxASurface::CONTENT_COLOR_ALPHA) {

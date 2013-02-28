@@ -21,6 +21,7 @@
 #include "mozilla/Monitor.h"
 #include "mozilla/TimeStamp.h"
 #include "ShadowLayersManager.h"
+#include "LayerManagerComposite.h"
 class nsIWidget;
 
 namespace base {
@@ -33,6 +34,7 @@ namespace layers {
 class AsyncPanZoomController;
 class Layer;
 class LayerManager;
+struct TextureFactoryIdentifier;
 
 // Represents (affine) transforms that are calculated from a content view.
 struct ViewTransform {
@@ -85,7 +87,7 @@ public:
   void ForceIsFirstPaint() { mIsFirstPaint = true; }
   void Destroy();
 
-  LayerManager* GetLayerManager() { return mLayerManager; }
+  LayerManagerComposite* GetLayerManager() { return mLayerManager; }
 
   void SetTransformation(float aScale, nsIntPoint aScrollOffset);
   void AsyncRender();
@@ -172,8 +174,7 @@ public:
 protected:
   virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendHint,
                                       const uint64_t& aId,
-                                      LayersBackend* aBackend,
-                                      int32_t* aMaxTextureSize);
+                                      TextureFactoryIdentifier* aTextureFactoryIdentifier);
   virtual bool DeallocPLayers(PLayersParent* aLayers);
   virtual void ScheduleTask(CancelableTask*, int);
   virtual void Composite();
@@ -270,7 +271,7 @@ private:
   virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
   { return false; }
 
-  nsRefPtr<LayerManager> mLayerManager;
+  nsRefPtr<LayerManagerComposite> mLayerManager;
   nsIWidget* mWidget;
   TargetConfig mTargetConfig;
   CancelableTask *mCurrentCompositeTask;

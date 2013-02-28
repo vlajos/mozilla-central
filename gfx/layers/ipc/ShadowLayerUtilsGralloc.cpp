@@ -232,11 +232,17 @@ ShadowLayerManager::OpenDescriptorForDirectTexturing(GLContext* aGL,
   return aGL->CreateDirectTextureImage(buffer.get(), aWrapMode);
 }
 
-/*static*/ void
-ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
+/*static*/ bool
+ShadowLayerManager::SupportsDirectTexturing()
 {
-  // Nothing to be done for gralloc.
+  return true;
 }
+
+// /*static*/ void
+// ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
+// {
+//   // Nothing to be done for gralloc.
+// }
 
 /*static*/ PGrallocBufferParent*
 GrallocBufferActor::Create(const gfxIntSize& aSize,
@@ -257,7 +263,7 @@ GrallocBufferActor::Create(const gfxIntSize& aSize,
 }
 
 bool
-ShadowLayerManager::PlatformDestroySharedSurface(SurfaceDescriptor* aSurface)
+ISurfaceAllocator::PlatformDestroySharedSurface(SurfaceDescriptor* aSurface)
 {
   if (SurfaceDescriptor::TSurfaceDescriptorGralloc != aSurface->type()) {
     return false;
@@ -289,10 +295,10 @@ GrallocBufferActor::InitFromHandle(const MagicGrallocBufferHandle& aHandle)
 }
 
 bool
-ShadowLayerForwarder::PlatformAllocBuffer(const gfxIntSize& aSize,
-                                          gfxASurface::gfxContentType aContent,
-                                          uint32_t aCaps,
-                                          SurfaceDescriptor* aBuffer)
+ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize& aSize,
+                                                  gfxASurface::gfxContentType aContent,
+                                                  uint32_t aCaps,
+                                                  SurfaceDescriptor* aBuffer)
 {
   // Some GL implementations fail to render gralloc textures with
   // width < 64.  There's not much point in gralloc'ing buffers that
@@ -301,7 +307,7 @@ ShadowLayerForwarder::PlatformAllocBuffer(const gfxIntSize& aSize,
   if (aSize.width < 64) {
     return false;
   }
-  SAMPLE_LABEL("ShadowLayerForwarder", "PlatformAllocBuffer");
+  SAMPLE_LABEL("ShadowLayerForwarder", "PlatformAllocSurfaceDescriptor");
   // Gralloc buffers are efficiently mappable as gfxImageSurface, so
   // no need to check |aCaps & MAP_AS_IMAGE_SURFACE|.
   MaybeMagicGrallocBufferHandle handle;

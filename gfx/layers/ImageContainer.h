@@ -9,9 +9,10 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "gfxASurface.h" // for gfxImageFormat
-#include "LayersTypes.h" // for LayersBackend
+#include "mozilla/layers/LayersTypes.h" // for LayersBackend
 #include "mozilla/TimeStamp.h"
 #include "ImageTypes.h"
+#include "mozilla/RefPtr.h"
 
 #ifdef XP_WIN
 struct ID3D10Texture2D;
@@ -38,6 +39,7 @@ class Shmem;
     
 namespace layers {
 
+class ImageClient;
 class ImageContainerChild;
 class SharedPlanarYCbCrImage;
 
@@ -337,7 +339,7 @@ public:
    * Returns 0 if this ImageContainer does not use ImageBridge. Note that
    * 0 is always an invalid ID for asynchronous image containers. 
    *
-   * Can be called from ay thread.
+   * Can be called from any thread.
    */
   uint64_t GetAsyncContainerID() const;
 
@@ -564,7 +566,7 @@ protected:
   // In this case the ImageContainer is perfectly usable, but it will forward 
   // frames to the compositor through transactions in the main thread rather than 
   // asynchronusly using the ImageBridge IPDL protocol.
-  nsRefPtr<ImageContainerChild> mImageContainerChild;
+  ImageClient* mImageClient;
 };
 
 class AutoLockImage
@@ -864,7 +866,6 @@ public:
   gfxIntSize mSize;
   RemoteImageData::Format mFormat;
 };
-
 
 } //namespace
 } //namespace

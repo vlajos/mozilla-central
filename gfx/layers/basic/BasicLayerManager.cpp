@@ -8,6 +8,7 @@
 #include "mozilla/layers/PLayerChild.h"
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/PLayersParent.h"
+#include "mozilla/layers/TextureChild.h"
 
 #include "gfxSharedImageSurface.h"
 #include "gfxImageSurface.h"
@@ -113,11 +114,11 @@ ToInsideIntRect(const gfxRect& aRect)
 // around. It also uses ensures that the Transform and Opaque rect are restored
 // to their former state on destruction.
 
-class PaintContext {
+class PaintLayerContext {
 public:
-  PaintContext(gfxContext* aTarget, Layer* aLayer,
-               LayerManager::DrawThebesLayerCallback aCallback,
-               void* aCallbackData, ReadbackProcessor* aReadback)
+  PaintLayerContext(gfxContext* aTarget, Layer* aLayer,
+                    LayerManager::DrawThebesLayerCallback aCallback,
+                    void* aCallbackData, ReadbackProcessor* aReadback)
    : mTarget(aTarget)
    , mTargetMatrixSR(aTarget)
    , mLayer(aLayer)
@@ -127,7 +128,7 @@ public:
    , mPushedOpaqueRect(false)
   {}
 
-  ~PaintContext()
+  ~PaintLayerContext()
   {
     // Matrix is restored by mTargetMatrixSR
     if (mPushedOpaqueRect)
@@ -630,7 +631,16 @@ BasicLayerManager::EndTransactionInternal(DrawThebesLayerCallback aCallback,
 void
 BasicLayerManager::FlashWidgetUpdateArea(gfxContext *aContext)
 {
-  if (gfxPlatform::GetPlatform()->WidgetUpdateFlashing()) {
+  static bool sWidgetFlashingEnabled;
+  static bool sWidgetFlashingPrefCached = false;
+
+  if (!sWidgetFlashingPrefCached) {
+    sWidgetFlashingPrefCached = true;
+    mozilla::Preferences::AddBoolVarCache(&sWidgetFlashingEnabled,
+                                          "nglayout.debug.widget_update_flashing");
+  }
+
+  if (sWidgetFlashingEnabled) {
     float r = float(rand()) / RAND_MAX;
     float g = float(rand()) / RAND_MAX;
     float b = float(rand()) / RAND_MAX;
@@ -799,7 +809,7 @@ Transform3D(gfxASurface* aSource, gfxContext* aDest,
 }
 
 void
-BasicLayerManager::PaintSelfOrChildren(PaintContext& aPaintContext,
+BasicLayerManager::PaintSelfOrChildren(PaintLayerContext& aPaintContext,
                                        gfxContext* aGroupTarget)
 {
   BasicImplData* data = ToData(aPaintContext.mLayer);
@@ -841,7 +851,7 @@ BasicLayerManager::PaintSelfOrChildren(PaintContext& aPaintContext,
 }
 
 void
-BasicLayerManager::FlushGroup(PaintContext& aPaintContext, bool aNeedsClipToVisibleRegion)
+BasicLayerManager::FlushGroup(PaintLayerContext& aPaintContext, bool aNeedsClipToVisibleRegion)
 {
   // If we're doing our own double-buffering, we need to avoid drawing
   // the results of an incomplete transaction to the destination surface ---
@@ -871,13 +881,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
                               void* aCallbackData,
                               ReadbackProcessor* aReadback)
 {
-  PaintContext paintContext(aTarget, aLayer, aCallback, aCallbackData, aReadback);
-
-  // Don't attempt to paint layers with a singular transform, cairo will
-  // just throw an error.
-  if (aLayer->GetEffectiveTransform().IsSingular()) {
-    return;
-  }
+  PaintLayerContext PaintLayerContext(aTarget, aLayer, aCallback, aCallbackData, aReadback);
 
   RenderTraceScope trace("BasicLayerManager::PaintLayer", "707070");
 
@@ -900,7 +904,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
   gfxContextAutoSaveRestore contextSR;
   gfxMatrix transform;
   // Will return an identity matrix for 3d transforms, and is handled separately below.
-  bool is2D = paintContext.Setup2DTransform();
+  bool is2D = PaintLayerContext.Setup2DTransform();
   NS_ABORT_IF_FALSE(is2D || needsGroup || !aLayer->GetFirstChild(), "Must PushGroup for 3d transforms!");
 
   bool needsSaveRestore =
@@ -915,7 +919,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     }
   }
 
-  paintContext.Apply2DTransform();
+  PaintLayerContext.Apply2DTransform();
 
   const nsIntRegion& visibleRegion = aLayer->GetEffectiveVisibleRegion();
   // If needsGroup is true, we'll clip to the visible region after we've popped the group
@@ -926,12 +930,12 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
   }
   
   if (is2D) {
-    paintContext.AnnotateOpaqueRect();
+    PaintLayerContext.AnnotateOpaqueRect();
   }
 
   bool clipIsEmpty = !aTarget || aTarget->GetClipExtents().IsEmpty();
   if (clipIsEmpty) {
-    PaintSelfOrChildren(paintContext, aTarget);
+    PaintSelfOrChildren(PaintLayerContext, aTarget);
     return;
   }
 
@@ -939,11 +943,11 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     if (needsGroup) {
       nsRefPtr<gfxContext> groupTarget = PushGroupForLayer(aTarget, aLayer, aLayer->GetEffectiveVisibleRegion(),
                                       &needsClipToVisibleRegion);
-      PaintSelfOrChildren(paintContext, groupTarget);
+      PaintSelfOrChildren(PaintLayerContext, groupTarget);
       PopGroupToSourceWithCachedSurface(aTarget, groupTarget);
-      FlushGroup(paintContext, needsClipToVisibleRegion);
+      FlushGroup(PaintLayerContext, needsClipToVisibleRegion);
     } else {
-      PaintSelfOrChildren(paintContext, aTarget);
+      PaintSelfOrChildren(PaintLayerContext, aTarget);
     }
   } else {
     const nsIntRect& bounds = visibleRegion.GetBounds();
@@ -956,7 +960,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     untransformedSurface->SetDeviceOffset(gfxPoint(-bounds.x, -bounds.y));
     nsRefPtr<gfxContext> groupTarget = new gfxContext(untransformedSurface);
 
-    PaintSelfOrChildren(paintContext, groupTarget);
+    PaintSelfOrChildren(PaintLayerContext, groupTarget);
 
     // Temporary fast fix for bug 725886
     // Revert these changes when 725886 is ready
@@ -990,7 +994,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
       aTarget->NewPath();
       aTarget->Rectangle(destRect, true);
       aTarget->Clip();
-      FlushGroup(paintContext, needsClipToVisibleRegion);
+      FlushGroup(PaintLayerContext, needsClipToVisibleRegion);
     }
   }
 }
@@ -1123,12 +1127,21 @@ BasicShadowLayerManager::BeginTransactionWithTarget(gfxContext* aTarget)
     if (aTarget && (aTarget != mDefaultTarget) &&
         XRE_GetProcessType() == GeckoProcessType_Default) {
       mShadowTarget = aTarget;
+
+      gfxASurface::gfxContentType contentType;
+
+      if (aTarget->IsCairo()) {
+        contentType = aTarget->OriginalSurface()->GetContentType();
+      } else {
+        contentType = aTarget->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8X8 ?
+          gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
+      }
       // Create a temporary target for ourselves, so that
       // mShadowTarget is only drawn to for the window snapshot.
       nsRefPtr<gfxASurface> dummy =
         gfxPlatform::GetPlatform()->CreateOffscreenSurface(
           gfxIntSize(1, 1),
-          aTarget->OriginalSurface()->GetContentType());
+          contentType);
       mDummyTarget = new gfxContext(dummy);
       aTarget = mDummyTarget;
     }
@@ -1153,10 +1166,23 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
   } else if (mShadowTarget) {
     if (mWidget) {
       if (CompositorChild* remoteRenderer = mWidget->GetRemoteRenderer()) {
+
+        gfxASurface::gfxContentType contentType;
+        gfxIntSize size;
+
+        if (mShadowTarget->IsCairo()) {
+          contentType = mShadowTarget->OriginalSurface()->GetContentType();
+          size = mShadowTarget->OriginalSurface()->GetSize();
+        } else {
+          contentType = mShadowTarget->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8X8 ?
+            gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
+          IntSize intSize = mShadowTarget->GetDrawTarget()->GetSize();
+          size = gfxIntSize(intSize.width, intSize.height);
+        }
         nsRefPtr<gfxASurface> target = mShadowTarget->OriginalSurface();
         SurfaceDescriptor inSnapshot, snapshot;
-        if (AllocBuffer(target->GetSize(), target->GetContentType(),
-                        &inSnapshot) &&
+        if (AllocSurfaceDescriptor(size, contentType,
+                                   &inSnapshot) &&
             // The compositor will usually reuse |snapshot| and return
             // it through |outSnapshot|, but if it doesn't, it's
             // responsible for freeing |snapshot|.
@@ -1208,46 +1234,36 @@ BasicShadowLayerManager::ForwardTransaction()
         MOZ_LAYERS_LOG(("[LayersForwarder] ThebesBufferSwap"));
 
         const OpThebesBufferSwap& obs = reply.get_OpThebesBufferSwap();
-        BasicShadowableThebesLayer* thebes = GetBasicShadowable(obs)->AsThebes();
-        thebes->SetBackBufferAndAttrs(
-          obs.newBackBuffer(), obs.newValidRegion(),
-          obs.readOnlyFrontBuffer(), obs.frontUpdatedRegion());
-        break;
-      }
-      case EditReply::TOpBufferSwap: {
-        MOZ_LAYERS_LOG(("[LayersForwarder] BufferSwap"));
 
-        const OpBufferSwap& obs = reply.get_OpBufferSwap();
-        const CanvasSurface& newBack = obs.newBackBuffer();
-        if (newBack.type() == CanvasSurface::TSurfaceDescriptor) {
-          GetBasicShadowable(obs)->SetBackBuffer(newBack.get_SurfaceDescriptor());
-        } else if (newBack.type() == CanvasSurface::Tnull_t) {
-          GetBasicShadowable(obs)->SetBackBuffer(SurfaceDescriptor());
+        TextureChild* textureChild = static_cast<TextureChild*>(obs.textureChild());
+        TextureClient* textureClient = textureChild->GetTextureClient();
+        ContentClient* contentClient = static_cast<ContentClient*>(textureChild->GetCompositableClient());
+        MOZ_ASSERT(textureClient, "textureChild should have a TextureClient");
+        MOZ_ASSERT(contentClient, "textureChild should have a ContentClient");
+
+        if (obs.newBackBuffer().type() == OptionalThebesBuffer::Tnull_t) {
+          textureClient->SetDescriptor(SurfaceDescriptor());
+          contentClient->EmptyBufferUpdate();
         } else {
-          NS_RUNTIMEABORT("Unknown back image type");
-        }
-        break;
-      }
-
-      case EditReply::TOpImageSwap: {
-        MOZ_LAYERS_LOG(("[LayersForwarder] YUVBufferSwap"));
-
-        const OpImageSwap& ois = reply.get_OpImageSwap();
-        BasicShadowableLayer* layer = GetBasicShadowable(ois);
-        const SharedImage& newBack = ois.newBackImage();
-
-        if (newBack.type() == SharedImage::TSurfaceDescriptor) {
-          layer->SetBackBuffer(newBack.get_SurfaceDescriptor());
-        } else if (newBack.type() == SharedImage::TYUVImage) {
-          const YUVImage& yuv = newBack.get_YUVImage();
-          layer->SetBackBufferYUVImage(yuv.Ydata(), yuv.Udata(), yuv.Vdata());
-        } else {
-          layer->SetBackBuffer(SurfaceDescriptor());
-          layer->SetBackBufferYUVImage(SurfaceDescriptor(),
-                                       SurfaceDescriptor(),
-                                       SurfaceDescriptor());
+          contentClient->SwapBuffers(obs.newBackBuffer().get_ThebesBuffer(),
+                                     obs.newValidRegion(),
+                                     obs.readOnlyFrontBuffer(),
+                                     obs.frontUpdatedRegion());
         }
 
+        break;
+      }
+      case EditReply::TOpTextureSwap: {
+        MOZ_LAYERS_LOG(("[LayersForwarder] TextureSwap"));
+
+        const OpTextureSwap& ots = reply.get_OpTextureSwap();
+
+        PTextureChild* textureChild = ots.textureChild();
+        MOZ_ASSERT(textureChild);
+
+        TextureClient* texClient = static_cast<TextureChild*>(textureChild)->GetTextureClient();
+
+        texClient->SetDescriptor(ots.image());
         break;
       }
 
@@ -1284,7 +1300,7 @@ BasicShadowLayerManager::IsCompositingCheap()
 {
   // Whether compositing is cheap depends on the parent backend.
   return mShadowManager &&
-         LayerManager::IsCompositingCheap(GetParentBackendType());
+         LayerManager::IsCompositingCheap(GetCompositorBackendType());
 }
 
 void
@@ -1336,30 +1352,6 @@ BasicShadowLayerManager::ProgressiveUpdateCallback(bool aHasPendingNewThebesCont
 
   return false;
 }
-
-already_AddRefed<ThebesLayer>
-BasicShadowLayerManager::CreateThebesLayer()
-{
-  NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-#ifdef FORCE_BASICTILEDTHEBESLAYER
-  if (HasShadowManager() && GetParentBackendType() == LAYERS_OPENGL) {
-    // BasicTiledThebesLayer doesn't support main
-    // thread compositing so only return this layer
-    // type if we have a shadow manager.
-    nsRefPtr<BasicTiledThebesLayer> layer =
-      new BasicTiledThebesLayer(this);
-    MAYBE_CREATE_SHADOW(Thebes);
-    return layer.forget();
-  } else
-#endif
-  {
-    nsRefPtr<BasicShadowableThebesLayer> layer =
-      new BasicShadowableThebesLayer(this);
-    MAYBE_CREATE_SHADOW(Thebes);
-    return layer.forget();
-  }
-}
-
 
 BasicShadowableLayer::~BasicShadowableLayer()
 {
