@@ -1242,7 +1242,6 @@ BasicShadowLayerManager::ForwardTransaction()
         MOZ_ASSERT(contentClient, "textureChild should have a ContentClient");
 
         if (obs.newBackBuffer().type() == OptionalThebesBuffer::Tnull_t) {
-          MOZ_ASSERT(contentClient->GetType() != BUFFER_CONTENT, "Must have back buffer");
           textureClient->SetDescriptor(SurfaceDescriptor());
           contentClient->EmptyBufferUpdate();
         } else {

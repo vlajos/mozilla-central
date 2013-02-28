@@ -342,16 +342,16 @@ ContentHost::Composite(EffectChain& aEffectChain,
 }
 
 void
-ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
+ContentHostTexture::UpdateThebes(const ThebesBuffer& aFront,
                                  const nsIntRegion& aUpdated,
-                                 OptionalThebesBuffer* aNewBack,
+                                 OptionalThebesBuffer* aNewFront,
                                  const nsIntRegion& aOldValidRegionBack,
-                                 OptionalThebesBuffer* aNewBackResult,
+                                 OptionalThebesBuffer* aNewBack,
                                  nsIntRegion* aNewValidRegionFront,
                                  nsIntRegion* aUpdatedRegionBack)
 {
-  *aNewBackResult = null_t();
-  *aNewBack = aNewFront;
+  *aNewFront = null_t();
+  *aNewBack = aFront;
   *aNewValidRegionFront = aOldValidRegionBack;
   aUpdatedRegionBack->SetEmpty();
 
@@ -362,12 +362,12 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
 
   // updated is in screen coordinates. Convert it to buffer coordinates.
   nsIntRegion destRegion(aUpdated);
-  destRegion.MoveBy(-aNewFront.rect().TopLeft());
+  destRegion.MoveBy(-aFront.rect().TopLeft());
 
   // Correct for rotation
-  destRegion.MoveBy(aNewFront.rotation());
+  destRegion.MoveBy(aFront.rotation());
 
-  gfxIntSize size = aNewFront.rect().Size();
+  gfxIntSize size = aFront.rect().Size();
   nsIntRect destBounds = destRegion.GetBounds();
   destRegion.MoveBy((destBounds.x >= size.width) ? -size.width : 0,
                     (destBounds.y >= size.height) ? -size.height : 0);
@@ -378,11 +378,11 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aNewFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
-  mTextureHost->Update(aNewFront.buffer(), nullptr, nullptr, &destRegion);
+  mTextureHost->Update(aFront.buffer(), nullptr, nullptr, &destRegion);
   mInitialised = true;
 
-  mBufferRect = aNewFront.rect();
-  mBufferRotation = aNewFront.rotation();
+  mBufferRect = aFront.rect();
+  mBufferRotation = aFront.rotation();
 }
 
 void
