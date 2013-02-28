@@ -140,6 +140,9 @@ ThebesLayerBuffer::DrawBufferQuadrant(gfxContext* aTarget,
       aTarget->Restore();
     }
   }
+
+  nsRefPtr<gfxASurface> surf = aTarget->CurrentSurface();
+  surf->Flush();
 }
 
 void
