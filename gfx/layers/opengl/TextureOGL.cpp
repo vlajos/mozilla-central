@@ -331,19 +331,19 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   if (!mYTexture->mTexImage || mYTexture->mTexImage->GetSize() != gfxSize) {
     mYTexture->mTexImage = mGL->CreateTextureImage(gfxSize,
                                         gfxASurface::CONTENT_ALPHA,
-                                        WrapMode(mGL, mFlags), // TODO check the flags
+                                        WrapMode(mGL, mFlags & AllowRepeat),
                                         FlagsToGLFlags(mFlags)).get();
   }
   if (!mCbTexture->mTexImage || mCbTexture->mTexImage->GetSize() != gfxCbCrSize) {
     mCbTexture->mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
                                          gfxASurface::CONTENT_ALPHA,
-                                         WrapMode(mGL, mFlags), // TODO check the flags
+                                         WrapMode(mGL, mFlags & AllowRepeat),
                                          FlagsToGLFlags(mFlags)).get();
   }
   if (!mCrTexture->mTexImage || mCrTexture->mTexImage->GetSize() != gfxSize) {
     mCrTexture->mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
                                          gfxASurface::CONTENT_ALPHA,
-                                         WrapMode(mGL, mFlags), // TODO check the flags
+                                         WrapMode(mGL, mFlags & AllowRepeat),
                                          FlagsToGLFlags(mFlags)).get();
   }
 
