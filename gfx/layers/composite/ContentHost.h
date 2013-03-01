@@ -346,7 +346,8 @@ public:
 #endif
 
 private:
-  void ProcessUploadQueue(nsIntRegion* aNewValidRegion);
+  void ProcessUploadQueue(nsIntRegion* aNewValidRegion,
+                          TiledLayerProperties* aLayerProperties);
   void ProcessLowPrecisionUploadQueue();
 
   void RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
@@ -368,7 +369,6 @@ private:
   BasicTiledLayerBuffer        mLowPrecisionMainMemoryTiledBuffer;
   TiledLayerBufferComposite    mVideoMemoryTiledBuffer;
   TiledLayerBufferComposite    mLowPrecisionVideoMemoryTiledBuffer;
-  TiledLayerProperties         mLayerProperties;
   bool                         mPendingUpload : 1;
   bool                         mPendingLowPrecisionUpload : 1;
 };

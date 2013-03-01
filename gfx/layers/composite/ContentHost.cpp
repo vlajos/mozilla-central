@@ -546,7 +546,8 @@ TiledContentHost::ProcessLowPrecisionUploadQueue()
 }
 
 void
-TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion)
+TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion,
+                                     TiledLayerProperties* aLayerProperties)
 {
   if (!mPendingUpload)
     return;
@@ -557,7 +558,7 @@ TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion)
 
   mVideoMemoryTiledBuffer.Upload(&mMainMemoryTiledBuffer,
                                  mMainMemoryTiledBuffer.GetValidRegion(),
-                                 mRegionToUpload, mLayerProperties.mEffectiveResolution);
+                                 mRegionToUpload, aLayerProperties->mEffectiveResolution);
 
   *aNewValidRegion = mVideoMemoryTiledBuffer.GetValidRegion();
 
@@ -600,13 +601,12 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
                             TiledLayerProperties* aLayerProperties /* = nullptr */)
 {
   MOZ_ASSERT(aLayerProperties, "aLayerProperties required for TiledContentHost");
-  mLayerProperties = *aLayerProperties;
 
   EnsureTileStore();
 
   // note that ProcessUploadQueue updates the valid region which is then used by
   // the RenderLayerBuffer calls below and then sent back to the layer.
-  ProcessUploadQueue(&mLayerProperties.mValidRegion);
+  ProcessUploadQueue(&aLayerProperties->mValidRegion, aLayerProperties);
   ProcessLowPrecisionUploadQueue();
 
   // Render valid tiles.
@@ -614,8 +614,8 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
 
   RenderLayerBuffer(mLowPrecisionVideoMemoryTiledBuffer,
                     mLowPrecisionVideoMemoryTiledBuffer.GetValidRegion(), aEffectChain, aOpacity,
-                    aOffset, aFilter, aClipRect, mLayerProperties.mValidRegion, visibleRect, aTransform);
-  RenderLayerBuffer(mVideoMemoryTiledBuffer, mLayerProperties.mValidRegion, aEffectChain, aOpacity, aOffset,
+                    aOffset, aFilter, aClipRect, aLayerProperties->mValidRegion, visibleRect, aTransform);
+  RenderLayerBuffer(mVideoMemoryTiledBuffer, aLayerProperties->mValidRegion, aEffectChain, aOpacity, aOffset,
                     aFilter, aClipRect, nsIntRegion(), visibleRect, aTransform);
 }
 
