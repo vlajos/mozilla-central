@@ -27,7 +27,6 @@ public:
 
 protected:
   bool ReceiveCompositableUpdate(const CompositableOperation& aEdit,
-                                 const bool& isFirstPaint, // TODO[nical] this doesn't seem to be used
                                  EditReplyVector& replyv);
 };
 

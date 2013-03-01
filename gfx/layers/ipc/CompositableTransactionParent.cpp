@@ -40,7 +40,6 @@ Layer* GetLayerFromOpPaint(const OpPaintT& op)
 
 bool
 CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation& aEdit,
-                                                     const bool& isFirstPaint,
                                                      EditReplyVector& replyv)
 {
   switch (aEdit.type()) {

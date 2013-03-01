@@ -48,9 +48,7 @@ ImageBridgeParent::RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply)
 {
   EditReplyVector replyv;
   for (EditArray::index_type i = 0; i < aEdits.Length(); ++i) {
-    bool isFirstPaint = false;
     ReceiveCompositableUpdate(aEdits[i],
-                              isFirstPaint,
                               replyv);
   }
 

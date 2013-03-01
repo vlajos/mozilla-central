@@ -391,7 +391,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     }
     case Edit::TCompositableOperation: {
       ReceiveCompositableUpdate(edit.get_CompositableOperation(),
-                                isFirstPaint,
                                 replyv);
       break;
     }
