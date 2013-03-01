@@ -58,6 +58,29 @@ static void DrawDebugOverlay(gfxASurface* imgSurf, int x, int y)
 namespace mozilla {
 namespace layers {
 
+/* static */ TemporaryRef<ContentClient>
+CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
+                                        CompositableType aCompositableHostType,
+                                        CompositableForwarder* aForwarder)
+{
+  if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
+    return nullptr;
+  }
+  if (aCompositableHostType == BUFFER_CONTENT) {
+    return new ContentClientTexture(aForwarder);
+  }
+  if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
+    if (ShadowLayerManager::SupportsDirectTexturing()) {
+      return new ContentClientDirect(aForwarder);
+    }
+    return new ContentClientTexture(aForwarder);
+  }
+  if (aCompositableHostType == BUFFER_TILED) {
+    MOZ_NOT_REACHED("No CompositableClient for tiled layers");
+  }
+  return nullptr;
+}
+
 ContentClientBasic::ContentClientBasic(CompositableForwarder* aForwarder,
                                        BasicLayerManager* aManager)
 : ContentClient(aForwarder), mManager(aManager)

@@ -91,6 +91,13 @@ public:
     MOZ_COUNT_DTOR(TextureImageTextureHostOGL);
   }
 
+  // This is a hack that is here to not break on-main-thread ThebesLayerBuffer
+  // please do not use it anywhere else, use SetCompositor instead.
+  void SetGLContext(gl::GLContext* aGL)
+  {
+    mGL = aGL;
+  }
+
   // TextureHost
 
   void UpdateImpl(const SurfaceDescriptor& aImage,

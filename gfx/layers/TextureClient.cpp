@@ -24,7 +24,6 @@ using namespace mozilla::gl;
 namespace mozilla {
 namespace layers {
 
-
 TextureClient::TextureClient(CompositableForwarder* aForwarder,
                              CompositableType aCompositableType)
   : mLayerForwarder(aForwarder)
@@ -383,82 +382,6 @@ CompositingFactory::TypeForImage(Image* aImage) {
   }
 
   return BUFFER_IMAGE_SINGLE;
-}
-
-/* static */ TemporaryRef<ImageClient>
-CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
-                                      CompositableType aCompositableHostType,
-                                      CompositableForwarder* aForwarder,
-                                      TextureFlags aFlags)
-{
-  RefPtr<ImageClient> result = nullptr;
-  switch (aCompositableHostType) {
-  case BUFFER_IMAGE_SINGLE:
-    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new ImageClientTexture(aForwarder, aFlags);
-    }
-    break;
-  case BUFFER_IMAGE_BUFFERED:
-    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new ImageClientTextureBuffered(aForwarder, aFlags);
-    }
-    break;
-  case BUFFER_BRIDGE:
-    if (aParentBackend == LAYERS_OPENGL) {
-      result = new ImageClientBridge(aForwarder, aFlags);
-    }
-    break;
-  case BUFFER_UNKNOWN:
-    result = nullptr;
-    break;
-  default:
-    MOZ_NOT_REACHED("unhandled program type");
-  }
-
-  NS_ASSERTION(result, "Failed to create ImageClient");
-
-  return result.forget();
-}
-
-/* static */ TemporaryRef<CanvasClient>
-CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
-                                       CompositableType aCompositableHostType,
-                                       CompositableForwarder* aForwarder,
-                                       TextureFlags aFlags)
-{
-  if (aCompositableHostType == BUFFER_IMAGE_SINGLE) {
-    return new CanvasClient2D(aForwarder, aFlags);
-  }
-  if (aCompositableHostType == BUFFER_IMAGE_BUFFERED) {
-    if (aParentBackend == LAYERS_OPENGL) {
-      return new CanvasClientWebGL(aForwarder, aFlags);
-    }
-    return new CanvasClient2D(aForwarder, aFlags);
-  }
-  return nullptr;
-}
-
-/* static */ TemporaryRef<ContentClient>
-CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
-                                        CompositableType aCompositableHostType,
-                                        CompositableForwarder* aForwarder)
-{
-  if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
-    return nullptr;
-  }
-  if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientTexture(aForwarder);
-  }
-  if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
-    if (ShadowLayerManager::SupportsDirectTexturing()) {
-      return new ContentClientDirect(aForwarder);
-    }
-    return new ContentClientTexture(aForwarder);
-  }
-  if (aCompositableHostType == BUFFER_TILED) {
-    MOZ_NOT_REACHED("No CompositableClient for tiled layers");
-  }
-  return nullptr;
 }
 
 void

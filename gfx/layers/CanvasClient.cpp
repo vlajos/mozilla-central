@@ -17,6 +17,24 @@ using namespace mozilla::gl;
 namespace mozilla {
 namespace layers {
 
+/* static */ TemporaryRef<CanvasClient>
+CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
+                                       CompositableType aCompositableHostType,
+                                       CompositableForwarder* aForwarder,
+                                       TextureFlags aFlags)
+{
+  if (aCompositableHostType == BUFFER_IMAGE_SINGLE) {
+    return new CanvasClient2D(aForwarder, aFlags);
+  }
+  if (aCompositableHostType == BUFFER_IMAGE_BUFFERED) {
+    if (aParentBackend == LAYERS_OPENGL) {
+      return new CanvasClientWebGL(aForwarder, aFlags);
+    }
+    return new CanvasClient2D(aForwarder, aFlags);
+  }
+  return nullptr;
+}
+
 void
 CanvasClient::SetBuffer(const TextureIdentifier& aTextureIdentifier,
                         const SurfaceDescriptor& aBuffer)

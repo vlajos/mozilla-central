@@ -15,6 +15,42 @@
 namespace mozilla {
 namespace layers {
 
+/* static */ TemporaryRef<ImageClient>
+CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
+                                      CompositableType aCompositableHostType,
+                                      CompositableForwarder* aForwarder,
+                                      TextureFlags aFlags)
+{
+  RefPtr<ImageClient> result = nullptr;
+  switch (aCompositableHostType) {
+  case BUFFER_IMAGE_SINGLE:
+    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
+      result = new ImageClientTexture(aForwarder, aFlags);
+    }
+    break;
+  case BUFFER_IMAGE_BUFFERED:
+    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
+      result = new ImageClientTextureBuffered(aForwarder, aFlags);
+    }
+    break;
+  case BUFFER_BRIDGE:
+    if (aParentBackend == LAYERS_OPENGL) {
+      result = new ImageClientBridge(aForwarder, aFlags);
+    }
+    break;
+  case BUFFER_UNKNOWN:
+    result = nullptr;
+    break;
+  default:
+    MOZ_NOT_REACHED("unhandled program type");
+  }
+
+  NS_ASSERTION(result, "Failed to create ImageClient");
+
+  return result.forget();
+}
+
+
 ImageClient::ImageClient(CompositableForwarder* aFwd)
 : CompositableClient(aFwd)
 , mFilter(gfxPattern::FILTER_GOOD)
