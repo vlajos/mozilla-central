@@ -63,22 +63,13 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         compositable->SetCompositor(compositor);
       }
       textureParent->EnsureTextureHost(descriptor.type());
-      if (!textureParent->GetTextureHost()) {
-        NS_WARNING("failed to create the texture host");
-        // in this case we keep the surface descriptor in the texture parent in
-        // order to update the texture host as soon as it will be created and
-        // not miss the first frame (this can only happen with async video at
-        // the moment).
-        if (textureParent->HasBuffer()) {
-          replyv.push_back(OpTextureSwap(textureParent, nullptr, textureParent->GetBuffer()));
-        }
-        textureParent->SetBuffer(op.image());
-        break;
-      }
+      MOZ_ASSERT(textureParent->GetTextureHost());
 
       SurfaceDescriptor newBack;
       bool shouldRecomposite = compositable->Update(op.image(), &newBack);
-      replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
+      if (IsSurfaceDescriptorValid(newBack)) {
+        replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
+      }
 
       MOZ_ASSERT(shouldRecomposite);
       if (shouldRecomposite && textureParent->GetCompositorID()) {
@@ -90,10 +81,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
 
       if (layer) {
         RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
-      }
-
-      if (textureParent->HasBuffer()) {
-        // TODO[nical] release texureParent->GetBuffer();
       }
 
       RenderTraceInvalidateEnd(layer, "FF00FF");

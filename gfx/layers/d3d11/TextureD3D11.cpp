@@ -19,6 +19,29 @@ using namespace gfx;
 
 namespace layers {
 
+TemporaryRef<TextureHost>
+CreateTextureHostD3D11(SurfaceDescriptorType aDescriptorType,
+                       uint32_t aTextureHostFlags,
+                       uint32_t aTextureFlags,
+                       bool aBuffered,
+                       ISurfaceAllocator* aDeAllocator)
+{
+  RefPtr<TextureHost> result;
+  if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
+    result = new TextureHostYCbCrD3D11(aDeAllocator);
+  } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorD3D10) {
+    MOZ_ASSERT(aBuffered, "Can't support SurfaceDescriptorD3D10 without buffering!");
+    result = new TextureHostDXGID3D11(aDeAllocator);
+  } else {
+    result = new TextureHostShmemD3D11(aDeAllocator);
+  }
+
+  result->SetFlags(aTextureFlags);
+
+  return result.forget();
+}
+
+
 CompositingRenderTargetD3D11::CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture)
 {
   mTextures[0] = aTexture;
@@ -196,6 +219,13 @@ uint32_t GetRequiredTiles(uint32_t aSize, uint32_t aMaxSize)
 }
 
 void
+TextureHostShmemD3D11::SetCompositor(Compositor* aCompsitpr)
+{
+  d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
+  mDevice = d3dCompositor ? d3dCompositor->GetDevice() : nullptr;
+}
+
+void
 TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
                              bool *aNeedsReset, nsIntRegion *aRegion)
 {
@@ -279,6 +309,13 @@ TextureHostShmemD3D11::GetTileRect(uint32_t aID)
                  verticalTile < (verticalTiles - 1) ? maxSize : mSize.height % maxSize);
 }
 
+void
+TextureHostDXGID3D11::SetCompositor(Compositor* aCompsitpr)
+{
+  d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
+  mDevice = d3dCompositor ? d3dCompositor->GetDevice() : nullptr;
+}
+
 IntSize
 TextureHostDXGID3D11::GetSize() const
 {
@@ -340,6 +377,13 @@ TextureHostDXGID3D11::ReleaseTexture()
   mTextures[0]->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
   mutex->ReleaseSync(0);
+}
+
+void
+TextureHostYCbCrD3D11::SetCompositor(Compositor* aCompsitpr)
+{
+  d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
+  mDevice = d3dCompositor ? d3dCompositor->GetDevice() : nullptr;
 }
 
 IntSize

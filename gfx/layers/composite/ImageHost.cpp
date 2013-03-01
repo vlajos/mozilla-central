@@ -19,6 +19,7 @@ namespace layers {
 
 void
 ImageHostSingle::SetCompositor(Compositor* aCompositor) {
+  printf("ImageHostSingle::SetCompositor %p\n", aCompositor);
   CompositableHost::SetCompositor(aCompositor);
   if (mTextureHost) {
     mTextureHost->SetCompositor(aCompositor);
@@ -65,6 +66,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   }
 
   if (!mTextureHost->IsValid()) {
+    NS_WARNING("Can't composite an invalid TextureHost");
     return;
   }
 

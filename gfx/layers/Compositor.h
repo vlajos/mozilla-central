@@ -281,9 +281,9 @@ public:
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
 #endif
 
-protected:
 
   SurfaceDescriptor* GetBuffer() const { return mBuffer; }
+protected:
 
   /**
    * Should be implemented by the backend-specific TextureHost classes 
@@ -390,23 +390,6 @@ public:
   virtual void SetTarget(gfxContext *aTarget) = 0;
 
   virtual void MakeCurrent(bool aForce = false) = 0;
-
-  /**
-   * Create a new texture host to handle surfaces of aDescriptorType
-   *
-   * @param aDescriptorType The SurfaceDescriptor type being passed
-   * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
-   * @param aTextureFlags Flags to pass to the new TextureHost
-   * @param aBuffered True if the texture will be buffered (and updated via SwapTextures), or false if it will be used
-   * unbuffered (and updated using Update).
-   * #@param aDeAllocator A surface deallocator..
-   */
-  virtual TemporaryRef<TextureHost>
-    CreateTextureHost(SurfaceDescriptorType aDescriptorType,
-                      uint32_t aTextureHostFlags,
-                      uint32_t aTextureFlags,
-                      bool aBuffered,
-                      ISurfaceAllocator* aDeAllocator) = 0;
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId
@@ -526,8 +509,10 @@ public:
     return nullptr;
   }
 
+  static LayersBackend GetBackend();
 protected:
   uint32_t mCompositorID;
+  static LayersBackend sBackend;
 };
 
 class CompositingFactory
@@ -552,6 +537,22 @@ public:
 
   static CompositableType TypeForImage(Image* aImage);
 };
+
+/**
+ * Create a new texture host to handle surfaces of aDescriptorType
+ *
+ * @param aDescriptorType The SurfaceDescriptor type being passed
+ * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
+ * @param aTextureFlags Flags to pass to the new TextureHost
+ * @param aBuffered True if the texture will be buffered (and updated via SwapTextures), or false if it will be used
+ * unbuffered (and updated using Update).
+ * #@param aDeAllocator A surface deallocator..
+ */
+TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+                                            uint32_t aTextureHostFlags,
+                                            uint32_t aTextureFlags,
+                                            bool aBuffered,
+                                            ISurfaceAllocator* aDeAllocator);
 
 }
 }

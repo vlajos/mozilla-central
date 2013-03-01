@@ -735,10 +735,11 @@ TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* 
   TextureFlags flags = 0;
   if (!mTextureHost) {
     // convert placeholder tile to a real tile
-    mTextureHost = aCompositor->CreateTextureHost(SURFACEDESCRIPTOR_UNKNOWN,
-                                                  TEXTURE_HOST_TILED,
-                                                  false,
-                                                  NoFlags, nullptr);
+    mTextureHost = CreateTextureHost(SURFACEDESCRIPTOR_UNKNOWN,
+                                     TEXTURE_HOST_TILED,
+                                     false,
+                                     NoFlags, nullptr);
+    mTextureHost->SetCompositor(aCompositor);
     flags |= NewTile;
   }
 

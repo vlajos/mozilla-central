@@ -34,19 +34,21 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
 
   CompositableParent* compParent = static_cast<CompositableParent*>(Manager());
   CompositableHost* compositable = compParent->GetCompositableHost();
-  Compositor* compositor = compositable->GetCompositor();
 
+  mTextureHost = CreateTextureHost(aSurfaceType,
+                                   mTextureInfo.mTextureHostFlags,
+                                   mTextureInfo.mTextureFlags,
+                                   compositable->IsBuffered(),
+                                   compParent->GetCompositableManager());
+  mTextureHost->SetTextureParent(this);
+  compositable->AddTextureHost(mTextureHost);
+  mLastSurfaceType = aSurfaceType;
+
+  Compositor* compositor = compositable->GetCompositor();
   if (compositor) {
-    mLastSurfaceType = aSurfaceType;
-    mTextureHost = compositor->CreateTextureHost(aSurfaceType,
-                                                 mTextureInfo.mTextureHostFlags,
-                                                 mTextureInfo.mTextureFlags,
-                                                 compositable->IsBuffered(),
-                                                 compParent->GetCompositableManager());
-    compositable->AddTextureHost(mTextureHost);
-    return true;
+    mTextureHost->SetCompositor(compositor);
   }
-  return false;
+  return true;
 }
 
 void TextureParent::SetTextureHost(TextureHost* aHost)

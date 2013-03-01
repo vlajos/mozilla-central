@@ -74,10 +74,9 @@ class TextureImageTextureHostOGL : public TextureHost
                                  , public TileIterator
 {
 public:
-  TextureImageTextureHostOGL(gl::GLContext* aGL,
-                             ISurfaceAllocator* aDeallocator,
+  TextureImageTextureHostOGL(ISurfaceAllocator* aDeallocator,
                              gl::TextureImage* aTexImage = nullptr)
-  : TextureHost(aDeallocator), mTexture(aTexImage), mGL(aGL)
+  : TextureHost(aDeallocator), mTexture(aTexImage), mGL(nullptr)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
   }
@@ -98,6 +97,8 @@ public:
                   bool* aIsInitialised = nullptr,
                   bool* aNeedsReset = nullptr,
                   nsIntRegion* aRegion = nullptr);
+
+  virtual void SetCompositor(Compositor* aCompositor);
 
   bool IsValid() const MOZ_OVERRIDE
   {
@@ -197,9 +198,9 @@ protected:
 class YCbCrTextureHostOGL : public TextureHost
 {
 public:
-  YCbCrTextureHostOGL(gl::GLContext* aGL, ISurfaceAllocator* aDeAllocator)
+  YCbCrTextureHostOGL(ISurfaceAllocator* aDeAllocator)
     : TextureHost(aDeAllocator)
-    , mGL(aGL)
+    , mGL(nullptr)
   {
     MOZ_COUNT_CTOR(YCbCrTextureHostOGL);
     mYTexture  = new Channel;
@@ -213,6 +214,8 @@ public:
     MOZ_COUNT_DTOR(YCbCrTextureHostOGL);
   }
 
+  virtual void SetCompositor(Compositor* aCompositor);
+
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           bool* aIsInitialised = nullptr,
                           bool* aNeedsReset = nullptr,
@@ -222,7 +225,7 @@ public:
 
   TextureSource* AsTextureSource() MOZ_OVERRIDE
   {
-    return this;
+    return IsValid() ? this : nullptr;
   }
 
   struct Channel : public TextureSourceOGL
@@ -293,24 +296,26 @@ public:
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
 
-  SharedTextureHostOGL(GLContext* aGL,
-                       ISurfaceAllocator* aDeAllocator)
-
+  SharedTextureHostOGL(ISurfaceAllocator* aDeAllocator)
     : TextureHost(aDeAllocator)
-    , mGL(aGL)
+    , mGL(nullptr)
     , mTextureHandle(0)
     , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
     , mSharedHandle(0)
     , mShareType(GLContext::SameProcess)
   {}
 
+  virtual void SetCompositor(Compositor* aCompositor);
+
   virtual ~SharedTextureHostOGL()
   {
     mGL->MakeCurrent();
     if (mSharedHandle) {
+      MOZ_ASSERT(mGL);
       mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
     }
     if (mTextureHandle) {
+      MOZ_ASSERT(mGL);
       mGL->fDeleteTextures(1, &mTextureHandle);
     }
   }
@@ -357,6 +362,7 @@ public:
 
   void BindTexture(GLenum activetex)
   {
+    MOZ_ASSERT(mGL);
     mGL->fActiveTexture(activetex);
     mGL->fBindTexture(mTextureTarget, mTextureHandle);
   }
@@ -395,11 +401,14 @@ public:
   virtual ~SurfaceStreamHostOGL()
   {
     if (mUploadTexture) {
+      MOZ_ASSERT(mGL);
       mGL->MakeCurrent();
       mGL->fDeleteTextures(1, &mUploadTexture);
     }
     *mBuffer = SurfaceDescriptor();
   }
+
+  virtual void SetCompositor(Compositor* aCompositor);
 
   virtual GLuint GetTextureHandle()
   {
@@ -441,6 +450,7 @@ public:
   }
 
   void BindTexture(GLenum activetex) {
+    MOZ_ASSERT(mGL);
     mGL->fActiveTexture(activetex);
     mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
   }
@@ -457,11 +467,10 @@ public:
   virtual const char* Name() { return "SurfaceStreamHostOGL"; }
 #endif
 
-  SurfaceStreamHostOGL(GLContext* aGL,
-                       ISurfaceAllocator* aDeAllocator = nullptr)
+  SurfaceStreamHostOGL(ISurfaceAllocator* aDeAllocator = nullptr)
 
   : TextureHost(aDeAllocator)
-  , mGL(aGL)
+  , mGL(nullptr)
   , mTextureHandle(0)
   , mUploadTexture(0)
   , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
@@ -482,12 +491,14 @@ class TiledTextureHostOGL : public TextureHost
                           , public TextureSourceOGL
 {
 public:
-  TiledTextureHostOGL(gl::GLContext* aGL, ISurfaceAllocator* aDeAllocator) 
+  TiledTextureHostOGL(ISurfaceAllocator* aDeAllocator)
     : TextureHost(aDeAllocator)
     , mTextureHandle(0)
-    , mGL(aGL)
+    , mGL(nullptr)
   {}
   ~TiledTextureHostOGL();
+
+  virtual void SetCompositor(Compositor* aCompositor);
 
   // have to pass the size in here (every time) because of DrawQuad API :-(
   virtual void Update(gfxReusableSurfaceWrapper* aReusableSurface, TextureFlags aFlags, const gfx::IntSize& aSize) MOZ_OVERRIDE;

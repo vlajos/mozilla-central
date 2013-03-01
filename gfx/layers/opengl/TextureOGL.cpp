@@ -22,6 +22,52 @@ using namespace gfx;
 
 namespace layers {
 
+TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
+                                              uint32_t aTextureHostFlags,
+                                              uint32_t aTextureFlags,
+                                              bool aBuffered,
+                                              ISurfaceAllocator* aDeAllocator)
+{
+  RefPtr<TextureHost> result = nullptr;
+
+  if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
+    result = new YCbCrTextureHostOGL(aDeAllocator /*, bufferMode*/);
+  } else if (aDescriptorType == SurfaceDescriptor::TSurfaceStreamDescriptor) {
+    result = new SurfaceStreamHostOGL(aDeAllocator);
+  } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
+    result = new SharedTextureHostOGL(aDeAllocator);
+
+  } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
+    result = new TiledTextureHostOGL(aDeAllocator);
+#if 0 // FIXME [bjacob] hook up b2g gralloc path here
+#ifdef MOZ_WIDGET_GONK
+    // XXXmattwoodrow: I think this should be:
+    // if (aTextureHostFlags & TEXTURE_DIRECT &&
+    //     aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
+    //   result = new GrallocTextureHostOGL(...);
+    // }
+    // In the case where we don't have the TEXTURE_DIRECT flag (possibly
+    // because of calling FallbackTextureInfo above), then we can fallback
+    // to TextureImageTextureHostOGL, and that should be able to handle
+    // Gralloc surfaces the slow way.
+    //
+    if ((aTextureType & TEXTURE_EXTERNAL) &&
+        (aTextureType & TEXTURE_DIRECT)) {
+      result = new DirectExternalTextureHost(mGLContext);
+    }
+#endif
+#endif
+  } else {
+    result = new TextureImageTextureHostOGL(aDeAllocator);
+  }
+
+  NS_ASSERTION(result, "Result should have been created.");
+
+  result->SetFlags(aTextureFlags);
+  return result.forget();
+}
+
+
 static void
 MakeTextureIfNeeded(gl::GLContext* gl, GLenum aTarget, GLuint& aTexture)
 {
@@ -84,11 +130,18 @@ gfx::SurfaceFormat FormatFromShaderType(ShaderProgramType aShaderType)
   }
 }
 
+void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  mGL = glCompositor ? glCompositor->gl() : nullptr;
+}
+
 void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                               bool* aIsInitialised,
                                               bool* aNeedsReset,
                                               nsIntRegion* aRegion)
 {
+  MOZ_ASSERT(mGL, "forgot to call SetCompositor?");
   AutoOpenSurface surf(OPEN_READ_ONLY, aImage);
   nsIntSize size = surf.Size();
 
@@ -145,6 +198,13 @@ TextureImageTextureHostOGL::Abort()
     mTexture->EndUpdate();
   }
 }
+
+void SharedTextureHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  mGL = glCompositor ? glCompositor->gl() : nullptr;
+}
+
 
 void
 SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
@@ -211,6 +271,13 @@ SharedTextureHostOGL::Unlock()
   mGL->DetachSharedHandle(mShareType, mSharedHandle);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
 }
+
+void SurfaceStreamHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  mGL = glCompositor ? glCompositor->gl() : nullptr;
+}
+
 
 void
 SurfaceStreamHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
@@ -313,17 +380,40 @@ SurfaceStreamHostOGL::Lock()
   return true;
 }
 
+
+void
+YCbCrTextureHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  printf("YCbCrTextureHostOGL::SetCompositor %p\n", aCompositor);
+  CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  GLContext* newGL = glCompositor ? glCompositor->gl() : nullptr;
+  if (mGL != newGL) {
+    mGL = newGL;
+    mYTexture->mTexImage = nullptr;
+    mCbTexture->mTexImage = nullptr;
+    mCrTexture->mTexImage = nullptr;
+    // if we have a buffer we reupload it with the new gl context
+    if (newGL && mBuffer && mBuffer->type() == SurfaceDescriptor::TYCbCrImage) {
+      printf("YCbCrTetxureHostOGL: Reupload YCbCr buffer\n");
+      UpdateImpl(*mBuffer);
+    }
+  }
+}
+
 void
 YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                 bool* aIsInitialised,
                                 bool* aNeedsReset,
                                 nsIntRegion* aRegion)
 {
+  if (!mGL) {
+    NS_WARNING("trying to update an invalid TextureHost");
+    return;
+  }
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");
 
   ShmemYCbCrImage shmemImage(aImage.get_YCbCrImage().data(),
                              aImage.get_YCbCrImage().offset());
-
 
   gfxIntSize gfxSize = shmemImage.GetYSize();
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
@@ -398,6 +488,13 @@ GetFormatAndTileForImageFormat(gfxASurface::gfxImageFormat aFormat,
     aOutFormat = LOCAL_GL_RGBA;
     aOutType = LOCAL_GL_UNSIGNED_BYTE;
   }
+}
+
+void
+TiledTextureHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  mGL = glCompositor ? glCompositor->gl() : nullptr;  
 }
 
 void

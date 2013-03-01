@@ -45,6 +45,9 @@ struct TextureFactoryIdentifier
  * client/host pair.
  */
  //TODO(maybe) move this file out of /ipc
+ // Wherever we move this, make sure it does not have any c++ dependency becasue IDPL code
+ // depends on it. We don't want C++ code that depends on IPDL code that depends on
+ // the same C++ code (it breaks build in non obvious ways).
 struct TextureInfo
 {
   CompositableType mCompositableType;

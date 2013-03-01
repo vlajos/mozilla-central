@@ -394,9 +394,13 @@ CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {
   case BUFFER_IMAGE_SINGLE:
-  case BUFFER_IMAGE_BUFFERED:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
       result = new ImageClientTexture(aForwarder, aFlags);
+    }
+    break;
+  case BUFFER_IMAGE_BUFFERED:
+    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
+      result = new ImageClientTextureBuffered(aForwarder, aFlags);
     }
     break;
   case BUFFER_BRIDGE:

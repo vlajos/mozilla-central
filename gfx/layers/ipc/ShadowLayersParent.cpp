@@ -395,18 +395,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");  
       Attach(cast(op.layerParent()), compositableParent);
       compositableParent->SetCompositorID(mLayerManager->GetCompositor()->GetCompositorID());
-
-      // make sure we update the texture host with the data that we received before 
-      // attaching (if any).
-      unsigned int nTex = compositableParent->ManagedPTextureParent().Length();
-      for (unsigned int i = 0; i < nTex; ++i) {
-        TextureParent* tex
-          = static_cast<TextureParent*>(compositableParent->ManagedPTextureParent()[i]);
-        if (tex->HasBuffer()) {
-          tex->EnsureTextureHost(tex->GetBuffer().type());
-          compositableParent->GetCompositableHost()->Update(tex->GetBuffer(), &tex->GetBuffer());
-        }
-      }
       break;
     }
     case Edit::TOpPaintTiledLayerBuffer: {

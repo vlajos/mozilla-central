@@ -295,6 +295,7 @@ CompositorOGL::CompositorOGL(nsIWidget *aWidget, int aSurfaceWidth,
   , mDestroyed(false)
 {
   MOZ_COUNT_CTOR(CompositorOGL);
+  sBackend = LAYERS_OPENGL;
 }
 
 CompositorOGL::~CompositorOGL()
@@ -713,54 +714,6 @@ CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {
   // Try again without direct texturing enabled
   aId.mTextureHostFlags &= ~TEXTURE_HOST_DIRECT;
-}
-
-TemporaryRef<TextureHost>
-CompositorOGL::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
-                                 uint32_t aTextureHostFlags,
-                                 uint32_t aTextureFlags,
-                                 bool aBuffered,
-                                 ISurfaceAllocator* aDeAllocator)
-{
-  RefPtr<TextureHost> result = nullptr;
-
-  if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
-    result = new YCbCrTextureHostOGL(mGLContext, aDeAllocator /*, bufferMode*/);
-  } else if (aDescriptorType == SurfaceDescriptor::TSurfaceStreamDescriptor) {
-    result = new SurfaceStreamHostOGL(mGLContext, aDeAllocator);
-  } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
-    result = new SharedTextureHostOGL(mGLContext,
-                                      aDeAllocator);
-
-  } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
-    result = new TiledTextureHostOGL(mGLContext, aDeAllocator);
-#if 0 // FIXME [bjacob] hook up b2g gralloc path here
-#ifdef MOZ_WIDGET_GONK
-    // XXXmattwoodrow: I think this should be:
-    // if (aTextureHostFlags & TEXTURE_DIRECT &&
-    //     aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
-    //   result = new GrallocTextureHostOGL(...);
-    // }
-    // In the case where we don't have the TEXTURE_DIRECT flag (possibly
-    // because of calling FallbackTextureInfo above), then we can fallback
-    // to TextureImageTextureHostOGL, and that should be able to handle
-    // Gralloc surfaces the slow way.
-    //
-    if ((aTextureType & TEXTURE_EXTERNAL) &&
-        (aTextureType & TEXTURE_DIRECT)) {
-      result = new DirectExternalTextureHost(mGLContext);
-    }
-#endif
-#endif
-  } else {
-    result = new TextureImageTextureHostOGL(mGLContext,
-                                            aDeAllocator);
-  }
-
-  NS_ASSERTION(result, "Result should have been created.");
- 
-  result->SetFlags(aTextureFlags);
-  return result.forget();
 }
 
 TemporaryRef<CompositingRenderTarget>

@@ -87,14 +87,15 @@ class TextureHostShmemD3D11 : public TextureHost
                             , public TileIterator
 {
 public:
-  TextureHostShmemD3D11(ISurfaceAllocator* aDeallocator,
-                        ID3D11Device *aDevice)
+  TextureHostShmemD3D11(ISurfaceAllocator* aDeallocator)
     : TextureHost(aDeallocator)
-    , mDevice(aDevice)
+    , mDevice(nullptr)
     , mIsTiled(false)
     , mCurrentTile(0)
   {
   }
+
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
   virtual TextureSource *AsTextureSource();
 
@@ -135,12 +136,13 @@ class TextureHostDXGID3D11 : public TextureHost
                            , public TextureSourceD3D11
 {
 public:
-  TextureHostDXGID3D11(ISurfaceAllocator* aDeallocator,
-                       ID3D11Device *aDevice)
+  TextureHostDXGID3D11(ISurfaceAllocator* aDeallocator)
     : TextureHost(aDeallocator)
-    , mDevice(aDevice)
+    , mDevice(nullptr)
   {
   }
+
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
   virtual TextureSource *AsTextureSource();
 
@@ -173,10 +175,9 @@ class TextureHostYCbCrD3D11 : public TextureHost
                             , public TextureSourceD3D11
 {
 public:
-  TextureHostYCbCrD3D11(ISurfaceAllocator* aDeallocator,
-                        ID3D11Device *aDevice)
+  TextureHostYCbCrD3D11(ISurfaceAllocator* aDeallocator)
     : TextureHost(aDeallocator)
-    , mDevice(aDevice)
+    , mDevice(nullptr)
   {
     mFormat = gfx::FORMAT_YUV;
   }
