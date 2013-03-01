@@ -30,7 +30,7 @@ TextureClient::TextureClient(CompositableForwarder* aForwarder,
   : mLayerForwarder(aForwarder)
   , mTextureChild(nullptr)
 {
-  mTextureInfo.compositableType = aCompositableType;
+  mTextureInfo.mCompositableType = aCompositableType;
 }
 
 TextureClient::~TextureClient()

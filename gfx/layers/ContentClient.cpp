@@ -250,7 +250,6 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().width,
                   mFrontUpdatedRegion.GetBounds().height));
 
-  //TODO[nrc] if we hit the !mTextureClient path above we are repeating some work here
   const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
   UpdateDestinationFrom(GetBuffer(),
                         frontBuffer,

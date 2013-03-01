@@ -42,7 +42,7 @@ CompositingRenderTargetD3D11::GetSize() const
 TextureClientD3D11::TextureClientD3D11(CompositableForwarder* aCompositableForwarder, CompositableType aCompositableType)
   : TextureClient(aCompositableForwarder, aCompositableType)
 {
-  mTextureInfo.compositableType = aCompositableType;
+  mTextureInfo.mCompositableType = aCompositableType;
 }
 
 TextureClientD3D11::~TextureClientD3D11()

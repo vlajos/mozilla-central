@@ -9,7 +9,6 @@
 namespace mozilla {
 namespace layers {
 
-// TODO Is this the same as TextureHostFlags
 enum CompositableType
 {
   BUFFER_UNKNOWN,
@@ -45,18 +44,17 @@ struct TextureFactoryIdentifier
  * to the CompositableHost. How the identifier is used depends on the buffer
  * client/host pair.
  */
- //TODO field naming conventions
  //TODO(maybe) move this file out of /ipc
 struct TextureInfo
 {
-  CompositableType compositableType;
-  uint32_t textureHostFlags;
-  uint32_t textureFlags;
+  CompositableType mCompositableType;
+  uint32_t mTextureHostFlags;
+  uint32_t mTextureFlags;
 
   TextureInfo()
-    : compositableType(BUFFER_UNKNOWN)
-    , textureHostFlags(0)
-    , textureFlags(0)
+    : mCompositableType(BUFFER_UNKNOWN)
+    , mTextureHostFlags(0)
+    , mTextureFlags(0)
   {}
 };
   

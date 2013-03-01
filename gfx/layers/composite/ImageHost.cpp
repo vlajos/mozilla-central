@@ -139,12 +139,12 @@ ImageHostSingle::PrintInfo(nsACString& aTo, const char* aPrefix)
 void
 ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
 {
-  NS_ASSERTION((aTextureInfo.compositableType == BUFFER_TEXTURE &&
-                aTextureInfo.memoryType == TEXTURE_SHMEM) ||
-               (aTextureInfo.compositableType == BUFFER_SHARED &&
-                aTextureInfo.memoryType == TEXTURE_SHARED) ||
-               (aTextureInfo.compositableType == BUFFER_DIRECT_EXTERNAL &&
-                aTextureInfo.memoryType == TEXTURE_SHMEM),
+  NS_ASSERTION((aTextureInfo.mCompositableType == BUFFER_TEXTURE &&
+                aTextureInfo.mMemoryType == TEXTURE_SHMEM) ||
+               (aTextureInfo.mCompositableType == BUFFER_SHARED &&
+                aTextureInfo.mMemoryType == TEXTURE_SHARED) ||
+               (aTextureInfo.mCompositableType == BUFFER_DIRECT_EXTERNAL &&
+                aTextureInfo.mMemoryType == TEXTURE_SHMEM),
                "CompositableType mismatch.");
   mTextureHost = aTextureHost;
 }

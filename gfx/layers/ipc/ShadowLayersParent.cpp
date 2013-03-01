@@ -53,16 +53,6 @@ AsTextureHost(const OpPaintT& op)
   return static_cast<TextureParent*>(op.textureParent())->GetTextureHost();
 }
 
-// TODO[nical] we should not need this
-template<class OpPaintT>
-Layer* GetLayerFromOpPaint(const OpPaintT& op)
-{
-  PTextureParent* textureParent = op.textureParent();
-  CompositableHost* compoHost
-    = static_cast<CompositableParent*>(textureParent->Manager())->GetCompositableHost();
-  return compoHost->GetLayer();
-}
-
 template<class OpCreateT>
 static ShadowLayerParent*
 AsShadowLayer(const OpCreateT& op)

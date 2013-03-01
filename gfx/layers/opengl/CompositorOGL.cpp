@@ -712,7 +712,7 @@ void
 CompositorOGL::FallbackTextureInfo(TextureInfo& aId)
 {
   // Try again without direct texturing enabled
-  aId.textureHostFlags &= ~TEXTURE_HOST_DIRECT;
+  aId.mTextureHostFlags &= ~TEXTURE_HOST_DIRECT;
 }
 
 TemporaryRef<TextureHost>

@@ -117,7 +117,7 @@ public:
 
   void SetFlags(TextureFlags aFlags)
   {
-    mTextureInfo.textureFlags = aFlags;
+    mTextureInfo.mTextureFlags = aFlags;
   }
 
 protected:
@@ -298,7 +298,7 @@ class TextureClientTile : public TextureClient
 {
 public:
   TextureClientTile(const TextureClientTile& aOther)
-    : TextureClient(mLayerForwarder, mTextureInfo.compositableType)
+    : TextureClient(mLayerForwarder, mTextureInfo.mCompositableType)
     , mSurface(aOther.mSurface)
   {}
 
@@ -320,7 +320,7 @@ public:
     : TextureClient(aForwarder, aCompositableType)
     , mSurface(nullptr)
   {
-    mTextureInfo.textureHostFlags = TEXTURE_HOST_TILED;
+    mTextureInfo.mTextureHostFlags = TEXTURE_HOST_TILED;
   }
 private:
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
