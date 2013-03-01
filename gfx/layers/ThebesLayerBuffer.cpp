@@ -19,17 +19,8 @@
 namespace mozilla {
 namespace layers {
 
-/* static */ bool
-ThebesLayerBuffer::IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegion)
-{
-  // Assume clipping is cheap if the context just has an integer
-  // translation, and the visible region is simple.
-  return !aTarget->CurrentMatrix().HasNonIntegerTranslation() &&
-         aRegion.GetNumRects() <= 1; 
-}
-
 nsIntRect
-ThebesLayerBuffer::GetQuadrantRectangle(XSide aXSide, YSide aYSide)
+RotatedBuffer::GetQuadrantRectangle(XSide aXSide, YSide aYSide) const
 {
   // quadrantTranslation is the amount we translate the top-left
   // of the quadrant by to get coordinates relative to the layer
@@ -37,34 +28,6 @@ ThebesLayerBuffer::GetQuadrantRectangle(XSide aXSide, YSide aYSide)
   quadrantTranslation.x += aXSide == LEFT ? mBufferRect.width : 0;
   quadrantTranslation.y += aYSide == TOP ? mBufferRect.height : 0;
   return mBufferRect + quadrantTranslation;
-}
-
-void
-ThebesLayerBuffer::DrawTo(ThebesLayer* aLayer,
-                          gfxContext* aTarget,
-                          float aOpacity,
-                          gfxASurface* aMask,
-                          const gfxMatrix* aMaskTransform)
-{
-  aTarget->Save();
-  // If the entire buffer is valid, we can just draw the whole thing,
-  // no need to clip. But we'll still clip if clipping is cheap ---
-  // that might let us copy a smaller region of the buffer.
-  // Also clip to the visible region if we're told to.
-  if (!aLayer->GetValidRegion().Contains(BufferRect()) ||
-      (ToData(aLayer)->GetClipToVisibleRegion() &&
-       !aLayer->GetVisibleRegion().Contains(BufferRect())) ||
-      IsClippingCheap(aTarget, aLayer->GetEffectiveVisibleRegion())) {
-    // We don't want to draw invalid stuff, so we need to clip. Might as
-    // well clip to the smallest area possible --- the visible region.
-    // Bug 599189 if there is a non-integer-translation transform in aTarget,
-    // we might sample pixels outside GetEffectiveVisibleRegion(), which is wrong
-    // and may cause gray lines.
-    gfxUtils::ClipToRegionSnapped(aTarget, aLayer->GetEffectiveVisibleRegion());
-  }
-
-  DrawBufferWithRotation(aTarget, aOpacity, aMask, aMaskTransform);
-  aTarget->Restore();
 }
 
 /**
@@ -78,11 +41,11 @@ ThebesLayerBuffer::DrawTo(ThebesLayer* aLayer,
  * mBufferRect).
  */
 void
-ThebesLayerBuffer::DrawBufferQuadrant(gfxContext* aTarget,
-                                      XSide aXSide, YSide aYSide,
-                                      float aOpacity,
-                                      gfxASurface* aMask,
-                                      const gfxMatrix* aMaskTransform)
+RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
+                                  XSide aXSide, YSide aYSide,
+                                  float aOpacity,
+                                  gfxASurface* aMask,
+                                  const gfxMatrix* aMaskTransform) const
 {
   // The rectangle that we're going to fill. Basically we're going to
   // render the buffer at mBufferRect + quadrantTranslation to get the
@@ -93,7 +56,7 @@ ThebesLayerBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   if (!fillRect.IntersectRect(mBufferRect, quadrantRect))
     return;
 
-  if (!EnsureBuffer()->GetAllowUseAsSource()) {
+  if (!mBuffer->GetAllowUseAsSource()) {
     return;
   }
 
@@ -103,7 +66,7 @@ ThebesLayerBuffer::DrawBufferQuadrant(gfxContext* aTarget,
                      true);
 
   gfxPoint quadrantTranslation(quadrantRect.x, quadrantRect.y);
-  nsRefPtr<gfxPattern> pattern = new gfxPattern(EnsureBuffer());
+  nsRefPtr<gfxPattern> pattern = new gfxPattern(mBuffer);
 
 #ifdef MOZ_GFX_OPTIMIZE_MOBILE
   gfxPattern::GraphicsFilter filter = gfxPattern::FILTER_NEAREST;
@@ -146,17 +109,55 @@ ThebesLayerBuffer::DrawBufferQuadrant(gfxContext* aTarget,
 }
 
 void
-ThebesLayerBuffer::DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
-                                          gfxASurface* aMask,
-                                          const gfxMatrix* aMaskTransform)
+RotatedBuffer::DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
+                                      gfxASurface* aMask,
+                                      const gfxMatrix* aMaskTransform) const
 {
-  SAMPLE_LABEL("ThebesLayerBuffer", "DrawBufferWithRotation");
+  SAMPLE_LABEL("RotatedBuffer", "DrawBufferWithRotation");
   // Draw four quadrants. We could use REPEAT_, but it's probably better
   // not to, to be performance-safe.
   DrawBufferQuadrant(aTarget, LEFT, TOP, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, RIGHT, TOP, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, LEFT, BOTTOM, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, RIGHT, BOTTOM, aOpacity, aMask, aMaskTransform);
+}
+
+/* static */ bool
+ThebesLayerBuffer::IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegion)
+{
+  // Assume clipping is cheap if the context just has an integer
+  // translation, and the visible region is simple.
+  return !aTarget->CurrentMatrix().HasNonIntegerTranslation() &&
+         aRegion.GetNumRects() <= 1; 
+}
+
+void
+ThebesLayerBuffer::DrawTo(ThebesLayer* aLayer,
+                          gfxContext* aTarget,
+                          float aOpacity,
+                          gfxASurface* aMask,
+                          const gfxMatrix* aMaskTransform)
+{
+  aTarget->Save();
+  // If the entire buffer is valid, we can just draw the whole thing,
+  // no need to clip. But we'll still clip if clipping is cheap ---
+  // that might let us copy a smaller region of the buffer.
+  // Also clip to the visible region if we're told to.
+  if (!aLayer->GetValidRegion().Contains(BufferRect()) ||
+      (ToData(aLayer)->GetClipToVisibleRegion() &&
+       !aLayer->GetVisibleRegion().Contains(BufferRect())) ||
+      IsClippingCheap(aTarget, aLayer->GetEffectiveVisibleRegion())) {
+    // We don't want to draw invalid stuff, so we need to clip. Might as
+    // well clip to the smallest area possible --- the visible region.
+    // Bug 599189 if there is a non-integer-translation transform in aTarget,
+    // we might sample pixels outside GetEffectiveVisibleRegion(), which is wrong
+    // and may cause gray lines.
+    gfxUtils::ClipToRegionSnapped(aTarget, aLayer->GetEffectiveVisibleRegion());
+  }
+
+  EnsureBuffer();
+  DrawBufferWithRotation(aTarget, aOpacity, aMask, aMaskTransform);
+  aTarget->Restore();
 }
 
 already_AddRefed<gfxContext>
@@ -367,6 +368,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       nsIntPoint offset = -destBufferRect.TopLeft();
       tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
       tmpCtx->Translate(gfxPoint(offset.x, offset.y));
+      EnsureBuffer();
       DrawBufferWithRotation(tmpCtx, 1.0, nullptr, nullptr);
     }
 

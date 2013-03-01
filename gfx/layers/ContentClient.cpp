@@ -241,7 +241,6 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
   MOZ_ASSERT(mROFrontClient);
 
   AutoTextureClient autoTexture;
-  nsRefPtr<gfxASurface> frontBuffer = autoTexture.GetSurface(mROFrontClient);
 
   MOZ_LAYERS_LOG(("BasicShadowableThebes(%p): reading back <x=%d,y=%d,w=%d,h=%d>",
                   this,
@@ -251,10 +250,11 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().height));
 
   const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
+  RotatedBuffer frontBuffer(autoTexture.GetSurface(mROFrontClient),
+                            roFront.rect(),
+                            roFront.rotation());
   UpdateDestinationFrom(GetBuffer(),
                         frontBuffer,
-                        roFront.rect(),
-                        roFront.rotation(),
                         mFrontUpdatedRegion);
   mIsNewBuffer = false;
   mFrontAndBackBufferDiffer = false;
@@ -262,13 +262,11 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
 
 void
 ContentClientDirect::UpdateDestinationFrom(gfxASurface* aBuffer,
-                                           gfxASurface* aSource,
-                                           const nsIntRect& aRect,
-                                           const nsIntPoint& aRotation,
+                                           const RotatedBuffer& aSource,
                                            const nsIntRegion& aUpdateRegion)
 {
-  mBufferRect = aRect;
-  mBufferRotation = aRotation;
+  mBufferRect = aSource.BufferRect();
+  mBufferRotation = aSource.BufferRotation();
   nsRefPtr<gfxContext> destCtx =
     GetContextForQuadrantUpdate(aUpdateRegion.GetBounds());
   destCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
@@ -276,12 +274,7 @@ ContentClientDirect::UpdateDestinationFrom(gfxASurface* aBuffer,
     gfxUtils::ClipToRegion(destCtx, aUpdateRegion);
   }
 
-  // FIXME [bjacob] only putting this on the heap to work around impossibility to
-  // put RefCounted objects on the stack
-  // TODO[nrc] it is really grim that we create another ContentClientDirect to do this
-  // we ought to factor out some of the code and make a new class or something
-  RefPtr<ContentClientDirect> srcBuffer = new ContentClientDirect(aSource, aRect, aRotation);
-  srcBuffer->DrawBufferWithRotation(destCtx, 1.0, nullptr, nullptr);
+  aSource.DrawBufferWithRotation(destCtx);
 }
 
 void

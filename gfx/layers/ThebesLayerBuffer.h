@@ -17,9 +17,6 @@ class AutoOpenSurface;
 class ThebesLayer;
 
 /**
- * This class encapsulates the buffer used to retain ThebesLayer contents,
- * i.e., the contents of the layer's GetVisibleRegion().
- * 
  * This is a cairo/Thebes surface, but with a literal twist. Scrolling
  * causes the layer's visible region to move. We want to keep
  * reusing the same surface if the region size hasn't changed, but we don't
@@ -34,7 +31,71 @@ class ThebesLayer;
  * at row H-N on the screen.
  * mBufferRotation.y would be N in this example.
  */
-class ThebesLayerBuffer {
+class RotatedBuffer {
+public:
+  typedef gfxASurface::gfxContentType ContentType;
+
+  RotatedBuffer(gfxASurface* aBuffer, const nsIntRect& aBufferRect,
+                const nsIntPoint& aBufferRotation)
+    : mBuffer(aBuffer)
+    , mBufferRect(aBufferRect)
+    , mBufferRotation(aBufferRotation)
+  { }
+  RotatedBuffer() { }
+
+  void DrawBufferWithRotation(gfxContext* aTarget, float aOpacity = 1.0,
+                              gfxASurface* aMask = nullptr,
+                              const gfxMatrix* aMaskTransform = nullptr) const;
+
+  /**
+   * |BufferRect()| is the rect of device pixels that this
+   * ThebesLayerBuffer covers.  That is what DrawBufferWithRotation()
+   * will paint when it's called.
+   */
+  const nsIntRect& BufferRect() const { return mBufferRect; }
+  const nsIntPoint& BufferRotation() const { return mBufferRotation; }
+
+protected:
+
+  enum XSide {
+    LEFT, RIGHT
+  };
+  enum YSide {
+    TOP, BOTTOM
+  };
+  nsIntRect GetQuadrantRectangle(XSide aXSide, YSide aYSide) const;
+  
+  /*
+   * If aMask is non-null, then it is used as an alpha mask for rendering this
+   * buffer. aMaskTransform must be non-null if aMask is non-null, and is used
+   * to adjust the coordinate space of the mask.
+   */
+  void DrawBufferQuadrant(gfxContext* aTarget, XSide aXSide, YSide aYSide,
+                          float aOpacity,
+                          gfxASurface* aMask,
+                          const gfxMatrix* aMaskTransform) const;
+
+  nsRefPtr<gfxASurface> mBuffer;
+  /** The area of the ThebesLayer that is covered by the buffer as a whole */
+  nsIntRect             mBufferRect;
+  /**
+   * The x and y rotation of the buffer. Conceptually the buffer
+   * has its origin translated to mBufferRect.TopLeft() - mBufferRotation,
+   * is tiled to fill the plane, and the result is clipped to mBufferRect.
+   * So the pixel at mBufferRotation within the buffer is what gets painted at
+   * mBufferRect.TopLeft().
+   * This is "rotation" in the sense of rotating items in a linear buffer,
+   * where items falling off the end of the buffer are returned to the
+   * buffer at the other end, not 2D rotation!
+   */
+  nsIntPoint            mBufferRotation;
+};
+
+/**
+ * This class encapsulates the buffer used to retain ThebesLayer contents,
+ * i.e., the contents of the layer's GetVisibleRegion().
+ */
+class ThebesLayerBuffer : public RotatedBuffer {
 public:
   typedef gfxASurface::gfxContentType ContentType;
 
@@ -52,11 +113,8 @@ public:
 
   ThebesLayerBuffer(BufferSizePolicy aBufferSizePolicy)
     : mBufferProvider(nullptr)
-    , mBuffer(nullptr)
-    , mBufferRotation(0,0)
     , mBufferSizePolicy(aBufferSizePolicy)
   {
-    mBufferRect.SetEmpty();
     MOZ_COUNT_CTOR(ThebesLayerBuffer);
   }
   virtual ~ThebesLayerBuffer()
@@ -145,33 +203,6 @@ public:
               gfxASurface* aMask, const gfxMatrix* aMaskTransform);
 
 protected:
-  enum XSide {
-    LEFT, RIGHT
-  };
-  enum YSide {
-    TOP, BOTTOM
-  };
-  nsIntRect GetQuadrantRectangle(XSide aXSide, YSide aYSide);
-  /*
-   * If aMask is non-null, then it is used as an alpha mask for rendering this
-   * buffer. aMaskTransform must be non-null if aMask is non-null, and is used
-   * to adjust the coordinate space of the mask.
-   */
-  void DrawBufferQuadrant(gfxContext* aTarget, XSide aXSide, YSide aYSide,
-                          float aOpacity,
-                          gfxASurface* aMask,
-                          const gfxMatrix* aMaskTransform);
-  void DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
-                              gfxASurface* aMask,
-                              const gfxMatrix* aMaskTransform);
-
-  /**
-   * |BufferRect()| is the rect of device pixels that this
-   * ThebesLayerBuffer covers.  That is what DrawBufferWithRotation()
-   * will paint when it's called.
-   */
-  const nsIntRect& BufferRect() const { return mBufferRect; }
-  const nsIntPoint& BufferRotation() const { return mBufferRotation; }
 
   already_AddRefed<gfxASurface>
   SetBuffer(gfxASurface* aBuffer,
@@ -251,20 +282,6 @@ protected:
    */
   AutoOpenSurface* mBufferProvider;
 
-  nsRefPtr<gfxASurface> mBuffer;
-  /** The area of the ThebesLayer that is covered by the buffer as a whole */
-  nsIntRect             mBufferRect;
-  /**
-   * The x and y rotation of the buffer. Conceptually the buffer
-   * has its origin translated to mBufferRect.TopLeft() - mBufferRotation,
-   * is tiled to fill the plane, and the result is clipped to mBufferRect.
-   * So the pixel at mBufferRotation within the buffer is what gets painted at
-   * mBufferRect.TopLeft().
-   * This is "rotation" in the sense of rotating items in a linear buffer,
-   * where items falling off the end of the buffer are returned to the
-   * buffer at the other end, not 2D rotation!
-   */
-  nsIntPoint            mBufferRotation;
   BufferSizePolicy      mBufferSizePolicy;
 };
 

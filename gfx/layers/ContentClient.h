@@ -181,9 +181,7 @@ private:
   }
 
   void UpdateDestinationFrom(gfxASurface* aDestination,
-                             gfxASurface* aSource,
-                             const nsIntRect& aRect,
-                             const nsIntPoint& aRotation,
+                             const RotatedBuffer& aSource,
                              const nsIntRegion& aUpdateRegion);
 
   OptionalThebesBuffer mROFrontBuffer;
