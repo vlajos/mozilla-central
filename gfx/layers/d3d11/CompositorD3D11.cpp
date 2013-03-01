@@ -459,9 +459,9 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   case EFFECT_SOLID_COLOR: {
       Color color =
         static_cast<EffectSolidColor*>(aEffectChain.mPrimaryEffect.get())->mColor;
-      mPSConstants.layerColor[0] = color.r * aOpacity;
-      mPSConstants.layerColor[1] = color.g * aOpacity;
-      mPSConstants.layerColor[2] = color.b * aOpacity;
+      mPSConstants.layerColor[0] = color.r * color.a * aOpacity;
+      mPSConstants.layerColor[1] = color.g * color.a * aOpacity;
+      mPSConstants.layerColor[2] = color.b * color.a * aOpacity;
       mPSConstants.layerColor[3] = color.a * aOpacity;
     }
     break;

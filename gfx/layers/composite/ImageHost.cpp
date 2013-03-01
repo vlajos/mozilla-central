@@ -95,16 +95,17 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                                 aOpacity, aTransform, aOffset);
     } while (it->NextTile());
   } else {
+    IntSize textureSize = mTextureHost->AsTextureSource()->GetSize();
     gfx::Rect rect(0, 0,
-                   mTextureHost->AsTextureSource()->GetSize().width,
-                   mTextureHost->AsTextureSource()->GetSize().height);
+                   mPictureRect.width,
+                   mPictureRect.height);
     if (mPictureRect.IsEqualInterior(nsIntRect())) {
       effect->mTextureCoords = Rect(0, 0, 1, 1);
     } else {
-      effect->mTextureCoords = Rect(Float(mPictureRect.x) / rect.width,
-                                    Float(mPictureRect.y) / rect.height,
-                                    Float(mPictureRect.width) / rect.width,
-                                    Float(mPictureRect.height) / rect.height);
+      effect->mTextureCoords = Rect(Float(mPictureRect.x) / textureSize.width,
+                                    Float(mPictureRect.y) / textureSize.height,
+                                    Float(mPictureRect.width) / textureSize.width,
+                                    Float(mPictureRect.height) / textureSize.height);
     }
 
     if (mTextureHost->GetFlags() & NeedsYFlip) {
