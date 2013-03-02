@@ -219,9 +219,9 @@ uint32_t GetRequiredTiles(uint32_t aSize, uint32_t aMaxSize)
 }
 
 void
-TextureHostShmemD3D11::SetCompositor(Compositor* aCompsitpr)
+TextureHostShmemD3D11::SetCompositor(Compositor* aCompositor)
 {
-  d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
+  CompositorD3D11 *d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
   mDevice = d3dCompositor ? d3dCompositor->GetDevice() : nullptr;
 }
 
@@ -310,9 +310,9 @@ TextureHostShmemD3D11::GetTileRect(uint32_t aID)
 }
 
 void
-TextureHostDXGID3D11::SetCompositor(Compositor* aCompsitpr)
+TextureHostDXGID3D11::SetCompositor(Compositor* aCompositor)
 {
-  d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
+  CompositorD3D11 *d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
   mDevice = d3dCompositor ? d3dCompositor->GetDevice() : nullptr;
 }
 
@@ -380,9 +380,9 @@ TextureHostDXGID3D11::ReleaseTexture()
 }
 
 void
-TextureHostYCbCrD3D11::SetCompositor(Compositor* aCompsitpr)
+TextureHostYCbCrD3D11::SetCompositor(Compositor* aCompositor)
 {
-  d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
+  CompositorD3D11 *d3dCompositor = static_cast<CompositorD3D11*>(aCompositor);
   mDevice = d3dCompositor ? d3dCompositor->GetDevice() : nullptr;
 }
 

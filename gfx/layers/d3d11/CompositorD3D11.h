@@ -55,13 +55,6 @@ public:
 
   virtual void MakeCurrent(bool) { }
 
-  virtual TemporaryRef<TextureHost>
-    CreateTextureHost(SurfaceDescriptorType aDescriptorType,
-                      uint32_t aTextureHostFlags,
-                      uint32_t aTextureFlags,
-                      bool aBuffered,
-                      ISurfaceAllocator* aDeAllocator);
-
   virtual TemporaryRef<CompositingRenderTarget>
     CreateRenderTarget(const gfx::IntRect &aRect,
                        SurfaceInitMode aInit);
@@ -120,6 +113,8 @@ public:
 
   virtual nsIWidget* GetWidget() const { return mWidget; }
   virtual nsIntSize* GetWidgetSize();
+
+  virtual ID3D11Device *GetDevice() { return mDevice; }
 
 private:
   enum MaskMode {

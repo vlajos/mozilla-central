@@ -122,7 +122,7 @@ TemporaryRef<TextureHost> CreateTextureHostD3D11(SurfaceDescriptorType aDescript
                                                  uint32_t aTextureHostFlags,
                                                  uint32_t aTextureFlags,
                                                  bool aBuffered,
-                                                 ISurfaceAllocator* aDeAllocator)
+                                                 ISurfaceAllocator* aDeAllocator);
 #endif // MOZ_ENABLE_D3D10_LAYER
 
 TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,

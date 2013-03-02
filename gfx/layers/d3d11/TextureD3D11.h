@@ -182,6 +182,8 @@ public:
     mFormat = gfx::FORMAT_YUV;
   }
 
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
+
   virtual TextureSource *AsTextureSource();
 
   virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
