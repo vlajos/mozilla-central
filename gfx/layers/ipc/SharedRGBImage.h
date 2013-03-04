@@ -6,6 +6,7 @@
 #define SHAREDRGBIMAGE_H_
 
 #include "ImageContainer.h"
+#include "ISurfaceAllocator.h"
 
 namespace mozilla {
 namespace ipc {
@@ -31,7 +32,7 @@ public:
   SharedRGBImage(ISurfaceAllocator *aAllocator);
   ~SharedRGBImage();
 
-  static already_AddRefed<SharedRGBImage> Create(ImageContainer *aImageContainer,
+  static already_AddRefed<SharedRGBImage> Create(ImageContainer* aImageContainer,
                                                  nsIntSize aSize,
                                                  gfxImageFormat aImageFormat);
   uint8_t *GetBuffer();
