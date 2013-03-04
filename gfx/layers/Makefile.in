@@ -211,6 +211,7 @@ CPPSRCS += \
         TaskThrottler.cpp \
         ImageClient.cpp \
         ImageHost.cpp \
+        ISurfaceAllocator.cpp \
         TextureClient.cpp \
         TextureOGL.cpp \
         TextureChild.cpp \

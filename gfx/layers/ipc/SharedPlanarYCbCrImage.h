@@ -21,9 +21,13 @@ public:
   SharedPlanarYCbCrImage(ImageClient* aProtocol)
   : PlanarYCbCrImage(nullptr)
   , mImageClient(aProtocol), mAllocated(false)
-  {}
+  {
+    MOZ_COUNT_CTOR(SharedPlanarYCbCrImage);
+  }
 
   ~SharedPlanarYCbCrImage() {
+    MOZ_COUNT_DTOR(SharedPlanarYCbCrImage);
+
     if (mAllocated) {
       //mImageClient->RecycleSurfaceDescriptor(ToSurfaceDescriptor());
     }

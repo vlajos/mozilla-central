@@ -100,7 +100,8 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
     EnsureTextureClient(TEXTURE_YCBCR);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
 
-    if (false && ycbcr->AsSharedPlanarYCbCrImage()) { // WIP (nical)
+    if (ycbcr->AsSharedPlanarYCbCrImage()) { // WIP (nical)
+      printf("ImageClientTexture::UpdateImage \n");
       SurfaceDescriptor* desc = mTextureClient->LockSurfaceDescriptor();
       if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(*desc)) {
         mTextureClient->Unlock();
@@ -193,6 +194,7 @@ already_AddRefed<Image>
 ImageClient::CreateImage(const uint32_t *aFormats,
                          uint32_t aNumFormats)
 {
+  printf("ImageClient::CreateImage\n");
   nsRefPtr<Image> img;
   for (uint32_t i = 0; i < aNumFormats; i++) {
     switch (aFormats[i]) {

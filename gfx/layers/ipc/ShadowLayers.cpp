@@ -423,72 +423,6 @@ ShadowLayerForwarder::EndTransaction(InfallibleTArray<EditReply>* aReplies)
   return true;
 }
 
-SharedMemory::SharedMemoryType
-OptimalShmemType()
-{
-#if defined(MOZ_PLATFORM_MAEMO) && defined(MOZ_HAVE_SHAREDMEMORYSYSV)
-  // Use SysV memory because maemo5 on the N900 only allots 64MB to
-  // /dev/shm, even though it has 1GB(!!) of system memory.  Sys V shm
-  // is allocated from a different pool.  We don't want an arbitrary
-  // cap that's much much lower than available memory on the memory we
-  // use for layers.
-  return SharedMemory::TYPE_SYSV;
-#else
-  return SharedMemory::TYPE_BASIC;
-#endif
-}
-
-bool
-ISurfaceAllocator::AllocSharedImageSurface(const gfxIntSize& aSize,
-                               gfxASurface::gfxContentType aContent,
-                               gfxSharedImageSurface** aBuffer)
-{
-  SharedMemory::SharedMemoryType shmemType = OptimalShmemType();
-  gfxASurface::gfxImageFormat format = gfxPlatform::GetPlatform()->OptimalFormatForContent(aContent);
-
-  nsRefPtr<gfxSharedImageSurface> back =
-    gfxSharedImageSurface::CreateUnsafe(this, aSize, format, shmemType);
-  if (!back)
-    return false;
-
-  *aBuffer = nullptr;
-  back.swap(*aBuffer);
-  return true;
-}
-
-bool
-ISurfaceAllocator::AllocSurfaceDescriptor(const gfxIntSize& aSize,
-                                          gfxASurface::gfxContentType aContent,
-                                          SurfaceDescriptor* aBuffer)
-{
-  return AllocSurfaceDescriptorWithCaps(aSize, aContent, DEFAULT_BUFFER_CAPS, aBuffer);
-}
-
-bool
-ISurfaceAllocator::AllocSurfaceDescriptorWithCaps(const gfxIntSize& aSize,
-                                                  gfxASurface::gfxContentType aContent,
-                                                  uint32_t aCaps,
-                                                  SurfaceDescriptor* aBuffer)
-{
-  bool tryPlatformSurface = true;
-#ifdef DEBUG
-  tryPlatformSurface = !PR_GetEnv("MOZ_LAYERS_FORCE_SHMEM_SURFACES");
-#endif
-  if (tryPlatformSurface &&
-      PlatformAllocSurfaceDescriptor(aSize, aContent, aCaps, aBuffer)) {
-    return true;
-  }
-
-  nsRefPtr<gfxSharedImageSurface> buffer;
-  if (!AllocSharedImageSurface(aSize, aContent,
-                               getter_AddRefs(buffer))) {
-    return false;
-  }
-
-  *aBuffer = buffer->GetShmem();
-  return true;
-}
-
 bool
 ShadowLayerForwarder::AllocShmem(size_t aSize,
                                  ipc::SharedMemory::SharedMemoryType aType,
@@ -569,50 +503,6 @@ ShadowLayerForwarder::CloseDescriptor(const SurfaceDescriptor& aDescriptor)
   // There's no "close" needed for Shmem surfaces.
 }
 
-void
-ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
-{
-#ifdef GFX_COMPOSITOR_LOGGING
-  printf(" -- ISurfaceAllocator::DestroySharedSurface\n");
-#endif
-  MOZ_ASSERT(aSurface);
-  if (!aSurface) {
-    return;
-  }
-  if (PlatformDestroySharedSurface(aSurface)) {
-    return;
-  }
-  switch (aSurface->type()) {
-    case SurfaceDescriptor::TShmem:
-      DeallocShmem(aSurface->get_Shmem());
-      break;
-    case SurfaceDescriptor::TYCbCrImage:
-      DeallocShmem(aSurface->get_YCbCrImage().data());
-      break;
-    case SurfaceDescriptor::TRGBImage:
-      DeallocShmem(aSurface->get_RGBImage().data());
-      break;
-    case SurfaceDescriptor::TSurfaceDescriptorD3D10:
-      break;
-    case SurfaceDescriptor::Tnull_t:
-    case SurfaceDescriptor::T__None:
-#ifdef GFX_COMPOSITOR_LOGGING
-      printf("    DestroySharedSurface: empty surface\n");
-#endif
-      break;
-    default:
-      NS_RUNTIMEABORT("surface type not implemented!");
-  }
-  *aSurface = SurfaceDescriptor();
-}
-
-void
-ISurfaceAllocator::DestroySharedSurface(gfxSharedImageSurface* aSurface)
-{
-  NS_RUNTIMEABORT("TODO");
-}
-
-
 TemporaryRef<ImageClient>
 ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositableType,
                                            ShadowableLayer* aLayer,
@@ -678,15 +568,8 @@ ShadowLayerManager::DestroySharedSurface(SurfaceDescriptor* aSurface,
 #if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 
 */
+
 #if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
-bool
-ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize&,
-                                                  gfxASurface::gfxContentType,
-                                                  uint32_t,
-                                                  SurfaceDescriptor*)
-{
-  return false;
-}
 
 /*static*/ already_AddRefed<gfxASurface>
 ShadowLayerForwarder::PlatformOpenDescriptor(OpenMode,
@@ -758,13 +641,6 @@ ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
 }
 
 #endif  // !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
-
-bool
-IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface)
-{
-  return aSurface.type() != SurfaceDescriptor::T__None &&
-         aSurface.type() != SurfaceDescriptor::Tnull_t;
-}
 
 AutoOpenSurface::AutoOpenSurface(OpenMode aMode,
                                  const SurfaceDescriptor& aDescriptor)

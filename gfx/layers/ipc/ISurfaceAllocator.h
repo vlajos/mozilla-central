@@ -24,6 +24,16 @@ class Shmem;
 } // namespace
 namespace layers {
 
+enum BufferCapabilities {
+  DEFAULT_BUFFER_CAPS = 0,
+  /**
+   * The allocated buffer must be efficiently mappable as a
+   * gfxImageSurface.
+   */
+  MAP_AS_IMAGE_SURFACE = 1 << 0
+};
+
+
 class SurfaceDescriptor;
 
 /**
@@ -37,8 +47,8 @@ ISurfaceAllocator() {}
                           ipc::SharedMemory::SharedMemoryType aType,
                           ipc::Shmem* aShmem) = 0;
   virtual bool AllocUnsafeShmem(size_t aSize,
-                                   ipc::SharedMemory::SharedMemoryType aType,
-                                   ipc::Shmem* aShmem) = 0;
+                                ipc::SharedMemory::SharedMemoryType aType,
+                                ipc::Shmem* aShmem) = 0;
   virtual void DeallocShmem(ipc::Shmem& aShmem) = 0;
 
   // AllocBuffer
@@ -85,6 +95,10 @@ public:
     return mThread;
   }
 
+  virtual bool AllocUnsafeShmem(size_t aSize,
+                                 ipc::SharedMemory::SharedMemoryType aType,
+                                 ipc::Shmem* aShmem) = 0;
+
   /**
    * If you are using a proxy you are probably most likely in the allocator's
    * thread so do not call methods of the returned allocator.
@@ -100,6 +114,9 @@ private:
   base::Thread* mThread;
   ISurfaceAllocator* mSurfaceAllocator;
 };
+
+ipc::SharedMemory::SharedMemoryType OptimalShmemType();
+bool IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface);
 
 } // namespace
 } // namespace

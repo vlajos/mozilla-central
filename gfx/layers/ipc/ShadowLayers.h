@@ -55,15 +55,6 @@ class TextureClientShmem;
 class ContentClientRemote;
 class CompositableChild;
 
-enum BufferCapabilities {
-  DEFAULT_BUFFER_CAPS = 0,
-  /** 
-   * The allocated buffer must be efficiently mappable as a
-   * gfxImageSurface.
-   */
-  MAP_AS_IMAGE_SURFACE = 1 << 0
-};
-
 enum OpenMode {
   OPEN_READ_ONLY,
   OPEN_READ_WRITE
@@ -718,12 +709,6 @@ protected:
     : RefLayer(aManager, aImplData)
   {}
 };
-
-bool IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface);
-
-ipc::SharedMemory::SharedMemoryType OptimalShmemType();
-
-
 
 } // namespace layers
 } // namespace mozilla

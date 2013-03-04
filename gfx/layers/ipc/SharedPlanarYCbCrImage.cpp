@@ -56,7 +56,7 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrImage::Data& aData)
                                                       aData.mCbCrSize);
 
 /* TODO[nical] proxy allocator
-  if (!mImageContainerChild->AllocUnsafeShmemSync(size, shmType, &mShmem)) {
+  if (!mImageAllocator->AllocUnsafeShmem(size, shmType, &mShmem)) {
     return false;
   }
 */
