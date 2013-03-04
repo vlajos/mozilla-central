@@ -5,13 +5,24 @@
 
 #include "SharedPlanarYCbCrImage.h"
 #include "ShmemYCbCrImage.h"
-#include "ShadowLayers.h" // for OptimalShmemType
+#include "ISurfaceAllocator.h"
 #include "mozilla/layers/LayersSurfaces.h"
 
 namespace mozilla {
 namespace layers {
 
 using namespace mozilla::ipc;
+
+SharedPlanarYCbCrImage::~SharedPlanarYCbCrImage() {
+  MOZ_COUNT_DTOR(SharedPlanarYCbCrImage);
+
+  if (mAllocated) {
+    SurfaceDescriptor desc;
+    ToSurfaceDescriptor(desc);
+    mSurfaceAllocator->DestroySharedSurface(&desc);
+  }
+}
+
 
 void
 SharedPlanarYCbCrImage::SetData(const PlanarYCbCrImage::Data& aData)
@@ -55,18 +66,16 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrImage::Data& aData)
   size_t size = ShmemYCbCrImage::ComputeMinBufferSize(aData.mYSize,
                                                       aData.mCbCrSize);
 
-/* TODO[nical] proxy allocator
-  if (!mImageAllocator->AllocUnsafeShmem(size, shmType, &mShmem)) {
+  if (!mSurfaceAllocator->AllocUnsafeShmem(size, shmType, &mShmem)) {
     return false;
   }
-*/
+
   ShmemYCbCrImage::InitializeBufferInfo(mShmem.get<uint8_t>(),
                                         aData.mYSize,
                                         aData.mCbCrSize);
   ShmemYCbCrImage shmImg(mShmem);
   if (!shmImg.IsValid() || mShmem.Size<uint8_t>() < size) {
-    // TODO[nical] allocator proxy
-    //mImageContainerChild->DeallocShmemAsync(mShmem);
+    mSurfaceAllocator->DeallocShmem(mShmem);
     return false;
   }
 

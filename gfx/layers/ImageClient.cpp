@@ -194,14 +194,12 @@ already_AddRefed<Image>
 ImageClient::CreateImage(const uint32_t *aFormats,
                          uint32_t aNumFormats)
 {
-  return nullptr; // TODO[nical] remove this line
-
   printf("ImageClient::CreateImage\n");
   nsRefPtr<Image> img;
   for (uint32_t i = 0; i < aNumFormats; i++) {
     switch (aFormats[i]) {
       case PLANAR_YCBCR:
-        img = new SharedPlanarYCbCrImage(this);
+        img = new SharedPlanarYCbCrImage(GetForwarder());
         return img.forget();
 //      case SHARED_RGB:  // TODO[nical]
 //        img = new SharedRGBImage(this);

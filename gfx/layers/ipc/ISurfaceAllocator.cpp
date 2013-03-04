@@ -12,6 +12,8 @@
 #include "gfxASurface.h"
 #include "prenv.h"
 #include "mozilla/layers/LayersSurfaces.h"
+#include "mozilla/ReentrantMonitor.h"
+#include "base/thread.h"
 
 using namespace mozilla::ipc;
 
@@ -133,6 +135,15 @@ ISurfaceAllocator::DestroySharedSurface(gfxSharedImageSurface* aSurface)
 {
   NS_RUNTIMEABORT("TODO");
 }
+
+struct AllocShmemParams {
+  ISurfaceAllocator* mAllocator;
+  size_t mSize;
+  ipc::SharedMemory::SharedMemoryType mType;
+  ipc::Shmem* mShmem;
+  bool mUnsafe;
+  bool mSuccess;
+};
 
 #if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 bool

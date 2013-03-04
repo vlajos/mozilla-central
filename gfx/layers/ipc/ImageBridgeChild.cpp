@@ -700,8 +700,13 @@ ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
 #ifdef MOZ_LAYERS_HAVE_LOG
   printf(" ++ [%i] ImageBirdge AllocShmem (unsafe)\n", ++mDebugAllocCount);
 #endif
-  return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
+  if (InImageBridgeChildThread()) {
+    return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
+  } else {
+    return DispatchAllocShmemInternal(aSize, aType, aShmem, true); // true: unsafe
+  }
 }
+
 bool 
 ImageBridgeChild::AllocShmem(size_t aSize,
                              ipc::SharedMemory::SharedMemoryType aType,
@@ -710,17 +715,112 @@ ImageBridgeChild::AllocShmem(size_t aSize,
 #ifdef MOZ_LAYERS_HAVE_LOG
   printf(" ++ [%i] ImageBirdge AllocShmem\n", ++mDebugAllocCount);
 #endif
-  return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
+  if (InImageBridgeChildThread()) {
+    return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
+  } else {
+    return DispatchAllocShmemInternal(aSize, aType, aShmem, false); // false: unsafe
+  }
 }
+
+// NewRunnableFunction accepts a limited number of parameters so we need a
+// struct here
+struct AllocShmemParams {
+  ISurfaceAllocator* mAllocator;
+  size_t mSize;
+  ipc::SharedMemory::SharedMemoryType mType;
+  ipc::Shmem* mShmem;
+  bool mUnsafe;
+  bool mSuccess;
+};
+
+static void ProxyAllocShmemNow(AllocShmemParams* aParams,
+                               ReentrantMonitor* aBarrier,
+                               bool* aDone)
+{
+  MOZ_ASSERT(aParams);
+  MOZ_ASSERT(aDone);
+  MOZ_ASSERT(aBarrier);
+
+  if (aParams->mUnsafe) {
+    aParams->mSuccess = aParams->mAllocator->AllocUnsafeShmem(aParams->mSize,
+                                                              aParams->mType,
+                                                              aParams->mShmem);
+  } else {
+    aParams->mSuccess = aParams->mAllocator->AllocShmem(aParams->mSize,
+                                                        aParams->mType,
+                                                        aParams->mShmem);
+  }
+
+  ReentrantMonitorAutoEnter autoMon(*aBarrier);
+  *aDone = true;
+  aBarrier->NotifyAll();
+}
+
+bool
+ImageBridgeChild::DispatchAllocShmemInternal(size_t aSize,
+                                             SharedMemory::SharedMemoryType aType,
+                                             Shmem* aShmem,
+                                             bool aUnsafe)
+{
+  ReentrantMonitor barrier("AllocatorProxy alloc");
+  ReentrantMonitorAutoEnter autoMon(barrier);
+
+  AllocShmemParams params = {
+    this, aSize, aType, aShmem, aUnsafe, true
+  };
+  bool done = false;
+
+  GetMessageLoop()->PostTask(FROM_HERE, 
+                             NewRunnableFunction(&ProxyAllocShmemNow,
+                                                 &params,
+                                                 &barrier,
+                                                 &done));
+  while (!done) {
+    barrier.Wait();
+  }
+  return params.mSuccess;
+}
+
+static void ProxyDeallocShmemNow(ISurfaceAllocator* aAllocator,
+                                 Shmem* aShmem,
+                                 ReentrantMonitor* aBarrier,
+                                 bool* aDone)
+{
+  MOZ_ASSERT(aShmem);
+  MOZ_ASSERT(aDone);
+  MOZ_ASSERT(aBarrier);
+
+  aAllocator->DeallocShmem(*aShmem);
+
+  ReentrantMonitorAutoEnter autoMon(*aBarrier);
+  *aDone = true;
+  aBarrier->NotifyAll();
+}
+
 void
 ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
 {
 #ifdef MOZ_LAYERS_HAVE_LOG
   printf(" -- [%i] ImageBirdge DeallocShmem\n", --mDebugAllocCount);
 #endif
-  PImageBridgeChild::DeallocShmem(aShmem);
-}
+  if (InImageBridgeChildThread()) {
+    PImageBridgeChild::DeallocShmem(aShmem);
+  } else {
+    ReentrantMonitor barrier("AllocatorProxy Dealloc");
+    ReentrantMonitorAutoEnter autoMon(barrier);
 
+    bool done = false;
+    GetMessageLoop()->PostTask(FROM_HERE, 
+                               NewRunnableFunction(&ProxyDeallocShmemNow,
+                                                   this,
+                                                   &aShmem,
+                                                   &barrier,
+                                                   &done));
+    while (!done) {
+      barrier.Wait();
+    }
+  }
+}
 
 } // layers
 } // mozilla

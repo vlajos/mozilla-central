@@ -60,7 +60,6 @@ public:
   virtual void AttachAsyncCompositable(uint64_t aCompositableID,
                                        ShadowableLayer* aLayer) = 0;
 
-
   /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.

@@ -33,25 +33,48 @@ enum BufferCapabilities {
   MAP_AS_IMAGE_SURFACE = 1 << 0
 };
 
-
 class SurfaceDescriptor;
 
+
+ipc::SharedMemory::SharedMemoryType OptimalShmemType();
+bool IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface);
+
 /**
- * SurfaceDeallocator interface
+ * An interface used to create and destroy surfaces that are shared with the
+ * Compositor process (using shmem, or gralloc, or other platform specific memory)
+ *
+ * Most of the methods here correspond to methods that are implemented by IPDL
+ * actors without a common polymorphic interface.
+ * These methods should be only called in the ipdl implementor's thread, unless
+ * specified otherwise in the implementing class.
  */
 class ISurfaceAllocator
 {
 public:
 ISurfaceAllocator() {}
+
+  /**
+   * Allocate shared memory that can be accessed by only one process at a time.
+   * Ownership of this memory is passed when the memory is sent in an IPDL
+   * message.
+   */
   virtual bool AllocShmem(size_t aSize,
                           ipc::SharedMemory::SharedMemoryType aType,
                           ipc::Shmem* aShmem) = 0;
+
+  /**
+   * Allocate shared memory that can be accessed by both processes at the
+   * same time. Safety is left for the user of the memory to care about.
+   */
   virtual bool AllocUnsafeShmem(size_t aSize,
                                 ipc::SharedMemory::SharedMemoryType aType,
                                 ipc::Shmem* aShmem) = 0;
+  /**
+   * Deallocate memory allocated by either AllocShmem or AllocUnsafeShmem.
+   */
   virtual void DeallocShmem(ipc::Shmem& aShmem) = 0;
 
-  // AllocBuffer
+  // was AllocBuffer
   virtual bool AllocSharedImageSurface(const gfxIntSize& aSize,
                                        gfxASurface::gfxContentType aContent,
                                        gfxSharedImageSurface** aBuffer);
@@ -59,7 +82,7 @@ ISurfaceAllocator() {}
                                       gfxASurface::gfxContentType aContent,
                                       SurfaceDescriptor* aBuffer);
 
-  // AllocBufferWithCaps
+  // was AllocBufferWithCaps
   virtual bool AllocSurfaceDescriptorWithCaps(const gfxIntSize& aSize,
                                               gfxASurface::gfxContentType aContent,
                                               uint32_t aCaps,
@@ -77,46 +100,6 @@ protected:
 
   ~ISurfaceAllocator() {}
 };
-
-
-/**
- * Useful to use a ISurfaceAllocator asynchronously from another thread
- */
-class SurfaceAllocatorProxy : public ISurfaceAllocator,
-                              public RefCounted<SurfaceAllocatorProxy>
-{
-public:
-  SurfaceAllocatorProxy(base::Thread* aThread, ISurfaceAllocator* aAllocator)
-  : mThread(aThread), mSurfaceAllocator(aAllocator)
-  {}
-
-  base::Thread* GetThread() const
-  {
-    return mThread;
-  }
-
-  virtual bool AllocUnsafeShmem(size_t aSize,
-                                 ipc::SharedMemory::SharedMemoryType aType,
-                                 ipc::Shmem* aShmem) = 0;
-
-  /**
-   * If you are using a proxy you are probably most likely in the allocator's
-   * thread so do not call methods of the returned allocator.
-   * This method is there for the rare cases where the return reference must be
-   * passed in a messahe to thre allocator's tread.
-   */
-  ISurfaceAllocator* GetAllocator() const
-  {
-    return mSurfaceAllocator;
-  }
-
-private:
-  base::Thread* mThread;
-  ISurfaceAllocator* mSurfaceAllocator;
-};
-
-ipc::SharedMemory::SharedMemoryType OptimalShmemType();
-bool IsSurfaceDescriptorValid(const SurfaceDescriptor& aSurface);
 
 } // namespace
 } // namespace

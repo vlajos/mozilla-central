@@ -6,6 +6,7 @@
 #include "ImageContainer.h"
 #include "mozilla/ipc/Shmem.h"
 #include "mozilla/ipc/SharedMemory.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 
 #ifndef MOZILLA_LAYERS_SHAREDPLANARYCBCRIMAGE_H
 #define MOZILLA_LAYERS_SHAREDPLANARYCBCRIMAGE_H
@@ -18,20 +19,14 @@ class ImageClient;
 class SharedPlanarYCbCrImage : public PlanarYCbCrImage
 {
 public:
-  SharedPlanarYCbCrImage(ImageClient* aProtocol)
+  SharedPlanarYCbCrImage(ISurfaceAllocator* aAllocator)
   : PlanarYCbCrImage(nullptr)
-  , mImageClient(aProtocol), mAllocated(false)
+  , mSurfaceAllocator(aAllocator), mAllocated(false)
   {
     MOZ_COUNT_CTOR(SharedPlanarYCbCrImage);
   }
 
-  ~SharedPlanarYCbCrImage() {
-    MOZ_COUNT_DTOR(SharedPlanarYCbCrImage);
-
-    if (mAllocated) {
-      //mImageClient->RecycleSurfaceDescriptor(ToSurfaceDescriptor());
-    }
-  }
+  ~SharedPlanarYCbCrImage();
 
   virtual SharedPlanarYCbCrImage* AsSharedPlanarYCbCrImage() MOZ_OVERRIDE
   {
@@ -59,7 +54,7 @@ public:
 
 private:
   ipc::Shmem mShmem;
-  ImageClient* mImageClient;
+  ISurfaceAllocator* mSurfaceAllocator;
   bool mAllocated;
 };
 

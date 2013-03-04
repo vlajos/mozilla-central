@@ -223,6 +223,12 @@ public:
   bool
   DeallocSurfaceDescriptorGrallocNow(const SurfaceDescriptor& aBuffer);
 
+  TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);
+  TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);
+
+  static void DispatchReleaseImageClient(ImageClient* aClient);
+  static void DispatchImageClientUpdate(ImageClient* aClient, ImageContainer* aContainer);
+
 
   // CompositableForwarder
 
@@ -260,26 +266,39 @@ public:
                                  const nsIntRect& aRect) MOZ_OVERRIDE;
 
   /**
-   * TODO[nical]
+   * TODO[nical] not implemented
    */
   virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
 
+
+  // ISurfaceAllocator
+
+  /**
+   * See ISurfaceAllocator.h
+   * Can be used from any thread.
+   */
   virtual bool AllocUnsafeShmem(size_t aSize,
                                 ipc::SharedMemory::SharedMemoryType aType,
                                 ipc::Shmem* aShmem) MOZ_OVERRIDE;
+  /**
+   * See ISurfaceAllocator.h
+   * Can be used from any thread.
+   */
   virtual bool AllocShmem(size_t aSize,
                           ipc::SharedMemory::SharedMemoryType aType,
                           ipc::Shmem* aShmem) MOZ_OVERRIDE;
+  /**
+   * See ISurfaceAllocator.h
+   * Can be used from any thread.
+   */
   virtual void DeallocShmem(ipc::Shmem& aShmem);
-
-  TemporaryRef<ImageClient> CreateImageClient(CompositableType aType);
-  TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);
-
-  static void DispatchReleaseImageClient(ImageClient* aClient);
-  static void DispatchImageClientUpdate(ImageClient* aClient, ImageContainer* aContainer);
 
 protected:
   ImageBridgeChild();
+  bool DispatchAllocShmemInternal(size_t aSize,
+                                  SharedMemory::SharedMemoryType aType,
+                                  Shmem* aShmem,
+                                  bool aUnsafe);
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   int mDebugAllocCount;
