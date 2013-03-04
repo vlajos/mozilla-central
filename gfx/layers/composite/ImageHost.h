@@ -16,9 +16,6 @@ namespace layers {
 class ImageHost : public CompositableHost
 {
 public:
-  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
-                                        const SurfaceDescriptor& aImage) = 0;
-
   TextureHost* GetTextureHost() MOZ_OVERRIDE { return nullptr; }
 
 protected:
@@ -44,9 +41,6 @@ public:
   {}
 
   virtual CompositableType GetType() { return mType; }
-
-  virtual SurfaceDescriptor UpdateImage(const TextureInfo& aTextureInfo,
-                                        const SurfaceDescriptor& aImage);
 
   void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
 

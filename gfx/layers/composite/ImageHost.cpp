@@ -19,7 +19,6 @@ namespace layers {
 
 void
 ImageHostSingle::SetCompositor(Compositor* aCompositor) {
-  printf("ImageHostSingle::SetCompositor %p\n", aCompositor);
   CompositableHost::SetCompositor(aCompositor);
   if (mTextureHost) {
     mTextureHost->SetCompositor(aCompositor);
@@ -29,25 +28,6 @@ ImageHostSingle::SetCompositor(Compositor* aCompositor) {
 void
 ImageHostSingle::AddTextureHost(TextureHost* aHost) {
   mTextureHost = aHost;
-}
-
-SurfaceDescriptor
-ImageHostSingle::UpdateImage(const TextureInfo& aTextureInfo,
-                             const SurfaceDescriptor& aImage)
-{
-  if (!mTextureHost) {
-    return null_t();
-  }
-
-  SurfaceDescriptor result;
-  bool success;
-  Update(aImage, &result, &success);
-  if (!success) {
-    // TODO: right now Compositables are not responsible for setting their
-    // textures this will change when we remove PTexture.
-    return aImage;
-  }
-  return result;
 }
 
 void
