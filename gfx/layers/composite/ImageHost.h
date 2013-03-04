@@ -38,6 +38,7 @@ public:
     : ImageHost(aCompositor)
     , mTextureHost(nullptr)
     , mType(aType)
+    , mHasPictureRect(false)
   {}
 
   virtual CompositableType GetType() { return mType; }
@@ -55,9 +56,19 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr,
                          TiledLayerProperties* aLayerProperties = nullptr);
 
+  virtual bool Update(const SurfaceDescriptor& aImage,
+                      SurfaceDescriptor* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE
+  {
+    mHasPictureRect = false;
+    return ImageHost::Update(aImage, aResult, aIsInitialised, aNeedsReset);
+  }
+
   virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE
   {
     mPictureRect = aPictureRect;
+    mHasPictureRect = true;
   }
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
@@ -82,6 +93,7 @@ protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
   CompositableType mType;
+  bool mHasPictureRect;
 };
 
 class ImageHostBuffered : public ImageHostSingle

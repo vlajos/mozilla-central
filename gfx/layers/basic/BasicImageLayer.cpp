@@ -271,8 +271,6 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
       return;
     }
   }
-
-  mImageClient->Updated(/*BasicManager()->Hold(this)*/);
 }
 
 already_AddRefed<ImageLayer>

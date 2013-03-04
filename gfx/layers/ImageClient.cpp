@@ -114,8 +114,6 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
         return false;
       }
     }
-
-    UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
   } else if (image->GetFormat() == SHARED_TEXTURE) {
     EnsureTextureClient(TEXTURE_SHARED_GL_EXTERNAL);
     SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
@@ -142,6 +140,12 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
       return false;
     }
   }
+  Updated();
+  if (image->GetFormat() == PLANAR_YCBCR) {
+    PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
+    UpdatePictureRect(ycbcr->GetData()->GetPictureRect());
+  }
+
   mLastPaintedImageSerial = image->GetSerial();
   aContainer->NotifyPaintedImage(image);
   return true;
@@ -181,6 +185,7 @@ ImageClientBridge::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
   GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, mLayer);
   AutoLockImage autoLock(aContainer);
   aContainer->NotifyPaintedImage(autoLock.GetImage());
+  Updated();
   return true;
 }
 

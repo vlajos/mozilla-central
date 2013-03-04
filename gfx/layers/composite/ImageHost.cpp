@@ -79,13 +79,14 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     gfx::Rect rect(0, 0,
                    mPictureRect.width,
                    mPictureRect.height);
-    if (mPictureRect.IsEqualInterior(nsIntRect())) {
-      effect->mTextureCoords = Rect(0, 0, 1, 1);
-    } else {
+    if (mHasPictureRect) {
       effect->mTextureCoords = Rect(Float(mPictureRect.x) / textureSize.width,
                                     Float(mPictureRect.y) / textureSize.height,
                                     Float(mPictureRect.width) / textureSize.width,
                                     Float(mPictureRect.height) / textureSize.height);
+    } else {
+      effect->mTextureCoords = Rect(0, 0, 1, 1);
+      rect = gfx::Rect(0, 0, textureSize.width, textureSize.height);
     }
 
     if (mTextureHost->GetFlags() & NeedsYFlip) {

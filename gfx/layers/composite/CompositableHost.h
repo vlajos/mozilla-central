@@ -78,10 +78,10 @@ public:
   /**
    * @return true if we should schedule a composition.
    */
-  bool Update(const SurfaceDescriptor& aImage,
-              SurfaceDescriptor* aResult = nullptr,
-              bool* aIsInitialised = nullptr,
-              bool* aNeedsReset = nullptr);
+  virtual bool Update(const SurfaceDescriptor& aImage,
+                      SurfaceDescriptor* aResult = nullptr,
+                      bool* aIsInitialised = nullptr,
+                      bool* aNeedsReset = nullptr);
   
   /**
    * Update the content host.
