@@ -100,14 +100,12 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
     EnsureTextureClient(TEXTURE_YCBCR);
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
 
-    if (ycbcr->AsSharedPlanarYCbCrImage()) { // WIP (nical)
-      printf("ImageClientTexture::UpdateImage \n");
-      SurfaceDescriptor* desc = mTextureClient->LockSurfaceDescriptor();
-      if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(*desc)) {
-        mTextureClient->Unlock();
+    if (ycbcr->AsSharedPlanarYCbCrImage()) {
+      AutoLockTextureClient lock(mTextureClient);
+      if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(
+            *lock.GetSurfaceDescriptor())) {
         return false;
       }
-      mTextureClient->Unlock();
     } else {
       AutoLockYCbCrClient clientLock(mTextureClient);
       if (!clientLock.Update(ycbcr)) {
@@ -125,6 +123,12 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
                                     data->mSize, 
                                     data->mInverted);
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
+  } else if (image->GetFormat() == SHARED_RGB) {
+    AutoLockTextureClient lock(mTextureClient);
+    if (!static_cast<SharedRGBImage*>(image)->ToSurfaceDescriptor(
+          *lock.GetSurfaceDescriptor())) {
+      return false;
+    }
   } else {
     nsRefPtr<gfxASurface> surface;
     surface = image->GetAsSurface();
@@ -201,9 +205,9 @@ ImageClient::CreateImage(const uint32_t *aFormats,
       case PLANAR_YCBCR:
         img = new SharedPlanarYCbCrImage(GetForwarder());
         return img.forget();
-//      case SHARED_RGB:  // TODO[nical]
-//        img = new SharedRGBImage(this);
-//        return img.forget();
+      case SHARED_RGB:
+        img = new SharedRGBImage(GetForwarder());
+        return img.forget();
 #ifdef MOZ_WIDGET_GONK
       case GONK_IO_SURFACE:
         img = new GonkIOSurfaceImage();

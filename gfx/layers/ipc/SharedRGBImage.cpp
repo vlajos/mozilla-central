@@ -8,6 +8,7 @@
 #include "SharedRGBImage.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "Shmem.h"
+#include "mozilla/layers/ISurfaceAllocator.h"
 
 // Just big enough for a 1080p RGBA32 frame
 #define MAX_FRAME_SIZE (16 * 1024 * 1024)
@@ -15,24 +16,20 @@
 namespace mozilla {
 namespace layers {
 
-SharedRGBImage::SharedRGBImage(ImageContainerChild *aImageContainerChild) :
+SharedRGBImage::SharedRGBImage(ISurfaceAllocator *aAllocator) :
   Image(nullptr, SHARED_RGB),
   mSize(0, 0),
-  mImageContainerChild(aImageContainerChild),
+  mSurfaceAllocator(aAllocator),
   mAllocated(false),
   mShmem(new ipc::Shmem())
 {
-/*
-  mImageContainerChild->AddRef();
-*/
+
 }
 
 SharedRGBImage::~SharedRGBImage()
 {
-/*
-  mImageContainerChild->DeallocShmemAsync(*mShmem);
-  mImageContainerChild->Release();
-*/
+
+  mSurfaceAllocator->DeallocShmem(*mShmem);
   delete mShmem;
 }
 
@@ -102,11 +99,10 @@ SharedRGBImage::AllocateBuffer(nsIntSize aSize, gfxImageFormat aImageFormat)
   if (size == 0 || size > MAX_FRAME_SIZE) {
     NS_WARNING("Invalid frame size");
   }
-/*
-  if (mImageContainerChild->AllocUnsafeShmemSync(size, OptimalShmemType(), mShmem)) {
+  if (mSurfaceAllocator->AllocUnsafeShmem(size, OptimalShmemType(), mShmem)) {
     mAllocated = true;
   }
-*/
+
   return mAllocated;
 }
 
@@ -116,14 +112,14 @@ SharedRGBImage::GetAsSurface()
   return nullptr;
 }
 
-SurfaceDescriptor*
-SharedRGBImage::ToSurfaceDescriptor()
+bool
+SharedRGBImage::ToSurfaceDescriptor(SurfaceDescriptor& aResult)
 {
   if (!mAllocated) {
-    return nullptr;
+    return false;
   }
-  return new SurfaceDescriptor(RGBImage(*mShmem,
-                               mImageFormat));
+  aResult = RGBImage(*mShmem, mImageFormat);
+  return true;
 }
 
 } // namespace layers

@@ -28,7 +28,7 @@ public:
     gfxImageFormat mImageFormat;
   };
 
-  SharedRGBImage(ImageContainerChild *aImageContainerChild);
+  SharedRGBImage(ISurfaceAllocator *aAllocator);
   ~SharedRGBImage();
 
   static already_AddRefed<SharedRGBImage> Create(ImageContainer *aImageContainer,
@@ -42,14 +42,14 @@ public:
   static uint8_t BytesPerPixel(gfxImageFormat aImageFormat);
   already_AddRefed<gfxASurface> GetAsSurface();
 
-  SurfaceDescriptor* ToSurfaceDescriptor();
+  bool ToSurfaceDescriptor(SurfaceDescriptor& aResult);
 
 private:
   bool AllocateBuffer(nsIntSize aSize, gfxImageFormat aImageFormat);
 
   gfxIntSize mSize;
   gfxImageFormat mImageFormat;
-  ImageContainerChild *mImageContainerChild;
+  ISurfaceAllocator* mSurfaceAllocator;
 
   bool mAllocated;
   ipc::Shmem *mShmem;

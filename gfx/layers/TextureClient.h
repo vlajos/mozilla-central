@@ -153,6 +153,10 @@ public:
     mDescriptor = aTexture->LockSurfaceDescriptor();
   }
 
+  SurfaceDescriptor* GetSurfaceDescriptor() {
+    return mDescriptor;
+  }
+
   virtual ~AutoLockTextureClient() {
     mTextureClient->Unlock();
   }
