@@ -383,7 +383,9 @@ SurfaceStreamHostOGL::Lock()
 void
 YCbCrTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
+#ifdef GFX_COMPOSITOR_LOGGING
   printf("YCbCrTextureHostOGL::SetCompositor %p\n", aCompositor);
+#endif
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
   GLContext* newGL = glCompositor ? glCompositor->gl() : nullptr;
   if (mGL != newGL) {
@@ -393,7 +395,9 @@ YCbCrTextureHostOGL::SetCompositor(Compositor* aCompositor)
     mCrTexture->mTexImage = nullptr;
     // if we have a buffer we reupload it with the new gl context
     if (newGL && mBuffer && mBuffer->type() == SurfaceDescriptor::TYCbCrImage) {
+#ifdef GFX_COMPOSITOR_LOGGING
       printf("YCbCrTetxureHostOGL: Reupload YCbCr buffer\n");
+#endif
       UpdateImpl(*mBuffer);
     }
   }
@@ -543,7 +547,6 @@ TiledTextureHostOGL::Lock()
     return false;
   }
 
-  //TODO[nrc] would be nice if we didn't need to do this
   mGL->MakeCurrent();
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
 

@@ -105,7 +105,7 @@ LayerManagerComposite::BeginTransactionWithTarget(gfxContext *aTarget)
     return;
   }
 
-  mCompositor->SetTarget(aTarget);
+  mCompositor->SetTargetContext(aTarget);
 }
 
 bool
@@ -158,7 +158,7 @@ LayerManagerComposite::EndTransaction(DrawThebesLayerCallback aCallback,
     mThebesLayerCallbackData = nullptr;
   }
 
-  mCompositor->SetTarget(nullptr);
+  mCompositor->SetTargetContext(nullptr);
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   Log();

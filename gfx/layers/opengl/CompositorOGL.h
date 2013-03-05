@@ -17,8 +17,6 @@ namespace mozilla {
 
 namespace layers {
 
-//TODO[nrc] remove this when we remove the friend decl
-class LayerManagerOGL;
 struct FPSState;
 
 class CompositorOGL : public Compositor
@@ -32,16 +30,9 @@ public:
 
   virtual ~CompositorOGL();
 
-  /**
-   * Initializes the compositor with a given GLContext. force should indicate
-   * whether GL layers have been force-enabled. If aContext is null, the compositor
-   * creates a context for the associated widget. Returns true if initialization
-   * is succesful, false otherwise.
-   */
-  bool Initialize(bool force, nsRefPtr<GLContext> aContext);
-  virtual bool Initialize() { return Initialize(true, nullptr); }
+  virtual bool Initialize() MOZ_OVERRIDE;
 
-  virtual void Destroy();
+  virtual void Destroy() MOZ_OVERRIDE;
 
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {
@@ -80,7 +71,7 @@ public:
     return mGLContext->CanUploadSubTextures();
   }
 
-  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize)
+  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) MOZ_OVERRIDE
   {
       if (!mGLContext)
           return false;
@@ -88,7 +79,7 @@ public:
       return aSize <= gfxIntSize(maxSize, maxSize);
   }
 
-  virtual int32_t GetMaxTextureSize() const
+  virtual int32_t GetMaxTextureSize() const MOZ_OVERRIDE
   {
     GLint texSize = 0;
     mGLContext->fGetIntegerv(LOCAL_GL_MAX_TEXTURE_SIZE,
@@ -100,11 +91,9 @@ public:
   /**
    * Set the size of the EGL surface we're rendering to.
    */
-  virtual void SetRenderTargetSize(int aWidth, int aHeight);
+  virtual void SetRenderTargetSize(int aWidth, int aHeight) MOZ_OVERRIDE;
 
-  GLContext* gl() const { return mGLContext; }
-
-  virtual void MakeCurrent(bool aForce = false) {
+  virtual void MakeCurrent(bool aForce = false) MOZ_OVERRIDE {
     if (mDestroyed) {
       NS_WARNING("Call on destroyed layer manager");
       return;
@@ -112,18 +101,17 @@ public:
     mGLContext->MakeCurrent(aForce);
   }
 
-  // TODO[nical] rename this
-  virtual void SetTarget(gfxContext* aTarget)
+  virtual void SetTargetContext(gfxContext* aTarget) MOZ_OVERRIDE
   {
     mTarget = aTarget;
   }
 
-  virtual void SaveViewport()
+  virtual void SaveViewport() MOZ_OVERRIDE
   {
     mGLContext->PushViewportRect();
   }
 
-  virtual gfx::IntRect RestoreViewport()
+  virtual gfx::IntRect RestoreViewport() MOZ_OVERRIDE
   {
     mGLContext->PopViewportRect();
     nsIntRect viewport = mGLContext->ViewportRect();
@@ -134,32 +122,31 @@ public:
   }
 
   
-  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
+  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) MOZ_OVERRIDE;
 
 
 #ifdef MOZ_DUMP_PAINTING
-  virtual const char* Name() const { return "OGL"; }
+  virtual const char* Name() const MOZ_OVERRIDE { return "OGL"; }
 #endif // MOZ_DUMP_PAINTING
 
+  virtual void NotifyShadowTreeTransaction() MOZ_OVERRIDE;
+
+  virtual void Pause() MOZ_OVERRIDE;
+  virtual bool Resume() MOZ_OVERRIDE;
+
+  virtual nsIWidget* GetWidget() const MOZ_OVERRIDE { return mWidget; }
+  virtual nsIntSize* GetWidgetSize() MOZ_OVERRIDE {
+    return &mWidgetSize;
+  }
+
+  GLContext* gl() const { return mGLContext; }
   gl::ShaderProgramType GetFBOLayerProgramType() const {
     if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
       return gl::RGBARectLayerProgramType;
     return gl::RGBALayerProgramType;
   }
 
-  virtual void NotifyShadowTreeTransaction();
-
-  virtual void Pause();
-  virtual bool Resume();
-
-  virtual nsIWidget* GetWidget() const MOZ_OVERRIDE { return mWidget; }
-  virtual nsIntSize* GetWidgetSize() {
-    return &mWidgetSize;
-  }
-
 private:
-  gl::ShaderProgramType GetProgramTypeForEffect(Effect* aEffect) const;
-
   /** 
    * Context target, nullptr when drawing directly to our swap chain.
    */
@@ -212,6 +199,8 @@ private:
   virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
                           const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut = nullptr) MOZ_OVERRIDE;
 
+  gl::ShaderProgramType GetProgramTypeForEffect(Effect* aEffect) const;
+
   /**
    * Updates all layer programs with a new projection matrix.
    */
@@ -223,24 +212,6 @@ private:
    */
   void AddPrograms(gl::ShaderProgramType aType);
 
-  ShaderProgramOGL* GetBasicLayerProgram(bool aOpaque, bool aIsRGB,
-                                         MaskType aMask = MaskNone)
-  {
-    gl::ShaderProgramType format = gl::BGRALayerProgramType;
-    if (aIsRGB) {
-      if (aOpaque) {
-        format = gl::RGBXLayerProgramType;
-      } else {
-        format = gl::RGBALayerProgramType;
-      }
-    } else {
-      if (aOpaque) {
-        format = gl::BGRXLayerProgramType;
-      }
-    }
-    return GetProgram(format, aMask);
-  }
-
   ShaderProgramOGL* GetProgram(gl::ShaderProgramType aType,
                                MaskType aMask = MaskNone) {
     NS_ASSERTION(ProgramProfileOGL::ProgramExists(aType, aMask),
@@ -248,7 +219,8 @@ private:
     return mPrograms[aType].mVariations[aMask];
   }
 
-  /* Create a FBO backed by a texture.
+  /**
+   * Create a FBO backed by a texture.
    * Note that the texture target type will be
    * of the type returned by FBOTextureTarget; different
    * shaders are required to sample from the different
@@ -258,7 +230,6 @@ private:
                             GLuint aSourceFrameBuffer,
                             GLuint *aFBO, GLuint *aTexture);
 
-  GLuint QuadVBO() { return mQuadVBO; }
   GLintptr QuadVBOVertexOffset() { return 0; }
   GLintptr QuadVBOTexCoordOffset() { return sizeof(float)*4*2; }
   GLintptr QuadVBOFlippedTexCoordOffset() { return sizeof(float)*8*2; }
@@ -302,9 +273,7 @@ private:
     }
 
     mGLContext->fEnableVertexAttribArray(aVertAttribIndex);
-
     mGLContext->fDrawArrays(LOCAL_GL_TRIANGLE_STRIP, 0, 4);
-
     mGLContext->fDisableVertexAttribArray(aVertAttribIndex);
 
     if (aTexCoordAttribIndex != GLuint(-1)) {
@@ -342,9 +311,6 @@ private:
   nsAutoPtr<FPSState> mFPS;
   static bool sDrawFPS;
   static bool sFrameCounter;
-
-  //TODO[nrc] remove this when we are using only the compositor API in LayerManagerOGL
-  friend class LayerManagerOGL;
 };
 
 }

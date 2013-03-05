@@ -316,18 +316,14 @@ CompositorOGL::CleanupResources()
 }
 
 bool
-CompositorOGL::Initialize(bool force, nsRefPtr<GLContext> aContext)
+CompositorOGL::Initialize()
 {
   ScopedGfxFeatureReporter reporter("GL Layers", true);
 
   // Do not allow double initialization
   NS_ABORT_IF_FALSE(mGLContext == nullptr, "Don't reinitialize CompositorOGL");
 
-  if (aContext) {
-    mGLContext = aContext;
-  } else {
-    mGLContext = CreateContext();
-  }
+  mGLContext = CreateContext();
 
 #ifdef MOZ_WIDGET_ANDROID
   if (!mGLContext)

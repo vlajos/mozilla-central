@@ -374,17 +374,14 @@ public:
   /**
    * Set the target for rendering, intended to be used for the duration of a transaction
    */
-  virtual void SetTarget(gfxContext *aTarget) = 0;
+  virtual void SetTargetContext(gfxContext *aTarget) = 0;
 
   virtual void MakeCurrent(bool aForce = false) = 0;
 
   /**
    * modifies the TextureIdentifier if needed in a fallback situation for aId
    */
-  virtual void FallbackTextureInfo(TextureInfo& aInfo)
-  {
-    // nothing to do
-  }
+  virtual void FallbackTextureInfo(TextureInfo& aInfo) {}
 
   /**
    * This creates a Surface that can be used as a rendering target by this
