@@ -31,9 +31,8 @@ public:
 
   virtual void Destroy() { mDestroyed = true; }
 
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousSurface = nullptr);
+  virtual void RenderLayer(int aPreviousFrameBuffer,
+                           const nsIntPoint& aOffset);
   virtual void CleanupResources() {};
 };
 

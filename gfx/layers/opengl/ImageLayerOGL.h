@@ -17,9 +17,6 @@
 namespace mozilla {
 namespace layers {
 
-class ImageHost;
-class GLTextureAsTextureHost;
-
 class CairoImage;
 class PlanarYCbCrImage;
 class ShmemYCbCrImage;
@@ -63,8 +60,6 @@ private:
 
   nsRefPtr<GLContext> mContext;
   GLuint mTexture;
-
-  friend class GLTextureAsTextureHost;
 };
 
 /**
@@ -115,9 +110,8 @@ public:
   virtual Layer* GetLayer();
   virtual bool LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize);
 
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+  virtual void RenderLayer(int aPreviousFrameBuffer,
+                           const nsIntPoint& aOffset);
   virtual void CleanupResources() {}
 
 

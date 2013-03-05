@@ -13,16 +13,37 @@
 namespace mozilla {
 namespace layers {
 
+template<class Container>
+static void ContainerInsertAfter(Container* aContainer, Layer* aChild, Layer* aAfter);
+template<class Container>
+static void ContainerRemoveChild(Container* aContainer, Layer* aChild);
+template<class Container>
+static void ContainerRepositionChild(Container* aContainer, Layer* aChild, Layer* aAfter);
+template<class Container>
+static void ContainerDestroy(Container* aContainer);
+template<class Container>
+static void ContainerRender(Container* aContainer,
+                            int aPreviousFrameBuffer,
+                            const nsIntPoint& aOffset,
+                            LayerManagerOGL* aManager);
+
 class ContainerLayerOGL : public ContainerLayer,
-                          public LayerOGL,
-                          private ContainerLayerImpl<ContainerLayerOGL,
-                                                     LayerOGL,
-                                                     LayerManagerOGL>
+                          public LayerOGL
 {
-  template<class ContainerT,
-           class LayerT,
-           class ManagerT>
-  friend class mozilla::layers::ContainerLayerImpl;
+  template<class Container>
+  friend void ContainerInsertAfter(Container* aContainer, Layer* aChild, Layer* aAfter);
+  template<class Container>
+  friend void ContainerRemoveChild(Container* aContainer, Layer* aChild);
+  template<class Container>
+  friend void ContainerRepositionChild(Container* aContainer, Layer* aChild, Layer* aAfter);
+  template<class Container>
+  friend void ContainerDestroy(Container* aContainer);
+  template<class Container>
+  friend void ContainerRender(Container* aContainer,
+                              int aPreviousFrameBuffer,
+                              const nsIntPoint& aOffset,
+                              LayerManagerOGL* aManager);
+
 public:
   ContainerLayerOGL(LayerManagerOGL *aManager);
   ~ContainerLayerOGL();
@@ -40,9 +61,8 @@ public:
 
   LayerOGL* GetFirstChildOGL();
 
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+  virtual void RenderLayer(int aPreviousFrameBuffer,
+                           const nsIntPoint& aOffset);
 
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {

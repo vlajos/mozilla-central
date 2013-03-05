@@ -13,6 +13,7 @@
 #include "mozilla/layers/PLayer.h"
 #include "mozilla/layers/Effects.h"
 #include "nsIWidget.h"
+#include "FPSCounter.h"
 
 #include "gfxUtils.h"
 
@@ -42,69 +43,6 @@ using namespace mozilla::gl;
 static inline IntSize ns2gfxSize(const nsIntSize& s) {
   return IntSize(s.width, s.height);
 }
-
-static const double kFpsWindowMs = 250.0;
-static const size_t kNumFrameTimeStamps = 16;
-struct FPSCounter {
-  FPSCounter() : mCurrentFrameIndex(0) {}
-
-  // We keep a circular buffer of the time points at which the last K
-  // frames were drawn.  To estimate FPS, we count the number of
-  // frames we've drawn within the last kFPSWindowMs milliseconds and
-  // divide by the amount time since the first of those frames.
-  TimeStamp mFrames[kNumFrameTimeStamps];
-  size_t mCurrentFrameIndex;
-
-  void AddFrame(TimeStamp aNewFrame) {
-    mFrames[mCurrentFrameIndex] = aNewFrame;
-    mCurrentFrameIndex = (mCurrentFrameIndex + 1) % kNumFrameTimeStamps;
-  }
-
-  double AddFrameAndGetFps(TimeStamp aCurrentFrame) {
-    AddFrame(aCurrentFrame);
-    return EstimateFps(aCurrentFrame);
-  }
-
-  double GetFpsAt(TimeStamp aNow) {
-    return EstimateFps(aNow);
-  }
-
-private:
-  double EstimateFps(TimeStamp aNow) {
-    TimeStamp beginningOfWindow =
-      (aNow - TimeDuration::FromMilliseconds(kFpsWindowMs));
-    TimeStamp earliestFrameInWindow = aNow;
-    size_t numFramesDrawnInWindow = 0;
-    for (size_t i = 0; i < kNumFrameTimeStamps; ++i) {
-      const TimeStamp& frame = mFrames[i];
-      if (!frame.IsNull() && frame > beginningOfWindow) {
-        ++numFramesDrawnInWindow;
-        earliestFrameInWindow = std::min(earliestFrameInWindow, frame);
-      }
-    }
-    double realWindowSecs = (aNow - earliestFrameInWindow).ToSeconds();
-    if (realWindowSecs == 0.0 || numFramesDrawnInWindow == 1) {
-      return 0.0;
-    }
-    return double(numFramesDrawnInWindow - 1) / realWindowSecs;
-  }
-};
-
-struct FPSState {
-  GLuint mTexture;
-  FPSCounter mCompositionFps;
-  FPSCounter mTransactionFps;
-
-  FPSState() : mTexture(0) { }
-
-  void DrawFPS(TimeStamp, GLContext*, ShaderProgramOGL*);
-
-  static void DrawFrameCounter(GLContext* context);
-
-  void NotifyShadowTreeTransaction() {
-    mTransactionFps.AddFrame(TimeStamp::Now());
-  }
-};
 
 
 void

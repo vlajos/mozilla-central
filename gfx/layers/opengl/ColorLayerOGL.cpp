@@ -4,18 +4,54 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ColorLayerOGL.h"
-#include "LayerImplComposite.h"
 
 namespace mozilla {
 namespace layers {
 
-void
-ColorLayerOGL::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect,
-                           CompositingRenderTarget*)
+static void
+RenderColorLayer(ColorLayer* aLayer, LayerManagerOGL *aManager,
+                 const nsIntPoint& aOffset)
 {
-  RenderColorLayer(this, mOGLManager->GetCompositor(), aOffset, aClipRect);
+  if (aManager->CompositingDisabled()) {
+    return;
+  }
+
+  aManager->MakeCurrent();
+
+  // XXX we might be able to improve performance by using glClear
+
+  nsIntRect visibleRect = aLayer->GetEffectiveVisibleRegion().GetBounds();
+
+  /* Multiply color by the layer opacity, as the shader
+   * ignores layer opacity and expects a final color to
+   * write to the color buffer.  This saves a needless
+   * multiply in the fragment shader.
+   */
+  gfxRGBA color(aLayer->GetColor());
+  float opacity = aLayer->GetEffectiveOpacity() * color.a;
+  color.r *= opacity;
+  color.g *= opacity;
+  color.b *= opacity;
+  color.a = opacity;
+
+  ShaderProgramOGL *program = aManager->GetProgram(gl::ColorLayerProgramType,
+                                                   aLayer->GetMaskLayer());
+  program->Activate();
+  program->SetLayerQuadRect(visibleRect);
+  program->SetLayerTransform(aLayer->GetEffectiveTransform());
+  program->SetRenderOffset(aOffset);
+  program->SetRenderColor(color);
+  program->LoadMask(aLayer->GetMaskLayer());
+
+  aManager->BindAndDrawQuad(program);
 }
 
+void
+ColorLayerOGL::RenderLayer(int,
+                           const nsIntPoint& aOffset)
+{
+  RenderColorLayer(this, mOGLManager, aOffset);
+}
 
 } /* layers */
 } /* mozilla */

@@ -10,7 +10,6 @@
 #include "gfxSharedImageSurface.h"
 
 #include "CanvasLayerOGL.h"
-#include "ImageHost.h"
 
 #include "gfxImageSurface.h"
 #include "gfxContext.h"
@@ -267,9 +266,8 @@ CanvasLayerOGL::UpdateSurface()
 }
 
 void
-CanvasLayerOGL::RenderLayer(const nsIntPoint& aOffset,
-                            const nsIntRect& aClipRect,
-                            CompositingRenderTarget*)
+CanvasLayerOGL::RenderLayer(int aPreviousDestination,
+                            const nsIntPoint& aOffset)
 {
   FirePreTransactionCallback();
   UpdateSurface();

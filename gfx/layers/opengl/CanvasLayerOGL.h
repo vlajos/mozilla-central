@@ -20,8 +20,6 @@
 namespace mozilla {
 namespace layers {
 
-class ImageHost;
-
 class THEBES_API CanvasLayerOGL :
   public CanvasLayer,
   public LayerOGL
@@ -54,9 +52,8 @@ public:
   // LayerOGL implementation
   virtual void Destroy();
   virtual Layer* GetLayer() { return this; }
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousSurface = nullptr);
+  virtual void RenderLayer(int aPreviousFrameBuffer,
+                           const nsIntPoint& aOffset);
   virtual void CleanupResources();
 
 protected:

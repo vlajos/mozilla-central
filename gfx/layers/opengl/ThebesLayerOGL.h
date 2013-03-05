@@ -16,9 +16,8 @@
 namespace mozilla {
 namespace layers {
 
-class BasicBufferOGL;
-class AContentHost;
 class ThebesLayerBufferOGL;
+class BasicBufferOGL;
 
 class ThebesLayerOGL : public ThebesLayer, 
                        public LayerOGL
@@ -39,9 +38,8 @@ public:
   void Destroy();
   Layer* GetLayer();
   virtual bool IsEmpty();
-  virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+  virtual void RenderLayer(int aPreviousFrameBuffer,
+                           const nsIntPoint& aOffset);
   virtual void CleanupResources();
 
 private:
