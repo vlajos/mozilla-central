@@ -184,7 +184,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
   MOZ_LAYERS_LOG(("[ParentSide] received txn with %d edits", cset.Length()));
 
-  if (mDestroyed || layer_manager()->IsDestroyed()) {
+  if (mDestroyed || !layer_manager() || layer_manager()->IsDestroyed()) {
     return true;
   }
 

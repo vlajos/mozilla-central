@@ -603,8 +603,10 @@ RenderFrameParent::RenderFrameParent(nsFrameLoader* aFrameLoader,
 
   nsRefPtr<LayerManager> lm = GetFrom(mFrameLoader);
   // Perhaps the document containing this frame currently has no presentation?
-  if (lm) {
+  if (lm && lm->AsShadowManager()) {
     *aTextureFactoryIdentifier = lm->GetTextureFactoryIdentifier();
+  } else {
+    *aTextureFactoryIdentifier = TextureFactoryIdentifier();
   }
 
   if (CompositorParent::CompositorLoop()) {
