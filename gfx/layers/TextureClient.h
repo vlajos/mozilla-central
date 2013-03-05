@@ -219,6 +219,7 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   virtual void ReleaseResources();
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
 private:
   gfxASurface* GetSurface();
 

@@ -115,6 +115,24 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
   }
 }
 
+void
+TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
+{
+  if (IsSurfaceDescriptorValid(aDescriptor)) {
+    if (IsSurfaceDescriptorValid(mDescriptor)) {
+      mLayerForwarder->DestroySharedSurface(&mDescriptor);
+    }
+    mDescriptor = aDescriptor;
+  } else {
+    EnsureTextureClient(mSize, mContentType);
+  }
+
+  mSurface = nullptr;
+
+  MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc ||
+             mDescriptor.type() == SurfaceDescriptor::TShmem);
+}
+
 
 // --------- Autolock
 
