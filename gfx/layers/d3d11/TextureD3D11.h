@@ -97,8 +97,6 @@ public:
 
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
-  virtual TextureSource *AsTextureSource();
-
   virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
 
   virtual ID3D11Texture2D *GetD3D11Texture() { return mIsTiled ? mTileTextures[mCurrentTile] : TextureSourceD3D11::GetD3D11Texture(); }
@@ -144,8 +142,6 @@ public:
 
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
-  virtual TextureSource *AsTextureSource();
-
   virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
 
   virtual gfx::IntSize GetSize() const;
@@ -183,8 +179,6 @@ public:
   }
 
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
-
-  virtual TextureSource *AsTextureSource();
 
   virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
 

@@ -156,9 +156,6 @@ public:
  * the data received in Update(...) is a copy in shared memory of the data owned 
  * by the content process, in which case no blocking lock is required.
  *
- * All TextureHosts should provide access to at least one TextureSource
- * (see AsTextureSource()).
- *
  * The TextureHost class handles buffering and the necessary code for async
  * texture updates, and the internals of this should not be exposed to the
  * the different implementations of TextureHost (other than selecting the
@@ -169,7 +166,7 @@ public:
  * to keep the ownership model simple (especially on the OpenGL case, where
  * we have additionnal constraints).
  *
- * The class TextureImageAsTextureHostOGL is a good example of a TextureHost
+ * The class TextureImageTextureHostOGL is a good example of a TextureHost
  * implementation.
  *
  * This class is used only on the compositor side.
@@ -179,16 +176,6 @@ class TextureHost : public TextureSource
 public:
   TextureHost(ISurfaceAllocator* aDeAllocator = nullptr);
   virtual ~TextureHost();
-
-  /**
-   TODO[nical] comment
-   * In most case there is one TextureSource per TextureHost, and CompositableHost
-   * sometimes need to get a TextureSource from a TextureHost (for example to create
-   * a mask effect). This is one of the sketchy pieces of the compositing architecture
-   * that I hope to fix asap, maybe by enforcing one TextureSource per TextureHost and
-   * replacing this by GetAsTextureSource().
-   */
-  virtual TextureSource* AsTextureSource() { return this; };
 
   virtual gfx::SurfaceFormat GetFormat() const { return mFormat; }
 

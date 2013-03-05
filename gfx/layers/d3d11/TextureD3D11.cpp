@@ -196,12 +196,6 @@ TextureHostShmemD3D11::GetSize() const
   return TextureSourceD3D11::GetSize();
 }
 
-TextureSource*
-TextureHostShmemD3D11::AsTextureSource()
-{
-  return this;
-}
-
 nsIntRect
 TextureHostShmemD3D11::GetTileRect()
 {
@@ -322,12 +316,6 @@ TextureHostDXGID3D11::GetSize() const
   return TextureSourceD3D11::GetSize();
 }
 
-TextureSource*
-TextureHostDXGID3D11::AsTextureSource()
-{
-  return this;
-}
-
 bool
 TextureHostDXGID3D11::Lock()
 {
@@ -390,12 +378,6 @@ IntSize
 TextureHostYCbCrD3D11::GetSize() const
 {
   return TextureSourceD3D11::GetSize();
-}
-
-TextureSource*
-TextureHostYCbCrD3D11::AsTextureSource()
-{
-  return this;
 }
 
 void

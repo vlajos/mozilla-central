@@ -65,7 +65,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   
   aEffectChain.mPrimaryEffect = effect;
 
-  TileIterator* it = mTextureHost->AsTextureSource()->AsTileIterator();
+  TileIterator* it = mTextureHost->AsTileIterator();
   if (it) {
     it->BeginTileIteration();
     do {
@@ -75,7 +75,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
                                 aOpacity, aTransform, aOffset);
     } while (it->NextTile());
   } else {
-    IntSize textureSize = mTextureHost->AsTextureSource()->GetSize();
+    IntSize textureSize = mTextureHost->GetSize();
     gfx::Rect rect(0, 0,
                    mPictureRect.width,
                    mPictureRect.height);

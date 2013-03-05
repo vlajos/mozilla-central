@@ -116,11 +116,6 @@ public:
 
   void Abort() MOZ_OVERRIDE;
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE
-  {
-    return this;
-  }
-
   // textureSource
   void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE
   {
@@ -230,11 +225,6 @@ public:
 
   virtual bool Lock() MOZ_OVERRIDE;
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE
-  {
-    return IsValid() ? this : nullptr;
-  }
-
   struct Channel : public TextureSourceOGL
                  , public TextureSource
   {
@@ -332,7 +322,6 @@ public:
     return mTextureHandle;
   }
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
   virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
 
   bool IsValid() const MOZ_OVERRIDE { return GetFormat() != gfx::FORMAT_UNKNOWN; }
@@ -422,7 +411,6 @@ public:
     return mTextureHandle;
   }
 
-  TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
   virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
 
   bool IsValid() const MOZ_OVERRIDE { return true; }
@@ -512,7 +500,6 @@ public:
   virtual bool Lock() MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE {}
 
-  virtual TextureSource* AsTextureSource() MOZ_OVERRIDE { return this; }
   virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
   virtual bool IsValid() const MOZ_OVERRIDE { return true; }
   virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE
