@@ -36,8 +36,10 @@ TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptor
     result = new SurfaceStreamHostOGL(aDeAllocator);
   } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
     result = new SharedTextureHostOGL(aDeAllocator);
+#ifdef MOZ_WIDGET_GONK
   } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
     result = new GrallocTextureHostOGL(aDeAllocator);
+#endif
   } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
     result = new TiledTextureHostOGL(aDeAllocator);
   } else {

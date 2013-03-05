@@ -763,10 +763,15 @@ ImageBridgeChild::AllocGrallocBuffer(const gfxIntSize& aSize,
                                      gfxASurface::gfxContentType aContent,
                                      MaybeMagicGrallocBufferHandle* aHandle)
 {
+#ifdef MOZ_WIDGET_GONK
   return SendPGrallocBufferConstructor(aSize,
                                        aContent,
                                        GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
                                        aHandle);
+#else
+  NS_RUNTIMEABORT("not implemented");
+  return nullptr;
+#endif
 }
 
 } // layers
