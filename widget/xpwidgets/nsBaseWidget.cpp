@@ -865,14 +865,17 @@ void nsBaseWidget::CreateCompositor()
 #endif
   nsIntRect rect;
   GetBounds(rect);
+
   mCompositorParent =
     new CompositorParent(this, renderToEGLSurface, rect.width, rect.height);
+  AsyncChannel *parentChannel = mCompositorParent->GetIPCChannel();
+
   LayerManager* lm = CreateBasicLayerManager();
   MessageLoop *childMessageLoop = CompositorParent::CompositorLoop();
   mCompositorChild = new CompositorChild(lm);
-  AsyncChannel *parentChannel = mCompositorParent->GetIPCChannel();
   AsyncChannel::Side childSide = mozilla::ipc::AsyncChannel::Child;
   mCompositorChild->Open(parentChannel, childMessageLoop, childSide);
+
   TextureFactoryIdentifier textureFactoryIdentifier;
   PLayersChild* shadowManager;
 #ifdef MOZ_ENABLE_D3D10_LAYER
