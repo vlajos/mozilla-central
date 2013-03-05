@@ -24,6 +24,9 @@ class Shmem;
 } // namespace
 namespace layers {
 
+class PGrallocBufferChild;
+class MaybeMagicGrallocBufferHandle;
+
 enum BufferCapabilities {
   DEFAULT_BUFFER_CAPS = 0,
   /**
@@ -97,6 +100,12 @@ protected:
                                               gfxASurface::gfxContentType aContent,
                                               uint32_t aCaps,
                                               SurfaceDescriptor* aBuffer);
+  virtual PGrallocBufferChild* AllocGrallocBuffer(const gfxIntSize& aSize,
+                                                  gfxASurface::gfxContentType aContent,
+                                                  MaybeMagicGrallocBufferHandle* aHandle)
+  {
+    return nullptr;
+  }
 
   ~ISurfaceAllocator() {}
 };

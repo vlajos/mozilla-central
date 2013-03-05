@@ -12,6 +12,11 @@
 #include "mozilla/layers/SharedRGBImage.h"
 #include "mozilla/layers/SharedPlanarYCbCrImage.h"
 
+#ifdef MOZ_WIDGET_GONK
+#include "GonkIOSurfaceImage.h"
+#include "GrallocImages.h"
+#endif
+
 namespace mozilla {
 namespace layers {
 

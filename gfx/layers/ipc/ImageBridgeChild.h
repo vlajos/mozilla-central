@@ -286,6 +286,10 @@ protected:
   int mDebugAllocCount;
 #endif
   CompositableTransaction* mTxn;
+
+  virtual PGrallocBufferChild* AllocGrallocBuffer(const gfxIntSize& aSize,
+                                                  gfxASurface::gfxContentType aContent,
+                                                  MaybeMagicGrallocBufferHandle* aHandle) MOZ_OVERRIDE;
 };
 
 } // layers

@@ -758,5 +758,16 @@ ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
   }
 }
 
+PGrallocBufferChild*
+ImageBridgeChild::AllocGrallocBuffer(const gfxIntSize& aSize,
+                                     gfxASurface::gfxContentType aContent,
+                                     MaybeMagicGrallocBufferHandle* aHandle)
+{
+  return SendPGrallocBufferConstructor(aSize,
+                                       aContent,
+                                       GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
+                                       aHandle);
+}
+
 } // layers
 } // mozilla

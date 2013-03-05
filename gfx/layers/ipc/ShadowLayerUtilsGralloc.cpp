@@ -294,6 +294,14 @@ GrallocBufferActor::InitFromHandle(const MagicGrallocBufferHandle& aHandle)
   mGraphicBuffer = aHandle.mGraphicBuffer;
 }
 
+PGrallocBufferChild*
+ShadowLayerForwarder::AllocGrallocBuffer(const gfxIntSize& aSize,
+                                         gfxASurface::gfxContentType aContent,
+                                         MaybeMagicGrallocBufferHandle* aHandle)
+{
+  return mShadowManager->SendPGrallocBufferConstructor(aSize, aContent, aHandle);
+}
+
 bool
 ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize& aSize,
                                                   gfxASurface::gfxContentType aContent,
@@ -311,8 +319,7 @@ ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize& aSize,
   // Gralloc buffers are efficiently mappable as gfxImageSurface, so
   // no need to check |aCaps & MAP_AS_IMAGE_SURFACE|.
   MaybeMagicGrallocBufferHandle handle;
-  PGrallocBufferChild* gc =
-    mShadowManager->SendPGrallocBufferConstructor(aSize, aContent, &handle);
+  PGrallocBufferChild* gc = AllocGrallocBuffer(aSize, aContent, &handle);
   if (handle.Tnull_t == handle.type()) {
     PGrallocBufferChild::Send__delete__(gc);
     return false;
