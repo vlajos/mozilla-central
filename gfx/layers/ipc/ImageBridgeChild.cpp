@@ -220,7 +220,7 @@ ImageBridgeChild::~ImageBridgeChild()
   delete mTxn;
 #ifdef MOZ_LAYERS_HAVE_LOG
   if (mDebugAllocCount != 0) {
-    printf("ImageBirdgeChild deleted [alloc - dealloc = %i]\n", mDebugAllocCount);
+    printf("ImageBridgeChild deleted [alloc - dealloc = %i]\n", mDebugAllocCount);
   }
 #endif
 }
@@ -634,7 +634,7 @@ ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
                                    ipc::Shmem* aShmem)
 {
 #ifdef MOZ_LAYERS_HAVE_LOG
-  printf(" ++ [%i] ImageBirdge AllocShmem (unsafe)\n", ++mDebugAllocCount);
+  printf(" ++ [%i] ImageBridge AllocShmem (unsafe)\n", ++mDebugAllocCount);
 #endif
   if (InImageBridgeChildThread()) {
     return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
@@ -649,7 +649,7 @@ ImageBridgeChild::AllocShmem(size_t aSize,
                              ipc::Shmem* aShmem)
 {
 #ifdef MOZ_LAYERS_HAVE_LOG
-  printf(" ++ [%i] ImageBirdge AllocShmem\n", ++mDebugAllocCount);
+  printf(" ++ [%i] ImageBridge AllocShmem\n", ++mDebugAllocCount);
 #endif
   if (InImageBridgeChildThread()) {
     return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
@@ -737,7 +737,7 @@ void
 ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
 {
 #ifdef MOZ_LAYERS_HAVE_LOG
-  printf(" -- [%i] ImageBirdge DeallocShmem\n", --mDebugAllocCount);
+  printf(" -- [%i] ImageBridge DeallocShmem\n", --mDebugAllocCount);
 #endif
   if (InImageBridgeChildThread()) {
     PImageBridgeChild::DeallocShmem(aShmem);

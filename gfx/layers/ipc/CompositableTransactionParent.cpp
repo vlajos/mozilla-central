@@ -46,21 +46,21 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
       const OpPaintTexture& op = aEdit.get_OpPaintTexture();
 
-      Compositor* compositor = nullptr;
+      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
+      CompositableHost* compositable = textureParent->GetCompositableHost();
       Layer* layer = GetLayerFromOpPaint(op);
       ShadowLayer* shadowLayer = layer ? layer->AsShadowLayer() : nullptr;
       if (shadowLayer) {
-        compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+        Compositor* compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
+        compositable->SetCompositor(compositor);
       } else {
-        NS_WARNING("Trying to paint before OpAttachAsyncTexture?");
+#ifdef GFX_COMPOSITOR_LOGGING
+        printf("Trying to paint before OpAttachAsyncTexture?\n");
+#endif
+        break;
       }
 
-      TextureParent* textureParent = static_cast<TextureParent*>(op.textureParent());
-      CompositableHost* compositable = textureParent->GetCompositableHost();
       const SurfaceDescriptor& descriptor = op.image();
-      if (compositor) {
-        compositable->SetCompositor(compositor);
-      }
       textureParent->EnsureTextureHost(descriptor.type());
       MOZ_ASSERT(textureParent->GetTextureHost());
 
@@ -80,9 +80,12 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
 
       if (layer) {
         RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
+
+        //TODO shouldn't there be something between RenderTraceInvalidateStart and End?
+
+        RenderTraceInvalidateEnd(layer, "FF00FF");
       }
 
-      RenderTraceInvalidateEnd(layer, "FF00FF");
       break;
     }
     case CompositableOperation::TOpPaintTextureRegion: {

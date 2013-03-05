@@ -395,7 +395,12 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                 nsIntRegion* aRegion)
 {
   if (!mGL) {
-    NS_WARNING("trying to update an invalid TextureHost");
+#ifdef GFX_COMPOSITOR_LOGGING
+    printf("trying to update a TextureHost without calling SetCompositor\n");
+#endif
+    if (aIsInitialised) {
+      *aIsInitialised = false;
+    }
     return;
   }
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");
