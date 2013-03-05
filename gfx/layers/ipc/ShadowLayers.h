@@ -362,9 +362,12 @@ protected:
 
   PLayersChild* mShadowManager;
 
+#ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   virtual PGrallocBufferChild* AllocGrallocBuffer(const gfxIntSize& aSize,
                                                   gfxASurface::gfxContentType aContent,
                                                   MaybeMagicGrallocBufferHandle* aHandle) MOZ_OVERRIDE;
+#endif
+
 private:
 /*
   bool AllocBuffer(const gfxIntSize& aSize,
