@@ -55,6 +55,7 @@ TextureClient::Destroyed()
   // The owning layer must be locked at some point in the chain of callers
   // by calling Hold.
   mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
+  mDescriptor = SurfaceDescriptor();
 }
 
 void
@@ -67,6 +68,7 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                                                     aBufferRect,
                                                     aBufferRotation),
                                        aUpdatedRegion);
+  mDescriptor = SurfaceDescriptor(); //mwoodrow magic
 }
 
 void
@@ -88,6 +90,7 @@ TextureClientShmem::ReleaseResources()
   if (mSurface) {
     mSurface = nullptr;
     ShadowLayerForwarder::CloseDescriptor(mDescriptor);
+    mDescriptor = SurfaceDescriptor();
   }
   if (IsSurfaceDescriptorValid(mDescriptor)) {
     mLayerForwarder->DestroySharedSurface(&mDescriptor);
