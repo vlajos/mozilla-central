@@ -3257,7 +3257,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
     else if (prefs.mAccelerateByDefault)
       mUseLayersAcceleration = true;
 
-    if (!UseOffMainThreadCompositing() && mUseLayersAcceleration) {
+    if (!ShouldUseOffMainThreadCompositing() && mUseLayersAcceleration) {
       if (aPersistence == LAYER_MANAGER_PERSISTENT && !sAllowD3D9) {
         MOZ_ASSERT(!mLayerManager || !mLayerManager->IsInTransaction());
 

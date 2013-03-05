@@ -13,6 +13,7 @@
 #include "mozilla/layers/ImageHost.h"
 #include "mozilla/layers/ContentHost.h"
 #include "mozilla/layers/Effects.h"
+#include "nsWindowsHelpers.h"
 
 namespace mozilla {
 
@@ -212,7 +213,7 @@ CompositorD3D11::Initialize()
   dxgiDevice->GetAdapter(getter_AddRefs(dxgiAdapter));
 
 #ifdef MOZ_METRO
-  if (gfxWindowsPlatform::IsRunningInWindows8Metro()) {
+  if (gfxWindowsPlatform::IsRunningInWindowsMetro()) {
     nsRefPtr<IDXGIFactory2> dxgiFactory;
     dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory.StartAssignment()));
 
@@ -648,7 +649,7 @@ CompositorD3D11::VerifyBufferSize()
     mSwapChain->ResizeBuffers(1, rect.width, rect.height,
                               DXGI_FORMAT_B8G8R8A8_UNORM,
                               0);
-  } else if (gfxWindowsPlatform::IsRunningInWindows8Metro()) {
+  } else if (IsRunningInWindowsMetro()) {
     mSwapChain->ResizeBuffers(2, rect.width, rect.height,
                               DXGI_FORMAT_B8G8R8A8_UNORM,
                               0);

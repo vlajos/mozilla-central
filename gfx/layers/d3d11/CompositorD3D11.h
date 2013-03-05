@@ -51,7 +51,7 @@ public:
   virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize);
   virtual int32_t GetMaxTextureSize() const MOZ_FINAL;
 
-  virtual void SetTarget(gfxContext *aTarget) { mTarget = aTarget; }
+  virtual void SetTargetContext(gfxContext *aTarget) { mTarget = aTarget; }
 
   virtual void MakeCurrent(bool) { }
 
