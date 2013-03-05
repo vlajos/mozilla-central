@@ -12,9 +12,9 @@ namespace mozilla {
 namespace layers {
 
 /**
- * TODO[nical] comment
+ * PTexture should be removed in the short term.
+ * in the mean time it is used to match TextureClients and textureHosts.
  */
-
 async protocol PTexture
 {
   manager PCompositable;

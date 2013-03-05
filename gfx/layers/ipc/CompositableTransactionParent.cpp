@@ -28,7 +28,6 @@ AsTextureHost(const OpPaintT& op)
   return static_cast<TextureParent*>(op.textureParent())->GetTextureHost();
 }
 
-// TODO[nical] we should not need this
 template<class OpPaintT>
 Layer* GetLayerFromOpPaint(const OpPaintT& op)
 {

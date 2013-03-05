@@ -265,7 +265,7 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     }
     if (HasShadow() && !mContainer->IsAsync()) {
       mImageClient->Connect();
-      mImageClient->GetForwarder()->Attach(mImageClient, this);
+      BasicManager()->Attach(mImageClient, this);
     }
     if (!mImageClient->UpdateImage(mContainer, GetContentFlags())) {
       return;

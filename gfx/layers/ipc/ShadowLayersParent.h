@@ -68,7 +68,7 @@ public:
 protected:
   virtual bool RecvUpdate(const EditArray& cset,
                           const TargetConfig& targetConfig,
-                          const bool& isFirstPaint,
+                        const bool& isFirstPaint,
                           EditReplyArray* reply) MOZ_OVERRIDE;
 
   virtual bool RecvUpdateNoSwap(const EditArray& cset,
@@ -88,8 +88,6 @@ protected:
 
   virtual PCompositableParent* AllocPCompositable(const CompositableType& aType) MOZ_OVERRIDE;
   virtual bool DeallocPCompositable(PCompositableParent* actor) MOZ_OVERRIDE;
-
-  virtual Compositor* GetCompositor() MOZ_OVERRIDE;
   
   void Attach(ShadowLayerParent* aLayerParent, CompositableParent* aCompositable);
 

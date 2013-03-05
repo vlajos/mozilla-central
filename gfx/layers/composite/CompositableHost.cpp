@@ -74,13 +74,6 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
     return nullptr;
   }
 }
-/*
-Compositor*
-CompositableParent::GetCompositor() const
-{
-  return mManager->GetCompositor();
-}
-*/
 
 PTextureParent*
 CompositableParent::AllocPTexture(const TextureInfo& aInfo)
@@ -104,7 +97,7 @@ CompositableParent::CompositableParent(CompositableParentManager* aMgr,
 , mID(aID)
 , mCompositorID(0)
 {
-  mHost = CompositableHost::Create(aType, aMgr->GetCompositor());
+  mHost = CompositableHost::Create(aType);
   if (aID) {
     CompositableMap::Set(aID, this);
   }

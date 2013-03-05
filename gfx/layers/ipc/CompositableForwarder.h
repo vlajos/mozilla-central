@@ -48,18 +48,6 @@ public:
    */
   virtual void Connect(CompositableClient* aCompositable) = 0;
 
-  // TODO[nical] remove the Attach methods from there (belong to ShadowLayerFwd only)
-  /**
-   * Adds an edit in the transaction in order to attach
-   * the corresponding compositable and layer on the compositor side.
-   * Connect must have been called on aCompositable beforehand.
-   */
-  virtual void Attach(CompositableClient* aCompositable,
-                      ShadowableLayer* aLayer) = 0;
-
-  virtual void AttachAsyncCompositable(uint64_t aCompositableID,
-                                       ShadowableLayer* aLayer) = 0;
-
   /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.

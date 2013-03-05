@@ -40,7 +40,6 @@ class Shmem;
 namespace layers {
 
 class ImageClient;
-class ImageContainerChild;
 class SharedPlanarYCbCrImage;
 
 struct ImageBackendData
@@ -303,7 +302,7 @@ public:
    * Implementations must call CurrentImageChanged() while holding
    * mReentrantMonitor.
    *
-   * If this ImageContainer has an ImageContainerChild for async video: 
+   * If this ImageContainer has uses async video: 
    * Schelude a task to send the image to the compositor using the 
    * PImageBridge protcol without using the main thread.
    */
@@ -559,12 +558,12 @@ protected:
 
   CompositionNotifySink *mCompositionNotifySink;
 
-  // This member points to an ImageContainerChild if this ImageContainer was 
+  // This member points to an ImageClient if this ImageContainer was
   // sucessfully created with ENABLE_ASYNC, or points to null otherwise.
-  // 'unsuccessful' in this case only means that the ImageContainerChild could not
+  // 'unsuccessful' in this case only means that the ImageClient could not
   // be created, most likely because off-main-thread compositing is not enabled.
-  // In this case the ImageContainer is perfectly usable, but it will forward 
-  // frames to the compositor through transactions in the main thread rather than 
+  // In this case the ImageContainer is perfectly usable, but it will forward
+  // frames to the compositor through transactions in the main thread rather than
   // asynchronusly using the ImageBridge IPDL protocol.
   ImageClient* mImageClient;
 };

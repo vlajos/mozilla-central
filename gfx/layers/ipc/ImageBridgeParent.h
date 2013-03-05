@@ -41,9 +41,6 @@ public:
   virtual bool
   DeallocPGrallocBuffer(PGrallocBufferParent* actor) MOZ_OVERRIDE;
 
-  // CompositableManager
-  Compositor* GetCompositor() MOZ_OVERRIDE { return nullptr; } // TODO[nical] this is actually a bad idea
-
   // PImageBridge
   virtual bool RecvUpdate(const EditArray& aEdits, EditReplyArray* aReply);
   virtual bool RecvUpdateNoSwap(const EditArray& aEdits);
@@ -52,10 +49,12 @@ public:
                                           uint64_t*) MOZ_OVERRIDE;
   bool DeallocPCompositable(PCompositableParent* aActor) MOZ_OVERRIDE;
 
-  // Overriden from PImageBridgeParent.
   bool RecvStop() MOZ_OVERRIDE;
 
   MessageLoop * GetMessageLoop();
+
+
+  // ISurfaceAllocator
 
   bool AllocShmem(size_t aSize,
                   ipc::SharedMemory::SharedMemoryType aType,

@@ -23,7 +23,7 @@ typedef std::vector<mozilla::layers::EditReply> EditReplyVector;
 class CompositableParentManager : public ISurfaceAllocator
 {
 public:
-  virtual Compositor* GetCompositor() = 0;
+  //virtual Compositor* GetCompositor() = 0;
 
 protected:
   bool ReceiveCompositableUpdate(const CompositableOperation& aEdit,

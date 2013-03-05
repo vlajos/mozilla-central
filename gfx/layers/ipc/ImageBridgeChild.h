@@ -22,7 +22,6 @@ namespace layers {
 
 class ImageClient;
 class ImageContainer;
-class ImageContainerChild;
 class ImageBridgeParent;
 class SurfaceDescriptor;
 class CompositableClient;
@@ -156,11 +155,6 @@ public:
    */
   MessageLoop * GetMessageLoop() const;
 
-  // overriden from PImageBridgeChild
-  // PImageContainerChild* AllocPImageContainer(uint64_t*) MOZ_OVERRIDE;
-  // overriden from PImageBridgeChild
-  // bool DeallocPImageContainer(PImageContainerChild* aImgContainerChild) MOZ_OVERRIDE;
-
   PCompositableChild* AllocPCompositable(const CompositableType& aType, uint64_t* aID) MOZ_OVERRIDE;
   bool DeallocPCompositable(PCompositableChild* aActor) MOZ_OVERRIDE;
 
@@ -169,14 +163,6 @@ public:
    * in ImageBridgeChild.cpp ONLY.
    */
   ~ImageBridgeChild();
-
-  /**
-   * Part of the creation of ImageContainerChild that is executed on the 
-   * ImageBridgeChild thread after invoking CreateImageContainerChild
-   *
-   * Must be called from the ImageBridgeChild thread.
-   */
-  already_AddRefed<ImageContainerChild> CreateImageContainerChildNow();
 
   virtual PGrallocBufferChild*
   AllocPGrallocBuffer(const gfxIntSize&, const uint32_t&, const uint32_t&,
@@ -233,16 +219,6 @@ public:
   // CompositableForwarder
 
   virtual void Connect(CompositableClient* aCompositable) MOZ_OVERRIDE;
-  void Attach(CompositableClient* aCompositable,
-              ShadowableLayer* aLayer) MOZ_OVERRIDE
-  {
-    NS_RUNTIMEABORT("should not be called");
-  }
-  void AttachAsyncCompositable(uint64_t aCompositableID,
-                               ShadowableLayer* aLayer) MOZ_OVERRIDE
-  {
-    NS_RUNTIMEABORT("should not be called");
-  }
 
   /**
    * Communicate to the compositor that the texture identified by aLayer
@@ -266,9 +242,15 @@ public:
                                  const nsIntRect& aRect) MOZ_OVERRIDE;
 
   /**
-   * TODO[nical] not implemented
+   * not implemented.
+   * We may want to implement it if we ever need to transfer thebes buffers
+   * out of the main thread (without a ShadowLayerForwarder, that is). It is
+   * not the case at the moment.
    */
-  virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE;
+  virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE
+  {
+    NS_RUNTIMEABORT("not implemented");
+  }
 
 
   // ISurfaceAllocator
