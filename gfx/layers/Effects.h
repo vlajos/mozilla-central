@@ -234,6 +234,9 @@ CreateTexturedEffect(TextureHost *aTextureHost,
   case gfx::FORMAT_R8G8B8X8:
     result = new EffectRGBX(aTextureHost, true, aFilter);
     break;
+  case gfx::FORMAT_R5G6B5:
+    result = new EffectRGBX(aTextureHost, true, aFilter);
+    break;
   case gfx::FORMAT_R8G8B8A8:
     result = new EffectRGBA(aTextureHost, true, aFilter);
     break;
