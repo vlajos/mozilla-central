@@ -58,7 +58,7 @@ void
 EffectSolidColor::PrintInfo(nsACString& aTo, const char* aPrefix)
 {
   aTo += aPrefix;
-  aTo += nsPrintfCString("EffectSolidColor (0x%p) [color=%d]", this, mColor);
+  aTo += nsPrintfCString("EffectSolidColor (0x%p) [color=%x]", this, mColor.ToABGR());
 }
 
 #endif // MOZ_LAYERS_HAVE_LOG
