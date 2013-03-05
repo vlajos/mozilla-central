@@ -60,6 +60,8 @@ void
 CompositableChild::Destroy()
 {
   int numChildren = ManagedPTextureChild().Length();
+  // [bjacob] FIXME: while debugging double GrallocBufferActore Send__delete__ I seemed to
+  // observe that the texture->Destroy(); here might be a source of double deletes. But I'm not sure.
   for (int i = numChildren-1; i >= 0; --i) {
     TextureChild* texture =
       static_cast<TextureChild*>(
