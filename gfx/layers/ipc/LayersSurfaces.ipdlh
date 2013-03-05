@@ -68,8 +68,10 @@ struct YCbCrImage {
   size_t offset;
 };
 
+// TODO: remove RGBImage (see bug 847914)
 struct RGBImage {
   Shmem data;
+  nsIntRect picture;
   uint32_t rgbFormat;
 };
 

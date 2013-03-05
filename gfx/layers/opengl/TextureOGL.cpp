@@ -31,7 +31,7 @@ TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptor
   RefPtr<TextureHost> result = nullptr;
 
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
-    result = new YCbCrTextureHostOGL(aDeAllocator /*, bufferMode*/);
+    result = new YCbCrTextureHostOGL(aDeAllocator);
   } else if (aDescriptorType == SurfaceDescriptor::TSurfaceStreamDescriptor) {
     result = new SurfaceStreamHostOGL(aDeAllocator);
   } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
@@ -66,7 +66,6 @@ TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptor
   result->SetFlags(aTextureFlags);
   return result.forget();
 }
-
 
 static void
 MakeTextureIfNeeded(gl::GLContext* gl, GLenum aTarget, GLuint& aTexture)

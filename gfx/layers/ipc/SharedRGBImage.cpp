@@ -118,7 +118,9 @@ SharedRGBImage::ToSurfaceDescriptor(SurfaceDescriptor& aResult)
   if (!mAllocated) {
     return false;
   }
-  aResult = RGBImage(*mShmem, mImageFormat);
+  aResult = RGBImage(*mShmem,
+                     nsIntRect(0, 0, mSize.width, mSize.height),
+                     mImageFormat);
   return true;
 }
 

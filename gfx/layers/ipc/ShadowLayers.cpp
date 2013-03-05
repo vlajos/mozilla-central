@@ -19,6 +19,7 @@
 #include "mozilla/layers/TextureChild.h"
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/LayerTransaction.h"
+#include "mozilla/layers/LayersSurfaces.h"
 #include "ShadowLayers.h"
 #include "ShadowLayerChild.h"
 #include "gfxipc/ShadowLayerUtils.h"
@@ -455,6 +456,17 @@ ShadowLayerForwarder::OpenDescriptor(OpenMode aMode,
   switch (aSurface.type()) {
   case SurfaceDescriptor::TShmem: {
     surf = gfxSharedImageSurface::Open(aSurface.get_Shmem());
+    return surf.forget();
+  } case SurfaceDescriptor::TRGBImage: {
+    const RGBImage& rgb = aSurface.get_RGBImage();
+    gfxASurface::gfxImageFormat rgbFormat
+      = static_cast<gfxASurface::gfxImageFormat>(rgb.rgbFormat());
+    uint32_t stride = gfxASurface::BytesPerPixel(rgbFormat) * rgb.picture().width;
+    nsIntSize size(rgb.picture().width, rgb.picture().height);
+    nsRefPtr<gfxASurface> surface = new gfxImageSurface(rgb.data().get<uint8_t>(),
+                                                        size,
+                                                        stride,
+                                                        rgbFormat);
     return surf.forget();
   }
   default:
