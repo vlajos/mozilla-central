@@ -393,9 +393,6 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aFront,
                                 nsIntRegion* aNewValidRegionFront,
                                 nsIntRegion* aUpdatedRegionBack)
 {
-  mBufferRect = aFront.rect();
-  mBufferRotation = aFront.rotation();
-
   if (!mTextureHost) {
     *aNewFront = null_t();
     mInitialised = false;
@@ -426,6 +423,9 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aFront,
 
   *aNewBack = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
   *aNewFront = aFront;
+
+  mBufferRect = aFront.rect();
+  mBufferRotation = aFront.rotation();
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.

@@ -229,9 +229,15 @@ ContentClientDirect::SwapBuffers(const ThebesBuffer &aBackBuffer,
     mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
                                          0);
     mTextureClient->EnsureTextureClient(mSize, mContentType);
+  } else if (nsIntSize(mSize.width, mSize.height) != aBackBuffer.rect().Size()) {
+    // Just resize our backbuffer so that SyncFrontBufferToBackBuffer can copy
+    // all the relevant data back there.
+    mTextureClient->EnsureTextureClient(mSize, mContentType);
+  } else {
+    mTextureClient->SetDescriptor(aBackBuffer.buffer());
   }
-  mTextureClient->SetDescriptor(aBackBuffer.buffer());
-  mROFrontClient->SetDescriptor(aReadOnlyFrontBuffer.get_ThebesBuffer().buffer());
+
+  mROFrontClient->SetDescriptor(aReadOnlyFrontBuffer.get_ThebesBuffer().buffer());  
 }
 
 struct AutoTextureClient {
@@ -288,8 +294,6 @@ ContentClientDirect::UpdateDestinationFrom(gfxASurface* aBuffer,
                                            const RotatedBuffer& aSource,
                                            const nsIntRegion& aUpdateRegion)
 {
-  mBufferRect = aSource.BufferRect();
-  mBufferRotation = aSource.BufferRotation();
   nsRefPtr<gfxContext> destCtx =
     GetContextForQuadrantUpdate(aUpdateRegion.GetBounds());
   destCtx->SetOperator(gfxContext::OPERATOR_SOURCE);

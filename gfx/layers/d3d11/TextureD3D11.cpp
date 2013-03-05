@@ -83,6 +83,7 @@ TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
 
     if (desc.Width != aSize.width || desc.Height != aSize.height) {
       mTexture = nullptr;
+      mSurface = nullptr;
     }
 
     if (mTexture) {
