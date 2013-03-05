@@ -187,7 +187,7 @@ ImageClientBridge::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
     return true;
   }
   mAsyncContainerID = aContainer->GetAsyncContainerID();
-  GetForwarder()->AttachAsyncCompositable(mAsyncContainerID, mLayer);
+  static_cast<ShadowLayerForwarder*>(GetForwarder())->AttachAsyncCompositable(mAsyncContainerID, mLayer);
   AutoLockImage autoLock(aContainer);
   aContainer->NotifyPaintedImage(autoLock.GetImage());
   Updated();

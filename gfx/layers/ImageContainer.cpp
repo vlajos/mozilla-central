@@ -186,7 +186,12 @@ ImageContainer::SetCurrentImage(Image *aImage)
     if (aImage) {
       ImageBridgeChild::DispatchImageClientUpdate(mImageClient, this);
     } else {
-      //mImageContainerChild->SetIdle();
+      // here we used to have a SetIdle90 call on the image bridge to tell
+      // the compositor that the video element is not going to be seen for
+      // moment and that it can release its shared memory. It was causing
+      // crashes so it has been removed.
+      // Could be reimplemented if need be (but beware, the memory model is 
+      // tricky).
     }
   }
  
@@ -197,7 +202,7 @@ void
 ImageContainer::SetCurrentImageInTransaction(Image *aImage)
 {
   NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
-//  NS_ASSERTION(!mImageContainerChild, "Should use async image transfer with ImageBridge.");
+  NS_ASSERTION(!mImageClient, "Should use async image transfer with ImageBridge.");
   
   SetCurrentImageInternal(aImage);
 }
@@ -210,9 +215,9 @@ uint64_t ImageContainer::GetAsyncContainerID() const
 {
   NS_ASSERTION(IsAsync(),"Shared image ID is only relevant to async ImageContainers");
   if (IsAsync()) {
-    return mImageClient->GetAsyncID(); // TODO[nical] make sure this is thread safe when things stabilize
+    return mImageClient->GetAsyncID();
   } else {
-    return 0; // zero is always an invalid SurfaceDescriptorID
+    return 0; // zero is always an invalid AsyncID
   }
 }
 

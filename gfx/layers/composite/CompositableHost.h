@@ -45,7 +45,7 @@ public:
   }
 
   static TemporaryRef<CompositableHost> Create(CompositableType aType,
-                                               Compositor* aCompositor);
+                                               Compositor* aCompositor = nullptr);
 
   virtual CompositableType GetType() = 0;
 

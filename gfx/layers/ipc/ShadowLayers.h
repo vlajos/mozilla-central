@@ -127,6 +127,14 @@ public:
   void Attach(CompositableClient* aCompositable,
               ShadowableLayer* aLayer);
 
+  /**
+   * Adds an edit in the transaction in order to attach a Compositable that
+   * is not managed by this ShadowLayerForwarder (for example, by ImageBridge
+   * in the case of async-video).
+   * Since the compositable is not managed by this forwarder, we can't use
+   * the compositable or it's IPDL actor here, so we use an ID instead, that
+   * is matched on the compositor side.
+   */
   void AttachAsyncCompositable(uint64_t aCompositableID,
                                ShadowableLayer* aLayer);
 

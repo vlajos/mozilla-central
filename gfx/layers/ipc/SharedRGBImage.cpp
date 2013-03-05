@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// TODO[nical] port this to the new architecture
-
 #include "ShadowLayers.h"
 #include "SharedRGBImage.h"
 #include "mozilla/layers/LayersSurfaces.h"

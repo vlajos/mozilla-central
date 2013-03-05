@@ -14,9 +14,6 @@ class Shmem;
 }
 namespace layers {
 
-class ImageContainerChild;
-class SharedImage;
-
 /**
  * Stores RGB data in shared memory
  * It is assumed that the image width and stride are equal

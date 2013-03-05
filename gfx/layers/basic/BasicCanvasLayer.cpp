@@ -300,7 +300,7 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     }
     if (HasShadow()) {
       mCanvasClient->Connect();
-      mCanvasClient->GetForwarder()->Attach(mCanvasClient, this);
+      BasicManager()->Attach(mCanvasClient, this);
     }
   }
   

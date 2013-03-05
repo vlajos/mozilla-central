@@ -522,12 +522,5 @@ ShadowLayersParent::DeallocPCompositable(PCompositableParent* actor)
   return true;
 }
 
-Compositor*
-ShadowLayersParent::GetCompositor()
-{
-  return mLayerManager->GetCompositor();
-}
-
-
 } // namespace layers
 } // namespace mozilla

@@ -266,7 +266,7 @@ BasicShadowableThebesLayer::PaintThebes(gfxContext* aContext,
       return;
     }
     mContentClient->Connect();
-    mContentClient->GetForwarder()->Attach(mContentClient, this);
+    BasicManager()->Attach(mContentClient, this);
     MOZ_ASSERT(mContentClient->GetForwarder());
   }
   
@@ -286,7 +286,7 @@ BasicShadowableThebesLayer::PaintBuffer(gfxContext* aContext,
   ContentClientRemote* contentClientRemote = static_cast<ContentClientRemote*>(mContentClient.get());
   if (HasShadow() && !mContentClient->GetIPDLActor()) {
     mContentClient->Connect();
-    mContentClient->GetForwarder()->Attach(mContentClient, this);
+    BasicManager()->Attach(mContentClient, this);
   }
   MOZ_ASSERT(contentClientRemote->GetIPDLActor() || !HasShadow());
   // NB: this just throws away the entire valid region if there are
