@@ -39,7 +39,7 @@ class PaintLayerContext;
  * between layers).
  */
 class THEBES_API BasicLayerManager :
-    public ShadowLayerManager
+    public LayerManager
 {
 public:
   /**
@@ -106,19 +106,6 @@ public:
   virtual already_AddRefed<ColorLayer> CreateColorLayer();
   virtual already_AddRefed<ReadbackLayer> CreateReadbackLayer();
   virtual ImageFactory *GetImageFactory();
-
-  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer()
-  { return nullptr; }
-  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer()
-  { return nullptr; }
-  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer()
-  { return nullptr; }
-  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer()
-  { return nullptr; }
-  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer()
-  { return nullptr; }
-  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer()
-  { return nullptr; }
 
   virtual LayersBackend GetBackendType() { return LAYERS_BASIC; }
   virtual void GetBackendName(nsAString& name) { name.AssignLiteral("Basic"); }
@@ -227,10 +214,6 @@ public:
   virtual ~BasicShadowLayerManager();
 
   virtual ShadowLayerForwarder* AsShadowForwarder()
-  {
-    return this;
-  }
-  virtual ShadowLayerManager* AsShadowManager()
   {
     return this;
   }
