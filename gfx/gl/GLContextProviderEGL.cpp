@@ -438,8 +438,14 @@ public:
                                                   EGL_NO_CONTEXT,
                                                   LOCAL_EGL_NATIVE_BUFFER_ANDROID,
                                                   buffer, attrs);
-        fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, texture);
-        fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, image);
+        // FIXME [bjacob] this used to be GL_TEXTURE_EXTERNAL, but that
+        // was in conflict with UnbindExternalBuffer using GL_TEXTURE_2D so
+        // UnbindExternalBuffer generated INVALID_OPERATION, and I needed it that way
+        // to implement GrallocTextureHostOGL quickly. We need anyway to implement that
+        // ourselves in GrallocTextureHostOGL to be faster, so we should maybe reset the original
+        // (buggy) behavior there to avoid having more regressions than necessary.
+        fBindTexture(LOCAL_GL_TEXTURE_2D, texture);
+        fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_2D, image);
         sEGLLibrary.fDestroyImage(EGL_DISPLAY(), image);
         return true;
 #else
