@@ -36,27 +36,10 @@ TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptor
     result = new SurfaceStreamHostOGL(aDeAllocator);
   } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
     result = new SharedTextureHostOGL(aDeAllocator);
-
+  } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
+    result = new GrallocTextureHostOGL(aDeAllocator);
   } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
     result = new TiledTextureHostOGL(aDeAllocator);
-#if 0 // FIXME [bjacob] hook up b2g gralloc path here
-#ifdef MOZ_WIDGET_GONK
-    // XXXmattwoodrow: I think this should be:
-    // if (aTextureHostFlags & TEXTURE_DIRECT &&
-    //     aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
-    //   result = new GrallocTextureHostOGL(...);
-    // }
-    // In the case where we don't have the TEXTURE_DIRECT flag (possibly
-    // because of calling FallbackTextureInfo above), then we can fallback
-    // to TextureImageTextureHostOGL, and that should be able to handle
-    // Gralloc surfaces the slow way.
-    //
-    if ((aTextureType & TEXTURE_EXTERNAL) &&
-        (aTextureType & TEXTURE_DIRECT)) {
-      result = new DirectExternalTextureHost(mGLContext);
-    }
-#endif
-#endif
   } else {
     result = new TextureImageTextureHostOGL(aDeAllocator);
   }
@@ -553,6 +536,103 @@ TiledTextureHostOGL::Lock()
   return true;
 }
 
+#ifdef MOZ_WIDGET_GONK
+static gfx::SurfaceFormat
+SurfaceFormatForAndroidPixelFormat(android::PixelFormat aFormat)
+{
+  switch (aFormat) {
+  case android::PIXEL_FORMAT_RGBA_8888:
+    return FORMAT_B8G8R8A8;
+  case android::PIXEL_FORMAT_RGBX_8888:
+    return FORMAT_B8G8R8X8;
+  case android::PIXEL_FORMAT_RGB_565:
+    return FORMAT_R5G6B5;
+  case android::PIXEL_FORMAT_A_8:
+    return FORMAT_A8;
+  default:
+    MOZ_NOT_REACHED("Unknown Android pixel format");
+    return FORMAT_B8G8R8A8;
+  }
+}
+
+void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  mGL = glCompositor ? glCompositor->gl() : nullptr;
+}
+
+void
+GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                                      bool* aIsInitialised,
+                                      bool* aNeedsReset,
+                                      nsIntRegion* aRegion)
+{
+  android::sp<android::GraphicBuffer> buffer = GrallocBufferActor::GetFrom(aImage);
+  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc);
+
+  const SurfaceDescriptorGralloc& desc = aImage.get_SurfaceDescriptorGralloc();
+  mGraphicBuffer = GrallocBufferActor::GetFrom(desc);
+  mFormat = SurfaceFormatForAndroidPixelFormat(mGraphicBuffer->getPixelFormat());
+
+  if (!mGLTexture) {
+    mGL->MakeCurrent();
+    mGL->fGenTextures(1, &mGLTexture);
+  }
+
+  if (aIsInitialised) {
+    *aIsInitialised = true;
+  }
+
+  (void) aRegion;
+  (void) aNeedsReset;
+}
+
+void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)
+{
+  mGL->MakeCurrent();
+  mGL->fActiveTexture(aTextureUnit);
+  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mGLTexture);
+  mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
+}
+
+GrallocTextureHostOGL::~GrallocTextureHostOGL()
+{
+  mGL->MakeCurrent();
+  mGL->fDeleteTextures(1, &mGLTexture);
+}
+
+bool
+GrallocTextureHostOGL::Lock()
+{
+  MOZ_ASSERT(mGraphicBuffer.get());
+
+  mGL->MakeCurrent();
+  mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
+  // FIXME [bjacob] BindExternalBuffer is slow, has to create and destroy a EGLImage everytime.
+  // we should do this EGL cuisine in house here. Also, we had to change BindExternalBuffer to use
+  // the TEXTURE_2D target, which is useless risk -- we don't know for sure what other users of
+  // BindExternalBuffer may need -- so we should revert that there and only use TEXTURE_2D in our
+  // local code here.
+  mGL->BindExternalBuffer(mGLTexture, mGraphicBuffer->getNativeBuffer());
+  return true;
+}
+
+void
+GrallocTextureHostOGL::Unlock()
+{
+  mGL->MakeCurrent();
+  mGL->UnbindExternalBuffer(mGLTexture);
+}
+
+gfx::SurfaceFormat
+GrallocTextureHostOGL::GetFormat() const
+{
+  MOZ_ASSERT(mGraphicBuffer.get());
+  return mFormat;
+}
+
+
+#endif
 
 } // namespace
 } // namespace

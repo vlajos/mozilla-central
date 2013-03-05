@@ -14,6 +14,10 @@
 #include "gfxReusableSurfaceWrapper.h"
 #include "TiledLayerBuffer.h" // for TILEDLAYERBUFFER_TILE_SIZE
 
+#ifdef MOZ_WIDGET_GONK
+#include <ui/GraphicBuffer.h>
+#endif
+
 namespace mozilla {
 namespace layers {
 
@@ -545,6 +549,82 @@ private:
   gl::GLContext* mGL;
 };
 
+#ifdef MOZ_WIDGET_GONK
+
+// For direct texturing with gralloc buffers. The corresponding TextureClient is TextureClientShmem,
+// which automatically gets gralloc when it can, in which case the compositor sees that the
+// SurfaceDescriptor is gralloc, and decides to use a GrallocTextureHostOGL to do direct texturing,
+// saving the cost of a texture upload.
+class GrallocTextureHostOGL
+  : public TextureHost
+  , public TextureSourceOGL
+{
+public:
+  GrallocTextureHostOGL(ISurfaceAllocator* aDeAllocator)
+    : TextureHost(aDeAllocator)
+    , mGL(nullptr)
+    , mGLTexture(0)
+  {
+  }
+
+  ~GrallocTextureHostOGL();
+
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
+
+  virtual GLuint GetTextureHandle()
+  {
+    return mGLTexture;
+  }
+
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
+                          bool* aIsInitialised = nullptr,
+                          bool* aNeedsReset = nullptr,
+                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
+  virtual void Unlock() MOZ_OVERRIDE;
+
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
+  {
+    return gfx::IntSize(mGraphicBuffer->getWidth(), mGraphicBuffer->getHeight());;
+  }
+
+  gl::ShaderProgramType GetShaderProgram() const MOZ_OVERRIDE
+  {
+    return mFormat == gfx::FORMAT_B8G8R8A8 || mFormat == gfx::FORMAT_B8G8R8X8
+           ? gl::BGRALayerProgramType
+           : gl::RGBALayerProgramType;
+  }
+
+  GLenum GetWrapMode() const MOZ_OVERRIDE
+  {
+    return LOCAL_GL_CLAMP_TO_EDGE;
+  }
+
+
+  bool IsValid() const MOZ_OVERRIDE
+  {
+    return !!mGLTexture;
+  }
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual const char* Name() { return "GrallocTextureHostOGL"; }
+#endif
+
+  void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE;
+
+  virtual gfx::SurfaceFormat GetFormat() const;
+
+  virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
+  {
+    return this;
+  }
+
+private:
+  RefPtr<gl::GLContext> mGL;
+  android::sp<android::GraphicBuffer> mGraphicBuffer;
+  GLuint mGLTexture;
+};
+#endif
 
 } // namespace
 } // namespace
