@@ -310,7 +310,7 @@ gfxASurface*
 TextureClientShmem::GetSurface()
 {
   if (!mSurface) {
-    if (mDescriptor.type() == SurfaceDescriptor::T__None) {
+    if (!IsSurfaceDescriptorValid(mDescriptor)) {
       return nullptr;
     }
     mSurface = ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE, mDescriptor);
