@@ -1117,6 +1117,12 @@ GLContextGLX::CreateTextureImage(const nsIntSize& aSize,
 
     MakeCurrent();
     GLXPixmap pixmap = mGLX->CreatePixmap(surface);
+    if (!pixmap && imageFormat == gfxASurface::ImageFormatA8) {
+        return GLContext::CreateTextureImage(aSize,
+                                             aContentType,
+                                             aWrapMode,
+                                             aFlags);
+    }
     NS_ASSERTION(pixmap, "Failed to create pixmap!");
 
     GLuint texture;
