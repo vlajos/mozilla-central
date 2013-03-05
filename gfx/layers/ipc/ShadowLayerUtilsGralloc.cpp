@@ -238,11 +238,11 @@ ShadowLayerManager::SupportsDirectTexturing()
   return true;
 }
 
-// /*static*/ void
-// ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
-// {
-//   // Nothing to be done for gralloc.
-// }
+/*static*/ void
+ShadowLayerManager::PlatformSyncBeforeReplyUpdate()
+{
+  // Nothing to be done for gralloc.
+}
 
 /*static*/ PGrallocBufferParent*
 GrallocBufferActor::Create(const gfxIntSize& aSize,
