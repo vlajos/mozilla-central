@@ -119,7 +119,7 @@ public:
 
   virtual void FillSpecificAttributes(SpecificLayerAttributes& aAttrs)
   {
-    aAttrs = CanvasLayerAttributes(mFilter);
+    aAttrs = CanvasLayerAttributes(mFilter, mBounds);
   }
 
   virtual Layer* AsLayer() { return this; }

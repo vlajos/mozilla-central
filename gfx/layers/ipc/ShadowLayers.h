@@ -668,6 +668,8 @@ public:
 
   virtual ShadowLayer* AsShadowLayer() { return this; }
 
+  void SetBounds(nsIntRect aBounds) { mBounds = aBounds; }
+
   MOZ_LAYER_DECL_NAME("ShadowCanvasLayer", TYPE_SHADOW)
 
 protected:
