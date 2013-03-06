@@ -229,6 +229,13 @@ public:
 
   virtual bool Lock() MOZ_OVERRIDE;
 
+  virtual bool IsValid() const MOZ_OVERRIDE
+  {
+    return mYTexture->IsValid()
+        && mCbTexture->IsValid()
+        && mCrTexture->IsValid();
+  }
+
   struct Channel : public TextureSourceOGL
                  , public TextureSource
   {

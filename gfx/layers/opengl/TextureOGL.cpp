@@ -117,7 +117,18 @@ gfx::SurfaceFormat FormatFromShaderType(ShaderProgramType aShaderType)
 void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
-  mGL = glCompositor ? glCompositor->gl() : nullptr;
+  GLContext* newGL = glCompositor ? glCompositor->gl() : nullptr;
+  if (mGL != newGL) {
+    mGL = newGL;
+    mTexture = nullptr;
+    // if we have a buffer we reupload it with the new gl context
+    if (newGL && mBuffer && IsSurfaceDescriptorValid(*mBuffer)) {
+#ifdef GFX_COMPOSITOR_LOGGING
+      printf("TextureImageTextureHostOGL: Reupload buffer\n");
+#endif
+      UpdateImpl(*mBuffer);
+    }
+  }
 }
 
 void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
@@ -125,7 +136,13 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                               bool* aNeedsReset,
                                               nsIntRegion* aRegion)
 {
-  MOZ_ASSERT(mGL, "forgot to call SetCompositor?");
+  if (!mGL) {
+    NS_WARNING("trying to update TextureImageTextureHostOGL without a compositor ?");
+    if (aIsInitialised) {
+      *aIsInitialised = false;
+    }
+    return;
+  }
   AutoOpenSurface surf(OPEN_READ_ONLY, aImage);
   nsIntSize size = surf.Size();
 
