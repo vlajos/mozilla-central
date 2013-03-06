@@ -7,7 +7,7 @@
 #define MOZILLA_GFX_TEXTURED3D11_H
 
 #include "mozilla/layers/Compositor.h"
-#include "TextureClient.h"
+#include "mozilla/layers/TextureClient.h"
 #include <d3d11.h>
 #include <vector>
 
