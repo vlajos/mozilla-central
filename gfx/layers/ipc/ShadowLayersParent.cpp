@@ -310,6 +310,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
 
         static_cast<CanvasLayer*>(layer)->SetFilter(
           specific.get_CanvasLayerAttributes().filter());
+        static_cast<ShadowCanvasLayer*>(layer)->SetBounds(
+          specific.get_CanvasLayerAttributes().bounds());
         break;
 
       case Specific::TRefLayerAttributes:
