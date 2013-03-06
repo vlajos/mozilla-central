@@ -122,12 +122,10 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   if (mTextureClient) {
     mTextureClient->Destroyed();
   }
-  mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
-                                       aFlags);
+  mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
 
   mSize = gfx::IntSize(aSize.width, aSize.height);
-  mTextureClient->EnsureTextureClient(mSize,
-                                      aType);
+  mTextureClient->EnsureTextureClient(mSize, aType);
   nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
 
   mContentType = aType;
@@ -226,8 +224,7 @@ ContentClientDirect::SwapBuffers(const ThebesBuffer &aBackBuffer,
   mROFrontClient = oldBack;
 
   if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
-                                         0);
+    mTextureClient = CreateTextureClient(TEXTURE_CONTENT, 0);
     mTextureClient->EnsureTextureClient(mSize, mContentType);
   } else if (nsIntSize(mSize.width, mSize.height) != aBackBuffer.rect().Size()) {
     // Just resize our backbuffer so that SyncFrontBufferToBackBuffer can copy
@@ -320,8 +317,7 @@ ContentClientTexture::SwapBuffers(const ThebesBuffer &aBackBuffer,
   mBackBufferRectRotation = aBackBuffer.rotation();
   mFrontAndBackBufferDiffer = true;
 
-  mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
-                                       0);
+  MOZ_ASSERT(mTextureClient);
   mTextureClient->SetDescriptor(aBackBuffer.buffer());
 }
 

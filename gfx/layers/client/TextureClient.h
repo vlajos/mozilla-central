@@ -110,6 +110,7 @@ public:
 
   /**
    * Adds this TextureClient's data to the current layer transaction.
+   * Gives up ownership of any shared resource.
    */
   virtual void Updated();
   virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,

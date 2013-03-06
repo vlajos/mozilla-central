@@ -38,6 +38,14 @@ TextureClient::~TextureClient()
 }
 
 void
+TextureClient::Destroyed()
+{
+  // The owning layer must be locked at some point in the chain of callers
+  // by calling Hold.
+  mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
+}
+
+void
 TextureClient::Updated()
 {
   if (mDescriptor.type() != SurfaceDescriptor::T__None &&
@@ -50,14 +58,6 @@ TextureClient::Updated()
 }
 
 void
-TextureClient::Destroyed()
-{
-  // The owning layer must be locked at some point in the chain of callers
-  // by calling Hold.
-  mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
-}
-
-void
 TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation)
@@ -67,7 +67,7 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                                                     aBufferRect,
                                                     aBufferRotation),
                                        aUpdatedRegion);
-  mDescriptor = SurfaceDescriptor(); //mwoodrow magic
+  mDescriptor = SurfaceDescriptor();
 }
 
 void
