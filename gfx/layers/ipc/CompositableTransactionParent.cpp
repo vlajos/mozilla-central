@@ -53,11 +53,12 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       if (shadowLayer) {
         Compositor* compositor = static_cast<LayerManagerComposite*>(layer->Manager())->GetCompositor();
         compositable->SetCompositor(compositor);
+        compositable->SetLayer(layer);
       } else {
-#ifdef GFX_COMPOSITOR_LOGGING
-        printf("Trying to paint before OpAttachAsyncTexture?\n");
-#endif
-        break;
+        // if we reach this branch, it most likely means that async textures
+        // are coming in before we had time to attach the conmpositable to a
+        // layer. Don't panic, it is okay in this case. it should not be
+        // happenning continuously, though.
       }
 
       const SurfaceDescriptor& descriptor = op.image();
@@ -70,12 +71,12 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         replyv.push_back(OpTextureSwap(op.textureParent(), nullptr, newBack));
       }
 
-      MOZ_ASSERT(shouldRecomposite);
       if (shouldRecomposite && textureParent->GetCompositorID()) {
         CompositorParent* cp
           = CompositorParent::GetCompositor(textureParent->GetCompositorID());
-        MOZ_ASSERT(cp);
-        cp->ScheduleComposition();
+        if (cp) {
+          cp->ScheduleComposition();
+        }
       }
 
       if (layer) {
