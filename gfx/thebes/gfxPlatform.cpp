@@ -271,16 +271,10 @@ gfxPlatform::Init()
 #endif
 
     bool useOffMainThreadCompositing = false;
-#ifdef MOZ_X11
-    // On X11 platforms only use OMTC if firefox was initalized with thread-safe
-    // X11 (else it would crash).
-    useOffMainThreadCompositing = (PR_GetEnv("MOZ_USE_OMTC") != NULL);
-#else
     useOffMainThreadCompositing = Preferences::GetBool(
           "layers.offmainthreadcomposition.enabled",
           false) ||
           Preferences::GetBool("browser.tabs.remote", false);
-#endif
 
     if (useOffMainThreadCompositing && (XRE_GetProcessType() ==
                                         GeckoProcessType_Default)) {
