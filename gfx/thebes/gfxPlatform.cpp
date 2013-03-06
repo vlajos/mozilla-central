@@ -278,7 +278,8 @@ gfxPlatform::Init()
 #else
     useOffMainThreadCompositing = Preferences::GetBool(
           "layers.offmainthreadcomposition.enabled",
-          false);
+          false) ||
+          Preferences::GetBool("browser.tabs.remote", false);
 #endif
 
     if (useOffMainThreadCompositing && (XRE_GetProcessType() ==
@@ -1723,7 +1724,8 @@ void InitLayersAccelerationPrefs()
   if (!sLayersAccelerationPrefsInitialized)
   {
     sPrefLayersOffMainThreadCompositionEnabled = Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
-    sPrefLayersAccelerationForceEnabled = Preferences::GetBool("layers.acceleration.force-enabled", false);
+    sPrefLayersAccelerationForceEnabled = Preferences::GetBool("layers.acceleration.force-enabled", false) ||
+                                          Preferences::GetBool("browser.tabs.remote", false);;
     sPrefLayersAccelerationDisabled = Preferences::GetBool("layers.acceleration.disabled", false);
     sPrefLayersPreferOpenGL = Preferences::GetBool("layers.prefer-opengl", false);
     sPrefLayersPreferD3D9 = Preferences::GetBool("layers.prefer-d3d9", false);
