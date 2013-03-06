@@ -319,6 +319,10 @@ ContentClientTexture::SwapBuffers(const ThebesBuffer &aBackBuffer,
   mBackBufferRect = aBackBuffer.rect();
   mBackBufferRectRotation = aBackBuffer.rotation();
   mFrontAndBackBufferDiffer = true;
+
+  mTextureClient = CreateTextureClient(TEXTURE_CONTENT,
+                                       0);
+  mTextureClient->SetDescriptor(aBackBuffer.buffer());
 }
 
 void
