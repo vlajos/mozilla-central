@@ -7,8 +7,8 @@
 #define MOZILLA_GFX_IMAGECLIENT_H
 
 #include "mozilla/layers/LayersSurfaces.h"
-#include "CompositableClient.h"
-#include "TextureClient.h"
+#include "mozilla/layers/CompositableClient.h"
+#include "mozilla/layers/TextureClient.h"
 #include "gfxPattern.h"
 
 namespace mozilla {

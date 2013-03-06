@@ -10,7 +10,6 @@
 #include "gfxUtils.h"
 #include "gfxPlatform.h"
 #include "mozilla/Preferences.h"
-#include "CanvasClient.h"
 #include "BasicLayersImpl.h"
 #include "SurfaceStream.h"
 #include "SharedSurfaceGL.h"

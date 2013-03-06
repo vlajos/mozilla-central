@@ -6,8 +6,8 @@
 #ifndef MOZILLA_GFX_CANVASCLIENT_H
 #define MOZILLA_GFX_CANVASCLIENT_H
 
-#include "TextureClient.h"
-#include "CompositableClient.h"
+#include "mozilla/layers/TextureClient.h"
+#include "mozilla/layers/CompositableClient.h"
 
 namespace mozilla {
 

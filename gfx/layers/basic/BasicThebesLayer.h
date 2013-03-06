@@ -8,7 +8,7 @@
 
 #include "mozilla/layers/PLayersParent.h"
 #include "BasicLayersImpl.h"
-#include "ContentClient.h"
+#include "mozilla/layers/ContentClient.h"
 
 namespace mozilla {
 namespace layers {

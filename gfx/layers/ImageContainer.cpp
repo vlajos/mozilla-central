@@ -17,7 +17,7 @@
 #include "yuv_convert.h"
 #include "gfxUtils.h"
 #include "gfxPlatform.h"
-#include "ImageClient.h"
+#include "mozilla/layers/ImageClient.h"
 
 #ifdef XP_MACOSX
 #include "mozilla/gfx/QuartzSupport.h"

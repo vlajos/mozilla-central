@@ -8,7 +8,7 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "BasicLayers.h"
 #include "BasicImplData.h"
-#include "ContentClient.h"
+#include "mozilla/layers/ContentClient.h"
 
 namespace mozilla {
 namespace layers {

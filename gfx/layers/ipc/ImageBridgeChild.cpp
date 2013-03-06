@@ -17,10 +17,9 @@
 #include "mozilla/layers/TextureChild.h"
 #include "nsXULAppAPI.h"
 #include "Compositor.h"
-#include "CompositableClient.h"
-#include "TextureClient.h"
-
-#include "ImageClient.h"
+#include "mozilla/layers/CompositableClient.h"
+#include "mozilla/layers/TextureClient.h"
+#include "mozilla/layers/ImageClient.h"
 #include "mozilla/layers/LayersTypes.h" // for MOZ_LAYERS_LOG
 
 using namespace base;

@@ -27,10 +27,10 @@
 #include "RenderTrace.h"
 #include "sampler.h"
 #include "nsXULAppAPI.h"
-#include "TextureClient.h"
-#include "ImageClient.h"
-#include "CanvasClient.h"
-#include "ContentClient.h"
+#include "mozilla/layers/TextureClient.h"
+#include "mozilla/layers/ImageClient.h"
+#include "mozilla/layers/CanvasClient.h"
+#include "mozilla/layers/ContentClient.h"
 #include "ISurfaceAllocator.h"
 
 using namespace mozilla::ipc;

@@ -10,7 +10,7 @@
 #include "nsXULAppAPI.h"
 #include "BasicLayers.h"
 #include "BasicImplData.h"
-#include "CanvasClient.h"
+#include "mozilla/layers/CanvasClient.h"
 #include "mozilla/Preferences.h"
 
 #include "gfxPlatform.h"

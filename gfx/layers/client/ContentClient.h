@@ -7,9 +7,9 @@
 #define MOZILLA_GFX_CONTENTCLIENT_H
 
 #include "mozilla/layers/LayersSurfaces.h"
-#include "CompositableClient.h"
+#include "mozilla/layers/CompositableClient.h"
 #include "gfxReusableSurfaceWrapper.h"
-#include "TextureClient.h"
+#include "mozilla/layers/TextureClient.h"
 #include "ThebesLayerBuffer.h"
 #include "ipc/AutoOpenSurface.h"
 #include "ipc/ShadowLayerChild.h"

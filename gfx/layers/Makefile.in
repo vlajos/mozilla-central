@@ -9,6 +9,7 @@ srcdir      = @srcdir@
 VPATH       = \
   $(srcdir) \
   $(srcdir)/basic \
+  $(srcdir)/client \
   $(srcdir)/composite \
   $(srcdir)/opengl \
   $(srcdir)/d3d9 \
@@ -149,20 +150,24 @@ EXPORTS_gfxipc = ShadowLayerUtils.h
 EXPORTS_mozilla/layers =\
         AsyncPanZoomController.h \
         Axis.h \
+        CanvasClient.h \
         CompositableClient.h \
         CompositableTransactionParent.h \
         Compositor.h \
         CompositorOGL.h \
         ContentHost.h \
+        CompositingRenderTargetOGL.h \
         CompositorCocoaWidgetHelper.h \
         CompositorChild.h \
         CompositorParent.h \
         CompositableForwarder.h \
+        ContentClient.h \
         Effects.h \
         GeckoContentController.h \
         GestureEventListener.h \
         ImageBridgeChild.h \
         ImageBridgeParent.h \
+        ImageClient.h \
         ImageHost.h \
         ISurfaceAllocator.h \
         LayersTypes.h \
@@ -171,17 +176,17 @@ EXPORTS_mozilla/layers =\
         ShadowLayersChild.h \
         ShadowLayersParent.h \
         ShadowLayersManager.h \
-        TextureChild.h \
-        TextureOGL.h \
-        TextureFactoryIdentifier.h \
-        TextureParent.h \
         RenderTrace.h \
         SharedImageUtils.h \
         SharedRGBImage.h \
         SharedPlanarYCbCrImage.h \
         ShmemYCbCrImage.h \
         TaskThrottler.h \
-        CompositingRenderTargetOGL.h \
+        TextureChild.h \
+        TextureClient.h \
+        TextureOGL.h \
+        TextureFactoryIdentifier.h \
+        TextureParent.h \
         $(NULL)
 
 CPPSRCS += \
