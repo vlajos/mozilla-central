@@ -732,7 +732,7 @@ public:
 
     virtual bool RenewSurface() { return false; }
 
-    /**`
+    /**
      * Return a valid, allocated TextureImage of |aSize| with
      * |aContentType|.  The TextureImage's texture is configured to
      * use |aWrapMode| (usually GL_CLAMP_TO_EDGE or GL_REPEAT) and by
@@ -1338,14 +1338,6 @@ protected:
     bool InitWithPrefix(const char *prefix, bool trygl);
 
     void InitExtensions();
-
-    virtual already_AddRefed<TextureImage>
-    CreateBasicTextureImage(GLuint aTexture,
-                            const nsIntSize& aSize,
-                            GLenum aWrapMode,
-                            TextureImage::ContentType aContentType,
-                            GLContext* aContext,
-                            TextureImage::Flags aFlags = TextureImage::NoFlags);
 
     bool IsOffscreenSizeAllowed(const gfxIntSize& aSize) const {
         int32_t biggerDimension = std::max(aSize.width, aSize.height);

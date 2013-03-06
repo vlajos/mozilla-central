@@ -379,6 +379,13 @@ protected:
     TextureState mTextureState;
 };
 
+already_AddRefed<TextureImage>
+CreateBasicTextureImage(GLContext* aGL,
+                        const nsIntSize& aSize,
+                        TextureImage::ContentType aContentType,
+                        GLenum aWrapMode,
+                        TextureImage::Flags aFlags);
+
 } // namespace gl
 } // namespace mozilla
 

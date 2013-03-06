@@ -236,7 +236,7 @@ public:
     {
       return this;
     }
-    RefPtr<gl::TextureImage> mTexImage;
+    nsRefPtr<gl::TextureImage> mTexImage;
 
     void BindTexture(GLenum aUnit) MOZ_OVERRIDE
     {

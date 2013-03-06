@@ -308,8 +308,9 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   mCanvasClient->Update(gfx::IntSize(mBounds.width, mBounds.height), this);
 
   FireDidTransactionCallback();
-  
-  mCanvasClient->Updated(/*BasicManager()->Hold(this)*/);
+
+  BasicManager()->Hold(this);
+  mCanvasClient->Updated();
 }
 
 
