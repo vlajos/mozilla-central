@@ -8,6 +8,7 @@
 #include "mozilla/layers/CanvasClient.h"
 #include "mozilla/layers/ContentClient.h"
 #include "mozilla/layers/ShadowLayers.h"
+#include "mozilla/layers/SharedPlanarYCbCrImage.h"
 #include "SharedTextureImage.h"
 #include "GLContext.h"
 #include "mozilla/layers/TextureChild.h"
@@ -122,7 +123,7 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
     }
     mDescriptor = aDescriptor;
   } else {
-    EnsureTextureClient(mSize, mContentType);
+    EnsureTextureClient(mSize, mContentType); // TODO[nical] this is not a good thing
   }
 
   mSurface = nullptr;
@@ -274,7 +275,7 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
                                         data->mCbCrSize);
 
 
-  *mDescriptor = YCbCrImage(shmem, 0);
+  *mDescriptor = YCbCrImage(shmem, 0, 0);
 
   return true;
 }
@@ -352,6 +353,19 @@ TextureClientShmemYCbCr::SetDescriptor(const SurfaceDescriptor& aDescriptor)
   }
   mDescriptor = aDescriptor;
   MOZ_ASSERT(IsSurfaceDescriptorValid(mDescriptor));
+}
+
+void
+TextureClientShmemYCbCr::SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor)
+{
+  MOZ_ASSERT(aDescriptor.type() == SurfaceDescriptor::TYCbCrImage);
+  SharedPlanarYCbCrImage* shYCbCr = SharedPlanarYCbCrImage::FromSurfaceDescriptor(aDescriptor);
+  if (shYCbCr) {
+    shYCbCr->Release();
+    mDescriptor = SurfaceDescriptor();
+  } else {
+    SetDescriptor(aDescriptor);
+  }
 }
 
 

@@ -632,10 +632,10 @@ ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
                                    ipc::SharedMemory::SharedMemoryType aType,
                                    ipc::Shmem* aShmem)
 {
-#ifdef MOZ_LAYERS_HAVE_LOG
-  printf(" ++ [%i] ImageBridge AllocShmem (unsafe)\n", ++mDebugAllocCount);
-#endif
   if (InImageBridgeChildThread()) {
+#ifdef MOZ_LAYERS_HAVE_LOG
+    printf(" ++ [%i] ImageBridge AllocShmem (unsafe)\n", ++mDebugAllocCount);
+#endif
     return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
   } else {
     return DispatchAllocShmemInternal(aSize, aType, aShmem, true); // true: unsafe
@@ -647,10 +647,10 @@ ImageBridgeChild::AllocShmem(size_t aSize,
                              ipc::SharedMemory::SharedMemoryType aType,
                              ipc::Shmem* aShmem)
 {
-#ifdef MOZ_LAYERS_HAVE_LOG
-  printf(" ++ [%i] ImageBridge AllocShmem\n", ++mDebugAllocCount);
-#endif
   if (InImageBridgeChildThread()) {
+#ifdef MOZ_LAYERS_HAVE_LOG
+    printf(" ++ [%i] ImageBridge AllocShmem\n", ++mDebugAllocCount);
+#endif
     return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
   } else {
     return DispatchAllocShmemInternal(aSize, aType, aShmem, false); // false: unsafe
@@ -735,10 +735,10 @@ static void ProxyDeallocShmemNow(ISurfaceAllocator* aAllocator,
 void
 ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
 {
-#ifdef MOZ_LAYERS_HAVE_LOG
-  printf(" -- [%i] ImageBridge DeallocShmem\n", --mDebugAllocCount);
-#endif
   if (InImageBridgeChildThread()) {
+#ifdef MOZ_LAYERS_HAVE_LOG
+    printf(" -- [%i] ImageBridge DeallocShmem\n", --mDebugAllocCount);
+#endif
     PImageBridgeChild::DeallocShmem(aShmem);
   } else {
     ReentrantMonitor barrier("AllocatorProxy Dealloc");

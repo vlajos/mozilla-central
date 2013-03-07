@@ -107,10 +107,14 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
 
     if (ycbcr->AsSharedPlanarYCbCrImage()) {
       AutoLockTextureClient lock(mTextureClient);
-      if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(
-            *lock.GetSurfaceDescriptor())) {
+      SurfaceDescriptor sd;
+      if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(sd)) {
         return false;
       }
+      if (IsSurfaceDescriptorValid(*lock.GetSurfaceDescriptor())) {
+        GetForwarder()->DestroySharedSurface(lock.GetSurfaceDescriptor());
+      }
+      *lock.GetSurfaceDescriptor() = sd;
     } else {
       AutoLockYCbCrClient clientLock(mTextureClient);
       if (!clientLock.Update(ycbcr)) {
@@ -123,9 +127,9 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
     SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
     const SharedTextureImage::Data *data = sharedImage->GetData();
 
-    SharedTextureDescriptor texture(data->mShareType, 
-                                    data->mHandle, 
-                                    data->mSize, 
+    SharedTextureDescriptor texture(data->mShareType,
+                                    data->mHandle,
+                                    data->mSize,
                                     data->mInverted);
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else if (image->GetFormat() == SHARED_RGB) {

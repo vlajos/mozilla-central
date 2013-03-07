@@ -18,7 +18,7 @@ SharedPlanarYCbCrImage::~SharedPlanarYCbCrImage() {
 
   if (mAllocated) {
     SurfaceDescriptor desc;
-    ToSurfaceDescriptor(desc);
+    DropToSurfaceDescriptor(desc);
     mSurfaceAllocator->DestroySharedSurface(&desc);
   }
 }
@@ -110,9 +110,35 @@ SharedPlanarYCbCrImage::ToSurfaceDescriptor(SurfaceDescriptor& aDesc) {
   if (!mAllocated) {
     return false;
   }
-  aDesc = YCbCrImage(mShmem, 0);
+  aDesc = YCbCrImage(mShmem, 0, reinterpret_cast<uint64_t>(this));
+  this->AddRef();
   return true;
 }
+
+bool
+SharedPlanarYCbCrImage::DropToSurfaceDescriptor(SurfaceDescriptor& aDesc) {
+  if (!mAllocated) {
+    return false;
+  }
+  aDesc = YCbCrImage(mShmem, 0, 0);
+  mShmem = Shmem();
+  mAllocated = false;
+  return true;
+}
+
+SharedPlanarYCbCrImage*
+SharedPlanarYCbCrImage::FromSurfaceDescriptor(const SurfaceDescriptor& aDescriptor)
+{
+  if (aDescriptor.type() != SurfaceDescriptor::TYCbCrImage) {
+    return nullptr;
+  }
+  const YCbCrImage& ycbcr = aDescriptor.get_YCbCrImage();
+  if (ycbcr.owner() == 0) {
+    return nullptr;
+  }
+  return reinterpret_cast<SharedPlanarYCbCrImage*>(ycbcr.owner());
+}
+
 
 } // namespace
 } // namespace

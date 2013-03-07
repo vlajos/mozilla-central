@@ -50,7 +50,26 @@ public:
     return mAllocated;
   }
 
-  bool ToSurfaceDescriptor(SurfaceDescriptor& aDesc);
+  /**
+   * Setup the Surface descriptor to contain this image's shmem, while keeping
+   * ownership of the shmem.
+   * if the operation succeeds, return true and AddRef this SharedPlanarYCbCrImage.
+   */
+  bool ToSurfaceDescriptor(SurfaceDescriptor& aResult);
+
+  /**
+   * Setup the Surface descriptor to contain this image's shmem, and loose
+   * ownership of the shmem.
+   * if the operation succeeds, return true (and does _not_ AddRef this
+   * SharedPlanarYCbCrImage).
+   */
+  bool DropToSurfaceDescriptor(SurfaceDescriptor& aResult);
+
+  /**
+   * Returns a SharedPlanarYCbCrImage* iff the descriptor was initialized with
+   * ToSurfaceDescriptor.
+   */
+  static SharedPlanarYCbCrImage* FromSurfaceDescriptor(const SurfaceDescriptor& aDesc);
 
 private:
   ipc::Shmem mShmem;

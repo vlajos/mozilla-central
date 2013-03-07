@@ -118,9 +118,37 @@ SharedRGBImage::ToSurfaceDescriptor(SurfaceDescriptor& aResult)
   }
   aResult = RGBImage(*mShmem,
                      nsIntRect(0, 0, mSize.width, mSize.height),
-                     mImageFormat);
+                     mImageFormat,
+                     reinterpret_cast<uint64_t>(this));
   return true;
 }
+
+bool
+SharedRGBImage::DropToSurfaceDescriptor(SurfaceDescriptor& aResult)
+{
+  if (!mAllocated) {
+    return false;
+  }
+  aResult = RGBImage(*mShmem,
+                     nsIntRect(0, 0, mSize.width, mSize.height),
+                     mImageFormat,
+                     0);
+  return true;
+}
+
+SharedRGBImage*
+SharedRGBImage::FromSurfaceDescriptor(const SurfaceDescriptor& aDescriptor)
+{
+  if (aDescriptor.type() != SurfaceDescriptor::TRGBImage) {
+    return nullptr;
+  }
+  const RGBImage& rgb = aDescriptor.get_RGBImage();
+  if (rgb.owner() == 0) {
+    return nullptr;
+  }
+  return reinterpret_cast<SharedRGBImage*>(rgb.owner());
+}
+
 
 } // namespace layers
 } // namespace mozilla

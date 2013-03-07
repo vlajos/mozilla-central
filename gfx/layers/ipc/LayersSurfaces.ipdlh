@@ -66,6 +66,7 @@ struct SurfaceStreamDescriptor {
 struct YCbCrImage {
   Shmem data;
   size_t offset;
+  uint64_t owner;
 };
 
 // TODO: remove RGBImage (see bug 847914)
@@ -73,6 +74,7 @@ struct RGBImage {
   Shmem data;
   nsIntRect picture;
   uint32_t rgbFormat;
+  uint64_t owner;
 };
 
 union SurfaceDescriptor {

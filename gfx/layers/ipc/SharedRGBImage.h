@@ -40,7 +40,26 @@ public:
   static uint8_t BytesPerPixel(gfxImageFormat aImageFormat);
   already_AddRefed<gfxASurface> GetAsSurface();
 
+  /**
+   * Setup the Surface descriptor to contain this image's shmem, while keeping
+   * ownership of the shmem.
+   * if the operation succeeds, return true and AddRef this SharedRGBImage.
+   */
   bool ToSurfaceDescriptor(SurfaceDescriptor& aResult);
+
+  /**
+   * Setup the Surface descriptor to contain this image's shmem, and loose
+   * ownership of the shmem.
+   * if the operation succeeds, return true (and does _not_ AddRef this
+   * SharedRGBImage).
+   */
+  bool DropToSurfaceDescriptor(SurfaceDescriptor& aResult);
+
+  /**
+   * Returns a SharedRGBImage* iff the descriptor was initialized with
+   * ToSurfaceDescriptor.
+   */
+  static SharedRGBImage* FromSurfaceDescriptor(const SurfaceDescriptor& aDescriptor);
 
 private:
   bool AllocateBuffer(nsIntSize aSize, gfxImageFormat aImageFormat);

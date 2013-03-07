@@ -1242,7 +1242,7 @@ BasicShadowLayerManager::ForwardTransaction()
         MOZ_ASSERT(contentClient, "textureChild should have a ContentClient");
 
         if (obs.newBackBuffer().type() == OptionalThebesBuffer::Tnull_t) {
-          textureClient->SetDescriptor(SurfaceDescriptor());
+          textureClient->SetDescriptorFromReply(SurfaceDescriptor());
           contentClient->EmptyBufferUpdate();
         } else {
           contentClient->SwapBuffers(obs.newBackBuffer().get_ThebesBuffer(),
@@ -1263,7 +1263,7 @@ BasicShadowLayerManager::ForwardTransaction()
 
         TextureClient* texClient = static_cast<TextureChild*>(textureChild)->GetTextureClient();
 
-        texClient->SetDescriptor(ots.image());
+        texClient->SetDescriptorFromReply(ots.image());
         break;
       }
 

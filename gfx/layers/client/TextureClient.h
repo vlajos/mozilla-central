@@ -103,6 +103,11 @@ public:
   /**
    * _Only_ used at the end of the layer transaction when receiving a reply from the compositor.
    */
+  virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor)
+  {
+    // default implem
+    SetDescriptor(aDescriptor);
+  }
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor)
   {
     mDescriptor = aDescriptor;
@@ -254,6 +259,7 @@ public:
 
   void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
 
+  virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
 
   virtual void ReleaseResources();
