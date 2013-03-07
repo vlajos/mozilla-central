@@ -129,7 +129,7 @@ public:
   }
 
   CompositableForwarder* GetForwarder() const {
-    return mLayerForwarder;
+    return mForwarder;
   }
 
   void SetFlags(TextureFlags aFlags)
@@ -140,7 +140,7 @@ public:
 protected:
   TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 
-  CompositableForwarder* mLayerForwarder;
+  CompositableForwarder* mForwarder;
   // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
   // the reference here.
   SurfaceDescriptor mDescriptor;
@@ -317,7 +317,7 @@ class TextureClientTile : public TextureClient
 {
 public:
   TextureClientTile(const TextureClientTile& aOther)
-    : TextureClient(mLayerForwarder, mTextureInfo.mCompositableType)
+    : TextureClient(mForwarder, mTextureInfo.mCompositableType)
     , mSurface(aOther.mSurface)
   {}
 

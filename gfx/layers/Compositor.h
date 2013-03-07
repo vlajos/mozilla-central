@@ -260,7 +260,7 @@ public:
     mTextureParent = aParent;
   }
 
-  TextureParent* GetTextureParent() const {
+  TextureParent* GetIPDLActor() const {
     return mTextureParent;
   }
 

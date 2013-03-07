@@ -32,7 +32,7 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
     return false;
   }
 
-  MOZ_ASSERT(!mTextureHost || mTextureHost->GetTextureParent() == this);
+  MOZ_ASSERT(!mTextureHost || mTextureHost->GetIPDLActor() == this);
 
   CompositableParent* compParent = static_cast<CompositableParent*>(Manager());
   CompositableHost* compositable = compParent->GetCompositableHost();

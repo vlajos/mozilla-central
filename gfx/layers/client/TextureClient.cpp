@@ -27,7 +27,7 @@ namespace layers {
 
 TextureClient::TextureClient(CompositableForwarder* aForwarder,
                              CompositableType aCompositableType)
-  : mLayerForwarder(aForwarder)
+  : mForwarder(aForwarder)
   , mTextureChild(nullptr)
 {
   mTextureInfo.mCompositableType = aCompositableType;
@@ -43,7 +43,7 @@ TextureClient::Destroyed()
 {
   // The owning layer must be locked at some point in the chain of callers
   // by calling Hold.
-  mLayerForwarder->DestroyedThebesBuffer(mDescriptor);
+  mForwarder->DestroyedThebesBuffer(mDescriptor);
 }
 
 void
@@ -51,7 +51,7 @@ TextureClient::Updated()
 {
   if (mDescriptor.type() != SurfaceDescriptor::T__None &&
       mDescriptor.type() != SurfaceDescriptor::Tnull_t) {
-    mLayerForwarder->UpdateTexture(this, SurfaceDescriptor(mDescriptor));
+    mForwarder->UpdateTexture(this, SurfaceDescriptor(mDescriptor));
     mDescriptor = SurfaceDescriptor();
   } else {
     NS_WARNING("Trying to send a null SurfaceDescriptor.");
@@ -63,7 +63,7 @@ TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
                              const nsIntRect& aBufferRect,
                              const nsIntPoint& aBufferRotation)
 {
-  mLayerForwarder->UpdateTextureRegion(this,
+  mForwarder->UpdateTextureRegion(this,
                                        ThebesBuffer(mDescriptor,
                                                     aBufferRect,
                                                     aBufferRotation),
@@ -92,7 +92,7 @@ TextureClientShmem::ReleaseResources()
     ShadowLayerForwarder::CloseDescriptor(mDescriptor);
   }
   if (IsSurfaceDescriptorValid(mDescriptor)) {
-    mLayerForwarder->DestroySharedSurface(&mDescriptor);
+    mForwarder->DestroySharedSurface(&mDescriptor);
   }
 }
 
@@ -103,12 +103,12 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
       aContentType != mContentType ||
       !IsSurfaceDescriptorValid(mDescriptor)) {
     if (IsSurfaceDescriptorValid(mDescriptor)) {
-      mLayerForwarder->DestroySharedSurface(&mDescriptor);
+      mForwarder->DestroySharedSurface(&mDescriptor);
     }
     mContentType = aContentType;
     mSize = aSize;
 
-    if (!mLayerForwarder->AllocSurfaceDescriptor(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
+    if (!mForwarder->AllocSurfaceDescriptor(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
       NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
     }
   }
@@ -119,11 +119,12 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 {
   if (IsSurfaceDescriptorValid(aDescriptor)) {
     if (IsSurfaceDescriptorValid(mDescriptor)) {
-      mLayerForwarder->DestroySharedSurface(&mDescriptor);
+      mForwarder->DestroySharedSurface(&mDescriptor);
     }
     mDescriptor = aDescriptor;
   } else {
-    EnsureTextureClient(mSize, mContentType); // TODO[nical] this is not a good thing
+    // TODO[nical] if this is happenning in a transaction reply is not a good thing
+    EnsureTextureClient(mSize, mContentType);
   }
 
   mSurface = nullptr;

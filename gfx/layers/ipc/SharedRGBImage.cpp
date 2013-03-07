@@ -21,14 +21,18 @@ SharedRGBImage::SharedRGBImage(ISurfaceAllocator *aAllocator) :
   mAllocated(false),
   mShmem(new ipc::Shmem())
 {
-
+  MOZ_COUNT_CTOR(SharedRGBImage);
 }
 
 SharedRGBImage::~SharedRGBImage()
 {
+  MOZ_COUNT_DTOR(SharedRGBImage);
 
-  mSurfaceAllocator->DeallocShmem(*mShmem);
-  delete mShmem;
+  if (mAllocated) {
+    SurfaceDescriptor desc;
+    DropToSurfaceDescriptor(desc);
+    mSurfaceAllocator->DestroySharedSurface(&desc);
+  }
 }
 
 already_AddRefed<SharedRGBImage>
