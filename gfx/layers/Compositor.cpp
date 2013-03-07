@@ -41,21 +41,17 @@ TextureHost::~TextureHost()
 
 void
 TextureHost::Update(const SurfaceDescriptor& aImage,
-                    bool* aIsInitialised,
-                    bool* aNeedsReset,
                     nsIntRegion* aRegion)
 {
-  UpdateImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
+  UpdateImpl(aImage, aRegion);
 }
 
 void
 TextureHost::SwapTextures(const SurfaceDescriptor& aImage,
                           SurfaceDescriptor* aResult,
-                          bool* aIsInitialised,
-                          bool* aNeedsReset,
                           nsIntRegion* aRegion)
 {
-  SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
+  SwapTexturesImpl(aImage, aRegion);
 
   MOZ_ASSERT(mBuffer, "trying to swap a non-buffered texture host?");
   if (aResult) {

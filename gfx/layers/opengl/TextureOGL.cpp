@@ -132,15 +132,10 @@ void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
 }
 
 void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                                              bool* aIsInitialised,
-                                              bool* aNeedsReset,
                                               nsIntRegion* aRegion)
 {
   if (!mGL) {
     NS_WARNING("trying to update TextureImageTextureHostOGL without a compositor ?");
-    if (aIsInitialised) {
-      *aIsInitialised = false;
-    }
     return;
   }
   AutoOpenSurface surf(OPEN_READ_ONLY, aImage);
@@ -164,10 +159,6 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
     updateRegion = *aRegion;
   }
   mTexture->DirectUpdate(surf.Get(), updateRegion);
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
 
   if (mTexture->InUpdate()) {
     mTexture->EndUpdate();
@@ -209,19 +200,15 @@ void SharedTextureHostOGL::SetCompositor(Compositor* aCompositor)
 
 void
 SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                                 bool* aIsInitialised,
-                                 bool* aNeedsReset,
                                  nsIntRegion* aRegion)
 {
   // Just retain a reference to the new image, rather than making a copy.
   // This seems potentially bad, but it's what the existing code did.
-  SwapTexturesImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
+  SwapTexturesImpl(aImage, aRegion);
 }
 
 void
 SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                       bool* aIsInitialised,
-                                       bool* aNeedsReset,
                                        nsIntRegion* aRegion)
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSharedTextureDescriptor,
@@ -246,9 +233,6 @@ SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
     mFormat = FormatFromShaderType(mShaderProgram);
   }
 
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
 }
  
 bool
@@ -282,16 +266,10 @@ void SurfaceStreamHostOGL::SetCompositor(Compositor* aCompositor)
 
 void
 SurfaceStreamHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                       bool* aIsInitialised,
-                                       bool* aNeedsReset,
                                        nsIntRegion* aRegion)
 {
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSurfaceStreamDescriptor,
               "Invalid descriptor");
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
 }
 
 void
@@ -407,17 +385,12 @@ YCbCrTextureHostOGL::SetCompositor(Compositor* aCompositor)
 
 void
 YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                                bool* aIsInitialised,
-                                bool* aNeedsReset,
                                 nsIntRegion* aRegion)
 {
   if (!mGL) {
 #ifdef GFX_COMPOSITOR_LOGGING
     printf("trying to update a TextureHost without calling SetCompositor\n");
 #endif
-    if (aIsInitialised) {
-      *aIsInitialised = false;
-    }
     return;
   }
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");
@@ -466,10 +439,6 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   mYTexture->mTexImage->DirectUpdate(tempY, yRegion);
   mCbTexture->mTexImage->DirectUpdate(tempCb, cbCrRegion);
   mCrTexture->mTexImage->DirectUpdate(tempCr, cbCrRegion);
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
 }
 
 bool
@@ -590,8 +559,6 @@ void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 
 void
 GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                      bool* aIsInitialised,
-                                      bool* aNeedsReset,
                                       nsIntRegion* aRegion)
 {
   android::sp<android::GraphicBuffer> buffer = GrallocBufferActor::GetFrom(aImage);
@@ -604,10 +571,6 @@ GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
   if (!mGLTexture) {
     mGL->MakeCurrent();
     mGL->fGenTextures(1, &mGLTexture);
-  }
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
   }
 
   (void) aRegion;

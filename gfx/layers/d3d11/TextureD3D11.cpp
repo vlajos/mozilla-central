@@ -221,8 +221,7 @@ TextureHostShmemD3D11::SetCompositor(Compositor* aCompositor)
 }
 
 void
-TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
-                             bool *aNeedsReset, nsIntRegion *aRegion)
+TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TShmem);
 
@@ -331,8 +330,7 @@ TextureHostDXGID3D11::Unlock()
 }
 
 void
-TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
-                                       bool *aNeedsReset, nsIntRegion *aRegion)
+TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
   
@@ -344,10 +342,6 @@ TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, bool *aI
   mTextures[0]->GetDesc(&desc);
 
   mSize = IntSize(desc.Width, desc.Height);
-
-  if (aIsInitialised) {
-    *aIsInitialised = true;
-  }
 }
 
 void
@@ -382,8 +376,7 @@ TextureHostYCbCrD3D11::GetSize() const
 }
 
 void
-TextureHostYCbCrD3D11::UpdateImpl(const SurfaceDescriptor& aImage, bool *aIsInitialised,
-                             bool *aNeedsReset, nsIntRegion *aRegion)
+TextureHostYCbCrD3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TYCbCrImage);
 

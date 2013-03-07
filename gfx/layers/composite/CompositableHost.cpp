@@ -14,17 +14,15 @@ namespace mozilla {
 namespace layers {
 
 bool CompositableHost::Update(const SurfaceDescriptor& aImage,
-                        SurfaceDescriptor* aResult,
-                        bool* aIsInitialised,
-                        bool* aNeedsReset) {
+                        SurfaceDescriptor* aResult) {
   if (!GetTextureHost()) {
     *aResult = aImage;
     return false;
   }
   if (IsBuffered()) {
-    GetTextureHost()->SwapTextures(aImage, aResult, aIsInitialised, aNeedsReset);
+    GetTextureHost()->SwapTextures(aImage, aResult);
   } else {
-    GetTextureHost()->Update(aImage, aIsInitialised, aNeedsReset);
+    GetTextureHost()->Update(aImage);
     *aResult = aImage;
   }
   return GetTextureHost()->IsValid();

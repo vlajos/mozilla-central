@@ -118,8 +118,7 @@ public:
 
   virtual TileIterator* AsTileIterator() { return mIsTiled ? this : nullptr; }
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
-                          bool *aNeedsReset, nsIntRegion* aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
 private:
 
   gfx::IntRect GetTileRect(uint32_t aID);
@@ -156,8 +155,7 @@ public:
 #endif
 
 protected:
-  virtual void SwapTexturesImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
-                                bool *aNeedsReset, nsIntRegion* aRegion);
+  virtual void SwapTexturesImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
 private:
   void LockTexture();
   void ReleaseTexture();
@@ -191,8 +189,7 @@ public:
 #endif
 
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, bool *aIsInitialised,
-                          bool *aNeedsReset, nsIntRegion* aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
 
 private:
   RefPtr<ID3D11Device> mDevice;

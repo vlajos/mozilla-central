@@ -105,8 +105,6 @@ public:
   // TextureHost
 
   void UpdateImpl(const SurfaceDescriptor& aImage,
-                  bool* aIsInitialised = nullptr,
-                  bool* aNeedsReset = nullptr,
                   nsIntRegion* aRegion = nullptr);
 
   virtual void SetCompositor(Compositor* aCompositor);
@@ -223,8 +221,6 @@ public:
   virtual void SetCompositor(Compositor* aCompositor);
 
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
 
   virtual bool Lock() MOZ_OVERRIDE;
@@ -340,12 +336,8 @@ public:
   // override from TextureHost, we support both buffered
   // and unbuffered operation.
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr);
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                bool* aIsInitialised = nullptr,
-                                bool* aNeedsReset = nullptr,
                                 nsIntRegion* aRegion = nullptr);
   virtual bool Lock();
   virtual void Unlock();
@@ -428,8 +420,6 @@ public:
 
   // override from TextureHost
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                bool* aIsInitialised = nullptr,
-                                bool* aNeedsReset = nullptr,
                                 nsIntRegion* aRegion = nullptr);
   virtual bool Lock();
   virtual void Unlock();
@@ -529,8 +519,6 @@ public:
   }
 
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                bool* aIsInitialised = nullptr,
-                                bool* aNeedsReset = nullptr,
                                 nsIntRegion* aRegion = nullptr)
   { MOZ_ASSERT(false, "Tiles should not use this path"); }
 
@@ -584,8 +572,6 @@ public:
   }
 
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised = nullptr,
-                          bool* aNeedsReset = nullptr,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
   virtual bool Lock() MOZ_OVERRIDE;
   virtual void Unlock() MOZ_OVERRIDE;

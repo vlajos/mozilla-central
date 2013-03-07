@@ -79,9 +79,7 @@ public:
    * @return true if we should schedule a composition.
    */
   virtual bool Update(const SurfaceDescriptor& aImage,
-                      SurfaceDescriptor* aResult = nullptr,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr);
+                      SurfaceDescriptor* aResult = nullptr);
   
   /**
    * Update the content host.

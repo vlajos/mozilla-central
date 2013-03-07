@@ -185,8 +185,6 @@ public:
    * Update the texture host using the data from aSurfaceDescriptor.
    */
   void Update(const SurfaceDescriptor& aImage,
-              bool* aIsInitialised = nullptr,
-              bool* aNeedsReset = nullptr,
               nsIntRegion *aRegion = nullptr);
   
   /**
@@ -195,8 +193,6 @@ public:
    */
   void SwapTextures(const SurfaceDescriptor& aImage,
                     SurfaceDescriptor* aResult = nullptr,
-                    bool* aIsInitialised = nullptr,
-                    bool* aNeedsReset = nullptr,
                     nsIntRegion *aRegion = nullptr);
 
   /**
@@ -280,8 +276,6 @@ protected:
    * to be thread-safe.
    */
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          bool* aIsInitialised,
-                          bool* aNeedsReset,
                           nsIntRegion *aRegion)
   {
     NS_RUNTIMEABORT("Should not be reached");
@@ -297,11 +291,9 @@ protected:
    * for handling swaps, then we can just do an update instead.
    */
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                bool* aIsInitialised,
-                                bool* aNeedsReset,
                                 nsIntRegion *aRegion)
   {
-    UpdateImpl(aImage, aIsInitialised, aNeedsReset, aRegion);
+    UpdateImpl(aImage, aRegion);
   }
 
   // An internal identifier for this texture host. Two texture hosts

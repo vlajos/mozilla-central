@@ -57,12 +57,10 @@ public:
                          TiledLayerProperties* aLayerProperties = nullptr);
 
   virtual bool Update(const SurfaceDescriptor& aImage,
-                      SurfaceDescriptor* aResult = nullptr,
-                      bool* aIsInitialised = nullptr,
-                      bool* aNeedsReset = nullptr) MOZ_OVERRIDE
+                      SurfaceDescriptor* aResult = nullptr) MOZ_OVERRIDE
   {
     mHasPictureRect = false;
-    return ImageHost::Update(aImage, aResult, aIsInitialised, aNeedsReset);
+    return ImageHost::Update(aImage, aResult);
   }
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE

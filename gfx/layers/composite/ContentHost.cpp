@@ -377,7 +377,7 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
-  mTextureHost->Update(aFront.buffer(), nullptr, nullptr, &destRegion);
+  mTextureHost->Update(aFront.buffer(), &destRegion);
   mInitialised = true;
 
   mBufferRect = aFront.rect();
@@ -403,10 +403,12 @@ ContentHostDirect::UpdateThebes(const ThebesBuffer& aFront,
     return;
   }
 
-  bool needsReset;
+  bool needsReset = false;
   SurfaceDescriptor newFrontBuffer;
-  Update(aFront.buffer(), &newFrontBuffer, &mInitialised, &needsReset);
-  
+  Update(aFront.buffer(), &newFrontBuffer);
+  // TODO[nrc] I suppose here we need something like mFrontBuffer rather than mTextureHost
+  mInitialised = mTextureHost->IsValid();
+
   if (!mInitialised) {
     // XXX if this happens often we could fallback to a different kind of
     // texture host. But that involves the TextureParent too, so it is not
