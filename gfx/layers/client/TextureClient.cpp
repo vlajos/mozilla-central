@@ -134,35 +134,6 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 
 
 // --------- Autolock
-
-
-bool AutoLockShmemClient::EnsureTextureClient(nsIntSize aSize,
-                                              gfxASurface* surface,
-                                              gfxASurface::gfxContentType contentType)
-{
-  if (!surface) {
-    return false;
-  }
-  if (aSize != surface->GetSize() ||
-      contentType != surface->GetContentType() ||
-      !IsSurfaceDescriptorValid(*mDescriptor)) {
-    if (IsSurfaceDescriptorValid(*mDescriptor)) {
-      mTextureClient->GetForwarder()->DestroySharedSurface(mDescriptor);
-    }
-    if (!mTextureClient->GetForwarder()->AllocSurfaceDescriptor(aSize,
-                                                                     surface->GetContentType(),
-                                                                     mDescriptor)) {
-      NS_WARNING("creating SurfaceDescriptor failed!");
-      return false;
-    }
-    MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::Tnull_t);
-    MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::T__None);
-  }
-  MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::Tnull_t);
-  MOZ_ASSERT(mDescriptor->type() != SurfaceDescriptor::T__None);
-  return true;
-}
-
 bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxPattern* pat)
 {
   nsRefPtr<gfxASurface> surface = pat->GetSurface();
@@ -185,9 +156,7 @@ bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxPatte
       isOpaque) {
     contentType = gfxASurface::CONTENT_COLOR;
   }
-  if (!EnsureTextureClient(size, surface, contentType)) {
-    return false;
-  }
+  mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height), contentType);
 
   nsRefPtr<gfxASurface> tmpASurface =
     ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE,
