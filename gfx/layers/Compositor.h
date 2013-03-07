@@ -256,6 +256,7 @@ public:
   // IPC
 
   void SetTextureParent(TextureParent* aParent) {
+    MOZ_ASSERT(!mTextureParent || mTextureParent == aParent);
     mTextureParent = aParent;
   }
 

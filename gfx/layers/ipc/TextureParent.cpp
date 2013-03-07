@@ -32,6 +32,8 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
     return false;
   }
 
+  MOZ_ASSERT(!mTextureHost || mTextureHost->GetTextureParent() == this);
+
   CompositableParent* compParent = static_cast<CompositableParent*>(Manager());
   CompositableHost* compositable = compParent->GetCompositableHost();
 
@@ -42,6 +44,7 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
                                    compParent->GetCompositableManager());
   mTextureHost->SetTextureParent(this);
   compositable->AddTextureHost(mTextureHost);
+
   mLastSurfaceType = aSurfaceType;
 
   Compositor* compositor = compositable->GetCompositor();
@@ -53,6 +56,7 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
 
 void TextureParent::SetTextureHost(TextureHost* aHost)
 {
+  MOZ_ASSERT(!mTextureHost || mTextureHost == aHost);
   mTextureHost = aHost;
 }
 
