@@ -574,7 +574,6 @@ GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
   }
 
   (void) aRegion;
-  (void) aNeedsReset;
 }
 
 void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)
