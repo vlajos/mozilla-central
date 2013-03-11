@@ -63,6 +63,7 @@ public:
   }
 };
 
+/*
 class ShadowContainerLayerD3D9 : public ShadowContainerLayer,
                                 public LayerD3D9
 {
@@ -99,7 +100,7 @@ public:
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
 };
-
+*/
 } /* layers */
 } /* mozilla */
 

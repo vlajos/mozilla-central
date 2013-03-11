@@ -14,7 +14,7 @@
 namespace mozilla {
 namespace layers {
 
-class ShadowBufferD3D9;
+//class ShadowBufferD3D9;
 
 class THEBES_API ImageLayerD3D9 : public ImageLayer,
                                   public LayerD3D9
@@ -57,6 +57,7 @@ struct PlanarYCbCrD3D9BackendData : public ImageBackendData
   nsRefPtr<IDirect3DTexture9> mCbTexture;
 };
 
+/*
 class ShadowImageLayerD3D9 : public ShadowImageLayer,
                             public LayerD3D9
 {
@@ -83,6 +84,7 @@ private:
   nsRefPtr<ShadowBufferD3D9> mBuffer;
   nsRefPtr<PlanarYCbCrImage> mYCbCrImage;
 };
+*/
 
 } /* layers */
 } /* mozilla */

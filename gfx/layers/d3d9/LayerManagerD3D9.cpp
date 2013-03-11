@@ -219,6 +219,7 @@ LayerManagerD3D9::CreateReadbackLayer()
   return layer.forget();
 }
 
+/*
 already_AddRefed<ShadowThebesLayer>
 LayerManagerD3D9::CreateShadowThebesLayer()
 {
@@ -268,6 +269,7 @@ LayerManagerD3D9::CreateShadowCanvasLayer()
   }
   return nsRefPtr<ShadowCanvasLayerD3D9>(new ShadowCanvasLayerD3D9(this)).forget();
 }
+*/
 
 void ReleaseTexture(void *texture)
 {

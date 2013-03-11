@@ -15,7 +15,7 @@ namespace mozilla {
 namespace layers {
 
 class ReadbackProcessor;
-class ShadowBufferD3D9;
+//class ShadowBufferD3D9;
 
 class ThebesLayerD3D9 : public ThebesLayer,
                         public LayerD3D9
@@ -81,6 +81,7 @@ private:
                   const nsIntRegion &aCopyRegion, nsIntRegion* aValidRegion);
 };
 
+/*
 class ShadowThebesLayerD3D9 : public ShadowThebesLayer,
                               public LayerD3D9
 {
@@ -108,6 +109,7 @@ public:
 private:
   nsRefPtr<ShadowBufferD3D9> mBuffer;
 };
+*/
 
 } /* layers */
 } /* mozilla */

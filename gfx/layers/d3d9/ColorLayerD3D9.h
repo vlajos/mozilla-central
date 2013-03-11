@@ -28,6 +28,7 @@ public:
   virtual void RenderLayer();
 };
 
+/*
 class ShadowColorLayerD3D9 : public ShadowColorLayer,
                             public LayerD3D9
 {
@@ -47,6 +48,7 @@ public:
 
   virtual void RenderLayer();
 };
+*/
 
 } /* layers */
 } /* mozilla */

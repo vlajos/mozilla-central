@@ -74,6 +74,7 @@ private:
                   const nsIntRegion &aCopyRegion, nsIntRegion* aValidRegion);
 };
 
+/*
 class ShadowThebesLayerD3D10 : public ShadowThebesLayer,
                                public LayerD3D10
 {
@@ -90,16 +91,17 @@ public:
 
   virtual void Disconnect();
 
-  /* LayerD3D10 implementation */
+  /* LayerD3D10 implementation ASTERISK/
   virtual Layer* GetLayer() { return this; }
   virtual void RenderLayer();
   virtual void Validate();
   virtual void LayerManagerDestroyed();
 
 private:
-  /* Texture with our surface data */
+  /* Texture with our surface data ASTERISK/
   nsRefPtr<ID3D10Texture2D> mTexture;
 };
+*/
 
 } /* layers */
 } /* mozilla */

@@ -399,13 +399,15 @@ LayerManagerD3D10::CreateThebesLayer()
   nsRefPtr<ThebesLayer> layer = new ThebesLayerD3D10(this);
   return layer.forget();
 }
- 
+
+/* 
 already_AddRefed<ShadowThebesLayer>
 LayerManagerD3D10::CreateShadowThebesLayer()
 {
   nsRefPtr<ShadowThebesLayerD3D10> layer = new ShadowThebesLayerD3D10(this);
   return layer.forget();
 }
+*/
 
 already_AddRefed<ContainerLayer>
 LayerManagerD3D10::CreateContainerLayer()
@@ -414,12 +416,12 @@ LayerManagerD3D10::CreateContainerLayer()
   return layer.forget();
 }
 
-already_AddRefed<ShadowContainerLayer>
+/*already_AddRefed<ShadowContainerLayer>
 LayerManagerD3D10::CreateShadowContainerLayer()
 {
   nsRefPtr<ShadowContainerLayer> layer = new ShadowContainerLayerD3D10(this);
   return layer.forget();
-}
+}*/
 
 already_AddRefed<ImageLayer>
 LayerManagerD3D10::CreateImageLayer()
@@ -802,7 +804,7 @@ LayerManagerD3D10::Render(EndTransactionFlags aFlags)
 
     SurfaceDescriptorD3D10 sd;
     GetDescriptor(mBackBuffer, &sd);
-    //TODO[nrc] signature of PaintedThebesBuffer has changed
+    //XXX signature of PaintedThebesBuffer has changed
     /*ShadowLayerForwarder::PaintedThebesBuffer(windowLayer,
                                               contentRect,
                                               contentRect, nsIntPoint(),

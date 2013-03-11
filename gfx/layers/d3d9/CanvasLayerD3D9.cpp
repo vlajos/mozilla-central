@@ -6,8 +6,8 @@
 
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/PLayers.h"
-#include "mozilla/layers/ShadowLayers.h"
-#include "ShadowBufferD3D9.h"
+//#include "mozilla/layers/ShadowLayers.h"
+//#include "ShadowBufferD3D9.h"
 
 #include "gfxImageSurface.h"
 #include "gfxWindowsSurface.h"
@@ -259,6 +259,7 @@ CanvasLayerD3D9::CreateTexture()
   }
 }
 
+/*
 ShadowCanvasLayerD3D9::ShadowCanvasLayerD3D9(LayerManagerD3D9* aManager)
   : ShadowCanvasLayer(aManager, nullptr)
   , LayerD3D9(aManager)
@@ -346,7 +347,7 @@ ShadowCanvasLayerD3D9::RenderLayer()
 
   mBuffer->RenderTo(mD3DManager, GetEffectiveVisibleRegion());
 }
-
+*/
 
 } /* namespace layers */
 } /* namespace mozilla */

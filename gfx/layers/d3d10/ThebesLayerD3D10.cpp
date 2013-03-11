@@ -532,7 +532,8 @@ ThebesLayerD3D10::CreateNewTextures(const gfxIntSize &aSize, SurfaceMode aMode)
     }
   }
 }
- 
+
+/* 
 ShadowThebesLayerD3D10::ShadowThebesLayerD3D10(LayerManagerD3D10* aManager)
   : ShadowThebesLayer(aManager, NULL)
   , LayerD3D10(aManager)
@@ -638,6 +639,7 @@ void
 ShadowThebesLayerD3D10::LayerManagerDestroyed()
 {
 }
+*/
 
 } /* namespace layers */
 } /* namespace mozilla */

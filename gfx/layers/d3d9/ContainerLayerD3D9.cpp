@@ -385,6 +385,7 @@ ContainerLayerD3D9::LayerManagerDestroyed()
   }
 }
 
+/*
 ShadowContainerLayerD3D9::ShadowContainerLayerD3D9(LayerManagerD3D9 *aManager)
   : ShadowContainerLayer(aManager, NULL)
   , LayerD3D9(aManager)
@@ -437,6 +438,7 @@ ShadowContainerLayerD3D9::RenderLayer()
 {
   ContainerRender(this, mD3DManager);
 }
+*/
 
 } /* layers */
 } /* mozilla */

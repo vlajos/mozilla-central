@@ -9,8 +9,8 @@
 #include "mozilla/Util.h"
 
 #include "ipc/AutoOpenSurface.h"
-#include "mozilla/layers/ShadowLayers.h"
-#include "ShadowBufferD3D9.h"
+//#include "mozilla/layers/ShadowLayers.h"
+//#include "ShadowBufferD3D9.h"
 
 #include "ThebesLayerD3D9.h"
 #include "gfxPlatform.h"
@@ -599,7 +599,7 @@ ThebesLayerD3D9::CreateNewTextures(const gfxIntSize &aSize,
     }
   }
 }
-
+/*
 ShadowThebesLayerD3D9::ShadowThebesLayerD3D9(LayerManagerD3D9 *aManager)
   : ShadowThebesLayer(aManager, nullptr)
   , LayerD3D9(aManager)
@@ -681,6 +681,7 @@ ShadowThebesLayerD3D9::LayerManagerDestroyed()
   mD3DManager->deviceManager()->mLayersWithResources.RemoveElement(this);
   mD3DManager = nullptr;
 }
+*/
 
 } /* namespace layers */
 } /* namespace mozilla */

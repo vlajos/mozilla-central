@@ -418,6 +418,7 @@ ContainerLayerD3D10::Validate()
   }
 }
 
+/*
 ShadowContainerLayerD3D10::ShadowContainerLayerD3D10(LayerManagerD3D10 *aManager) 
   : ShadowContainerLayer(aManager, NULL)
   , LayerD3D10(aManager)
@@ -482,6 +483,7 @@ ShadowContainerLayerD3D10::LayerManagerDestroyed()
     RemoveChild(mFirstChild);
   }
 }
+*/
 
 } /* layers */
 } /* mozilla */

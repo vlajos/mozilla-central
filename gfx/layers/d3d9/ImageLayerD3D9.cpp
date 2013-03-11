@@ -5,8 +5,8 @@
 
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/PLayers.h"
-#include "mozilla/layers/ShadowLayers.h"
-#include "ShadowBufferD3D9.h"
+//#include "mozilla/layers/ShadowLayers.h"
+//#include "ShadowBufferD3D9.h"
 #include "gfxSharedImageSurface.h"
 
 #include "ImageLayerD3D9.h"
@@ -533,7 +533,7 @@ ImageLayerD3D9::GetAsTexture(gfxIntSize* aSize)
   return result.forget();
 }
 
-
+/*
 ShadowImageLayerD3D9::ShadowImageLayerD3D9(LayerManagerD3D9* aManager)
   : ShadowImageLayer(aManager, nullptr)
   , LayerD3D9(aManager)
@@ -618,7 +618,7 @@ ShadowImageLayerD3D9::RenderLayer()
 
     /*
      * Send 3d control data and metadata
-     */
+     ASTERISK/
     if (mD3DManager->GetNv3DVUtils()) {
       // TODO Add 3D support
     }
@@ -648,6 +648,7 @@ ShadowImageLayerD3D9::GetAsTexture(gfxIntSize* aSize)
   nsRefPtr<IDirect3DTexture9> result = mBuffer->GetTexture();
   return result.forget();
 }
+*/
 
 } /* layers */
 } /* mozilla */

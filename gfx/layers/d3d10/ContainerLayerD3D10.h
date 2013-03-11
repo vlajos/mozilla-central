@@ -56,6 +56,7 @@ public:
   }
 };
 
+/*
 // This is a bare-bones implementation of a container layer, only
 // enough to contain a shadow "window texture".  This impl doesn't
 // honor the transform/cliprect/etc. when rendering.
@@ -80,7 +81,7 @@ public:
 
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface);
 
-  /* LayerD3D10 implementation */
+  /* LayerD3D10 implementation ASTERISK/
   virtual LayerD3D10 *GetFirstChildD3D10();
   virtual Layer* GetLayer() { return this; }
   virtual void RenderLayer();
@@ -90,6 +91,7 @@ public:
 private:
     
 };
+*/
 
 } /* layers */
 } /* mozilla */
