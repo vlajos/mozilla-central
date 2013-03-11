@@ -12,7 +12,6 @@
 namespace mozilla {
 namespace layers {
 
-
 ContainerLayerComposite::ContainerLayerComposite(LayerManagerComposite *aManager)
   : ShadowContainerLayer(aManager, nullptr)
   , LayerComposite(aManager)

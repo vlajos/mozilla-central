@@ -17,54 +17,6 @@ class ThebesBuffer;
 class OptionalThebesBuffer;
 struct TexturedEffect;
 
-// Base class for Thebes layer buffers, used by main thread and off-main thread
-// compositing. Unusually, we use *Hosts/*Clients for main thread compositing.
-class CompositingThebesLayerBuffer
-{
-  NS_INLINE_DECL_REFCOUNTING(CompositingThebesLayerBuffer)
-public:
-  typedef ThebesLayerBuffer::ContentType ContentType;
-  typedef ThebesLayerBuffer::PaintState PaintState;
-
-  CompositingThebesLayerBuffer(Compositor* aCompositor)
-    : mPaintWillResample(false)
-    , mInitialised(true)
-    , mCompositor(aCompositor)
-  {
-    MOZ_COUNT_CTOR(CompositingThebesLayerBuffer);
-  }
-
-  virtual ~CompositingThebesLayerBuffer()
-  {
-    MOZ_COUNT_DTOR(CompositingThebesLayerBuffer);
-  }
-
-  virtual PaintState BeginPaint(ContentType aContentType,
-                                uint32_t aFlags) = 0;
-
-  void Composite(EffectChain& aEffectChain,
-                 float aOpacity,
-                 const gfx::Matrix4x4& aTransform,
-                 const gfx::Point& aOffset,
-                 const gfx::Filter& aFilter,
-                 const gfx::Rect& aClipRect,
-                 const nsIntRegion* aVisibleRegion = nullptr,
-                 TiledLayerProperties* aLayerProperties = nullptr);
-
-  void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
-
-protected:
-  virtual nsIntPoint GetOriginOffset() = 0;
-
-  bool PaintWillResample() { return mPaintWillResample; }
-
-  bool mPaintWillResample;
-  bool mInitialised;
-  RefPtr<Compositor> mCompositor;
-  RefPtr<TextureHost> mTextureHost;
-  RefPtr<TextureHost> mTextureHostOnWhite;
-};
-
 // Base class for OMTC Thebes buffers
 class AContentHost : public CompositableHost
 {
@@ -90,10 +42,9 @@ public:
   ContentHost(Compositor* aCompositor);
   ~ContentHost();
 
-  void Release() { AContentHost::Release(); }
-  void AddRef() { AContentHost::AddRef(); }
+  void Release() { ContentHost::Release(); }
+  void AddRef() { ContentHost::AddRef(); }
 
-  // AContentHost implementation
   virtual void Composite(EffectChain& aEffectChain,
                          float aOpacity,
                          const gfx::Matrix4x4& aTransform,
@@ -104,7 +55,8 @@ public:
                          TiledLayerProperties* aLayerProperties = nullptr);
 
   // CompositingThebesLayerBuffer implementation
-  virtual PaintState BeginPaint(ContentType aContentType, uint32_t) {
+  virtual PaintState BeginPaint(ContentType aContentType, uint32_t)
+  {
     NS_RUNTIMEABORT("can't BeginPaint for a shadow layer");
     return PaintState();
   }

@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ColorLayerComposite.h"
-#include "LayerImplComposite.h"
+#include "mozilla/layers/Effects.h"
 #include "gfx2DGlue.h"
 
 namespace mozilla {
