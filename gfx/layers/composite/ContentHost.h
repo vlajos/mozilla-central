@@ -76,8 +76,6 @@ public:
   // Subclasses should implement this method if they support being used as a tiled buffer
   virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
 
-  virtual bool IsBuffered() { return true; }
-
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
@@ -127,10 +125,18 @@ public:
   }
 #endif
 
-  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
-  TextureHost* GetTextureHost() MOZ_OVERRIDE;
+  // For double buffered ContentHosts we want to set both TextureHosts at
+  // once so we ignore this call.
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr) MOZ_OVERRIDE {}
+  virtual TextureHost* GetTextureHost() MOZ_OVERRIDE;
 
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
+
+  //TODO comment
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) = 0;
+  virtual void DestroyTextures() = 0;
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
@@ -143,10 +149,15 @@ protected:
 
   bool PaintWillResample() { return mPaintWillResample; }
 
+  // TODO comment
+  void DestroyFrontHost();
+
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
+  // TODO comment
+  RefPtr<TextureHost> mNewFrontHost;
   bool mPaintWillResample;
   bool mInitialised;
 };
@@ -161,17 +172,25 @@ public:
     : ContentHost(aCompositor)
   {}
 
+  ~ContentHostDirect();
+
   virtual CompositableType GetType() { return BUFFER_CONTENT_DIRECT; }
 
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
+  virtual void DestroyTextures() MOZ_OVERRIDE;
+
+protected:
   nsIntRegion mValidRegionForNextBackBuffer;
+  // TODO comment
+  RefPtr<TextureHost> mBackHost;
 };
 
 // We're using resources owned by our texture as the front buffer.
@@ -183,16 +202,20 @@ public:
   ContentHostTexture(Compositor* aCompositor)
     : ContentHost(aCompositor)
   {}
+  virtual ~ContentHostTexture();
 
   virtual CompositableType GetType() { return BUFFER_CONTENT; }
 
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
+
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
+  virtual void DestroyTextures() MOZ_OVERRIDE;
 };
 
 class TiledTexture {
@@ -298,13 +321,15 @@ public:
   }
 
 
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack);
+                            nsIntRegion* aUpdatedRegionBack)
+  {
+    MOZ_ASSERT(false, "N/A for tiled layers");
+  }
 
   const nsIntRegion& GetValidLowPrecisionRegion() const
   {
@@ -339,7 +364,11 @@ public:
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
 
-  virtual void AddTextureHost(TextureHost* aTextureHost) { MOZ_ASSERT(false, "Does nothing"); }
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr)
+  {
+    MOZ_ASSERT(false, "Does nothing");
+  }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
@@ -361,7 +390,7 @@ private:
                          nsIntRect aVisibleRect,
                          gfx::Matrix4x4 aTransform);
 
-  void EnsureTileStore();
+  void EnsureTileStore() {}
 
   nsIntRegion                  mRegionToUpload;
   nsIntRegion                  mLowPrecisionRegionToUpload;

@@ -78,9 +78,9 @@ class TextureImageTextureHostOGL : public TextureHost
                                  , public TileIterator
 {
 public:
-  TextureImageTextureHostOGL(ISurfaceAllocator* aDeallocator,
-                             gl::TextureImage* aTexImage = nullptr)
-  : TextureHost(aDeallocator), mTexture(aTexImage), mGL(nullptr)
+  TextureImageTextureHostOGL(gl::TextureImage* aTexImage = nullptr)
+    : mTexture(aTexImage)
+    , mGL(nullptr)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
   }
@@ -202,9 +202,8 @@ protected:
 class YCbCrTextureHostOGL : public TextureHost
 {
 public:
-  YCbCrTextureHostOGL(ISurfaceAllocator* aDeAllocator)
-    : TextureHost(aDeAllocator)
-    , mGL(nullptr)
+  YCbCrTextureHostOGL()
+    : mGL(nullptr)
   {
     MOZ_COUNT_CTOR(YCbCrTextureHostOGL);
     mYTexture  = new Channel;
@@ -300,9 +299,8 @@ public:
   typedef mozilla::gl::GLContext GLContext;
   typedef mozilla::gl::TextureImage TextureImage;
 
-  SharedTextureHostOGL(ISurfaceAllocator* aDeAllocator)
-    : TextureHost(aDeAllocator)
-    , mGL(nullptr)
+  SharedTextureHostOGL()
+    : mGL(nullptr)
     , mTextureHandle(0)
     , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
     , mSharedHandle(0)
@@ -463,13 +461,11 @@ public:
   virtual const char* Name() { return "SurfaceStreamHostOGL"; }
 #endif
 
-  SurfaceStreamHostOGL(ISurfaceAllocator* aDeAllocator = nullptr)
-
-  : TextureHost(aDeAllocator)
-  , mGL(nullptr)
-  , mTextureHandle(0)
-  , mUploadTexture(0)
-  , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
+  SurfaceStreamHostOGL()
+    : mGL(nullptr)
+    , mTextureHandle(0)
+    , mUploadTexture(0)
+    , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
   {
   }
 
@@ -487,9 +483,8 @@ class TiledTextureHostOGL : public TextureHost
                           , public TextureSourceOGL
 {
 public:
-  TiledTextureHostOGL(ISurfaceAllocator* aDeAllocator)
-    : TextureHost(aDeAllocator)
-    , mTextureHandle(0)
+  TiledTextureHostOGL()
+    : mTextureHandle(0)
     , mGL(nullptr)
   {}
   ~TiledTextureHostOGL();
@@ -555,9 +550,8 @@ class GrallocTextureHostOGL
   , public TextureSourceOGL
 {
 public:
-  GrallocTextureHostOGL(ISurfaceAllocator* aDeAllocator)
-    : TextureHost(aDeAllocator)
-    , mGL(nullptr)
+  GrallocTextureHostOGL()
+    : mGL(nullptr)
     , mGLTexture(0)
   {
   }

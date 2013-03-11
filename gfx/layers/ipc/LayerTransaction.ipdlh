@@ -58,13 +58,10 @@ struct OpAttachAsyncCompositable {
   uint64_t containerID;
 };
 
-
-struct ThebesBuffer {
-  SurfaceDescriptor buffer;
+struct ThebesBufferData {
   nsIntRect rect;
   nsIntPoint rotation;
 };
-union OptionalThebesBuffer { ThebesBuffer; null_t; };
 
 struct CubicBezierFunction {
   float x1;
@@ -243,14 +240,31 @@ struct OpPaintTiledLayerBuffer {
   uintptr_t tiledLayerBuffer;
 };
 
+struct OpCreatedSingleBuffer {
+  PCompositable compositable;
+  PTexture buffer;
+  SurfaceDescriptor descriptor;
+};
+struct OpCreatedDoubleBuffer {
+  PCompositable compositable;
+  PTexture front;
+  SurfaceDescriptor frontDescriptor;
+  PTexture back;
+  SurfaceDescriptor backDescriptor;
+};
+
+struct OpDestroyThebesBuffer {
+  PCompositable compositable;
+};
+
 struct OpPaintTexture {
   PTexture texture;
   SurfaceDescriptor image;
 };
 
 struct OpPaintTextureRegion {
-  PTexture texture;
-  ThebesBuffer newFrontBuffer;
+  PCompositable compositable;
+  ThebesBufferData bufferData;
   nsIntRegion updatedRegion;
 };
 
@@ -259,9 +273,12 @@ struct OpUpdatePictureRect {
   nsIntRect picture;
 };
 
-
 union CompositableOperation {
   OpUpdatePictureRect;
+
+  OpCreatedSingleBuffer;
+  OpCreatedDoubleBuffer;
+  OpDestroyThebesBuffer;
 
   OpPaintTexture;
   OpPaintTextureRegion;
@@ -295,17 +312,10 @@ union Edit {
 
 // Replies to operations
 
-struct OpThebesBufferSwap {
-  PTexture texture;
-  OptionalThebesBuffer newBackBuffer;
+struct OpContentBufferSwap {
+  PCompositable compositable;
+  ThebesBufferData bufferData;
   nsIntRegion newValidRegion;
-  // If the parent took the child's old back buffer and returned its
-  // old front buffer, |readOnlyFrontBuffer| may (if non-null) contain
-  // the child's old back buffer (parent's new front buffer).  This
-  // buffer can be used to read back the newly updated region into the
-  // child's new back buffer.  This buffer must be considered
-  // read-only, but sadly that's not enforced.
-  OptionalThebesBuffer readOnlyFrontBuffer;
   nsIntRegion frontUpdatedRegion;
 };
 
@@ -317,8 +327,7 @@ struct OpTextureSwap {
 // Unit of a "changeset reply".  This is a weird abstraction, probably
 // only to be used for buffer swapping.
 union EditReply {
-  //OpBufferSwap;
-  OpThebesBufferSwap;
+  OpContentBufferSwap;
   OpTextureSwap;
 };
 

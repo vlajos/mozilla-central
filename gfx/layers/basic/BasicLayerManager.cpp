@@ -1230,26 +1230,20 @@ BasicShadowLayerManager::ForwardTransaction()
       const EditReply& reply = replies[i];
 
       switch (reply.type()) {
-      case EditReply::TOpThebesBufferSwap: {
-        MOZ_LAYERS_LOG(("[LayersForwarder] ThebesBufferSwap"));
+      case EditReply::TOpContentBufferSwap: {
+        MOZ_LAYERS_LOG(("[LayersForwarder] DoubleBufferSwap"));
 
-        const OpThebesBufferSwap& obs = reply.get_OpThebesBufferSwap();
+        const OpContentBufferSwap& obs = reply.get_OpContentBufferSwap();
 
-        TextureChild* textureChild = static_cast<TextureChild*>(obs.textureChild());
-        TextureClient* textureClient = textureChild->GetTextureClient();
-        ContentClient* contentClient = static_cast<ContentClient*>(textureChild->GetCompositableClient());
-        MOZ_ASSERT(textureClient, "textureChild should have a TextureClient");
-        MOZ_ASSERT(contentClient, "textureChild should have a ContentClient");
+        CompositableChild* compositableChild =
+          static_cast<CompositableChild*>(obs.compositableChild());
+        ContentClientRemote* contentClient =
+          static_cast<ContentClientRemote*>(compositableChild->GetCompositableClient());
+        MOZ_ASSERT(contentClient);
 
-        if (obs.newBackBuffer().type() == OptionalThebesBuffer::Tnull_t) {
-          textureClient->SetDescriptorFromReply(SurfaceDescriptor());
-          contentClient->EmptyBufferUpdate();
-        } else {
-          contentClient->SwapBuffers(obs.newBackBuffer().get_ThebesBuffer(),
-                                     obs.newValidRegion(),
-                                     obs.readOnlyFrontBuffer(),
-                                     obs.frontUpdatedRegion());
-        }
+        contentClient->SwapBuffers(obs.bufferData(),
+                                   obs.newValidRegion(),
+                                   obs.frontUpdatedRegion());
 
         break;
       }
@@ -1261,7 +1255,8 @@ BasicShadowLayerManager::ForwardTransaction()
         PTextureChild* textureChild = ots.textureChild();
         MOZ_ASSERT(textureChild);
 
-        TextureClient* texClient = static_cast<TextureChild*>(textureChild)->GetTextureClient();
+        TextureClient* texClient =
+          static_cast<TextureChild*>(textureChild)->GetTextureClient();
 
         texClient->SetDescriptorFromReply(ots.image());
         break;

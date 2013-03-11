@@ -107,30 +107,21 @@ ContentClientBasic::CreateBuffer(ContentType aType,
     aType, gfxIntSize(aSize.width, aSize.height));
 }
 
-already_AddRefed<gfxASurface>
-ContentClientRemote::CreateBuffer(ContentType aType,
-                                  const nsIntSize& aSize,
-                                  uint32_t aFlags)
+void
+ContentClientRemote::DestroyBuffers()
 {
-  NS_ABORT_IF_FALSE(!mIsNewBuffer,
-                    "Bad! Did we create a buffer twice without painting?");
-
-  mIsNewBuffer = true;
-
-  mOldTextures.AppendElement(mTextureClient);
-
-  if (mTextureClient) {
-    mTextureClient->Destroyed();
+  if (!mTextureClient) {
+    return;
   }
-  mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
+  MOZ_ASSERT(!mLockedForCompositor);
 
-  mSize = gfx::IntSize(aSize.width, aSize.height);
-  mTextureClient->EnsureTextureClient(mSize, aType);
-  nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
+  mTextureClient->SetDescriptor(SurfaceDescriptor());
+  // dont't call m*mTextureClient->Destroyed();
+  mTextureClient = nullptr;
 
-  mContentType = aType;
+  DestroyBackBuffer();
 
-  return ret.forget();
+  mForwarder->DestroyThebesBuffer(this);
 }
 
 void
@@ -154,6 +145,35 @@ ContentClientRemote::EndPaint()
 
   SetBuffer(nullptr);
   mOldTextures.Clear();
+}
+
+already_AddRefed<gfxASurface>
+ContentClientRemote::CreateBuffer(ContentType aType,
+                                  const nsIntSize& aSize,
+                                  uint32_t aFlags)
+{
+  MOZ_ASSERT(!mLockedForCompositor);
+  NS_ABORT_IF_FALSE(!mIsNewBuffer,
+                    "Bad! Did we create a buffer twice without painting?");
+
+  mIsNewBuffer = true;
+
+  if (mTextureClient) {
+    mOldTextures.AppendElement(mTextureClient);
+    DestroyBuffers();
+  }
+  mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
+
+  mContentType = aType;
+  mSize = gfx::IntSize(aSize.width, aSize.height);
+  mTextureClient->EnsureTextureClient(mSize, mContentType);
+  // note that LockSurfaceDescriptor doesn't actually lock anything
+  MOZ_ASSERT(IsSurfaceDescriptorValid(*mTextureClient->LockSurfaceDescriptor()));
+
+  CreateBackBufferAndNotify(aFlags);
+
+  nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
+  return ret.forget();
 }
 
 nsIntRegion 
@@ -184,6 +204,43 @@ ContentClientRemote::GetUpdatedRegion(const nsIntRegion& aRegionToDraw,
 }
 
 void
+ContentClientRemote::Updated(const nsIntRegion& aRegionToDraw,
+                             const nsIntRegion& aVisibleRegion,
+                             bool aDidSelfCopy)
+{
+  nsIntRegion updatedRegion = GetUpdatedRegion(aRegionToDraw,
+                                               aVisibleRegion,
+                                               aDidSelfCopy);
+
+  MOZ_ASSERT(mTextureClient);
+  // don't call m*Client->Updated*()
+
+  mForwarder->UpdateTextureRegion(this,
+                                  ThebesBufferData(BufferRect(),
+                                                   BufferRotation()),
+                                  updatedRegion);
+#ifdef DEBUG
+  mLockedForCompositor = true;
+#endif
+}
+
+void
+ContentClientRemote::SwapBuffers(const ThebesBufferData &aData,
+                                 const nsIntRegion& aValidRegion,
+                                 const nsIntRegion& aFrontUpdatedRegion)
+{
+  MOZ_ASSERT(mLockedForCompositor);
+  MOZ_ASSERT(mTextureClient);
+
+#ifdef DEBUG
+  mLockedForCompositor = false;
+#endif
+  mFrontAndBackBufferDiffer = true;
+  mBufferRect = aData.rect();
+  mBufferRotation = aData.rotation();
+}
+
+void
 ContentClientRemote::SetBackingBuffer(gfxASurface* aBuffer,
                                       const nsIntRect& aRect,
                                       const nsIntPoint& aRotation)
@@ -200,41 +257,48 @@ ContentClientRemote::SetBackingBuffer(gfxASurface* aBuffer,
 
 ContentClientDirect::~ContentClientDirect()
 {
-  // Finish any use of mROFrontBuffer since the last ForwardTransaction(),
-  // before the Shadow frees the surface.
-  if (OptionalThebesBuffer::Tnull_t != mROFrontBuffer.type()) {
-    ShadowLayerForwarder::PlatformSyncBeforeUpdate();
+  if (mTextureClient) {
+    MOZ_ASSERT(mFrontClient);
+    mTextureClient->SetDescriptor(SurfaceDescriptor());
+    mFrontClient->SetDescriptor(SurfaceDescriptor());
   }
 }
 
 void
-ContentClientDirect::SwapBuffers(const ThebesBuffer &aBackBuffer,
+ContentClientDirect::CreateBackBufferAndNotify(uint32_t aFlags)
+{
+  mFrontClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
+  mFrontClient->EnsureTextureClient(mSize, mContentType);
+
+  mForwarder->CreatedDoubleBuffer(this, mFrontClient, mTextureClient);
+}
+
+void
+ContentClientDirect::DestroyBackBuffer()
+{
+  MOZ_ASSERT(mFrontClient);
+
+  mFrontClient->SetDescriptor(SurfaceDescriptor());
+  // dont't call mFrontClient->Destroyed();
+  mFrontClient = nullptr;
+}
+
+void
+ContentClientDirect::SwapBuffers(const ThebesBufferData &aData,
                                  const nsIntRegion& aValidRegion,
-                                 const OptionalThebesBuffer& aReadOnlyFrontBuffer,
                                  const nsIntRegion& aFrontUpdatedRegion)
 {
-  MOZ_ASSERT(OptionalThebesBuffer::Tnull_t != aReadOnlyFrontBuffer.type());
+  ContentClientRemote::SwapBuffers(aData, aValidRegion, aFrontUpdatedRegion);
 
-  mFrontAndBackBufferDiffer = true;
-  mROFrontBuffer = aReadOnlyFrontBuffer;
+  MOZ_ASSERT(mFrontClient);
+
   mFrontUpdatedRegion = aFrontUpdatedRegion;
+  mValidRegion = aValidRegion;
+
 
   RefPtr<TextureClient> oldBack = mTextureClient;
-  mTextureClient = mROFrontClient;
-  mROFrontClient = oldBack;
-
-  if (!mTextureClient) {
-    mTextureClient = CreateTextureClient(TEXTURE_CONTENT, 0);
-    mTextureClient->EnsureTextureClient(mSize, mContentType);
-  } else if (nsIntSize(mSize.width, mSize.height) != aBackBuffer.rect().Size()) {
-    // Just resize our backbuffer so that SyncFrontBufferToBackBuffer can copy
-    // all the relevant data back there.
-    mTextureClient->EnsureTextureClient(mSize, mContentType);
-  } else {
-    mTextureClient->SetDescriptor(aBackBuffer.buffer());
-  }
-
-  mROFrontClient->SetDescriptor(aReadOnlyFrontBuffer.get_ThebesBuffer().buffer());  
+  mTextureClient = mFrontClient;
+  mFrontClient = oldBack;
 }
 
 struct AutoTextureClient {
@@ -249,6 +313,7 @@ struct AutoTextureClient {
   }
   gfxASurface* GetSurface(TextureClient* aTexture)
   {
+    MOZ_ASSERT(!mTexture);
     mTexture = aTexture;
     return mTexture->LockSurface();
   }
@@ -264,9 +329,9 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
     return;
   }
 
-  MOZ_ASSERT(mROFrontClient);
+  MOZ_ASSERT(!mLockedForCompositor);
+  MOZ_ASSERT(mFrontClient);
 
-  AutoTextureClient autoTexture;
 
   MOZ_LAYERS_LOG(("BasicShadowableThebes(%p): reading back <x=%d,y=%d,w=%d,h=%d>",
                   this,
@@ -275,20 +340,18 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().width,
                   mFrontUpdatedRegion.GetBounds().height));
 
-  const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
-  RotatedBuffer frontBuffer(autoTexture.GetSurface(mROFrontClient),
-                            roFront.rect(),
-                            roFront.rotation());
-  UpdateDestinationFrom(GetBuffer(),
-                        frontBuffer,
+  AutoTextureClient autoTextureFront;
+  RotatedBuffer frontBuffer(autoTextureFront.GetSurface(mFrontClient),
+                            mBufferRect,
+                            mBufferRotation);
+  UpdateDestinationFrom(frontBuffer,
                         mFrontUpdatedRegion);
   mIsNewBuffer = false;
   mFrontAndBackBufferDiffer = false;
 }
 
 void
-ContentClientDirect::UpdateDestinationFrom(gfxASurface* aBuffer,
-                                           const RotatedBuffer& aSource,
+ContentClientDirect::UpdateDestinationFrom(const RotatedBuffer& aSource,
                                            const nsIntRegion& aUpdateRegion)
 {
   nsRefPtr<gfxContext> destCtx =
@@ -301,24 +364,26 @@ ContentClientDirect::UpdateDestinationFrom(gfxASurface* aBuffer,
   aSource.DrawBufferWithRotation(destCtx);
 }
 
-void
-ContentClientTexture::SwapBuffers(const ThebesBuffer &aBackBuffer,
-                                  const nsIntRegion& aValidRegion,
-                                  const OptionalThebesBuffer& aReadOnlyFrontBuffer,
-                                  const nsIntRegion& aFrontUpdatedRegion)
+ContentClientTexture::~ContentClientTexture()
 {
-  // We didn't get back a read-only ref to our old back buffer (the
-  // parent's new front buffer).  If the parent is pushing updates
-  // to a texture it owns, then we probably got back the same buffer
-  // we pushed in the update and all is well.  If not, ...
-  MOZ_ASSERT(OptionalThebesBuffer::Tnull_t == aReadOnlyFrontBuffer.type());
+  if (mTextureClient) {
+    mTextureClient->SetDescriptor(SurfaceDescriptor());
+  }
+}
 
-  mBackBufferRect = aBackBuffer.rect();
-  mBackBufferRectRotation = aBackBuffer.rotation();
-  mFrontAndBackBufferDiffer = true;
+void
+ContentClientTexture::CreateBackBufferAndNotify(uint32_t aFlags)
+{
+  mForwarder->CreatedSingleBuffer(this, mTextureClient);
+}
 
-  MOZ_ASSERT(mTextureClient);
-  mTextureClient->SetDescriptor(aBackBuffer.buffer());
+void
+ContentClientTexture::Updated(const nsIntRegion& aRegionToDraw,
+                              const nsIntRegion& aVisibleRegion,
+                              bool aDidSelfCopy)
+{
+  MOZ_ASSERT(!mLockedForCompositor);
+  ContentClientRemote::Updated(aRegionToDraw, aVisibleRegion, aDidSelfCopy);
 }
 
 void
@@ -327,6 +392,7 @@ ContentClientTexture::SyncFrontBufferToBackBuffer()
   if (!mFrontAndBackBufferDiffer) {
     return;
   }
+  MOZ_ASSERT(!mLockedForCompositor);
 
   gfxASurface* backBuffer = GetBuffer();
   NS_ASSERTION(!mTextureClient ||
@@ -335,8 +401,8 @@ ContentClientTexture::SyncFrontBufferToBackBuffer()
 
   nsRefPtr<gfxASurface> oldBuffer;
   oldBuffer = SetBuffer(backBuffer,
-                        mBackBufferRect,
-                        mBackBufferRectRotation);
+                        mBufferRect,
+                        mBufferRotation);
 
   mIsNewBuffer = false;
   mFrontAndBackBufferDiffer = false;

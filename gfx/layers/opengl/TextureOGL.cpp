@@ -23,27 +23,25 @@ using namespace gfx;
 namespace layers {
 
 TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
-                                              uint32_t aTextureHostFlags,
-                                              uint32_t aTextureFlags,
-                                              bool aBuffered,
-                                              ISurfaceAllocator* aDeAllocator)
+                                               uint32_t aTextureHostFlags,
+                                               uint32_t aTextureFlags)
 {
   RefPtr<TextureHost> result = nullptr;
 
   if (aDescriptorType == SurfaceDescriptor::TYCbCrImage) {
-    result = new YCbCrTextureHostOGL(aDeAllocator);
+    result = new YCbCrTextureHostOGL();
   } else if (aDescriptorType == SurfaceDescriptor::TSurfaceStreamDescriptor) {
-    result = new SurfaceStreamHostOGL(aDeAllocator);
+    result = new SurfaceStreamHostOGL();
   } else if (aDescriptorType == SurfaceDescriptor::TSharedTextureDescriptor) {
-    result = new SharedTextureHostOGL(aDeAllocator);
+    result = new SharedTextureHostOGL();
 #ifdef MOZ_WIDGET_GONK
   } else if (aDescriptorType == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
-    result = new GrallocTextureHostOGL(aDeAllocator);
+    result = new GrallocTextureHostOGL();
 #endif
   } else if (aTextureHostFlags & TEXTURE_HOST_TILED) {
-    result = new TiledTextureHostOGL(aDeAllocator);
+    result = new TiledTextureHostOGL();
   } else {
-    result = new TextureImageTextureHostOGL(aDeAllocator);
+    result = new TextureImageTextureHostOGL();
   }
 
   NS_ASSERTION(result, "Result should have been created.");
@@ -132,7 +130,7 @@ void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
 }
 
 void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                                              nsIntRegion* aRegion)
+                                            nsIntRegion* aRegion)
 {
   if (!mGL) {
     NS_WARNING("trying to update TextureImageTextureHostOGL without a compositor ?");
@@ -204,6 +202,7 @@ SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
 {
   // Just retain a reference to the new image, rather than making a copy.
   // This seems potentially bad, but it's what the existing code did.
+  //TODO maybe check this?
   SwapTexturesImpl(aImage, aRegion);
 }
 

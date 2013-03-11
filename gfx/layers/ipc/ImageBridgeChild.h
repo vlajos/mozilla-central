@@ -220,6 +220,15 @@ public:
 
   virtual void Connect(CompositableClient* aCompositable) MOZ_OVERRIDE;
 
+  // TODO[nical] do we need to implement these? They are only used for
+  // thebes layers, also UpdateTextureRegion.
+  virtual void CreatedSingleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aBuffer) MOZ_OVERRIDE {}
+  virtual void CreatedDoubleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aFront,
+                                   TextureClient* aBack) MOZ_OVERRIDE {}
+  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) MOZ_OVERRIDE {} 
+
   /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
@@ -231,9 +240,9 @@ public:
    * Communicate to the compositor that aRegion in the texture identified by aLayer
    * and aIdentifier has been updated to aThebesBuffer.
    */
-  virtual void UpdateTextureRegion(TextureClient* aTexture,
-                                   const ThebesBuffer& aThebesBuffer,
-                                   const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE;
+  virtual void UpdateTextureRegion(CompositableClient* aCompositable,
+                                   const ThebesBufferData& aThebesBufferData,
+                                   const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE {}
 
   /**
    * Communicate the picture rect of a YUV image in aLayer to the compositor

@@ -43,7 +43,8 @@ public:
 
   virtual CompositableType GetType() { return mType; }
 
-  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr) MOZ_OVERRIDE;
 
   TextureHost* GetTextureHost() MOZ_OVERRIDE { return mTextureHost; }
 
@@ -101,8 +102,11 @@ public:
     : ImageHostSingle(aCompositor, aType)
   {}
 
-  virtual bool IsBuffered() MOZ_OVERRIDE { return true; }
+  virtual bool Update(const SurfaceDescriptor& aImage,
+                      SurfaceDescriptor* aResult = nullptr) MOZ_OVERRIDE;
 
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr) MOZ_OVERRIDE;
 };
 
 }

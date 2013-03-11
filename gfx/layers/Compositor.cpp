@@ -13,17 +13,13 @@
 namespace mozilla {
 namespace layers {
 
-TextureHost::TextureHost(ISurfaceAllocator* aDeallocator)
+TextureHost::TextureHost()
   : mFlags(NoFlags)
   , mBuffer(nullptr)
   , mFormat(gfx::FORMAT_UNKNOWN)
   , mTextureParent(nullptr)
-  , mDeAllocator(aDeallocator)
 {
   MOZ_COUNT_CTOR(TextureHost);
-  if (aDeallocator) {
-    mBuffer = new SurfaceDescriptor(null_t());
-  }
 }
 
 TextureHost::~TextureHost()
@@ -89,15 +85,11 @@ Compositor::GetBackend()
 // implemented in TextureOGL.cpp
 TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
                                                uint32_t aTextureHostFlags,
-                                               uint32_t aTextureFlags,
-                                               bool aBuffered,
-                                               ISurfaceAllocator* aDeAllocator);
+                                               uint32_t aTextureFlags);
 
 TemporaryRef<TextureHost> CreateTextureHostD3D9(SurfaceDescriptorType aDescriptorType,
                                                 uint32_t aTextureHostFlags,
-                                                uint32_t aTextureFlags,
-                                                bool aBuffered,
-                                                ISurfaceAllocator* aDeAllocator)
+                                                uint32_t aTextureFlags)
 {
   NS_RUNTIMEABORT("not implemented");
   return nullptr;
@@ -106,9 +98,7 @@ TemporaryRef<TextureHost> CreateTextureHostD3D9(SurfaceDescriptorType aDescripto
 #ifdef MOZ_ENABLE_D3D10_LAYER
 TemporaryRef<TextureHost> CreateTextureHostD3D10(SurfaceDescriptorType aDescriptorType,
                                                  uint32_t aTextureHostFlags,
-                                                 uint32_t aTextureFlags,
-                                                 bool aBuffered,
-                                                 ISurfaceAllocator* aDeAllocator)
+                                                 uint32_t aTextureFlags)
 {
   NS_RUNTIMEABORT("not implemented");
   return nullptr;
@@ -117,39 +107,27 @@ TemporaryRef<TextureHost> CreateTextureHostD3D10(SurfaceDescriptorType aDescript
 // implemented in TextureD3D11.cpp
 TemporaryRef<TextureHost> CreateTextureHostD3D11(SurfaceDescriptorType aDescriptorType,
                                                  uint32_t aTextureHostFlags,
-                                                 uint32_t aTextureFlags,
-                                                 bool aBuffered,
-                                                 ISurfaceAllocator* aDeAllocator);
+                                                 uint32_t aTextureFlags);
 #endif // MOZ_ENABLE_D3D10_LAYER
 
 TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                             uint32_t aTextureHostFlags,
-                                            uint32_t aTextureFlags,
-                                            bool aBuffered,
-                                            ISurfaceAllocator* aDeAllocator)
+                                            uint32_t aTextureFlags)
 {
   switch (Compositor::GetBackend()) {
     case LAYERS_OPENGL : return CreateTextureHostOGL(aDescriptorType,
                                                      aTextureHostFlags,
-                                                     aTextureFlags,
-                                                     aBuffered,
-                                                     aDeAllocator);
+                                                     aTextureFlags);
     case LAYERS_D3D9 : return CreateTextureHostD3D9(aDescriptorType,
                                                     aTextureHostFlags,
-                                                    aTextureFlags,
-                                                    aBuffered,
-                                                    aDeAllocator);
+                                                    aTextureFlags);
 #ifdef MOZ_ENABLE_D3D10_LAYER
     case LAYERS_D3D10 : return CreateTextureHostD3D10(aDescriptorType,
                                                       aTextureHostFlags,
-                                                      aTextureFlags,
-                                                      aBuffered,
-                                                      aDeAllocator);
+                                                      aTextureFlags);
     case LAYERS_D3D11 : return CreateTextureHostD3D11(aDescriptorType,
                                                       aTextureHostFlags,
-                                                      aTextureFlags,
-                                                      aBuffered,
-                                                      aDeAllocator);
+                                                      aTextureFlags);
 #endif
     default : return nullptr;
   }

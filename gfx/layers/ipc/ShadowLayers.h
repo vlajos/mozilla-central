@@ -119,6 +119,13 @@ public:
    */
   void Connect(CompositableClient* aCompositable);
 
+  virtual void CreatedSingleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aBuffer) MOZ_OVERRIDE;
+  virtual void CreatedDoubleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aFront,
+                                   TextureClient* aBack) MOZ_OVERRIDE;
+  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) MOZ_OVERRIDE;
+
   /**
    * Adds an edit in the layers transaction in order to attach
    * the corresponding compositable and layer on the compositor side.
@@ -235,9 +242,9 @@ public:
    * Communicate to the compositor that aRegion in the texture identified by aLayer
    * and aIdentifier has been updated to aThebesBuffer.
    */
-  void UpdateTextureRegion(TextureClient* aTexture,
-                           const ThebesBuffer& aThebesBuffer,
-                           const nsIntRegion& aUpdatedRegion);
+  virtual void UpdateTextureRegion(CompositableClient* aCompositable,
+                                   const ThebesBufferData& aThebesBufferData,
+                                   const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE;
 
   /**
    * Communicate the picture rect of an image to the compositor

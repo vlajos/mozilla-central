@@ -88,6 +88,8 @@ public:
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   // XXX[nical] only this one should remain (and be called just "Lock")
+  // note that this is often used simply as a getter for mDescriptor, not to
+  // lock anything, that is  probably bad.
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
   virtual void ReleaseResources() {}
   /**
@@ -118,9 +120,6 @@ public:
    * Gives up ownership of any shared resource.
    */
   virtual void Updated();
-  virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
-                             const nsIntRect& aBufferRect,
-                             const nsIntPoint& aBufferRotation);
   virtual void Destroyed();
 
   void SetIPDLActor(PTextureChild* aTextureChild);

@@ -59,19 +59,6 @@ TextureClient::Updated()
 }
 
 void
-TextureClient::UpdatedRegion(const nsIntRegion& aUpdatedRegion,
-                             const nsIntRect& aBufferRect,
-                             const nsIntPoint& aBufferRotation)
-{
-  mForwarder->UpdateTextureRegion(this,
-                                       ThebesBuffer(mDescriptor,
-                                                    aBufferRect,
-                                                    aBufferRotation),
-                                       aUpdatedRegion);
-  mDescriptor = SurfaceDescriptor();
-}
-
-void
 TextureClient::SetIPDLActor(PTextureChild* aChild) {
   mTextureChild = aChild;
 }

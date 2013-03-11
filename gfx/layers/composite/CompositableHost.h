@@ -34,7 +34,8 @@ class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
   CompositableHost(Compositor* aCompositor = nullptr)
-  : mCompositor(aCompositor), mLayer(nullptr)
+    : mCompositor(aCompositor)
+    , mLayer(nullptr)
   {
     MOZ_COUNT_CTOR(CompositableHost);
   }
@@ -73,7 +74,8 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr,
                          TiledLayerProperties* aLayerProperties = nullptr) = 0;
 
-  virtual void AddTextureHost(TextureHost* aTextureHost) = 0;
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr) = 0;
 
   /**
    * @return true if we should schedule a composition.
@@ -91,11 +93,10 @@ public:
    * aNewValidRegionFront is the valid region in aNewFront
    * aUpdatedRegionBack is the region in aNewBackResult which has been updated
    */
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack)
   {
@@ -109,8 +110,6 @@ public:
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {
     NS_RUNTIMEABORT("If this code is reached it means this method should habe been overridden");
   }
-
-  virtual bool IsBuffered() { return false; }
 
   /**
    * Adds a mask effect using this texture as the mask, if possible.
