@@ -125,6 +125,10 @@ public:
   }
 #endif
 
+  // Set one or both texture hosts. We do not use AddTextureHost because for
+  // double buffering, we need to add two hosts and know which is which.
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) = 0;
   // For double buffered ContentHosts we want to set both TextureHosts at
   // once so we ignore this call.
   virtual void AddTextureHost(TextureHost* aTextureHost,
@@ -132,10 +136,9 @@ public:
   virtual TextureHost* GetTextureHost() MOZ_OVERRIDE;
 
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
-
-  //TODO comment
-  virtual void SetTextureHosts(TextureHost* aNewFront,
-                               TextureHost* aNewBack = nullptr) = 0;
+  // The client has destroyed its texture clients and we should destroy our
+  // texture hosts and SurfaceDescriptors. Note that we don't immediately
+  // destroy our front buffer so that we can continue to composite.
   virtual void DestroyTextures() = 0;
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -149,14 +152,17 @@ protected:
 
   bool PaintWillResample() { return mPaintWillResample; }
 
-  // TODO comment
+  // Destroy the front buffer's texture host. This should only happen when
+  // we have a new front buffer to use or the ContentHost is going to die.
   void DestroyFrontHost();
 
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
-  // TODO comment
+  // When we set a new front buffer TextureHost, we don't want to stomp on
+  // the old one which might still be used for compositing. So we store it
+  // here and move it to mTextureHost once we do the first buffer swap.
   RefPtr<TextureHost> mNewFrontHost;
   bool mPaintWillResample;
   bool mInitialised;
@@ -189,13 +195,12 @@ public:
 
 protected:
   nsIntRegion mValidRegionForNextBackBuffer;
-  // TODO comment
+  // Texture host for the back buffer. We never read or write this buffer. We
+  // only swap it with the front buffer (mTextureHost) when we are told by the
+  // content thread.
   RefPtr<TextureHost> mBackHost;
 };
 
-// We're using resources owned by our texture as the front buffer.
-// Upload the changed region and then return the surface back to
-// the renderer.
 class ContentHostTexture : public ContentHost
 {
 public:
