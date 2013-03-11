@@ -174,7 +174,7 @@ public:
 class TextureHost : public TextureSource
 {
 public:
-  TextureHost(ISurfaceAllocator* aDeAllocator = nullptr);
+  TextureHost();
   virtual ~TextureHost();
 
   virtual gfx::SurfaceFormat GetFormat() const { return mFormat; }
@@ -267,8 +267,20 @@ public:
 
 
   SurfaceDescriptor* GetBuffer() const { return mBuffer; }
-protected:
+  /**
+   * Set a SurfaceDescriptor for this texture host. By setting a buffer and
+   * allocator/de-allocator for the TextureHost, you cause the TextureHost to
+   * retain a SurfaceDescriptor.
+   * Ownership of the SurfaceDescriptor passes to this.
+   */
+  void SetBuffer(SurfaceDescriptor* aBuffer, ISurfaceAllocator* aAllocator)
+  {
+    MOZ_ASSERT(!mBuffer, "Will leak the old mBuffer");
+    mBuffer = aBuffer;
+    mDeAllocator = aAllocator;
+  }
 
+protected:
   /**
    * Should be implemented by the backend-specific TextureHost classes 
    * 
@@ -527,9 +539,7 @@ public:
  */
 TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                             uint32_t aTextureHostFlags,
-                                            uint32_t aTextureFlags,
-                                            bool aBuffered,
-                                            ISurfaceAllocator* aDeAllocator);
+                                            uint32_t aTextureFlags);
 
 }
 }

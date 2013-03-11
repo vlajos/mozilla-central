@@ -20,7 +20,7 @@ class CompositableClient;
 class ShadowableLayer;
 class TextureFactoryIdentifier;
 class SurfaceDescriptor;
-class ThebesBuffer;
+class ThebesBufferData;
 class TextureClient;
 
 /**
@@ -49,6 +49,27 @@ public:
   virtual void Connect(CompositableClient* aCompositable) = 0;
 
   /**
+   * When using the Thebes layer pattern of swapping or updating
+   * TextureClient/Host pairs without sending SurfaceDescriptors,
+   * use these messages to assign the single or double buffer
+   * (TextureClient/Host pairs) to the CompositableHost.
+   * We expect the textures to already have been created.
+   * With these messages, the ownership of the SurfaceDescriptor(s)
+   * moves to the compositor.
+   */
+  virtual void CreatedSingleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aBuffer) = 0;
+  virtual void CreatedDoubleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aFront,
+                                   TextureClient* aBack) = 0;
+
+  /**
+   * Tell the compositor that a Compositable is killing its buffer(s),
+   * that is TextureClient/Hosts.
+   */
+  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) = 0;  
+
+  /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
    */
@@ -59,8 +80,8 @@ public:
    * Communicate to the compositor that aRegion in the texture identified by aLayer
    * and aIdentifier has been updated to aThebesBuffer.
    */
-  virtual void UpdateTextureRegion(TextureClient* aTexture,
-                                   const ThebesBuffer& aThebesBuffer,
+  virtual void UpdateTextureRegion(CompositableClient* aCompositable,
+                                   const ThebesBufferData& aThebesBufferData,
                                    const nsIntRegion& aUpdatedRegion) = 0;
 
   /**

@@ -76,6 +76,10 @@ public:
     NS_ABORT_IF_FALSE(!Finished(), "forgot BeginTransaction?");
     mCset.push_back(aEdit);
   }
+  void AddEdit(const CompositableOperation& aEdit)
+  {
+    AddEdit(Edit(aEdit));
+  }
   void AddPaint(const Edit& aPaint)
   {
     AddNoSwapPaint(aPaint);
@@ -301,16 +305,15 @@ ShadowLayerForwarder::UpdateTexture(TextureClient* aTexture,
   MOZ_ASSERT(aTexture->GetIPDLActor());
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture->GetIPDLActor(), aImage));
 }
-
 void
-ShadowLayerForwarder::UpdateTextureRegion(TextureClient* aTexture,
-                                          const ThebesBuffer& aThebesBuffer,
+ShadowLayerForwarder::UpdateTextureRegion(CompositableClient* aCompositable,
+                                          const ThebesBufferData& aThebesBufferData,
                                           const nsIntRegion& aUpdatedRegion)
 {
-  MOZ_ASSERT(aTexture);
-  MOZ_ASSERT(aTexture->GetIPDLActor());
-  mTxn->AddPaint(OpPaintTextureRegion(nullptr, aTexture->GetIPDLActor(),
-                                      aThebesBuffer,
+  MOZ_ASSERT(aCompositable);
+  MOZ_ASSERT(aCompositable->GetIPDLActor());
+  mTxn->AddPaint(OpPaintTextureRegion(nullptr, aCompositable->GetIPDLActor(),
+                                      aThebesBufferData,
                                       aUpdatedRegion));
 }
 
@@ -720,6 +723,39 @@ ShadowLayerForwarder::Connect(CompositableClient* aCompositable)
   MOZ_ASSERT(child);
   aCompositable->SetIPDLActor(child);
   child->SetClient(aCompositable);
+}
+
+void
+ShadowLayerForwarder::CreatedSingleBuffer(CompositableClient* aCompositable,
+                                          TextureClient* aBuffer)
+{
+  MOZ_ASSERT(aBuffer->LockSurfaceDescriptor()->type() != SurfaceDescriptor::T__None &&
+             aBuffer->LockSurfaceDescriptor()->type() != SurfaceDescriptor::Tnull_t);
+  mTxn->AddEdit(OpCreatedSingleBuffer(nullptr, aCompositable->GetIPDLActor(),
+                                      nullptr, aBuffer->GetIPDLActor(),
+                                      *aBuffer->LockSurfaceDescriptor()));
+}
+
+void
+ShadowLayerForwarder::CreatedDoubleBuffer(CompositableClient* aCompositable,
+                                          TextureClient* aFront,
+                                          TextureClient* aBack)
+{
+  MOZ_ASSERT(aFront->LockSurfaceDescriptor()->type() != SurfaceDescriptor::T__None &&
+             aBack->LockSurfaceDescriptor()->type() != SurfaceDescriptor::T__None &&
+             aFront->LockSurfaceDescriptor()->type() != SurfaceDescriptor::Tnull_t &&
+             aBack->LockSurfaceDescriptor()->type() != SurfaceDescriptor::Tnull_t);
+  mTxn->AddEdit(OpCreatedDoubleBuffer(nullptr, aCompositable->GetIPDLActor(),
+                                      nullptr, aFront->GetIPDLActor(),
+                                      *aFront->LockSurfaceDescriptor(),
+                                      nullptr, aBack->GetIPDLActor(),
+                                      *aBack->LockSurfaceDescriptor()));
+}
+
+void
+ShadowLayerForwarder::DestroyThebesBuffer(CompositableClient* aCompositable)
+{
+  mTxn->AddEdit(OpDestroyThebesBuffer(nullptr, aCompositable->GetIPDLActor()));
 }
 
 void ShadowLayerForwarder::Attach(CompositableClient* aCompositable,

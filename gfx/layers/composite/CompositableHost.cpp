@@ -14,17 +14,13 @@ namespace mozilla {
 namespace layers {
 
 bool CompositableHost::Update(const SurfaceDescriptor& aImage,
-                        SurfaceDescriptor* aResult) {
+                              SurfaceDescriptor* aResult) {
   if (!GetTextureHost()) {
     *aResult = aImage;
     return false;
   }
-  if (IsBuffered()) {
-    GetTextureHost()->SwapTextures(aImage, aResult);
-  } else {
-    GetTextureHost()->Update(aImage);
-    *aResult = aImage;
-  }
+  GetTextureHost()->Update(aImage);
+  *aResult = aImage;
   return GetTextureHost()->IsValid();
 }
 
@@ -62,10 +58,10 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
     result = new TiledContentHost(aCompositor);
     return result;
   case BUFFER_CONTENT:
-    result = new ContentHostTexture(aCompositor);
+    result = new ContentHostSingleBuffered(aCompositor);
     return result;
   case BUFFER_CONTENT_DIRECT:
-    result = new ContentHostDirect(aCompositor);
+    result = new ContentHostDoubleBuffered(aCompositor);
     return result;
   default:
     NS_ERROR("Unknown CompositableType");

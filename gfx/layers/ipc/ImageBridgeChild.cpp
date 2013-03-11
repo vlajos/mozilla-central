@@ -92,18 +92,6 @@ ImageBridgeChild::UpdateTexture(TextureClient* aTexture,
 }
 
 void
-ImageBridgeChild::UpdateTextureRegion(TextureClient* aTexture,
-                                      const ThebesBuffer& aThebesBuffer,
-                                      const nsIntRegion& aUpdatedRegion)
-{
-  MOZ_ASSERT(aTexture);
-  MOZ_ASSERT(aTexture->GetIPDLActor());
-  mTxn->AddEdit(OpPaintTextureRegion(nullptr, aTexture->GetIPDLActor(),
-                                      aThebesBuffer,
-                                      aUpdatedRegion));
-}
-
-void
 ImageBridgeChild::UpdatePictureRect(CompositableClient* aCompositable,
                                     const nsIntRect& aRect)
 {

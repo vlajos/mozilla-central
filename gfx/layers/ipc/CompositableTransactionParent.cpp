@@ -10,6 +10,7 @@
 #include "RenderTrace.h"
 #include "ShadowLayersManager.h"
 #include "CompositableHost.h"
+#include "mozilla/layers/ContentHost.h"
 #include "ShadowLayerParent.h"
 #include "TiledLayerBuffer.h"
 #include "mozilla/layers/TextureParent.h"
@@ -42,6 +43,52 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
                                                      EditReplyVector& replyv)
 {
   switch (aEdit.type()) {
+    case CompositableOperation::TOpCreatedSingleBuffer: {
+      MOZ_LAYERS_LOG(("[ParentSide] Created single buffer"));
+      const OpCreatedSingleBuffer& op = aEdit.get_OpCreatedSingleBuffer();
+      CompositableParent* compositableParent = static_cast<CompositableParent*>(op.compositableParent());
+      TextureParent* textureParent = static_cast<TextureParent*>(op.bufferParent());
+
+
+      textureParent->EnsureTextureHost(op.descriptor().type());
+      textureParent->GetTextureHost()->SetBuffer(new SurfaceDescriptor(op.descriptor()),
+                                                 compositableParent->GetCompositableManager());
+
+      ContentHost* content = static_cast<ContentHost*>(compositableParent->GetCompositableHost());
+      content->SetTextureHosts(textureParent->GetTextureHost());
+
+      break;
+    }
+    case CompositableOperation::TOpCreatedDoubleBuffer: {
+      MOZ_LAYERS_LOG(("[ParentSide] Created double buffer"));
+      const OpCreatedDoubleBuffer& op = aEdit.get_OpCreatedDoubleBuffer();
+      CompositableParent* compositableParent = static_cast<CompositableParent*>(op.compositableParent());
+      TextureParent* frontParent = static_cast<TextureParent*>(op.frontParent());
+      TextureParent* backParent = static_cast<TextureParent*>(op.backParent());
+
+
+      frontParent->EnsureTextureHost(op.frontDescriptor().type());
+      backParent->EnsureTextureHost(op.backDescriptor().type());
+      frontParent->GetTextureHost()->SetBuffer(new SurfaceDescriptor(op.frontDescriptor()),
+                                               compositableParent->GetCompositableManager());
+      backParent->GetTextureHost()->SetBuffer(new SurfaceDescriptor(op.backDescriptor()),
+                                              compositableParent->GetCompositableManager());
+
+      ContentHost* content = static_cast<ContentHost*>(compositableParent->GetCompositableHost());
+      content->SetTextureHosts(frontParent->GetTextureHost(),
+                               backParent->GetTextureHost());
+
+      break;
+    }
+    case CompositableOperation::TOpDestroyThebesBuffer: {
+      MOZ_LAYERS_LOG(("[ParentSide] Created double buffer"));
+      const OpDestroyThebesBuffer& op = aEdit.get_OpDestroyThebesBuffer();
+      CompositableParent* compositableParent = static_cast<CompositableParent*>(op.compositableParent());
+      ContentHost* content = static_cast<ContentHost*>(compositableParent->GetCompositableHost());
+      content->DestroyTextures();
+
+      break;
+    }
     case CompositableOperation::TOpPaintTexture: {
       MOZ_LAYERS_LOG(("[ParentSide] Paint Texture X"));
       const OpPaintTexture& op = aEdit.get_OpPaintTexture();
@@ -93,35 +140,29 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       MOZ_LAYERS_LOG(("[ParentSide] Paint ThebesLayer"));
 
       const OpPaintTextureRegion& op = aEdit.get_OpPaintTextureRegion();
-      ShadowThebesLayer* thebes =
-        static_cast<ShadowThebesLayer*>(GetLayerFromOpPaint(op));
-      TextureParent* textureParent = 
-        static_cast<TextureParent*>(op.textureParent());
+      CompositableParent* compositableParent = static_cast<CompositableParent*>(op.compositableParent());
       CompositableHost* compositable =
-        textureParent->GetCompositableHost();
+        compositableParent->GetCompositableHost();
+      ShadowThebesLayer* thebes =
+        static_cast<ShadowThebesLayer*>(compositable->GetLayer());
 
-      const ThebesBuffer& newFront = op.newFrontBuffer();
+      const ThebesBufferData& bufferData = op.bufferData();
 
       RenderTraceInvalidateStart(thebes, "FF00FF", op.updatedRegion().GetBounds());
 
-      textureParent->EnsureTextureHost(newFront.buffer().type());
-
-      OptionalThebesBuffer newBack;
+      ThebesBufferData newData;
       nsIntRegion newValidRegion;
-      OptionalThebesBuffer readOnlyFront;
       nsIntRegion frontUpdatedRegion;
-      compositable->UpdateThebes(newFront,
+      compositable->UpdateThebes(bufferData,
                                  op.updatedRegion(),
-                                 &readOnlyFront,
                                  thebes->GetValidRegion(),
-                                 &newBack,
+                                 &newData,
                                  &newValidRegion,
                                  &frontUpdatedRegion);
       replyv.push_back(
-        OpThebesBufferSwap(
-          op.textureParent(), nullptr,
-          newBack, newValidRegion,
-          readOnlyFront, frontUpdatedRegion));
+        OpContentBufferSwap(compositableParent, nullptr,
+                            newData, newValidRegion,
+                            frontUpdatedRegion));
 
       RenderTraceInvalidateEnd(thebes, "FF00FF");
       break;

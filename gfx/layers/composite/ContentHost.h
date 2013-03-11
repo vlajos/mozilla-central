@@ -76,8 +76,6 @@ public:
   // Subclasses should implement this method if they support being used as a tiled buffer
   virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
 
-  virtual bool IsBuffered() { return true; }
-
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
@@ -127,10 +125,21 @@ public:
   }
 #endif
 
-  void AddTextureHost(TextureHost* aTextureHost) MOZ_OVERRIDE;
-  TextureHost* GetTextureHost() MOZ_OVERRIDE;
+  // Set one or both texture hosts. We do not use AddTextureHost because for
+  // double buffering, we need to add two hosts and know which is which.
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) = 0;
+  // For double buffered ContentHosts we want to set both TextureHosts at
+  // once so we ignore this call.
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr) MOZ_OVERRIDE {}
+  virtual TextureHost* GetTextureHost() MOZ_OVERRIDE;
 
   void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
+  // The client has destroyed its texture clients and we should destroy our
+  // texture hosts and SurfaceDescriptors. Note that we don't immediately
+  // destroy our front buffer so that we can continue to composite.
+  virtual void DestroyTextures() = 0;
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
@@ -143,10 +152,18 @@ protected:
 
   bool PaintWillResample() { return mPaintWillResample; }
 
+  // Destroy the front buffer's texture host. This should only happen when
+  // we have a new front buffer to use or the ContentHost is going to die.
+  void DestroyFrontHost();
+
   nsIntRect mBufferRect;
   nsIntPoint mBufferRotation;
   RefPtr<TextureHost> mTextureHost;
   RefPtr<TextureHost> mTextureHostOnWhite;
+  // When we set a new front buffer TextureHost, we don't want to stomp on
+  // the old one which might still be used for compositing. So we store it
+  // here and move it to mTextureHost once we do the first buffer swap.
+  RefPtr<TextureHost> mNewFrontHost;
   bool mPaintWillResample;
   bool mInitialised;
 };
@@ -154,45 +171,56 @@ protected:
 // We can directly texture the drawn surface.  Use that as our new
 // front buffer, and return our previous directly-textured surface
 // to the renderer.
-class ContentHostDirect : public ContentHost
+class ContentHostDoubleBuffered : public ContentHost
 {
 public:
-  ContentHostDirect(Compositor* aCompositor)
+  ContentHostDoubleBuffered(Compositor* aCompositor)
     : ContentHost(aCompositor)
   {}
+
+  ~ContentHostDoubleBuffered();
 
   virtual CompositableType GetType() { return BUFFER_CONTENT_DIRECT; }
 
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
+  virtual void DestroyTextures() MOZ_OVERRIDE;
+
+protected:
   nsIntRegion mValidRegionForNextBackBuffer;
+  // Texture host for the back buffer. We never read or write this buffer. We
+  // only swap it with the front buffer (mTextureHost) when we are told by the
+  // content thread.
+  RefPtr<TextureHost> mBackHost;
 };
 
-// We're using resources owned by our texture as the front buffer.
-// Upload the changed region and then return the surface back to
-// the renderer.
-class ContentHostTexture : public ContentHost
+class ContentHostSingleBuffered : public ContentHost
 {
 public:
-  ContentHostTexture(Compositor* aCompositor)
+  ContentHostSingleBuffered(Compositor* aCompositor)
     : ContentHost(aCompositor)
   {}
+  virtual ~ContentHostSingleBuffered();
 
   virtual CompositableType GetType() { return BUFFER_CONTENT; }
 
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
+
+  virtual void SetTextureHosts(TextureHost* aNewFront,
+                               TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
+  virtual void DestroyTextures() MOZ_OVERRIDE;
 };
 
 class TiledTexture {
@@ -298,13 +326,15 @@ public:
   }
 
 
-  virtual void UpdateThebes(const ThebesBuffer& aNewBack,
+  virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
-                            OptionalThebesBuffer* aNewFront,
                             const nsIntRegion& aOldValidRegionBack,
-                            OptionalThebesBuffer* aNewBackResult,
+                            ThebesBufferData* aResultData,
                             nsIntRegion* aNewValidRegionFront,
-                            nsIntRegion* aUpdatedRegionBack);
+                            nsIntRegion* aUpdatedRegionBack)
+  {
+    MOZ_ASSERT(false, "N/A for tiled layers");
+  }
 
   const nsIntRegion& GetValidLowPrecisionRegion() const
   {
@@ -339,7 +369,11 @@ public:
 
   virtual TiledLayerComposer* AsTiledLayerComposer() { return this; }
 
-  virtual void AddTextureHost(TextureHost* aTextureHost) { MOZ_ASSERT(false, "Does nothing"); }
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr)
+  {
+    MOZ_ASSERT(false, "Does nothing");
+  }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
@@ -361,7 +395,7 @@ private:
                          nsIntRect aVisibleRect,
                          gfx::Matrix4x4 aTransform);
 
-  void EnsureTileStore();
+  void EnsureTileStore() {}
 
   nsIntRegion                  mRegionToUpload;
   nsIntRegion                  mLowPrecisionRegionToUpload;

@@ -44,19 +44,8 @@ class PlanarYCbCrImage;
  * Depending on whether the data is shared or copied, Lock/Unlock and Updated can be
  * no-ops. What's important is that the Client/Host pair implement the same semantic.
  *
- * In most cases, when Updated() is called, the texture client sends its data
- * to the compositor (and looses its reference to it in the process), and will
- * receive some data back at the end of the transaction. If the CompositableHost
- * on the other side does buffering, it may not get back the same data (because
- * the CompositbaleHost is keeping the data that has just been sent and sends
- * back the previous data). It is also possible that the reply contains nothing
- * for instance because the Host is buffered and does not yet have a back buffer
- * to send back to the client.
- * TODO: The semantics of TextureHost will change soon, but in the mean time
- * be careful about the above information.
- *
- * TextureClient owns the data in its surface descriptor and is responsible for
- * releasing it appropriately.
+ * Ownership of the surface descriptor depends on how the TextureClient/Host is
+ * used by the CompositableClient/Host.
  */
 class TextureClient : public RefCounted<TextureClient>
 {
@@ -88,6 +77,8 @@ public:
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   // XXX[nical] only this one should remain (and be called just "Lock")
+  // note that this is often used simply as a getter for mDescriptor, not to
+  // lock anything, that is  probably bad.
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
   virtual void ReleaseResources() {}
   /**
@@ -118,9 +109,6 @@ public:
    * Gives up ownership of any shared resource.
    */
   virtual void Updated();
-  virtual void UpdatedRegion(const nsIntRegion& aUpdatedRegion,
-                             const nsIntRect& aBufferRect,
-                             const nsIntPoint& aBufferRotation);
   virtual void Destroyed();
 
   void SetIPDLActor(PTextureChild* aTextureChild);

@@ -185,16 +185,19 @@ ContentHost::~ContentHost()
 {
 }
 
-void 
-ContentHost::AddTextureHost(TextureHost* aTextureHost)
-{
-  mTextureHost = aTextureHost;
-}
-
 TextureHost*
 ContentHost::GetTextureHost()
 {
   return mTextureHost.get();
+}
+
+void
+ContentHost::DestroyFrontHost()
+{
+  if (mTextureHost) {
+    MOZ_ASSERT(mTextureHost->GetDeAllocator(), "We won't be able to destroy our SurfaceDescriptor");
+    mTextureHost = nullptr;
+  }
 }
 
 void
@@ -209,7 +212,7 @@ ContentHost::Composite(EffectChain& aEffectChain,
 {
   NS_ASSERTION(aVisibleRegion, "Requires a visible region");
 
-  if (!mTextureHost->Lock()) {
+  if (!mTextureHost || !mTextureHost->Lock()) {
     return;
   }
 
@@ -340,33 +343,65 @@ ContentHost::Composite(EffectChain& aEffectChain,
   mTextureHost->Unlock();
 }
 
-void
-ContentHostTexture::UpdateThebes(const ThebesBuffer& aFront,
-                                 const nsIntRegion& aUpdated,
-                                 OptionalThebesBuffer* aNewFront,
-                                 const nsIntRegion& aOldValidRegionBack,
-                                 OptionalThebesBuffer* aNewBack,
-                                 nsIntRegion* aNewValidRegionFront,
-                                 nsIntRegion* aUpdatedRegionBack)
+ContentHostSingleBuffered::~ContentHostSingleBuffered()
 {
-  *aNewFront = null_t();
-  *aNewBack = aFront;
+  DestroyTextures();
+  DestroyFrontHost();
+}
+
+void
+ContentHostSingleBuffered::SetTextureHosts(TextureHost* aNewFront,
+                                           TextureHost* aNewBack /*=nullptr*/)
+{
+  MOZ_ASSERT(!aNewBack);
+  mNewFrontHost = aNewFront;
+}
+
+void
+ContentHostSingleBuffered::DestroyTextures()
+{
+  if (mNewFrontHost) {
+    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(),
+               "We won't be able to destroy our SurfaceDescriptor");
+    mNewFrontHost = nullptr;
+  }
+
+  // don't touch mTextureHost, we might need it for compositing
+}
+
+void
+ContentHostSingleBuffered::UpdateThebes(const ThebesBufferData& aData,
+                                        const nsIntRegion& aUpdated,
+                                        const nsIntRegion& aOldValidRegionBack,
+                                        ThebesBufferData* aResultData,
+                                        nsIntRegion* aNewValidRegionFront,
+                                        nsIntRegion* aUpdatedRegionBack)
+{
+  *aResultData = aData;
   *aNewValidRegionFront = aOldValidRegionBack;
   aUpdatedRegionBack->SetEmpty();
 
-  if (!mTextureHost) {
+  if (!mTextureHost && !mNewFrontHost) {
     mInitialised = false;
     return;
   }
 
+  if (mNewFrontHost) {
+    DestroyFrontHost();
+    mTextureHost = mNewFrontHost;
+    mNewFrontHost = nullptr;
+  }
+
+  MOZ_ASSERT(mTextureHost);
+
   // updated is in screen coordinates. Convert it to buffer coordinates.
   nsIntRegion destRegion(aUpdated);
-  destRegion.MoveBy(-aFront.rect().TopLeft());
+  destRegion.MoveBy(-aData.rect().TopLeft());
 
   // Correct for rotation
-  destRegion.MoveBy(aFront.rotation());
+  destRegion.MoveBy(aData.rotation());
 
-  gfxIntSize size = aFront.rect().Size();
+  gfxIntSize size = aData.rect().Size();
   nsIntRect destBounds = destRegion.GetBounds();
   destRegion.MoveBy((destBounds.x >= size.width) ? -size.width : 0,
                     (destBounds.y >= size.height) ? -size.height : 0);
@@ -377,57 +412,87 @@ ContentHostTexture::UpdateThebes(const ThebesBuffer& aFront,
                ((destBounds.y % size.height) + destBounds.height <= size.height),
                "updated region lies across rotation boundaries!");
 
-  mTextureHost->Update(aFront.buffer(), &destRegion);
+  mTextureHost->Update(*mTextureHost->GetBuffer(), &destRegion);
   mInitialised = true;
 
-  mBufferRect = aFront.rect();
-  mBufferRotation = aFront.rotation();
+  mBufferRect = aData.rect();
+  mBufferRotation = aData.rotation();
+}
+
+ContentHostDoubleBuffered::~ContentHostDoubleBuffered()
+{
+  DestroyTextures();
+  DestroyFrontHost();
 }
 
 void
-ContentHostDirect::UpdateThebes(const ThebesBuffer& aFront,
-                                const nsIntRegion& aUpdated,
-                                OptionalThebesBuffer* aNewFront,
-                                const nsIntRegion& aOldValidRegionBack,
-                                OptionalThebesBuffer* aNewBack,
-                                nsIntRegion* aNewValidRegionFront,
-                                nsIntRegion* aUpdatedRegionBack)
+ContentHostDoubleBuffered::SetTextureHosts(TextureHost* aNewFront,
+                                           TextureHost* aNewBack /*=nullptr*/)
 {
-  if (!mTextureHost) {
-    *aNewFront = null_t();
+  MOZ_ASSERT(aNewBack);
+  // the actual TextureHosts are created in reponse to the PTexture constructor
+  // we just match them up here
+  mNewFrontHost = aNewFront;
+  mBackHost = aNewBack;
+}
+
+void
+ContentHostDoubleBuffered::DestroyTextures()
+{
+  if (mNewFrontHost) {
+    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(),
+               "We won't be able to destroy our SurfaceDescriptor");
+    mNewFrontHost = nullptr;
+  }
+
+  if (mBackHost) {
+    MOZ_ASSERT(mBackHost->GetDeAllocator(),
+               "We won't be able to destroy our SurfaceDescriptor");
+    mBackHost = nullptr;
+  }
+
+  // don't touch mTextureHost, we might need it for compositing
+}
+
+void
+ContentHostDoubleBuffered::UpdateThebes(const ThebesBufferData& aData,
+                                        const nsIntRegion& aUpdated,
+                                        const nsIntRegion& aOldValidRegionBack,
+                                        ThebesBufferData* aResultData,
+                                        nsIntRegion* aNewValidRegionFront,
+                                        nsIntRegion* aUpdatedRegionBack)
+{
+  if (!mTextureHost && !mNewFrontHost) {
     mInitialised = false;
 
     aNewValidRegionFront->SetEmpty();
-    *aNewBack = null_t();
+    *aResultData = aData;
     *aUpdatedRegionBack = aUpdated;
     return;
   }
 
   bool needsReset = false;
-  SurfaceDescriptor newFrontBuffer;
-  Update(aFront.buffer(), &newFrontBuffer);
-  // TODO[nrc] I suppose here we need something like mFrontBuffer rather than mTextureHost
-  mInitialised = mTextureHost->IsValid();
-
-  if (!mInitialised) {
-    // XXX if this happens often we could fallback to a different kind of
-    // texture host. But that involves the TextureParent too, so it is not
-    // trivial.
-    NS_WARNING("Could not initialise texture host");
-    *aNewFront = null_t();
-    mInitialised = false;
-
-    aNewValidRegionFront->SetEmpty();
-    *aNewBack = null_t();
-    *aUpdatedRegionBack = aUpdated;
-    return;
+  if (mNewFrontHost) {
+    DestroyFrontHost();
+    mTextureHost = mNewFrontHost;
+    needsReset = true;
+    mNewFrontHost = nullptr;
   }
 
-  *aNewBack = ThebesBuffer(newFrontBuffer, mBufferRect, mBufferRotation);
-  *aNewFront = aFront;
+  MOZ_ASSERT(mTextureHost);
+  MOZ_ASSERT(mBackHost);
 
-  mBufferRect = aFront.rect();
-  mBufferRotation = aFront.rotation();
+  RefPtr<TextureHost> oldFront = mTextureHost;
+  mTextureHost = mBackHost;
+  mBackHost = oldFront;
+
+  mTextureHost->Update(*mTextureHost->GetBuffer());
+  mInitialised = true;
+
+  *aResultData = ThebesBufferData(mBufferRect, mBufferRotation);
+
+  mBufferRect = aData.rect();
+  mBufferRotation = aData.rotation();
 
   // We have to invalidate the pixels painted into the new buffer.
   // They might overlap with our old pixels.
@@ -576,23 +641,6 @@ TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion,
 }
 
 void
-TiledContentHost::EnsureTileStore()
-{
-}
-
-void
-TiledContentHost::UpdateThebes(const ThebesBuffer& aNewBack,
-                               const nsIntRegion& aUpdated,
-                               OptionalThebesBuffer* aNewFront,
-                               const nsIntRegion& aOldValidRegionBack,
-                               OptionalThebesBuffer* aNewBackResult,
-                               nsIntRegion* aNewValidRegionFront,
-                               nsIntRegion* aUpdatedRegionBack)
-{
-  MOZ_ASSERT(false, "N/A for tiled layers");
-}
-
-void
 TiledContentHost::Composite(EffectChain& aEffectChain,
                             float aOpacity,
                             const gfx::Matrix4x4& aTransform,
@@ -603,8 +651,6 @@ TiledContentHost::Composite(EffectChain& aEffectChain,
                             TiledLayerProperties* aLayerProperties /* = nullptr */)
 {
   MOZ_ASSERT(aLayerProperties, "aLayerProperties required for TiledContentHost");
-
-  EnsureTileStore();
 
   // note that ProcessUploadQueue updates the valid region which is then used by
   // the RenderLayerBuffer calls below and then sent back to the layer.
@@ -739,8 +785,7 @@ TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* 
     // convert placeholder tile to a real tile
     mTextureHost = CreateTextureHost(SURFACEDESCRIPTOR_UNKNOWN,
                                      TEXTURE_HOST_TILED,
-                                     false,
-                                     NoFlags, nullptr);
+                                     NoFlags);
     mTextureHost->SetCompositor(aCompositor);
     flags |= NewTile;
   }

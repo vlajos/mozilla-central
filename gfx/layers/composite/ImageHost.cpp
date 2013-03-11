@@ -26,7 +26,8 @@ ImageHostSingle::SetCompositor(Compositor* aCompositor) {
 }
 
 void
-ImageHostSingle::AddTextureHost(TextureHost* aHost) {
+ImageHostSingle::AddTextureHost(TextureHost* aHost, ISurfaceAllocator* aAllocator)
+{
   mTextureHost = aHost;
 }
 
@@ -119,20 +120,26 @@ ImageHostSingle::PrintInfo(nsACString& aTo, const char* aPrefix)
 }
 #endif
 
-/*
-void
-ImageHostSingle::AddTextureHost(const TextureInfo& aTextureInfo, TextureHost* aTextureHost)
-{
-  NS_ASSERTION((aTextureInfo.mCompositableType == BUFFER_TEXTURE &&
-                aTextureInfo.mMemoryType == TEXTURE_SHMEM) ||
-               (aTextureInfo.mCompositableType == BUFFER_SHARED &&
-                aTextureInfo.mMemoryType == TEXTURE_SHARED) ||
-               (aTextureInfo.mCompositableType == BUFFER_DIRECT_EXTERNAL &&
-                aTextureInfo.mMemoryType == TEXTURE_SHMEM),
-               "CompositableType mismatch.");
-  mTextureHost = aTextureHost;
+bool
+ImageHostBuffered::Update(const SurfaceDescriptor& aImage,
+                          SurfaceDescriptor* aResult) {
+  if (!GetTextureHost()) {
+    *aResult = aImage;
+    return false;
+  }
+  GetTextureHost()->SwapTextures(aImage, aResult);
+  return GetTextureHost()->IsValid();
 }
-*/
+
+void
+ImageHostBuffered::AddTextureHost(TextureHost* aHost,
+                                  ISurfaceAllocator* aAllocator)
+{
+  MOZ_ASSERT(aAllocator);
+  mTextureHost = aHost;
+  mTextureHost->SetBuffer(new SurfaceDescriptor(null_t()),
+                          aAllocator);
+}
 
 }
 }
