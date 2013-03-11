@@ -58,10 +58,10 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
     result = new TiledContentHost(aCompositor);
     return result;
   case BUFFER_CONTENT:
-    result = new ContentHostTexture(aCompositor);
+    result = new ContentHostSingleBuffered(aCompositor);
     return result;
   case BUFFER_CONTENT_DIRECT:
-    result = new ContentHostDirect(aCompositor);
+    result = new ContentHostDoubleBuffered(aCompositor);
     return result;
   default:
     NS_ERROR("Unknown CompositableType");

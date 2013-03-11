@@ -120,7 +120,9 @@ public:
     , mIsNewBuffer(false)
     , mFrontAndBackBufferDiffer(false)
     , mContentType(gfxASurface::CONTENT_COLOR_ALPHA)
+#ifdef DEBUG
     , mLockedForCompositor(false)
+#endif
   {}
 
   /**
@@ -201,13 +203,13 @@ protected:
  * references. In repsonse to the compositor's reply we swap our references
  * (in SwapBuffers).
  */
-class ContentClientDirect : public ContentClientRemote
+class ContentClientDoubleBuffered : public ContentClientRemote
 {
 public:
-  ContentClientDirect(CompositableForwarder* aFwd)
+  ContentClientDoubleBuffered(CompositableForwarder* aFwd)
   : ContentClientRemote(aFwd)
   {}
-  ~ContentClientDirect();
+  ~ContentClientDoubleBuffered();
 
   CompositableType GetType() const MOZ_OVERRIDE
   {
@@ -225,7 +227,7 @@ protected:
   virtual void DestroyBackBuffer() MOZ_OVERRIDE;
 
 private:
-  ContentClientDirect(gfxASurface* aBuffer,
+  ContentClientDoubleBuffered(gfxASurface* aBuffer,
                       const nsIntRect& aRect, const nsIntPoint& aRotation)
     // The size policy doesn't really matter here; this constructor is
     // intended to be used for creating temporaries
@@ -249,13 +251,13 @@ private:
  * kind. We are free to modify the TextureClient once we receive reply from
  * the compositor.
  */
-class ContentClientTexture : public ContentClientRemote
+class ContentClientSingleBuffered : public ContentClientRemote
 {
 public:
-  ContentClientTexture(CompositableForwarder* aFwd)
+  ContentClientSingleBuffered(CompositableForwarder* aFwd)
     : ContentClientRemote(aFwd)
   {}
-  ~ContentClientTexture();
+  ~ContentClientSingleBuffered();
 
   virtual CompositableType GetType() const MOZ_OVERRIDE
   {

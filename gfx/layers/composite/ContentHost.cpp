@@ -343,24 +343,26 @@ ContentHost::Composite(EffectChain& aEffectChain,
   mTextureHost->Unlock();
 }
 
-ContentHostTexture::~ContentHostTexture()
+ContentHostSingleBuffered::~ContentHostSingleBuffered()
 {
   DestroyTextures();
   DestroyFrontHost();
 }
 
 void
-ContentHostTexture::SetTextureHosts(TextureHost* aNewFront, TextureHost* aNewBack /*=nullptr*/)
+ContentHostSingleBuffered::SetTextureHosts(TextureHost* aNewFront,
+                                           TextureHost* aNewBack /*=nullptr*/)
 {
   MOZ_ASSERT(!aNewBack);
   mNewFrontHost = aNewFront;
 }
 
 void
-ContentHostTexture::DestroyTextures()
+ContentHostSingleBuffered::DestroyTextures()
 {
   if (mNewFrontHost) {
-    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(), "We won't be able to destroy our SurfaceDescriptor");
+    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(),
+               "We won't be able to destroy our SurfaceDescriptor");
     mNewFrontHost = nullptr;
   }
 
@@ -368,12 +370,12 @@ ContentHostTexture::DestroyTextures()
 }
 
 void
-ContentHostTexture::UpdateThebes(const ThebesBufferData& aData,
-                                 const nsIntRegion& aUpdated,
-                                 const nsIntRegion& aOldValidRegionBack,
-                                 ThebesBufferData* aResultData,
-                                 nsIntRegion* aNewValidRegionFront,
-                                 nsIntRegion* aUpdatedRegionBack)
+ContentHostSingleBuffered::UpdateThebes(const ThebesBufferData& aData,
+                                        const nsIntRegion& aUpdated,
+                                        const nsIntRegion& aOldValidRegionBack,
+                                        ThebesBufferData* aResultData,
+                                        nsIntRegion* aNewValidRegionFront,
+                                        nsIntRegion* aUpdatedRegionBack)
 {
   *aResultData = aData;
   *aNewValidRegionFront = aOldValidRegionBack;
@@ -417,14 +419,15 @@ ContentHostTexture::UpdateThebes(const ThebesBufferData& aData,
   mBufferRotation = aData.rotation();
 }
 
-ContentHostDirect::~ContentHostDirect()
+ContentHostDoubleBuffered::~ContentHostDoubleBuffered()
 {
   DestroyTextures();
   DestroyFrontHost();
 }
 
 void
-ContentHostDirect::SetTextureHosts(TextureHost* aNewFront, TextureHost* aNewBack /*=nullptr*/)
+ContentHostDoubleBuffered::SetTextureHosts(TextureHost* aNewFront,
+                                           TextureHost* aNewBack /*=nullptr*/)
 {
   MOZ_ASSERT(aNewBack);
   // the actual TextureHosts are created in reponse to the PTexture constructor
@@ -434,15 +437,17 @@ ContentHostDirect::SetTextureHosts(TextureHost* aNewFront, TextureHost* aNewBack
 }
 
 void
-ContentHostDirect::DestroyTextures()
+ContentHostDoubleBuffered::DestroyTextures()
 {
   if (mNewFrontHost) {
-    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(), "We won't be able to destroy our SurfaceDescriptor");
+    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(),
+               "We won't be able to destroy our SurfaceDescriptor");
     mNewFrontHost = nullptr;
   }
 
   if (mBackHost) {
-    MOZ_ASSERT(mBackHost->GetDeAllocator(), "We won't be able to destroy our SurfaceDescriptor");
+    MOZ_ASSERT(mBackHost->GetDeAllocator(),
+               "We won't be able to destroy our SurfaceDescriptor");
     mBackHost = nullptr;
   }
 
@@ -450,12 +455,12 @@ ContentHostDirect::DestroyTextures()
 }
 
 void
-ContentHostDirect::UpdateThebes(const ThebesBufferData& aData,
-                                const nsIntRegion& aUpdated,
-                                const nsIntRegion& aOldValidRegionBack,
-                                ThebesBufferData* aResultData,
-                                nsIntRegion* aNewValidRegionFront,
-                                nsIntRegion* aUpdatedRegionBack)
+ContentHostDoubleBuffered::UpdateThebes(const ThebesBufferData& aData,
+                                        const nsIntRegion& aUpdated,
+                                        const nsIntRegion& aOldValidRegionBack,
+                                        ThebesBufferData* aResultData,
+                                        nsIntRegion* aNewValidRegionFront,
+                                        nsIntRegion* aUpdatedRegionBack)
 {
   if (!mTextureHost && !mNewFrontHost) {
     mInitialised = false;

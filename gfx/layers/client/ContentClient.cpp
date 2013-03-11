@@ -67,13 +67,13 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
     return nullptr;
   }
   if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientTexture(aForwarder);
+    return new ContentClientSingleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
-      return new ContentClientDirect(aForwarder);
+      return new ContentClientDoubleBuffered(aForwarder);
     }
-    return new ContentClientTexture(aForwarder);
+    return new ContentClientSingleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_TILED) {
     MOZ_NOT_REACHED("No CompositableClient for tiled layers");
@@ -255,7 +255,7 @@ ContentClientRemote::SetBackingBuffer(gfxASurface* aBuffer,
   oldBuffer = SetBuffer(aBuffer, aRect, aRotation);
 }
 
-ContentClientDirect::~ContentClientDirect()
+ContentClientDoubleBuffered::~ContentClientDoubleBuffered()
 {
   if (mTextureClient) {
     MOZ_ASSERT(mFrontClient);
@@ -265,7 +265,7 @@ ContentClientDirect::~ContentClientDirect()
 }
 
 void
-ContentClientDirect::CreateBackBufferAndNotify(uint32_t aFlags)
+ContentClientDoubleBuffered::CreateBackBufferAndNotify(uint32_t aFlags)
 {
   mFrontClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
   mFrontClient->EnsureTextureClient(mSize, mContentType);
@@ -274,7 +274,7 @@ ContentClientDirect::CreateBackBufferAndNotify(uint32_t aFlags)
 }
 
 void
-ContentClientDirect::DestroyBackBuffer()
+ContentClientDoubleBuffered::DestroyBackBuffer()
 {
   MOZ_ASSERT(mFrontClient);
 
@@ -284,9 +284,9 @@ ContentClientDirect::DestroyBackBuffer()
 }
 
 void
-ContentClientDirect::SwapBuffers(const ThebesBufferData &aData,
-                                 const nsIntRegion& aValidRegion,
-                                 const nsIntRegion& aFrontUpdatedRegion)
+ContentClientDoubleBuffered::SwapBuffers(const ThebesBufferData &aData,
+                                         const nsIntRegion& aValidRegion,
+                                         const nsIntRegion& aFrontUpdatedRegion)
 {
   ContentClientRemote::SwapBuffers(aData, aValidRegion, aFrontUpdatedRegion);
 
@@ -323,7 +323,7 @@ private:
 };
 
 void
-ContentClientDirect::SyncFrontBufferToBackBuffer()
+ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
 {
   if (!mFrontAndBackBufferDiffer) {
     return;
@@ -351,8 +351,8 @@ ContentClientDirect::SyncFrontBufferToBackBuffer()
 }
 
 void
-ContentClientDirect::UpdateDestinationFrom(const RotatedBuffer& aSource,
-                                           const nsIntRegion& aUpdateRegion)
+ContentClientDoubleBuffered::UpdateDestinationFrom(const RotatedBuffer& aSource,
+                                                   const nsIntRegion& aUpdateRegion)
 {
   nsRefPtr<gfxContext> destCtx =
     GetContextForQuadrantUpdate(aUpdateRegion.GetBounds());
@@ -364,7 +364,7 @@ ContentClientDirect::UpdateDestinationFrom(const RotatedBuffer& aSource,
   aSource.DrawBufferWithRotation(destCtx);
 }
 
-ContentClientTexture::~ContentClientTexture()
+ContentClientSingleBuffered::~ContentClientSingleBuffered()
 {
   if (mTextureClient) {
     mTextureClient->SetDescriptor(SurfaceDescriptor());
@@ -372,22 +372,22 @@ ContentClientTexture::~ContentClientTexture()
 }
 
 void
-ContentClientTexture::CreateBackBufferAndNotify(uint32_t aFlags)
+ContentClientSingleBuffered::CreateBackBufferAndNotify(uint32_t aFlags)
 {
   mForwarder->CreatedSingleBuffer(this, mTextureClient);
 }
 
 void
-ContentClientTexture::Updated(const nsIntRegion& aRegionToDraw,
-                              const nsIntRegion& aVisibleRegion,
-                              bool aDidSelfCopy)
+ContentClientSingleBuffered::Updated(const nsIntRegion& aRegionToDraw,
+                                     const nsIntRegion& aVisibleRegion,
+                                     bool aDidSelfCopy)
 {
   MOZ_ASSERT(!mLockedForCompositor);
   ContentClientRemote::Updated(aRegionToDraw, aVisibleRegion, aDidSelfCopy);
 }
 
 void
-ContentClientTexture::SyncFrontBufferToBackBuffer()
+ContentClientSingleBuffered::SyncFrontBufferToBackBuffer()
 {
   if (!mFrontAndBackBufferDiffer) {
     return;

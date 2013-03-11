@@ -171,14 +171,14 @@ protected:
 // We can directly texture the drawn surface.  Use that as our new
 // front buffer, and return our previous directly-textured surface
 // to the renderer.
-class ContentHostDirect : public ContentHost
+class ContentHostDoubleBuffered : public ContentHost
 {
 public:
-  ContentHostDirect(Compositor* aCompositor)
+  ContentHostDoubleBuffered(Compositor* aCompositor)
     : ContentHost(aCompositor)
   {}
 
-  ~ContentHostDirect();
+  ~ContentHostDoubleBuffered();
 
   virtual CompositableType GetType() { return BUFFER_CONTENT_DIRECT; }
 
@@ -201,13 +201,13 @@ protected:
   RefPtr<TextureHost> mBackHost;
 };
 
-class ContentHostTexture : public ContentHost
+class ContentHostSingleBuffered : public ContentHost
 {
 public:
-  ContentHostTexture(Compositor* aCompositor)
+  ContentHostSingleBuffered(Compositor* aCompositor)
     : ContentHost(aCompositor)
   {}
-  virtual ~ContentHostTexture();
+  virtual ~ContentHostSingleBuffered();
 
   virtual CompositableType GetType() { return BUFFER_CONTENT; }
 
