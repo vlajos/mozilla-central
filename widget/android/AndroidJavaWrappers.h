@@ -191,12 +191,17 @@ public:
     float GetX(JNIEnv *env);
     float GetY(JNIEnv *env);
     float GetScale(JNIEnv *env);
+    void GetFixedLayerMargins(JNIEnv *env, gfx::Margin &aFixedLayerMargins);
 
 private:
     static jclass jViewTransformClass;
     static jfieldID jXField;
     static jfieldID jYField;
     static jfieldID jScaleField;
+    static jfieldID jFixedLayerMarginLeft;
+    static jfieldID jFixedLayerMarginTop;
+    static jfieldID jFixedLayerMarginRight;
+    static jfieldID jFixedLayerMarginBottom;
 };
 
 class AndroidProgressiveUpdateData : public WrappedJavaObject {
@@ -257,7 +262,8 @@ public:
     void SetFirstPaintViewport(const nsIntPoint& aOffset, float aZoom, const nsIntRect& aPageRect, const gfx::Rect& aCssPageRect);
     void SetPageRect(const gfx::Rect& aCssPageRect);
     void SyncViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
-                          nsIntPoint& aScrollOffset, float& aScaleX, float& aScaleY);
+                          nsIntPoint& aScrollOffset, float& aScaleX, float& aScaleY,
+                          gfx::Margin& aFixedLayerMargins);
     bool ProgressiveUpdateCallback(bool aHasPendingNewThebesContent, const gfx::Rect& aDisplayPort, float aDisplayResolution, bool aDrawingCritical, gfx::Rect& aViewport, float& aScaleX, float& aScaleY);
     bool CreateFrame(AutoLocalJNIFrame *jniFrame, AndroidLayerRendererFrame& aFrame);
     bool ActivateProgram(AutoLocalJNIFrame *jniFrame);
@@ -782,7 +788,8 @@ public:
         IME_UPDATE_COMPOSITION = 4,
         IME_REMOVE_COMPOSITION = 5,
         IME_ACKNOWLEDGE_FOCUS = 6,
-        IME_FLUSH_CHANGES = 7
+        IME_FLUSH_CHANGES = 7,
+        IME_UPDATE_CONTEXT = 8
     };
 };
 

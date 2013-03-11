@@ -33,7 +33,6 @@
 #include "nsIPresShell.h"
 #include "nsIDOMElement.h"
 #include "nsIDOMHTMLElement.h"
-#include "nsIDOMHTMLBodyElement.h"
 #include "nsFrameManager.h"
 #include "nsError.h"
 #include "nsAutoPtr.h"
@@ -1050,7 +1049,7 @@ nsDisplayTableItem::IsVaryingRelativeToMovingFrame(nsDisplayListBuilder* aBuilde
 nsDisplayTableItem::UpdateForFrameBackground(nsIFrame* aFrame)
 {
   nsStyleContext *bgSC;
-  if (!nsCSSRendering::FindBackground(aFrame->PresContext(), aFrame, &bgSC))
+  if (!nsCSSRendering::FindBackground(aFrame, &bgSC))
     return;
   if (!bgSC->StyleBackground()->HasFixedBackground())
     return;

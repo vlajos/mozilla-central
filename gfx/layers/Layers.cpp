@@ -176,6 +176,7 @@ Layer::Layer(LayerManager* aManager, void* aImplData) :
   mUseClipRect(false),
   mUseTileSourceRect(false),
   mIsFixedPosition(false),
+  mMargins(0, 0, 0, 0),
   mDebugColorIndex(0),
   mAnimationGeneration(0)
 {}

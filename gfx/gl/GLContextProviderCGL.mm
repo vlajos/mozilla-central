@@ -122,7 +122,6 @@ public:
         if (!InitWithPrefix("gl", true))
             return false;
 
-        InitFramebuffers();
         return true;
     }
 
