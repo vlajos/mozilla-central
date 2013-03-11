@@ -280,7 +280,8 @@ gfxPlatform::Init()
 #ifdef MOZ_X11
     // On X11 platforms only use OMTC if firefox was initalized with thread-safe
     // X11 (else it would crash).
-    useOffMainThreadCompositing = (PR_GetEnv("MOZ_USE_OMTC") != NULL);
+    useOffMainThreadCompositing = (PR_GetEnv("MOZ_USE_OMTC") != NULL ||
+                                   PR_GetEnv("MOZ_LAYERS_FORCE_SHMEM_SURFACES") != NULL);
 #else
     useOffMainThreadCompositing = Preferences::GetBool(
           "layers.offmainthreadcomposition.enabled",
@@ -1757,7 +1758,8 @@ void InitLayersAccelerationPrefs()
   if (!sLayersAccelerationPrefsInitialized)
   {
     sPrefLayersOffMainThreadCompositionEnabled = Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
-    sPrefLayersAccelerationForceEnabled = Preferences::GetBool("layers.acceleration.force-enabled", false);
+    sPrefLayersAccelerationForceEnabled = Preferences::GetBool("layers.acceleration.force-enabled", false) ||
+                                          Preferences::GetBool("browser.tabs.remote", false);
     sPrefLayersAccelerationDisabled = Preferences::GetBool("layers.acceleration.disabled", false);
     sPrefLayersPreferOpenGL = Preferences::GetBool("layers.prefer-opengl", false);
     sPrefLayersPreferD3D9 = Preferences::GetBool("layers.prefer-d3d9", false);
