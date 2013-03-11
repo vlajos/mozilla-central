@@ -52,7 +52,7 @@ extern cairo_user_data_key_t gKeyD3D10Texture;
  * transactions and receives forwarded transactions.  In the Azure
  * future, it will only be a ShadowLayerManager.
  */
-class THEBES_API LayerManagerD3D10 : public LayerManager //ShadowLayerManager,
+class THEBES_API LayerManagerD3D10 : public LayerManager, //ShadowLayerManager,
                                      public ShadowLayerForwarder {
 public:
   LayerManagerD3D10(nsIWidget *aWidget);
