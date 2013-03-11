@@ -8,7 +8,6 @@
 
 #include "Layers.h"
 #include "LayerManagerOGL.h"
-#include "LayerImplComposite.h"
 
 namespace mozilla {
 namespace layers {
