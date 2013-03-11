@@ -6,6 +6,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "BasicTiledThebesLayer.h"
 #include "gfxImageSurface.h"
+#include "sampler.h"
 #include "gfxPlatform.h"
 
 

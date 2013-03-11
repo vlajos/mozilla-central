@@ -323,11 +323,7 @@ ABI_DIR = armeabi
 endif
 endif
 
-ifneq (,$(filter mobile/xul b2g,$(MOZ_BUILD_APP)))
-GECKO_APP_AP_PATH = $(call core_abspath,$(DEPTH)/embedding/android)
-else
 GECKO_APP_AP_PATH = $(call core_abspath,$(DEPTH)/mobile/android/base)
-endif
 
 ifdef ENABLE_TESTS
 INNER_ROBOCOP_PACKAGE=echo
@@ -694,7 +690,7 @@ make-sdk:
 	  (cd $(DIST)/$(MOZ_APP_NAME)-sdk/lib && tar -xf -)
 	$(NSINSTALL) -D $(DIST)/$(SDK_PATH)
 ifndef PKG_SKIP_STRIP
-	USE_ELF_HACK= $(PYTHON) toolkit/mozapps/installer/strip.py $(DIST)/$(MOZ_APP_NAME)-sdk
+	USE_ELF_HACK= $(PYTHON) $(MOZILLA_DIR)/toolkit/mozapps/installer/strip.py $(DIST)/$(MOZ_APP_NAME)-sdk
 endif
 	cd $(DIST) && $(MAKE_SDK)
 
