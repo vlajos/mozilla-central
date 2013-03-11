@@ -115,7 +115,6 @@ ContentClientRemote::DestroyBuffers()
   }
   MOZ_ASSERT(!mLockedForCompositor);
 
-  mTextureClient->SetDescriptor(SurfaceDescriptor());
   // dont't call m*mTextureClient->Destroyed();
   mTextureClient = nullptr;
 
@@ -162,7 +161,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
     mOldTextures.AppendElement(mTextureClient);
     DestroyBuffers();
   }
-  mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
+  mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags | HostRelease);
 
   mContentType = aType;
   mSize = gfx::IntSize(aSize.width, aSize.height);
@@ -170,7 +169,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   // note that LockSurfaceDescriptor doesn't actually lock anything
   MOZ_ASSERT(IsSurfaceDescriptorValid(*mTextureClient->LockSurfaceDescriptor()));
 
-  CreateBackBufferAndNotify(aFlags);
+  CreateBackBufferAndNotify(aFlags | HostRelease);
 
   nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
   return ret.forget();
@@ -278,7 +277,6 @@ ContentClientDoubleBuffered::DestroyBackBuffer()
 {
   MOZ_ASSERT(mFrontClient);
 
-  mFrontClient->SetDescriptor(SurfaceDescriptor());
   // dont't call mFrontClient->Destroyed();
   mFrontClient = nullptr;
 }

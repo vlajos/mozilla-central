@@ -74,6 +74,12 @@ TextureClientShmem::TextureClientShmem(CompositableForwarder* aForwarder, Compos
 void
 TextureClientShmem::ReleaseResources()
 {
+  if (mTextureInfo.mTextureFlags & HostRelease) {
+    mSurface = nullptr;
+    mDescriptor = SurfaceDescriptor();
+    return;
+  }
+
   if (mSurface) {
     mSurface = nullptr;
     ShadowLayerForwarder::CloseDescriptor(mDescriptor);

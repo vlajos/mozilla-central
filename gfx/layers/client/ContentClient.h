@@ -30,7 +30,8 @@ public:
   : CompositableClient(aForwarder)
   , ThebesLayerBuffer(ContainsVisibleBounds)
   {}
-  virtual ~ContentClient() {}
+  virtual ~ContentClient()
+  {}
 
   CompositableType GetType() const MOZ_OVERRIDE
   {
