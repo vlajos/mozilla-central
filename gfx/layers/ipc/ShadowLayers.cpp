@@ -23,7 +23,6 @@
 #include "ShadowLayers.h"
 #include "ShadowLayerChild.h"
 #include "gfxipc/ShadowLayerUtils.h"
-#include "SharedImageUtils.h"
 #include "RenderTrace.h"
 #include "sampler.h"
 #include "nsXULAppAPI.h"
@@ -559,30 +558,6 @@ ShadowLayerForwarder::ConstructShadowFor(ShadowableLayer* aLayer)
   NS_ABORT_IF_FALSE(HasShadowManager(), "no manager to forward to");
   return mShadowManager->SendPLayerConstructor(new ShadowLayerChild(aLayer));
 }
-
-/*
-void
-ShadowLayerManager::DestroySharedSurface(gfxSharedImageSurface* aSurface,
-                                         PLayersParent* aDeallocator)
-{
-  aDeallocator->DeallocShmem(aSurface->GetShmem());
-}
-
-void
-ShadowLayerManager::DestroySharedSurface(SurfaceDescriptor* aSurface,
-                                         PLayersParent* aDeallocator)
-{
-  if (PlatformDestroySharedSurface(aSurface)) {
-    return;
-  }
-  if (aSurface->type() == SurfaceDescriptor::TShmem) {
-    DestroySharedShmemSurface(aSurface, aDeallocator);
-  }
-}
-
-#if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
-
-*/
 
 #if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 

@@ -136,13 +136,6 @@ ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
   *aSurface = SurfaceDescriptor();
 }
 
-void
-ISurfaceAllocator::DestroySharedSurface(gfxSharedImageSurface* aSurface)
-{
-  //TODO[nical]
-  NS_RUNTIMEABORT("Needs implementing");
-}
-
 bool IsSurfaceDescriptorOwned(const SurfaceDescriptor& aDescriptor)
 {
   switch (aDescriptor.type()) {

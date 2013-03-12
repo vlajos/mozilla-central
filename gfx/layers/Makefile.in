@@ -177,7 +177,6 @@ EXPORTS_mozilla/layers =\
         ShadowLayersParent.h \
         ShadowLayersManager.h \
         RenderTrace.h \
-        SharedImageUtils.h \
         SharedRGBImage.h \
         SharedPlanarYCbCrImage.h \
         ShmemYCbCrImage.h \

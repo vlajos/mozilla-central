@@ -92,7 +92,6 @@ ISurfaceAllocator() {}
                                               uint32_t aCaps,
                                               SurfaceDescriptor* aBuffer);
 
-  virtual void DestroySharedSurface(gfxSharedImageSurface* aSurface);
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface);
 
 protected:
