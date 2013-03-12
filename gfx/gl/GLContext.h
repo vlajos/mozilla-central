@@ -356,6 +356,11 @@ public:
     virtual bool BindExternalBuffer(GLuint texture, void* buffer) { return false; }
     virtual bool UnbindExternalBuffer(GLuint texture) { return false; }
 
+#ifdef MOZ_WIDGET_GONK
+    virtual EGLImage CreateEGLImageForNativeBuffer(void* buffer) = 0;
+    virtual void DestroyEGLImage(EGLImage image) = 0;
+#endif
+
     virtual already_AddRefed<TextureImage>
     CreateDirectTextureImage(android::GraphicBuffer* aBuffer, GLenum aWrapMode)
     { return nullptr; }

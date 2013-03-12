@@ -552,6 +552,7 @@ public:
   GrallocTextureHostOGL()
     : mGL(nullptr)
     , mGLTexture(0)
+    , mEGLImage(0)
   {
   }
 
@@ -611,6 +612,7 @@ private:
   RefPtr<gl::GLContext> mGL;
   android::sp<android::GraphicBuffer> mGraphicBuffer;
   GLuint mGLTexture;
+  EGLImage mEGLImage;
 };
 #endif
 
