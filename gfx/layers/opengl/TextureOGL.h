@@ -564,6 +564,8 @@ public:
     return mGLTexture;
   }
 
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
+                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
   virtual bool Lock() MOZ_OVERRIDE;

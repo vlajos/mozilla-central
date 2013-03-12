@@ -553,6 +553,13 @@ void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 }
 
 void
+GrallocTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
+                                 nsIntRegion* aRegion)
+{
+  SwapTexturesImpl(aImage, aRegion);
+}
+
+void
 GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
                                         nsIntRegion*)
 {
