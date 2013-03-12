@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+//  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -127,6 +127,21 @@ public:
     mTextureInfo.mTextureFlags = aFlags;
   }
 
+  enum AccessMode {
+    ACCESS_READ_ONLY  = 0x1,
+    ACCESS_READ_WRITE = 0x2
+  };
+
+  void SetAccessMode(AccessMode aAccessMode)
+  {
+    MOZ_ASSERT(aAccessMode == ACCESS_READ_ONLY || aAccessMode == ACCESS_READ_WRITE);
+    mAccessMode = aAccessMode;
+  }
+
+  AccessMode GetAccessMode() const {
+    return mAccessMode;
+  }
+
   virtual gfxASurface::gfxContentType GetContentType() { return gfxASurface::CONTENT_COLOR_ALPHA; }
 
 protected:
@@ -138,6 +153,7 @@ protected:
   SurfaceDescriptor mDescriptor;
   TextureInfo mTextureInfo;
   PTextureChild* mTextureChild;
+  AccessMode mAccessMode;
 };
 
 
