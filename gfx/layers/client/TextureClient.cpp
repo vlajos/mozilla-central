@@ -29,6 +29,7 @@ TextureClient::TextureClient(CompositableForwarder* aForwarder,
                              CompositableType aCompositableType)
   : mForwarder(aForwarder)
   , mTextureChild(nullptr)
+  , mAccessMode(ACCESS_READ_WRITE)
 {
   MOZ_COUNT_CTOR(TextureClient);
   mTextureInfo.mCompositableType = aCompositableType;
@@ -154,8 +155,11 @@ bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxPatte
   }
   mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height), contentType);
 
+  OpenMode mode = mTextureClient->GetAccessMode() == TextureClient::ACCESS_READ_WRITE
+                  ? OPEN_READ_WRITE
+                  : OPEN_READ_ONLY;
   nsRefPtr<gfxASurface> tmpASurface =
-    ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE,
+    ShadowLayerForwarder::OpenDescriptor(mode,
                                          *mTextureClient->LockSurfaceDescriptor());
   nsRefPtr<gfxContext> tmpCtx = new gfxContext(tmpASurface.get());
   tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
@@ -277,7 +281,10 @@ TextureClientShmem::GetSurface()
     if (!IsSurfaceDescriptorValid(mDescriptor)) {
       return nullptr;
     }
-    mSurface = ShadowLayerForwarder::OpenDescriptor(OPEN_READ_WRITE, mDescriptor);
+    OpenMode mode = mAccessMode == ACCESS_READ_WRITE
+                    ? OPEN_READ_WRITE
+                    : OPEN_READ_ONLY;
+    mSurface = ShadowLayerForwarder::OpenDescriptor(mode, mDescriptor);
   }
 
   return mSurface.get();

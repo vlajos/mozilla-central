@@ -338,12 +338,14 @@ ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().width,
                   mFrontUpdatedRegion.GetBounds().height));
 
+  mFrontClient->SetAccessMode(TextureClient::ACCESS_READ_ONLY);
   AutoTextureClient autoTextureFront;
   RotatedBuffer frontBuffer(autoTextureFront.GetSurface(mFrontClient),
                             mBufferRect,
                             mBufferRotation);
   UpdateDestinationFrom(frontBuffer,
                         mFrontUpdatedRegion);
+  mFrontClient->SetAccessMode(TextureClient::ACCESS_READ_WRITE);
   mIsNewBuffer = false;
   mFrontAndBackBufferDiffer = false;
 }

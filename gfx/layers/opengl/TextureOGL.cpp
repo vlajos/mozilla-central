@@ -553,6 +553,13 @@ void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 }
 
 void
+GrallocTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
+                                 nsIntRegion* aRegion)
+{
+  SwapTexturesImpl(aImage, aRegion);
+}
+
+void
 GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
                                         nsIntRegion*)
 {
@@ -563,14 +570,21 @@ GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
   mGraphicBuffer = GrallocBufferActor::GetFrom(desc);
   mFormat = SurfaceFormatForAndroidPixelFormat(mGraphicBuffer->getPixelFormat());
 
-  if (!mGLTexture) {
-    mGL->MakeCurrent();
-    mGL->fGenTextures(1, &mGLTexture);
+  if (mEGLImage) {
+    mGL->DestroyEGLImage(mEGLImage);
+    mEGLImage = 0;
+  }
+
+  if (mGLTexture) {
+    mGL->fDeleteTextures(1, &mGLTexture);
+    mGLTexture = 0;
   }
 }
 
 void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)
 {
+  MOZ_ASSERT(mGLTexture);
+
   mGL->MakeCurrent();
   mGL->fActiveTexture(aTextureUnit);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mGLTexture);
@@ -581,6 +595,9 @@ GrallocTextureHostOGL::~GrallocTextureHostOGL()
 {
   mGL->MakeCurrent();
   mGL->fDeleteTextures(1, &mGLTexture);
+  if (mEGLImage) {
+    mGL->DestroyEGLImage(mEGLImage);
+  }
 }
 
 bool
@@ -589,13 +606,16 @@ GrallocTextureHostOGL::Lock()
   MOZ_ASSERT(mGraphicBuffer.get());
 
   mGL->MakeCurrent();
+  if (!mGLTexture) {
+    mGL->MakeCurrent();
+    mGL->fGenTextures(1, &mGLTexture);
+  }
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
-  // FIXME [bjacob] BindExternalBuffer is slow, has to create and destroy a EGLImage everytime.
-  // we should do this EGL cuisine in house here. Also, we had to change BindExternalBuffer to use
-  // the TEXTURE_2D target, which is useless risk -- we don't know for sure what other users of
-  // BindExternalBuffer may need -- so we should revert that there and only use TEXTURE_2D in our
-  // local code here.
-  mGL->BindExternalBuffer(mGLTexture, mGraphicBuffer->getNativeBuffer());
+  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mGLTexture);
+  if (!mEGLImage) {
+    mEGLImage = mGL->CreateEGLImageForNativeBuffer(mGraphicBuffer->getNativeBuffer());
+  }
+  mGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_2D, mEGLImage);
   return true;
 }
 
@@ -603,7 +623,13 @@ void
 GrallocTextureHostOGL::Unlock()
 {
   mGL->MakeCurrent();
-  mGL->UnbindExternalBuffer(mGLTexture);
+  mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
+  mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mGLTexture);
+  mGL->fTexImage2D(LOCAL_GL_TEXTURE_2D, 0,
+                   LOCAL_GL_RGBA,
+                   1, 1, 0,
+                   LOCAL_GL_RGBA, LOCAL_GL_UNSIGNED_BYTE,
+                   nullptr);
 }
 
 gfx::SurfaceFormat

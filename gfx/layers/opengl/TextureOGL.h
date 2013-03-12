@@ -552,6 +552,7 @@ public:
   GrallocTextureHostOGL()
     : mGL(nullptr)
     , mGLTexture(0)
+    , mEGLImage(0)
   {
   }
 
@@ -564,6 +565,8 @@ public:
     return mGLTexture;
   }
 
+  virtual void UpdateImpl(const SurfaceDescriptor& aImage,
+                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
   virtual bool Lock() MOZ_OVERRIDE;
@@ -609,6 +612,7 @@ private:
   RefPtr<gl::GLContext> mGL;
   android::sp<android::GraphicBuffer> mGraphicBuffer;
   GLuint mGLTexture;
+  EGLImage mEGLImage;
 };
 #endif
 
