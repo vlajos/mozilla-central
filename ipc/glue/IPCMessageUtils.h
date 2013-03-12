@@ -33,9 +33,9 @@
 #include "gfxASurface.h"
 #include "jsapi.h"
 #include "mozilla/layers/LayersTypes.h"
+#include "mozilla/layers/CompositorTypes.h"
 #include "FrameMetrics.h"
 #include "nsCSSProperty.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h"
 
 #ifdef _MSC_VER
 #pragma warning( disable : 4800 )

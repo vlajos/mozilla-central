@@ -6,7 +6,6 @@
 #include "mozilla/layers/TextureParent.h"
 #include "mozilla/layers/Compositor.h"
 #include "CompositableHost.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "ShadowLayerParent.h"
 #include "LayerManagerComposite.h"
 #include "Compositor.h"

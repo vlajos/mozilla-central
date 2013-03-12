@@ -122,7 +122,6 @@ OpenForeign(ID3D10Device* aDevice, const SurfaceDescriptorD3D10& aDescr)
   if (!SUCCEEDED(hr) || !tex)
     return nullptr;
 
-  // XXX FIXME TODO do we need this???
   return nsRefPtr<ID3D10Texture2D>(tex).forget();
 }
 

@@ -129,13 +129,12 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
    }
 
   MOZ_ASSERT(result, "Failed to create TextureClient");
-  if (result) {
-    result->SetFlags(aFlags);
-    TextureChild* textureChild
-      = static_cast<TextureChild*>(GetIPDLActor()->SendPTextureConstructor(result->GetTextureInfo()));
-    result->SetIPDLActor(textureChild);
-    textureChild->SetClient(result);
-  }
+  MOZ_ASSERT(result->SupportsType(aTextureClientType), "Created the wrong texture client?");
+  result->SetFlags(aFlags);
+  TextureChild* textureChild
+    = static_cast<TextureChild*>(GetIPDLActor()->SendPTextureConstructor(result->GetTextureInfo()));
+  result->SetIPDLActor(textureChild);
+  textureChild->SetClient(result);
 
   return result.forget();
 }

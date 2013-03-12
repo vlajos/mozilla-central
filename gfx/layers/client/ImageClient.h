@@ -40,15 +40,6 @@ public:
    */
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags) = 0;
 
-  // TODO I'm pretty sure someone should call this at some point, used to be called
-  // in the layers transaction reply
-  /**
-   * Set the buffer of a texture client (identified by aTextureInfo) to
-   * aBuffer. Intended to be used with a buffer from the compositor
-   */
-  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
-  //                       const SurfaceDescriptor& aBuffer) = 0;
-
   /**
    * Notify the compositor that this image client has been updated
    */
@@ -80,15 +71,10 @@ public:
 
   void EnsureTextureClient(TextureClientType aType);
 
-  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
-  //                       const SurfaceDescriptor& aBuffer);
-
   virtual void Updated();
 private:
   RefPtr<TextureClient> mTextureClient;
   TextureFlags mFlags;
-  // TODO[nical] this member is source of sadness, we should really remove it.
-  TextureClientType mType;
 };
 
 class ImageClientTextureBuffered : public ImageClientTexture
@@ -118,8 +104,6 @@ public:
   }
 
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
-  //virtual void SetBuffer(const TextureInfo& aTextureInfo,
-  //                       const SurfaceDescriptor& aBuffer) {}
   virtual bool Connect() { return false; }
   virtual void Updated() {}
   void SetLayer(ShadowableLayer* aLayer) {

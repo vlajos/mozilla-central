@@ -69,7 +69,7 @@ struct YCbCrImage {
   uint64_t owner;
 };
 
-// TODO: remove RGBImage (see bug 847914)
+// XXX[nical] remove RGBImage (see bug 847914)
 struct RGBImage {
   Shmem data;
   nsIntRect picture;

@@ -8,7 +8,7 @@
 include protocol PLayers;
 include protocol PImageBridge;
 include protocol PTexture;
-include "mozilla/layers/TextureFactoryIdentifier.h";
+include "mozilla/layers/CompositorTypes.h";
 include protocol PCompositor;
 
 using mozilla::layers::TextureInfo;

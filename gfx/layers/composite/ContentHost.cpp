@@ -6,7 +6,6 @@
 #include "ipc/AutoOpenSurface.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/ContentHost.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
 #include "gfxPlatform.h"
 #include "LayersLogging.h"

@@ -23,7 +23,7 @@ include "mozilla/dom/TabMessageUtils.h";
 include "mozilla/dom/ScreenOrientation.h";
 include "mozilla/dom/PermissionMessageUtils.h";
 include "mozilla/layout/RenderFrameUtils.h";
-include "mozilla/layers/TextureFactoryIdentifier.h";
+include "mozilla/layers/CompositorTypes.h";
 
 using IPC::Principal;
 using gfxMatrix;

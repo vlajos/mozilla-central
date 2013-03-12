@@ -154,6 +154,7 @@ EXPORTS_mozilla/layers =\
         CompositableTransactionParent.h \
         Compositor.h \
         CompositorOGL.h \
+        CompositorTypes.h \
         ContentHost.h \
         CompositingRenderTargetOGL.h \
         CompositorCocoaWidgetHelper.h \
@@ -184,7 +185,6 @@ EXPORTS_mozilla/layers =\
         TextureChild.h \
         TextureClient.h \
         TextureOGL.h \
-        TextureFactoryIdentifier.h \
         TextureParent.h \
         $(NULL)
 
