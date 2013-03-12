@@ -389,6 +389,7 @@ TextureClientTile::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxConte
                                                    gfxPlatform::GetPlatform()->OptimalFormatForContent(aType),
                                                    aType != gfxASurface::CONTENT_COLOR);
     mSurface = new gfxReusableSurfaceWrapper(tmpTile);
+    mContentType = aType;
   }
 }
 

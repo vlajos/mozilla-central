@@ -9,6 +9,7 @@
 #include "gfxContext.h"
 #include "gfxASurface.h"
 #include "nsRegion.h"
+#include "mozilla/layers/TextureClient.h"
 
 namespace mozilla {
 namespace layers {
@@ -113,6 +114,7 @@ public:
 
   ThebesLayerBuffer(BufferSizePolicy aBufferSizePolicy)
     : mBufferProvider(nullptr)
+    , mTextureClientForBuffer(nullptr)
     , mBufferSizePolicy(aBufferSizePolicy)
   {
     MOZ_COUNT_CTOR(ThebesLayerBuffer);
@@ -228,6 +230,7 @@ protected:
    */
   void SetBufferProvider(AutoOpenSurface* aProvider)
   {
+    NS_ASSERTION(!mTextureClientForBuffer, "Can't have a TextureClient and a buffer provider");
     mBufferProvider = aProvider;
     if (!mBufferProvider) {
       mBuffer = nullptr;
@@ -238,13 +241,18 @@ protected:
     }
   }
 
-  // XXX[nrc] this replaces the above method, remove the above when 
-  // BasicShadow layers are refactored.
-  void SetBuffer(gfxASurface* aBuffer)
+  // As SetBufferProvider, but using a texture client as the provider
+  void SetTextureClientForBuffer(TextureClient* aClient)
   {
-    NS_ASSERTION(!mBufferProvider, "Can't have a buffer and a buffer provider");
-    NS_ASSERTION(!aBuffer || !mBuffer, "Can't reset a buffer");
-    mBuffer = aBuffer;
+    NS_ASSERTION(!mBufferProvider, "Can't have a TextureClient and a buffer provider");
+    mTextureClientForBuffer = aClient;
+    if (!mTextureClientForBuffer) {
+      mBuffer = nullptr;
+    } else {
+      // Only this buffer provider can give us a buffer.  If we
+      // already have one, something has gone wrong.
+      MOZ_ASSERT(!mBuffer);
+    }
   }
 
   /**
@@ -277,10 +285,12 @@ protected:
   bool HaveBuffer();
 
   /**
-   * This member is only set transiently.  It's used to map mBuffer
-   * when we're using surfaces that require explicit map/unmap.
+   * These members are only set transiently.  They're used to map mBuffer
+   * when we're using surfaces that require explicit map/unmap. Only one
+   * may be used at a time.
    */
   AutoOpenSurface* mBufferProvider;
+  TextureClient* mTextureClientForBuffer;
 
   BufferSizePolicy      mBufferSizePolicy;
 };

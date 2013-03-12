@@ -180,7 +180,13 @@ ThebesLayerBuffer::GetContextForQuadrantUpdate(const nsIntRect& aBounds)
 gfxASurface::gfxContentType
 ThebesLayerBuffer::BufferContentType()
 {
-  return mBuffer ? mBuffer->GetContentType() : mBufferProvider->ContentType();
+  if (mBuffer)
+    return mBuffer->GetContentType();
+  if (mBufferProvider)
+    return mBufferProvider->ContentType();
+  if (mTextureClientForBuffer)
+    return mTextureClientForBuffer->GetContentType();
+  return gfxASurface::CONTENT_SENTINEL;
 }
 
 bool
@@ -194,8 +200,13 @@ ThebesLayerBuffer::BufferSizeOkFor(const nsIntSize& aSize)
 gfxASurface*
 ThebesLayerBuffer::EnsureBuffer()
 {
+  MOZ_ASSERT(!mBufferProvider || !mTextureClientForBuffer,
+             "Can't have both kinds of buffer provider.");
   if (!mBuffer && mBufferProvider) {
     mBuffer = mBufferProvider->Get();
+  }
+  if (!mBuffer && mTextureClientForBuffer) {
+    mBuffer = mTextureClientForBuffer->LockSurface();
   }
   return mBuffer;
 }
@@ -203,7 +214,7 @@ ThebesLayerBuffer::EnsureBuffer()
 bool
 ThebesLayerBuffer::HaveBuffer()
 {
-  return mBuffer || mBufferProvider;
+  return mBuffer || mBufferProvider || mTextureClientForBuffer;
 }
 
 static void

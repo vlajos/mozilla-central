@@ -125,6 +125,8 @@ public:
     mTextureInfo.mTextureFlags = aFlags;
   }
 
+  virtual gfxASurface::gfxContentType GetContentType() { return gfxASurface::CONTENT_COLOR_ALPHA; }
+
 protected:
   TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 
@@ -221,6 +223,7 @@ public:
 
   virtual void ReleaseResources();
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
+  virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
 private:
   gfxASurface* GetSurface();
 
@@ -245,7 +248,6 @@ public:
 
   virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
-
   virtual void ReleaseResources();
 };
 
@@ -329,7 +331,11 @@ public:
   {
     mTextureInfo.mTextureHostFlags = TEXTURE_HOST_TILED;
   }
+
+  virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
+
 private:
+  gfxASurface::gfxContentType mContentType;
   nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
 
   friend class CompositingFactory;

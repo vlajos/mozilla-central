@@ -92,6 +92,7 @@ public:
     return BUFFER_UNKNOWN;
   }
 
+
 private:
   BasicLayerManager* mManager;
 };
@@ -181,8 +182,8 @@ protected:
 
   bool mIsNewBuffer;
   bool mFrontAndBackBufferDiffer;
-  ContentType mContentType;
   gfx::IntSize mSize;
+  ContentType mContentType;
 #ifdef DEBUG
   // Between posting a message to the compositor that the TextureHost is
   // ready and receiving the reply, the compositor may write to the

@@ -67,13 +67,13 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
     return nullptr;
   }
   if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientSingleBuffered(aForwarder);
+    return new ContentClientDoubleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
       return new ContentClientDoubleBuffered(aForwarder);
     }
-    return new ContentClientSingleBuffered(aForwarder);
+    return new ContentClientDoubleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_TILED) {
     MOZ_NOT_REACHED("No CompositableClient for tiled layers");
@@ -129,7 +129,7 @@ ContentClientRemote::BeginPaint()
   // WOAH! Crazy! So we might not have a TextureClient yet.. because it will
   // only be created by CreateBuffer.. which will deliver a locked surface!.
   if (mTextureClient) {
-    SetBuffer(mTextureClient->LockSurface());
+    SetTextureClientForBuffer(mTextureClient);
   }
 }
 
@@ -142,7 +142,7 @@ ContentClientRemote::EndPaint()
     mTextureClient->Unlock();
   }
 
-  SetBuffer(nullptr);
+  SetTextureClientForBuffer(nullptr);
   mOldTextures.Clear();
 }
 
@@ -393,9 +393,9 @@ ContentClientSingleBuffered::SyncFrontBufferToBackBuffer()
   MOZ_ASSERT(!mLockedForCompositor);
 
   gfxASurface* backBuffer = GetBuffer();
-  NS_ASSERTION(!mTextureClient ||
-                 backBuffer, 
-               "SyncFrontBufferToBackBuffer called outside of Begin/End Paint?");
+  if (!backBuffer && mTextureClient) {
+    backBuffer = mTextureClient->LockSurface();
+  }
 
   nsRefPtr<gfxASurface> oldBuffer;
   oldBuffer = SetBuffer(backBuffer,

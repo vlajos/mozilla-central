@@ -19,6 +19,8 @@ bool CompositableHost::Update(const SurfaceDescriptor& aImage,
     *aResult = aImage;
     return false;
   }
+  MOZ_ASSERT(!GetTextureHost()->GetBuffer(),
+             "This path not suitable for texture-level double buffering.");
   GetTextureHost()->Update(aImage);
   *aResult = aImage;
   return GetTextureHost()->IsValid();
