@@ -108,6 +108,10 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         // happenning continuously, though.
       }
 
+      if (layer) {
+        RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
+      }
+      
       const SurfaceDescriptor& descriptor = op.image();
       textureParent->EnsureTextureHost(descriptor.type());
       MOZ_ASSERT(textureParent->GetTextureHost());
@@ -127,10 +131,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       }
 
       if (layer) {
-        RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
-
-        //TODO shouldn't there be something between RenderTraceInvalidateStart and End?
-
         RenderTraceInvalidateEnd(layer, "FF00FF");
       }
 
