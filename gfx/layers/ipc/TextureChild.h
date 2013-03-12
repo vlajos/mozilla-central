@@ -7,7 +7,6 @@
 #define MOZILLA_LAYERS_TEXTURECHILD_H
 
 #include "mozilla/layers/PTextureChild.h"
-#include "mozilla/layers/SurfaceDeallocatorIPC.h"
 #include "CompositableClient.h"
 
 namespace mozilla {
