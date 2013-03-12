@@ -13,7 +13,7 @@
 #include "nsAutoPtr.h"
 #include "nsRegion.h"
 #include "mozilla/layers/LayersTypes.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h"
+#include "mozilla/layers/CompositorTypes.h"
 #include "Layers.h"
 
 //#define GFX_COMPOSITOR_LOGGING

@@ -77,17 +77,16 @@ ImageClientTexture::ImageClientTexture(CompositableForwarder* aFwd,
                                        TextureFlags aFlags)
   : ImageClient(aFwd)
   , mFlags(aFlags)
-  , mType(TEXTURE_SHMEM)
-{
-}
+{}
 
 void
 ImageClientTexture::EnsureTextureClient(TextureClientType aType)
 {
-  if (mTextureClient && mType == aType) {
+  // We should not call this method if using ImageBridge or tiled texture
+  // clients since SupportsType always fails
+  if (mTextureClient && mTextureClient->SupportsType(aType)) {
     return;
   }
-  mType = aType;
   mTextureClient = CreateTextureClient(aType, mFlags);
 }
 
@@ -164,13 +163,6 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
   aContainer->NotifyPaintedImage(image);
   return true;
 }
-
-/*void
-ImageClientTexture::SetBuffer(const TextureInfo& aTextureInfo,
-                              const SurfaceDescriptor& aBuffer)
-{
-  mTextureClient->SetDescriptor(aBuffer);
-}*/
 
 void
 ImageClientTexture::Updated()

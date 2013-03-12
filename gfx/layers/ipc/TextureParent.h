@@ -7,7 +7,7 @@
 #define MOZILLA_LAYERS_TEXTUREPARENT_H
 
 #include "mozilla/layers/PTextureParent.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h"
+#include "mozilla/layers/CompositorTypes.h"
 #include "CompositableHost.h"
 
 namespace mozilla {

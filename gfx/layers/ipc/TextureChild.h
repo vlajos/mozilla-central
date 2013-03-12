@@ -20,7 +20,13 @@ class TextureChild : public PTextureChild
 public:
   TextureChild()
   : mTextureClient(nullptr)
-  {}
+  {
+    MOZ_COUNT_CTOR(TextureClient);
+  }
+  ~TextureChild()
+  {
+    MOZ_COUNT_DTOR(TextureClient);
+  }
 
   void SetClient(TextureClient* aTextureClient)
   {

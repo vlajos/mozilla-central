@@ -93,6 +93,7 @@ CompositableParent::CompositableParent(CompositableParentManager* aMgr,
 , mID(aID)
 , mCompositorID(0)
 {
+  MOZ_COUNT_CTOR(CompositableParent);
   mHost = CompositableHost::Create(aType);
   if (aID) {
     CompositableMap::Set(aID, this);
@@ -101,6 +102,7 @@ CompositableParent::CompositableParent(CompositableParentManager* aMgr,
 
 CompositableParent::~CompositableParent()
 {
+  MOZ_COUNT_DTOR(CompositableParent);
   CompositableMap::Erase(mID);
 }
 

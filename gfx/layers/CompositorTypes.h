@@ -3,8 +3,8 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_LAYERS_TEXTUREFACTORYIDENTIFIER_H
-#define MOZILLA_LAYERS_TEXTUREFACTORYIDENTIFIER_H
+#ifndef MOZILLA_LAYERS_COMPOSITORTYPES_H
+#define MOZILLA_LAYERS_COMPOSITORTYPES_H
 
 namespace mozilla {
 namespace layers {
@@ -44,7 +44,6 @@ struct TextureFactoryIdentifier
  * to the CompositableHost. How the identifier is used depends on the buffer
  * client/host pair.
  */
- //TODO(maybe) move this file out of /ipc
  // Wherever we move this, make sure it does not have any c++ dependency becasue IDPL code
  // depends on it. We don't want C++ code that depends on IPDL code that depends on
  // the same C++ code (it breaks build in non obvious ways).

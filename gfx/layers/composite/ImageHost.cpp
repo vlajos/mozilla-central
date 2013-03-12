@@ -6,7 +6,6 @@
 #include "ipc/AutoOpenSurface.h"
 #include "ImageHost.h"
 
-#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
 #include "LayersLogging.h"
 #include "nsPrintfCString.h"

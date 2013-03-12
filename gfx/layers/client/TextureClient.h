@@ -10,7 +10,7 @@
 #include "gfxASurface.h"
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/ShadowLayers.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "mozilla/layers/CompositorTypes.h" // for TextureInfo
 #include "GLContext.h"
 #include "gfxReusableSurfaceWrapper.h"
 
@@ -67,6 +67,8 @@ public:
   {
     return mTextureInfo;
   }
+
+  virtual bool SupportsType(TextureClientType aType) { return false; }
   
   /**
    * The Lock* methods lock the texture client for drawing into, providing some 
@@ -215,6 +217,10 @@ public:
   TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType);
   ~TextureClientShmem() { ReleaseResources(); }
 
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE
+  {
+    return aType == TEXTURE_SHMEM || aType == TEXTURE_CONTENT;
+  }
   virtual already_AddRefed<gfxContext> LockContext();
   virtual gfxImageSurface* LockImageSurface();
   virtual gfxASurface* LockSurface() { return GetSurface(); }
@@ -244,8 +250,8 @@ public:
   { }
   ~TextureClientShmemYCbCr() { ReleaseResources(); }
 
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_YCBCR; }
   void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
-
   virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual void ReleaseResources();
@@ -254,11 +260,11 @@ public:
 class TextureClientSharedGL : public TextureClient
 {
 public:
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
-
   TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
   ~TextureClientSharedGL() { ReleaseResources(); }
 
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_SHARED_GL; }
+  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
   virtual void ReleaseResources();
 
 protected:
@@ -276,6 +282,7 @@ public:
     : TextureClientSharedGL(aForwarder, aCompositableType)
   {}
 
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_SHARED_GL_EXTERNAL; }
   virtual void ReleaseResources() {}
 };
 
@@ -287,8 +294,8 @@ public:
   {}
   ~TextureClientStreamGL() { ReleaseResources(); }
   
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_STREAM_GL; }
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) { }
-
   virtual void ReleaseResources() { mDescriptor = SurfaceDescriptor(); }
 };
 
@@ -297,10 +304,10 @@ public:
 class TextureClientBridge : public TextureClient
 {
 public:
+  TextureClientBridge(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+
   // always ok
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
-
-  TextureClientBridge(CompositableForwarder* aForwarder, CompositableType aCompositableType);
 };
 
 class TextureClientTile : public TextureClient

@@ -12,7 +12,7 @@
 #include "gfx2DGlue.h"
 
 #include "mozilla/layers/Compositor.h"
-#include "mozilla/layers/TextureFactoryIdentifier.h" // for TextureInfo
+#include "mozilla/layers/CompositorTypes.h" // for TextureInfo
 #include "mozilla/layers/Effects.h"
 #include "CompositableHost.h"
 

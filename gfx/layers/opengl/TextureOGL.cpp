@@ -13,6 +13,7 @@
 #include "SharedSurface.h"
 #include "SharedSurfaceGL.h"
 #include "SharedSurfaceEGL.h"
+#include "mozilla/layers/CompositorOGL.h"
 
 using namespace mozilla::gl;
 
@@ -200,9 +201,6 @@ void
 SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                  nsIntRegion* aRegion)
 {
-  // Just retain a reference to the new image, rather than making a copy.
-  // This seems potentially bad, but it's what the existing code did.
-  //TODO maybe check this?
   SwapTexturesImpl(aImage, aRegion);
 }
 
@@ -222,7 +220,6 @@ SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
     mFlags |= NeedsYFlip;
   }
   mShareType = texture.shareType();
-
   mSharedHandle = newHandle;
 
   GLContext::SharedHandleDetails handleDetails;
@@ -231,7 +228,6 @@ SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
     mShaderProgram = handleDetails.mProgramType;
     mFormat = FormatFromShaderType(mShaderProgram);
   }
-
 }
  
 bool
@@ -558,7 +554,7 @@ void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 
 void
 GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                      nsIntRegion* aRegion)
+                                        nsIntRegion*)
 {
   android::sp<android::GraphicBuffer> buffer = GrallocBufferActor::GetFrom(aImage);
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc);
@@ -571,8 +567,6 @@ GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
     mGL->MakeCurrent();
     mGL->fGenTextures(1, &mGLTexture);
   }
-
-  (void) aRegion;
 }
 
 void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)
