@@ -220,8 +220,8 @@ public:
 
   virtual void Connect(CompositableClient* aCompositable) MOZ_OVERRIDE;
 
-  // TODO[nical] do we need to implement these? They are only used for
-  // thebes layers, also UpdateTextureRegion.
+  // at the moment we don't need to implement these. They are only used for
+  // thebes layers which don't support async updates.
   virtual void CreatedSingleBuffer(CompositableClient* aCompositable,
                                    TextureClient* aBuffer) MOZ_OVERRIDE {}
   virtual void CreatedDoubleBuffer(CompositableClient* aCompositable,
@@ -236,10 +236,8 @@ public:
   virtual void UpdateTexture(TextureClient* aTexture,
                              const SurfaceDescriptor& aImage) MOZ_OVERRIDE;
 
-  /**
-   * Communicate to the compositor that aRegion in the texture identified by aLayer
-   * and aIdentifier has been updated to aThebesBuffer.
-   */
+  // at the moment we don't need to implement this. Only used for
+  // thebes layers which don't support async updates.
   virtual void UpdateTextureRegion(CompositableClient* aCompositable,
                                    const ThebesBufferData& aThebesBufferData,
                                    const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE {}

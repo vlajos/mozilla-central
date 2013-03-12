@@ -6,7 +6,6 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/layers/ISurfaceAllocator.h"
-//#include "mozilla/layers/ImageContainerParent.h"
 #include "LayersLogging.h"
 #include "nsPrintfCString.h"
 
@@ -18,6 +17,7 @@ TextureHost::TextureHost()
   , mBuffer(nullptr)
   , mFormat(gfx::FORMAT_UNKNOWN)
   , mTextureParent(nullptr)
+  , mDeAllocator(nullptr)
 {
   MOZ_COUNT_CTOR(TextureHost);
 }
