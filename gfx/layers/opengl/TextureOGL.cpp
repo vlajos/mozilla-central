@@ -558,7 +558,7 @@ void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 
 void
 GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                      nsIntRegion* aRegion)
+                                        nsIntRegion*)
 {
   android::sp<android::GraphicBuffer> buffer = GrallocBufferActor::GetFrom(aImage);
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc);
@@ -571,8 +571,6 @@ GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
     mGL->MakeCurrent();
     mGL->fGenTextures(1, &mGLTexture);
   }
-
-  (void) aRegion;
 }
 
 void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)

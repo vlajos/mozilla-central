@@ -30,11 +30,13 @@ TextureClient::TextureClient(CompositableForwarder* aForwarder,
   : mForwarder(aForwarder)
   , mTextureChild(nullptr)
 {
+  MOZ_COUNT_CTOR(TextureClient);
   mTextureInfo.mCompositableType = aCompositableType;
 }
 
 TextureClient::~TextureClient()
 {
+  MOZ_COUNT_DTOR(TextureClient);
   MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::T__None, "Need to release surface!");
 }
 
