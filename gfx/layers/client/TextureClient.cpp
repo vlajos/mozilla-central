@@ -155,7 +155,7 @@ bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxPatte
   }
   mTextureClient->EnsureTextureClient(gfx::IntSize(size.width, size.height), contentType);
 
-  OpenMode mode = mTextureClient->GetAccessMode() == ACCESS_READ_WRITE
+  OpenMode mode = mTextureClient->GetAccessMode() == TextureClient::ACCESS_READ_WRITE
                   ? OPEN_READ_WRITE
                   : OPEN_READ_ONLY;
   nsRefPtr<gfxASurface> tmpASurface =
