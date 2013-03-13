@@ -69,18 +69,25 @@ public:
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   virtual gfxASurface* LockSurface();
+  virtual gfx::DrawTarget* LockDrawTarget();
   virtual void Unlock();
 
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor);
+    virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
+
 
 private:
   void EnsureSurface();
+  void EnsureDrawTarget();
   void LockTexture();
   void ReleaseTexture();
+  void ClearDT();
 
   RefPtr<ID3D10Texture2D> mTexture;
   nsRefPtr<gfxD2DSurface> mSurface;
+  RefPtr<gfx::DrawTarget> mDrawTarget;
   gfx::IntSize mSize;
+  bool mIsLocked;
   gfxContentType mContentType;
 };
 

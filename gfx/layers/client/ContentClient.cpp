@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/ContentClient.h"
+#include "mozilla/gfx/2d.h"
 #include "BasicThebesLayer.h"
 #include "BasicTiledThebesLayer.h"
 #include "nsIWidget.h"
@@ -56,6 +57,9 @@ static void DrawDebugOverlay(gfxASurface* imgSurf, int x, int y)
 #endif
 
 namespace mozilla {
+
+using namespace gfx;
+
 namespace layers {
 
 /* static */ TemporaryRef<ContentClient>
@@ -107,6 +111,31 @@ ContentClientBasic::CreateBuffer(ContentType aType,
     aType, gfxIntSize(aSize.width, aSize.height));
 }
 
+TemporaryRef<DrawTarget>
+ContentClientBasic::CreateDTBuffer(ContentType aType,
+                                 const nsIntSize& aSize,
+                                 uint32_t aFlags)
+{
+#if 0
+  nsRefPtr<gfxASurface> referenceSurface = GetBuffer();
+  if (!referenceSurface) {
+    gfxContext* defaultTarget = mManager->GetDefaultTarget();
+    if (defaultTarget) {
+      referenceSurface = defaultTarget->CurrentSurface();
+    } else {
+      nsIWidget* widget = mManager->GetRetainerWidget();
+      if (!widget || !(referenceSurface = widget->GetThebesSurface())) {
+        referenceSurface = mManager->GetTarget()->CurrentSurface();
+      }
+    }
+  }
+  return referenceSurface->CreateSimilarSurface(
+    aType, gfxIntSize(aSize.width, aSize.height));
+#endif
+  // TODO - Implement me!?
+  return nullptr;
+}
+
 void
 ContentClientRemote::DestroyBuffers()
 {
@@ -138,12 +167,40 @@ ContentClientRemote::EndPaint()
 {
   // More WOAH! We might still not have a texture client if PaintThebes
   // decided we didn't need one yet because the region to draw was empty.
+  SetTextureClientForBuffer(nullptr);
+  mOldTextures.Clear();
+
   if (mTextureClient) {
     mTextureClient->Unlock();
   }
+}
 
-  SetTextureClientForBuffer(nullptr);
-  mOldTextures.Clear();
+TemporaryRef<DrawTarget>
+ContentClientRemote::CreateDTBuffer(ContentType aType,
+                                    const nsIntSize& aSize,
+                                    uint32_t aFlags)
+{
+  NS_ABORT_IF_FALSE(!mIsNewBuffer,
+                    "Bad! Did we create a buffer twice without painting?");
+
+  mIsNewBuffer = true;
+
+  if (mTextureClient) {
+    mOldTextures.AppendElement(mTextureClient);
+    DestroyBuffers();
+  }
+  mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags | HostRelease);
+
+  mContentType = aType;
+  mSize = gfx::IntSize(aSize.width, aSize.height);
+  mTextureClient->EnsureTextureClient(mSize, mContentType);
+  // note that LockSurfaceDescriptor doesn't actually lock anything
+  MOZ_ASSERT(IsSurfaceDescriptorValid(*mTextureClient->LockSurfaceDescriptor()));
+
+  CreateFrontBufferAndNotify(aFlags | HostRelease);
+
+  RefPtr<DrawTarget> ret = mTextureClient->LockDrawTarget();
+  return ret.forget();
 }
 
 already_AddRefed<gfxASurface>
@@ -319,7 +376,12 @@ struct AutoTextureClient {
     mTexture = aTexture;
     return mTexture->LockSurface();
   }
-
+  DrawTarget* GetDrawTarget(TextureClient* aTexture)
+  {
+    MOZ_ASSERT(!mTexture);
+    mTexture = aTexture;
+    return mTexture->LockDrawTarget();
+  }
 private:
   TextureClient* mTexture;
 };
@@ -340,11 +402,19 @@ ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
                   mFrontUpdatedRegion.GetBounds().height));
 
   AutoTextureClient autoTextureFront;
-  RotatedBuffer frontBuffer(autoTextureFront.GetSurface(mFrontClient),
-                            mBufferRect,
-                            mBufferRotation);
-  UpdateDestinationFrom(frontBuffer,
-                        mFrontUpdatedRegion);
+  if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+    RotatedBuffer frontBuffer(autoTextureFront.GetDrawTarget(mFrontClient),
+                              mBufferRect,
+                              mBufferRotation);
+    UpdateDestinationFrom(frontBuffer,
+                          mFrontUpdatedRegion);
+  } else {
+    RotatedBuffer frontBuffer(autoTextureFront.GetSurface(mFrontClient),
+                              mBufferRect,
+                              mBufferRotation);
+    UpdateDestinationFrom(frontBuffer,
+                          mFrontUpdatedRegion);
+  }
 
   mIsNewBuffer = false;
   mFrontAndBackBufferDiffer = false;
@@ -361,7 +431,12 @@ ContentClientDoubleBuffered::UpdateDestinationFrom(const RotatedBuffer& aSource,
     gfxUtils::ClipToRegion(destCtx, aUpdateRegion);
   }
 
-  aSource.DrawBufferWithRotation(destCtx);
+  if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+    MOZ_ASSERT(!destCtx->IsCairo());
+    aSource.DrawBufferWithRotation(destCtx->GetDrawTarget());
+  } else {
+    aSource.DrawBufferWithRotation(destCtx);
+  }
 }
 
 ContentClientSingleBuffered::~ContentClientSingleBuffered()

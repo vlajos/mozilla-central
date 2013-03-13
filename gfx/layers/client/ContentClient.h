@@ -86,6 +86,9 @@ public:
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
                                                      uint32_t aFlags);
+  virtual TemporaryRef<gfx::DrawTarget>
+    CreateDTBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags);
+
   virtual CompositableType GetType() const MOZ_OVERRIDE
   {
     MOZ_ASSERT(false, "Should not be called on non-remote ContentClient");
@@ -150,6 +153,9 @@ public:
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
                                                      uint32_t aFlags);
+  virtual TemporaryRef<gfx::DrawTarget>
+    CreateDTBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags);
+
   void DestroyBuffers();
 
 protected:

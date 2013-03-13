@@ -17,6 +17,9 @@
 #include <algorithm>
 
 namespace mozilla {
+
+using namespace gfx;
+
 namespace layers {
 
 nsIntRect
@@ -107,6 +110,61 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   nsRefPtr<gfxASurface> surf = aTarget->CurrentSurface();
   surf->Flush();
 }
+ 
+/**
+ * @param aXSide LEFT means we draw from the left side of the buffer (which
+ * is drawn on the right side of mBufferRect). RIGHT means we draw from
+ * the right side of the buffer (which is drawn on the left side of
+ * mBufferRect).
+ * @param aYSide TOP means we draw from the top side of the buffer (which
+ * is drawn on the bottom side of mBufferRect). BOTTOM means we draw from
+ * the bottom side of the buffer (which is drawn on the top side of
+ * mBufferRect).
+ */
+void
+RotatedBuffer::DrawBufferQuadrant(gfx::DrawTarget* aTarget,
+                                  XSide aXSide, YSide aYSide,
+                                  float aOpacity,
+                                  gfx::SourceSurface* aMask,
+                                  const gfx::Matrix* aMaskTransform) const
+{
+  // The rectangle that we're going to fill. Basically we're going to
+  // render the buffer at mBufferRect + quadrantTranslation to get the
+  // pixels in the right place, but we're only going to paint within
+  // mBufferRect
+  nsIntRect quadrantRect = GetQuadrantRectangle(aXSide, aYSide);
+  nsIntRect fillRect;
+  if (!fillRect.IntersectRect(mBufferRect, quadrantRect))
+    return;
+
+  gfx::Point quadrantTranslation(quadrantRect.x, quadrantRect.y);
+
+  RefPtr<SourceSurface> snapshot = mDTBuffer->Snapshot();
+
+  Matrix mat = aTarget->GetTransform();
+
+  // Transform from user -> buffer space.
+  Matrix transform;
+  transform.Translate(-quadrantTranslation.x, -quadrantTranslation.y);
+
+#ifdef MOZ_GFX_OPTIMIZE_MOBILE
+  SurfacePattern source(snapshot, EXTEND_CLAMP, transform, FILTER_POINT);
+#else
+  SurfacePattern source(snapshot, EXTEND_CLAMP, transform);
+#endif
+
+  if (aMask) {
+    SurfacePattern mask(aMask, EXTEND_CLAMP, *aMaskTransform);
+
+    aTarget->Mask(source, mask, DrawOptions(aOpacity));
+  } else {
+    aTarget->FillRect(gfx::Rect(fillRect.x, fillRect.y,
+                                fillRect.width, fillRect.height),
+                      source, DrawOptions(aOpacity));
+  }
+
+  aTarget->Flush();
+}
 
 void
 RotatedBuffer::DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
@@ -116,6 +174,21 @@ RotatedBuffer::DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
   SAMPLE_LABEL("RotatedBuffer", "DrawBufferWithRotation");
   // Draw four quadrants. We could use REPEAT_, but it's probably better
   // not to, to be performance-safe.
+  DrawBufferQuadrant(aTarget, LEFT, TOP, aOpacity, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, RIGHT, TOP, aOpacity, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, LEFT, BOTTOM, aOpacity, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, RIGHT, BOTTOM, aOpacity, aMask, aMaskTransform);
+}
+
+void
+RotatedBuffer::DrawBufferWithRotation(gfx::DrawTarget *aTarget, float aOpacity,
+                                      gfx::SourceSurface* aMask,
+                                      const gfx::Matrix* aMaskTransform) const
+{
+  SAMPLE_LABEL("RotatedBuffer", "DrawBufferWithRotation");
+  // See above, in Azure Repeat should always be a safe, even faster choice
+  // though! Particularly on D2D Repeat should be a lot faster, need to look
+  // into that. TODO
   DrawBufferQuadrant(aTarget, LEFT, TOP, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, RIGHT, TOP, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, LEFT, BOTTOM, aOpacity, aMask, aMaskTransform);
@@ -138,32 +211,63 @@ ThebesLayerBuffer::DrawTo(ThebesLayer* aLayer,
                           gfxASurface* aMask,
                           const gfxMatrix* aMaskTransform)
 {
-  aTarget->Save();
-  // If the entire buffer is valid, we can just draw the whole thing,
-  // no need to clip. But we'll still clip if clipping is cheap ---
-  // that might let us copy a smaller region of the buffer.
-  // Also clip to the visible region if we're told to.
-  if (!aLayer->GetValidRegion().Contains(BufferRect()) ||
-      (ToData(aLayer)->GetClipToVisibleRegion() &&
-       !aLayer->GetVisibleRegion().Contains(BufferRect())) ||
-      IsClippingCheap(aTarget, aLayer->GetEffectiveVisibleRegion())) {
-    // We don't want to draw invalid stuff, so we need to clip. Might as
-    // well clip to the smallest area possible --- the visible region.
-    // Bug 599189 if there is a non-integer-translation transform in aTarget,
-    // we might sample pixels outside GetEffectiveVisibleRegion(), which is wrong
-    // and may cause gray lines.
-    gfxUtils::ClipToRegionSnapped(aTarget, aLayer->GetEffectiveVisibleRegion());
-  }
-
   EnsureBuffer();
-  DrawBufferWithRotation(aTarget, aOpacity, aMask, aMaskTransform);
-  aTarget->Restore();
+
+  if (aTarget->IsCairo()) {
+    aTarget->Save();
+    // If the entire buffer is valid, we can just draw the whole thing,
+    // no need to clip. But we'll still clip if clipping is cheap ---
+    // that might let us copy a smaller region of the buffer.
+    // Also clip to the visible region if we're told to.
+    if (!aLayer->GetValidRegion().Contains(BufferRect()) ||
+        (ToData(aLayer)->GetClipToVisibleRegion() &&
+         !aLayer->GetVisibleRegion().Contains(BufferRect())) ||
+        IsClippingCheap(aTarget, aLayer->GetEffectiveVisibleRegion())) {
+      // We don't want to draw invalid stuff, so we need to clip. Might as
+      // well clip to the smallest area possible --- the visible region.
+      // Bug 599189 if there is a non-integer-translation transform in aTarget,
+      // we might sample pixels outside GetEffectiveVisibleRegion(), which is wrong
+      // and may cause gray lines.
+      gfxUtils::ClipToRegionSnapped(aTarget, aLayer->GetEffectiveVisibleRegion());
+    }
+
+    DrawBufferWithRotation(aTarget, aOpacity, aMask, aMaskTransform);
+    aTarget->Restore();
+  } else {
+    RefPtr<DrawTarget> dt = aTarget->GetDrawTarget();
+
+    // If the entire buffer is valid, we can just draw the whole thing,
+    // no need to clip. But we'll still clip if clipping is cheap ---
+    // that might let us copy a smaller region of the buffer.
+    // Also clip to the visible region if we're told to.
+    if (!aLayer->GetValidRegion().Contains(BufferRect()) ||
+        (ToData(aLayer)->GetClipToVisibleRegion() &&
+         !aLayer->GetVisibleRegion().Contains(BufferRect())) ||
+        IsClippingCheap(aTarget, aLayer->GetEffectiveVisibleRegion())) {
+      // We don't want to draw invalid stuff, so we need to clip. Might as
+      // well clip to the smallest area possible --- the visible region.
+      // Bug 599189 if there is a non-integer-translation transform in aTarget,
+      // we might sample pixels outside GetEffectiveVisibleRegion(), which is wrong
+      // and may cause gray lines.
+      gfxUtils::ClipToRegionSnapped(dt, aLayer->GetEffectiveVisibleRegion());
+    }
+
+    DrawBufferWithRotation(aTarget, aOpacity, aMask, aMaskTransform);
+    aTarget->Restore();
+   }
 }
 
 already_AddRefed<gfxContext>
 ThebesLayerBuffer::GetContextForQuadrantUpdate(const nsIntRect& aBounds)
 {
-  nsRefPtr<gfxContext> ctx = new gfxContext(EnsureBuffer());
+  EnsureBuffer();
+
+  nsRefPtr<gfxContext> ctx;
+  if (mBuffer) {
+    ctx = new gfxContext(mBuffer);
+  } else {
+    ctx = new gfxContext(mDTBuffer);
+  }
 
   // Figure out which quadrant to draw in
   int32_t xBoundary = mBufferRect.XMost() - mBufferRotation.x;
@@ -186,6 +290,17 @@ ThebesLayerBuffer::BufferContentType()
     return mBufferProvider->ContentType();
   if (mTextureClientForBuffer)
     return mTextureClientForBuffer->GetContentType();
+  if (mDTBuffer) {
+    switch (mDTBuffer->GetFormat()) {
+    case FORMAT_A8:
+      return gfxASurface::CONTENT_ALPHA;
+    case FORMAT_B8G8R8A8:
+    case FORMAT_R8G8B8A8:
+      return gfxASurface::CONTENT_COLOR_ALPHA;
+    default:
+      return gfxASurface::CONTENT_COLOR;
+    }
+  }
   return gfxASurface::CONTENT_SENTINEL;
 }
 
@@ -197,7 +312,7 @@ ThebesLayerBuffer::BufferSizeOkFor(const nsIntSize& aSize)
            aSize < mBufferRect.Size()));
 }
 
-gfxASurface*
+void
 ThebesLayerBuffer::EnsureBuffer()
 {
   MOZ_ASSERT(!mBufferProvider || !mTextureClientForBuffer,
@@ -205,16 +320,19 @@ ThebesLayerBuffer::EnsureBuffer()
   if (!mBuffer && mBufferProvider) {
     mBuffer = mBufferProvider->Get();
   }
-  if (!mBuffer && mTextureClientForBuffer) {
-    mBuffer = mTextureClientForBuffer->LockSurface();
+  if ((!mBuffer && !mDTBuffer) && mTextureClientForBuffer) {
+    if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+      mDTBuffer = mTextureClientForBuffer->LockDrawTarget();
+    } else {
+      mBuffer = mTextureClientForBuffer->LockSurface();
+    }
   }
-  return mBuffer;
 }
 
 bool
 ThebesLayerBuffer::HaveBuffer()
 {
-  return mBuffer || mBufferProvider || mTextureClientForBuffer;
+  return mDTBuffer || mBuffer || mBufferProvider || mTextureClientForBuffer;
 }
 
 static void
@@ -248,6 +366,9 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   // We need to disable rotation if we're going to be resampled when
   // drawing, because we might sample across the rotation boundary.
   bool canHaveRotation = !(aFlags & (PAINT_WILL_RESAMPLE | PAINT_NO_ROTATION));
+  if (mDTBuffer) {
+    mDTBuffer->Flush();
+  }
 
   nsIntRegion validRegion = aLayer->GetValidRegion();
 
@@ -301,6 +422,10 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
 
     break;
   }
+  if (mDTBuffer) {
+    mDTBuffer->Flush();
+  }
+
 
   NS_ASSERTION(destBufferRect.Contains(neededRegion.GetBounds()),
                "Destination rect doesn't contain what we need to paint");
@@ -311,6 +436,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
 
   nsIntRect drawBounds = result.mRegionToDraw.GetBounds();
   nsRefPtr<gfxASurface> destBuffer;
+  RefPtr<DrawTarget> destDTBuffer;
   uint32_t bufferFlags = canHaveRotation ? ALLOW_REPEAT : 0;
   if (canReuseBuffer) {
     nsIntRect keepArea;
@@ -335,7 +461,14 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
         if (mBufferRotation == nsIntPoint(0,0)) {
           nsIntRect srcRect(nsIntPoint(0, 0), mBufferRect.Size());
           nsIntPoint dest = mBufferRect.TopLeft() - destBufferRect.TopLeft();
-          EnsureBuffer()->MovePixels(srcRect, dest);
+          if (mBuffer) {
+            mBuffer->MovePixels(srcRect, dest);
+          } else {
+            RefPtr<SourceSurface> source = mDTBuffer->Snapshot();
+            mDTBuffer->CopySurface(source,
+                                   IntRect(srcRect.x, srcRect.y, srcRect.width, srcRect.height),
+                                   IntPoint(dest.x, dest.y));
+          }
           result.mDidSelfCopy = true;
           // Don't set destBuffer; we special-case self-copies, and
           // just did the necessary work above.
@@ -344,8 +477,12 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
           // We can't do a real self-copy because the buffer is rotated.
           // So allocate a new buffer for the destination.
           destBufferRect = ComputeBufferRect(neededRegion.GetBounds());
-          destBuffer = CreateBuffer(contentType, destBufferRect.Size(), bufferFlags);
-          if (!destBuffer)
+          if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+            destDTBuffer = CreateDTBuffer(contentType, destBufferRect.Size(), bufferFlags);
+          } else {
+            destBuffer = CreateBuffer(contentType, destBufferRect.Size(), bufferFlags);
+          }
+          if (!destBuffer && !destDTBuffer)
             return result;
         }
       } else {
@@ -361,10 +498,18 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
     }
   } else {
     // The buffer's not big enough, so allocate a new one
-    destBuffer = CreateBuffer(contentType, destBufferRect.Size(), bufferFlags);
-    if (!destBuffer)
+    if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+      destDTBuffer = CreateDTBuffer(contentType, destBufferRect.Size(), bufferFlags);
+    } else {
+      destBuffer = CreateBuffer(contentType, destBufferRect.Size(), bufferFlags);
+    }
+    if (!destBuffer && !destDTBuffer)
       return result;
   }
+  if (mDTBuffer) {
+    mDTBuffer->Flush();
+  }
+
   NS_ASSERTION(!(aFlags & PAINT_WILL_RESAMPLE) || destBufferRect == neededRegion.GetBounds(),
                "If we're resampling, we need to validate the entire buffer");
 
@@ -373,23 +518,41 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   bool isClear = !HaveBuffer();
 
   if (destBuffer) {
-    if (HaveBuffer()) {
+    if (!isClear) {
       // Copy the bits
       nsRefPtr<gfxContext> tmpCtx = new gfxContext(destBuffer);
       nsIntPoint offset = -destBufferRect.TopLeft();
       tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
       tmpCtx->Translate(gfxPoint(offset.x, offset.y));
-      EnsureBuffer();
       DrawBufferWithRotation(tmpCtx, 1.0, nullptr, nullptr);
     }
 
     mBuffer = destBuffer.forget();
     mBufferRect = destBufferRect;
     mBufferRotation = nsIntPoint(0,0);
+  } else if (destDTBuffer) {
+    if (!isClear) {
+      // Copy the bits
+      nsIntPoint offset = -destBufferRect.TopLeft();
+      Matrix mat;
+      mat.Translate(offset.x, offset.y);
+      destDTBuffer->SetTransform(mat);
+      DrawBufferWithRotation(destDTBuffer, 1.0, nullptr, nullptr);
+      destDTBuffer->SetTransform(Matrix());
+      destDTBuffer->Flush();
+      mDTBuffer->Flush();
+    }
+
+    mDTBuffer = destDTBuffer.forget();
+    mBufferRect = destBufferRect;
+    mBufferRotation = nsIntPoint(0,0);
   }
   NS_ASSERTION(canHaveRotation || mBufferRotation == nsIntPoint(0,0),
                "Rotation disabled, but we have nonzero rotation?");
 
+  if (mDTBuffer) {
+    mDTBuffer->Flush();
+  }
   nsIntRegion invalidate;
   invalidate.Sub(aLayer->GetValidRegion(), destBufferRect);
   result.mRegionToInvalidate.Or(result.mRegionToInvalidate, invalidate);
@@ -398,6 +561,8 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
 
   gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
   if (contentType == gfxASurface::CONTENT_COLOR_ALPHA && !isClear) {
+    // TODO - this is potentially slow for D2D! In reality we can do this with
+    // a series of Azure ClearRects, I should make this so!
     result.mContext->SetOperator(gfxContext::OPERATOR_CLEAR);
     result.mContext->Paint();
     result.mContext->SetOperator(gfxContext::OPERATOR_OVER);

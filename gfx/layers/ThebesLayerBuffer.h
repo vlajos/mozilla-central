@@ -10,6 +10,7 @@
 #include "gfxASurface.h"
 #include "nsRegion.h"
 #include "mozilla/layers/TextureClient.h"
+#include "mozilla/gfx/2D.h"
 
 namespace mozilla {
 namespace layers {
@@ -42,11 +43,21 @@ public:
     , mBufferRect(aBufferRect)
     , mBufferRotation(aBufferRotation)
   { }
+  RotatedBuffer(gfx::DrawTarget* aDTBuffer, const nsIntRect& aBufferRect,
+                const nsIntPoint& aBufferRotation)
+    : mDTBuffer(aDTBuffer)
+    , mBufferRect(aBufferRect)
+    , mBufferRotation(aBufferRotation)
+  { }
   RotatedBuffer() { }
 
   void DrawBufferWithRotation(gfxContext* aTarget, float aOpacity = 1.0,
                               gfxASurface* aMask = nullptr,
                               const gfxMatrix* aMaskTransform = nullptr) const;
+
+  void DrawBufferWithRotation(gfx::DrawTarget* aTarget, float aOpacity = 1.0,
+                              gfx::SourceSurface* aMask = nullptr,
+                              const gfx::Matrix* aMaskTransform = nullptr) const;
 
   /**
    * |BufferRect()| is the rect of device pixels that this
@@ -75,8 +86,13 @@ protected:
                           float aOpacity,
                           gfxASurface* aMask,
                           const gfxMatrix* aMaskTransform) const;
+  void DrawBufferQuadrant(gfx::DrawTarget* aTarget, XSide aXSide, YSide aYSide,
+                          float aOpacity,
+                          gfx::SourceSurface* aMask,
+                          const gfx::Matrix* aMaskTransform) const;
 
   nsRefPtr<gfxASurface> mBuffer;
+  RefPtr<gfx::DrawTarget> mDTBuffer;
   /** The area of the ThebesLayer that is covered by the buffer as a whole */
   nsIntRect             mBufferRect;
   /**
@@ -131,6 +147,7 @@ public:
   void Clear()
   {
     mBuffer = nullptr;
+    mDTBuffer = nullptr;
     mBufferProvider = nullptr;
     mBufferRect.SetEmpty();
   }
@@ -188,6 +205,9 @@ public:
    */
   virtual already_AddRefed<gfxASurface>
   CreateBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags) = 0;
+  virtual TemporaryRef<gfx::DrawTarget>
+  CreateDTBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags)
+  { NS_RUNTIMEABORT("CreateDTBuffer not implemented on this platform!"); return nullptr; }
 
   /**
    * Get the underlying buffer, if any. This is useful because we can pass
@@ -248,10 +268,11 @@ protected:
     mTextureClientForBuffer = aClient;
     if (!mTextureClientForBuffer) {
       mBuffer = nullptr;
+      mDTBuffer = nullptr;
     } else {
       // Only this buffer provider can give us a buffer.  If we
       // already have one, something has gone wrong.
-      MOZ_ASSERT(!mBuffer);
+      MOZ_ASSERT(!mBuffer && !mDTBuffer);
     }
   }
 
@@ -275,9 +296,9 @@ protected:
   gfxASurface::gfxContentType BufferContentType();
   bool BufferSizeOkFor(const nsIntSize& aSize);
   /**
-   * If the buffer hasn't been mapped, map it and return it.
+   * If the buffer hasn't been mapped, map it.
    */
-  gfxASurface* EnsureBuffer();
+  void EnsureBuffer();
   /**
    * True if we have a buffer where we can get it (but not necessarily
    * mapped currently).

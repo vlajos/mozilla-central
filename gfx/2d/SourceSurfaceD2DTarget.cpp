@@ -98,6 +98,9 @@ SourceSurfaceD2DTarget::DrawTargetWillChange()
 
   D3D10_TEXTURE2D_DESC desc;
   mTexture->GetDesc(&desc);
+  // We don't want GDI compatibility or keyed mutex or anything of the likes
+  // here!
+  desc.MiscFlags = 0;
 
   // Get a copy of the surface data so the content at snapshot time was saved.
   Factory::GetDirect3D10Device()->CreateTexture2D(&desc, nullptr, byRef(mTexture));

@@ -78,7 +78,11 @@ public:
   // XXX[nical] these should be removed
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
+  virtual gfx::DrawTarget* LockDrawTarget() { return nullptr; }
   // XXX[nical] only this one should remain (and be called just "Lock")
+  // XXX[bas] then this one would probably not return a SurfaceDescriptor eh?
+  // or maybe this was before out discussion on IRC
+
   // note that this is often used simply as a getter for mDescriptor, not to
   // lock anything, that is  probably bad.
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
@@ -144,6 +148,8 @@ public:
     return mAccessMode;
   }
 
+  // TODO - Bas - Really? Do we want this to have a default? It spells trouble
+  // if you don't override it.
   virtual gfxASurface::gfxContentType GetContentType() { return gfxASurface::CONTENT_COLOR_ALPHA; }
 
 protected:

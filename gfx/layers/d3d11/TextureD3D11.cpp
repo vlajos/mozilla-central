@@ -61,6 +61,7 @@ CompositingRenderTargetD3D11::GetSize() const
 
 TextureClientD3D11::TextureClientD3D11(CompositableForwarder* aCompositableForwarder, CompositableType aCompositableType)
   : TextureClient(aCompositableForwarder, aCompositableType)
+  , mIsLocked(false)
 {
   mTextureInfo.mCompositableType = aCompositableType;
 }
@@ -68,6 +69,8 @@ TextureClientD3D11::TextureClientD3D11(CompositableForwarder* aCompositableForwa
 TextureClientD3D11::~TextureClientD3D11()
 {
   mDescriptor = SurfaceDescriptor();
+
+  ClearDT();
 }
 
 void
@@ -81,6 +84,7 @@ TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     if (desc.Width != aSize.width || desc.Height != aSize.height) {
       mTexture = nullptr;
       mSurface = nullptr;
+      ClearDT();
     }
 
     if (mTexture) {
@@ -126,8 +130,16 @@ TextureClientD3D11::LockSurface()
   EnsureSurface();
 
   LockTexture();
-  mSurface->SetAllowUseAsSource(true);
   return mSurface.get();
+}
+
+DrawTarget*
+TextureClientD3D11::LockDrawTarget()
+{
+  EnsureDrawTarget();
+
+  LockTexture();
+  return mDrawTarget.get();
 }
 
 void
@@ -135,7 +147,6 @@ TextureClientD3D11::Unlock()
 {
   // TODO - Things seem to believe they can hold on to our surface... well...
   // They shouldn't!!
-  mSurface->SetAllowUseAsSource(false);
   ReleaseTexture();
 }
 
@@ -149,6 +160,7 @@ TextureClientD3D11::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 
   mDescriptor = aDescriptor;
   mSurface = nullptr;
+  ClearDT();
 
   if (aDescriptor.type() == SurfaceDescriptor::T__None) {
     return;
@@ -175,21 +187,76 @@ TextureClientD3D11::EnsureSurface()
 }
 
 void
+TextureClientD3D11::EnsureDrawTarget()
+{
+  if (mDrawTarget) {
+    return;
+  }
+
+  LockTexture();
+
+  SurfaceFormat format;
+  switch (mContentType) {
+  case gfxASurface::CONTENT_ALPHA:
+    format = FORMAT_A8;
+    break;
+  case gfxASurface::CONTENT_COLOR:
+    format = FORMAT_B8G8R8X8;
+    break;
+  case gfxASurface::CONTENT_COLOR_ALPHA:
+    format = FORMAT_B8G8R8A8;
+    break;
+  default:
+    format = FORMAT_B8G8R8A8;
+  }
+
+  mDrawTarget = Factory::CreateDrawTargetForD3D10Texture(mTexture, format);
+  ReleaseTexture();
+}
+
+void
 TextureClientD3D11::LockTexture()
 {
   RefPtr<IDXGIKeyedMutex> mutex;
   mTexture->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
   mutex->AcquireSync(0, INFINITE);
+  mIsLocked = true;
 }
 
 void
 TextureClientD3D11::ReleaseTexture()
 {
+  // TODO - Bas - We seem to have places that unlock without ever having locked,
+  // that's kind of bad.
+  if (!mIsLocked) {
+    return;
+  }
+
+  if (mDrawTarget) {
+    mDrawTarget->Flush();
+  }
+
   RefPtr<IDXGIKeyedMutex> mutex;
   mTexture->QueryInterface((IDXGIKeyedMutex**)byRef(mutex));
 
   mutex->ReleaseSync(0);
+  mIsLocked = false;
+}
+
+void
+TextureClientD3D11::ClearDT()
+{
+  // An Azure DrawTarget needs to be locked when it gets NULL'ed as this is
+  // when it calls EndDraw. This EndDraw should not execute anything so it
+  // shouldn't -really- need the lock but the debug layer chokes on this.
+  //
+  // Perhaps this should be debug only.
+  if (mDrawTarget) {
+    LockTexture();
+    mDrawTarget = nullptr;
+    ReleaseTexture();
+  }
 }
 
 IntSize
