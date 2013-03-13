@@ -98,9 +98,8 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
   if (aSize != mSize ||
       aContentType != mContentType ||
       !IsSurfaceDescriptorValid(mDescriptor)) {
-    if (IsSurfaceDescriptorValid(mDescriptor)) {
-      mForwarder->DestroySharedSurface(&mDescriptor);
-    }
+    ReleaseResources();
+
     mContentType = aContentType;
     mSize = aSize;
 
@@ -114,9 +113,7 @@ void
 TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 {
   if (IsSurfaceDescriptorValid(aDescriptor)) {
-    if (IsSurfaceDescriptorValid(mDescriptor)) {
-      mForwarder->DestroySharedSurface(&mDescriptor);
-    }
+    ReleaseResources();
     mDescriptor = aDescriptor;
   } else {
     EnsureTextureClient(mSize, mContentType);
