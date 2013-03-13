@@ -27,6 +27,7 @@ class ShadowContainerLayer;
 class ShadowImageLayer;
 class ShadowCanvasLayer;
 class ShadowColorLayer;
+class CompositableHost;
 
 class THEBES_API LayerManagerComposite :
     public ShadowLayerManager

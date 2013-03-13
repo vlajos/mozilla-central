@@ -9,6 +9,9 @@
 namespace mozilla {
 namespace layers {
 
+typedef int32_t SurfaceDescriptorType;
+static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
+
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
 const TextureFlags UseNearestFilter   = 0x1;
@@ -19,6 +22,16 @@ const TextureFlags AllowRepeat        = 0x10;
 const TextureFlags NewTile            = 0x20;
 // The host is responsible for tidying up any shared resources
 const TextureFlags HostRelease        = 0x40;
+
+enum TextureClientType
+{
+  TEXTURE_CONTENT, // Texture source is dynamically drawn content
+  TEXTURE_SHMEM, // Texture source is shared memory
+  TEXTURE_YCBCR, // Texture source is a ShmemYCbCrImage
+  TEXTURE_SHARED_GL, // Texture source is an GLContext::SharedTextureHandle
+  TEXTURE_SHARED_GL_EXTERNAL, // Texture source is a GLContext::SharedTextureHandle and is owned by the caller
+  TEXTURE_STREAM_GL
+};
 
 enum CompositableType
 {
@@ -71,15 +84,6 @@ struct TextureInfo
   {}
 };
 
-enum TextureClientType
-{
-  TEXTURE_CONTENT, // Texture source is dynamically drawn content
-  TEXTURE_SHMEM, // Texture source is shared memory
-  TEXTURE_YCBCR, // Texture source is a ShmemYCbCrImage
-  TEXTURE_SHARED_GL, // Texture source is an GLContext::SharedTextureHandle
-  TEXTURE_SHARED_GL_EXTERNAL, // Texture source is a GLContext::SharedTextureHandle and is owned by the caller
-  TEXTURE_STREAM_GL // WebGL streaming buffer
-};
 
 } // namespace
 } // namespace

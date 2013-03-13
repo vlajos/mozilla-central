@@ -9,7 +9,6 @@
 
 #include "LayerManagerComposite.h"
 #include "gfxASurface.h"
-//#include "ImageHost.h"
 #if defined(MOZ_WIDGET_GTK2) && !defined(MOZ_PLATFORM_MAEMO)
 #include "mozilla/X11Util.h"
 #endif

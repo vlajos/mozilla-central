@@ -182,6 +182,7 @@ EXPORTS_mozilla/layers =\
         TaskThrottler.h \
         TextureChild.h \
         TextureClient.h \
+        TextureHost.h \
         TextureClientOGL.h \
         TextureHostOGL.h \
         TextureParent.h \
@@ -219,6 +220,7 @@ CPPSRCS += \
         TextureClientOGL.cpp \
         TextureHostOGL.cpp \
         TextureChild.cpp \
+        TextureHost.cpp \
         TextureParent.cpp \
         $(NULL)
 

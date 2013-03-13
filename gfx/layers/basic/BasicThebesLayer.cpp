@@ -74,6 +74,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   nsRefPtr<gfxASurface> targetSurface = aContext->CurrentSurface();
 
   if (!mContentClient) {
+    MOZ_ASSERT(!AsShadowableLayer(), "OMTC layers must have a content client by now");
     // we pass a null pointer for the Forwarder argument, which means
     // this will not have a ContentHost on the other side.
     mContentClient = new ContentClientBasic(nullptr, BasicManager());
@@ -224,22 +225,6 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   }
 }
 
-//TODO[nrc] just get rid of this
-struct AutoPaintClient {
-  AutoPaintClient(ContentClient* aContentClient)
-    : mContentClient(aContentClient)
-  {
-    mContentClient->BeginPaint();
-  }
-  ~AutoPaintClient()
-  {
-    mContentClient->EndPaint();
-  }
-
-private:
-  ContentClient* mContentClient;
-};
-
 BasicShadowableThebesLayer::~BasicShadowableThebesLayer()
 {
   MOZ_COUNT_DTOR(BasicShadowableThebesLayer);
@@ -274,8 +259,9 @@ BasicShadowableThebesLayer::PaintThebes(gfxContext* aContext,
 
   mValidRegion = mContentClient->ValidRegion();
   
-  AutoPaintClient autoPaint(mContentClient);
+  mContentClient->BeginPaint();
   BasicThebesLayer::PaintThebes(aContext, nullptr, aCallback, aCallbackData, aReadback);
+  mContentClient->EndPaint();
 }
 
 void

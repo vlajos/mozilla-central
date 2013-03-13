@@ -20,7 +20,7 @@ namespace gl {
 
 namespace layers {
 
-class TextureChild;
+class PTextureChild;
 class ContentClient;
 class PlanarYCbCrImage;
 class Image;
