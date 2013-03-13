@@ -94,17 +94,17 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
   switch (aTextureClientType) {
   case TEXTURE_SHARED_GL:
      if (parentBackend == LAYERS_OPENGL) {
-       result = new TextureClientSharedGL(GetForwarder(), GetType());
+       result = new TextureClientSharedOGL(GetForwarder(), GetType());
      }
      break;
   case TEXTURE_SHARED_GL_EXTERNAL:
      if (parentBackend == LAYERS_OPENGL) {
-       result = new TextureClientSharedGLExternal(GetForwarder(), GetType());
+       result = new TextureClientSharedOGLExternal(GetForwarder(), GetType());
      }
      break;
   case TEXTURE_STREAM_GL:
      if (parentBackend == LAYERS_OPENGL) {
-       result = new TextureClientStreamGL(GetForwarder(), GetType());
+       result = new TextureClientStreamOGL(GetForwarder(), GetType());
      }
      break;
   case TEXTURE_YCBCR:

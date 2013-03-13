@@ -63,16 +63,6 @@ const TextureFlags NewTile            = 0x20;
 // The host is responsible for tidying up any shared resources
 const TextureFlags HostRelease        = 0x40;
 
-enum TextureClientType
-{
-  TEXTURE_CONTENT, // Texture source is dynamically drawn content
-  TEXTURE_SHMEM, // Texture source is shared memory
-  TEXTURE_YCBCR, // Texture source is a ShmemYCbCrImage
-  TEXTURE_SHARED_GL, // Texture source is an GLContext::SharedTextureHandle
-  TEXTURE_SHARED_GL_EXTERNAL, // Texture source is a GLContext::SharedTextureHandle and is owned by the caller
-  TEXTURE_STREAM_GL // WebGL streaming buffer
-};
-
 /**
  * A view on a TextureHost where the texture is internally represented as tiles
  * (contrast with a tiled buffer, where each texture is a tile). For iteration by

@@ -8,8 +8,7 @@
 
 #include "mozilla/layers/LayersSurfaces.h"
 #include "gfxASurface.h"
-#include "mozilla/layers/Compositor.h"
-#include "mozilla/layers/ShadowLayers.h"
+//#include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/CompositorTypes.h" // for TextureInfo
 
 class gfxReusableSurfaceWrapper;
@@ -25,7 +24,9 @@ namespace layers {
 class TextureChild;
 class ContentClient;
 class PlanarYCbCrImage;
-
+class Image;
+class PTextureChild;
+class CompositableForwarder;
 
 /**
  * This class allows texture clients to draw into textures through Azure or

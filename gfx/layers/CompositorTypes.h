@@ -59,7 +59,17 @@ struct TextureInfo
     , mTextureFlags(0)
   {}
 };
-  
+
+enum TextureClientType
+{
+  TEXTURE_CONTENT, // Texture source is dynamically drawn content
+  TEXTURE_SHMEM, // Texture source is shared memory
+  TEXTURE_YCBCR, // Texture source is a ShmemYCbCrImage
+  TEXTURE_SHARED_GL, // Texture source is an GLContext::SharedTextureHandle
+  TEXTURE_SHARED_GL_EXTERNAL, // Texture source is a GLContext::SharedTextureHandle and is owned by the caller
+  TEXTURE_STREAM_GL // WebGL streaming buffer
+};
+
 } // namespace
 } // namespace
 

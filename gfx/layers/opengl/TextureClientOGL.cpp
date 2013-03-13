@@ -11,7 +11,7 @@ using namespace mozilla::gl;
 namespace mozilla {
 namespace layers {
 
-TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
+TextureClientSharedOGL::TextureClientSharedOGL(CompositableForwarder* aForwarder,
                                              CompositableType aCompositableType)
   : TextureClient(aForwarder, aCompositableType)
   , mGL(nullptr)
@@ -19,7 +19,7 @@ TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
 }
 
 void
-TextureClientSharedGL::ReleaseResources()
+TextureClientSharedOGL::ReleaseResources()
 {
   if (!IsSurfaceDescriptorValid(mDescriptor) ||
       mDescriptor.type() != SurfaceDescriptor::TSharedTextureDescriptor) {
@@ -32,7 +32,7 @@ TextureClientSharedGL::ReleaseResources()
 }
 
 void
-TextureClientSharedGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aContentType)
+TextureClientSharedOGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aContentType)
 {
   mSize = aSize;
 }

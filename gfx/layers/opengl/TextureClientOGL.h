@@ -7,15 +7,16 @@
 #define MOZILLA_GFX_TEXTURECLIENTOGL_H
 
 #include "mozilla/layers/TextureClient.h"
+#include "ISurfaceAllocator.h" // For IsSurfaceDescriptorValid
 
 namespace mozilla {
 namespace layers {
 
-class TextureClientSharedGL : public TextureClient
+class TextureClientSharedOGL : public TextureClient
 {
 public:
-  TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
-  ~TextureClientSharedGL() { ReleaseResources(); }
+  TextureClientSharedOGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+  ~TextureClientSharedOGL() { ReleaseResources(); }
 
   virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_SHARED_GL; }
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
@@ -29,24 +30,24 @@ protected:
 };
 
 // Doesn't own the surface descriptor, so we shouldn't delete it
-class TextureClientSharedGLExternal : public TextureClientSharedGL
+class TextureClientSharedOGLExternal : public TextureClientSharedOGL
 {
 public:
-  TextureClientSharedGLExternal(CompositableForwarder* aForwarder, CompositableType aCompositableType)
-    : TextureClientSharedGL(aForwarder, aCompositableType)
+  TextureClientSharedOGLExternal(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClientSharedOGL(aForwarder, aCompositableType)
   {}
 
   virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_SHARED_GL_EXTERNAL; }
   virtual void ReleaseResources() {}
 };
 
-class TextureClientStreamGL : public TextureClient
+class TextureClientStreamOGL : public TextureClient
 {
 public:
-  TextureClientStreamGL(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+  TextureClientStreamOGL(CompositableForwarder* aForwarder, CompositableType aCompositableType)
     : TextureClient(aForwarder, aCompositableType)
   {}
-  ~TextureClientStreamGL() { ReleaseResources(); }
+  ~TextureClientStreamOGL() { ReleaseResources(); }
   
   virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_STREAM_GL; }
   virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) { }
