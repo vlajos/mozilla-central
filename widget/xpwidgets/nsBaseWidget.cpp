@@ -124,7 +124,9 @@ nsBaseWidget::nsBaseWidget()
 static void DeferredDestroyCompositor(CompositorParent* aCompositorParent,
                               CompositorChild* aCompositorChild)
 {
-    aCompositorChild->Destroy();
+    // Bug 848949 needs to be fixed before
+    // we can close the channel properly
+    //aCompositorChild->Close();
     aCompositorParent->Release();
     aCompositorChild->Release();
 }
@@ -133,6 +135,7 @@ void nsBaseWidget::DestroyCompositor()
 {
   if (mCompositorChild) {
     mCompositorChild->SendWillStop();
+    mCompositorChild->Destroy();
 
     // The call just made to SendWillStop can result in IPC from the
     // CompositorParent to the CompositorChild (e.g. caused by the destruction
