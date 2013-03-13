@@ -67,13 +67,13 @@ CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
     return nullptr;
   }
   if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientDoubleBuffered(aForwarder);
+    return new ContentClientSingleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
     if (ShadowLayerManager::SupportsDirectTexturing()) {
       return new ContentClientDoubleBuffered(aForwarder);
     }
-    return new ContentClientDoubleBuffered(aForwarder);
+    return new ContentClientSingleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_TILED) {
     MOZ_NOT_REACHED("No CompositableClient for tiled layers");
