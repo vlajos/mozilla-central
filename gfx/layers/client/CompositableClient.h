@@ -8,12 +8,9 @@
 
 #include "mozilla/layers/PCompositableChild.h"
 #include "mozilla/layers/LayersTypes.h"
-#include "Compositor.h"
 
 namespace mozilla {
 namespace layers {
-
-typedef uint32_t TextureFlags; // See Layers.h
 
 class CompositableChild;
 class CompositableClient;

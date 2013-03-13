@@ -9,6 +9,17 @@
 namespace mozilla {
 namespace layers {
 
+typedef uint32_t TextureFlags;
+const TextureFlags NoFlags            = 0x0;
+const TextureFlags UseNearestFilter   = 0x1;
+const TextureFlags NeedsYFlip         = 0x2;
+const TextureFlags ForceSingleTile    = 0x4;
+const TextureFlags UseOpaqueSurface   = 0x8;
+const TextureFlags AllowRepeat        = 0x10;
+const TextureFlags NewTile            = 0x20;
+// The host is responsible for tidying up any shared resources
+const TextureFlags HostRelease        = 0x40;
+
 enum CompositableType
 {
   BUFFER_UNKNOWN,

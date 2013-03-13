@@ -8,7 +8,6 @@
 
 #include "mozilla/layers/LayersSurfaces.h"
 #include "gfxASurface.h"
-//#include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/CompositorTypes.h" // for TextureInfo
 
 class gfxReusableSurfaceWrapper;

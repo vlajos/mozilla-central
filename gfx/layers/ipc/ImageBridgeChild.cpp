@@ -5,22 +5,19 @@
 
 #include "base/thread.h"
 
-#include "CompositorParent.h"
+#include "CompositorParent.h" // for CompositorParent::CompositorLoop
 #include "ImageBridgeChild.h"
 #include "ImageBridgeParent.h"
-#include "ImageLayers.h"
 #include "gfxSharedImageSurface.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/ReentrantMonitor.h"
-#include "mozilla/layers/ShadowLayers.h"
+//#include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/TextureChild.h"
 #include "nsXULAppAPI.h"
-#include "Compositor.h"
-#include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/layers/ImageClient.h"
-#include "mozilla/layers/LayersTypes.h" // for MOZ_LAYERS_LOG
+#include "mozilla/layers/LayersTypes.h"
 
 using namespace base;
 using namespace mozilla::ipc;

@@ -41,6 +41,16 @@ bool InImageBridgeChildThread();
  * The ImageBridge protocol is meant to allow ImageContainers to forward images
  * directly to the compositor thread/process without using the main thread.
  *
+ * ImageBridgeChild is a CompositableForwarder just like ShadowLayerForwarder.
+ * This means it also does transactions with the compositor thread/process,
+ * except that the transactions are restricted to operations on the Compositables
+ * and cannot contain messages affecting layers directly.
+ *
+ * ImageBridgeChild is also a ISurfaceAllocator. It can be used to allocate or
+ * deallocate data that is shared with the compositor. The main differerence
+ * with other ISurfaceAllocators is that some of its overriden methods can be
+ * invoked from ant thread.
+ *
  * There are three important phases in the ImageBridge protocol. These three steps
  * can do different things depending if (A) the ImageContainer uses ImageBridge
  * or (B) it does not use ImageBridge:
@@ -58,25 +68,25 @@ bool InImageBridgeChildThread();
  * - During a Layer transaction:
  *   - (A) The ImageContainer uses ImageBridge. The image is already available to the
  *   compositor process because it has been sent with SetCurrentImage. Yet, the 
- *   ShadowImageLayer on the compositor side will needs the ID referring to the 
+ *   CompositableHost on the compositor side will needs the ID referring to the 
  *   ImageContainer to access the Image. So during the Swap operation that happens
  *   in the transaction, we swap the container ID rather than the image data.
  *   - (B) Since the ImageContainer does not use ImageBridge, the image data is swaped.
  *  
  * - During composition:
- *   - (A) The ShadowImageLayer has an ImageContainer ID, it looks up the ID in the 
+ *   - (A) The CompositableHost has an AsyncID, it looks up the ID in the 
  *   global table to see if there is an image. If there is no image, nothing is rendered.
- *   - (B) The shadowImageLayer has image data rather than an ID (meaning it is not
+ *   - (B) The CompositableHost has image data rather than an ID (meaning it is not
  *   using ImageBridge), then it just composites the image data normally.
  *
  * This means that there might be a possibility for the ImageBridge to send the first 
  * frame before the first layer transaction that will pass the container ID to the 
- * ShadowImageLayer happens. In this (unlikely) case the layer is not composited 
+ * CompositableHost happens. In this (unlikely) case the layer is not composited 
  * until the layer transaction happens. This means this scenario is not harmful.
  *
- * Since sending an image through imageBridge triggers compsiting, the main thread is
+ * Since sending an image through imageBridge triggers compositing, the main thread is
  * not used at all (except for the very first transaction that provides the 
- * ShadowImageLayer with an ImageContainer ID).
+ * CompositableHost with an AsyncID).
  */
 class ImageBridgeChild : public PImageBridgeChild
                        , public CompositableForwarder
@@ -265,6 +275,8 @@ public:
   /**
    * See ISurfaceAllocator.h
    * Can be used from any thread.
+   * If used outside the ImageBridgeChild thread, it will proxy a synchronous
+   * call on the ImageBridgeChild thread.
    */
   virtual bool AllocUnsafeShmem(size_t aSize,
                                 ipc::SharedMemory::SharedMemoryType aType,
@@ -272,6 +284,8 @@ public:
   /**
    * See ISurfaceAllocator.h
    * Can be used from any thread.
+   * If used outside the ImageBridgeChild thread, it will proxy a synchronous
+   * call on the ImageBridgeChild thread.
    */
   virtual bool AllocShmem(size_t aSize,
                           ipc::SharedMemory::SharedMemoryType aType,
@@ -279,6 +293,8 @@ public:
   /**
    * See ISurfaceAllocator.h
    * Can be used from any thread.
+   * If used outside the ImageBridgeChild thread, it will proxy a synchronous
+   * call on the ImageBridgeChild thread.
    */
   virtual void DeallocShmem(ipc::Shmem& aShmem);
 

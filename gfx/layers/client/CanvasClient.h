@@ -14,6 +14,7 @@ namespace mozilla {
 namespace layers {
 
 class BasicCanvasLayer;
+class TextureIdentifier;
 
 class CanvasClient : public CompositableClient
 {
