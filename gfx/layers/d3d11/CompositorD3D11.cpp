@@ -15,6 +15,10 @@
 #include "mozilla/layers/Effects.h"
 #include "nsWindowsHelpers.h"
 
+#ifdef MOZ_METRO
+#include <DXGI1_2.h>
+#endif
+
 namespace mozilla {
 
 using namespace gfx;
