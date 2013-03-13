@@ -540,7 +540,7 @@ BasicLayerManager::EndTransactionInternal(DrawThebesLayerCallback aCallback,
 
   if (aFlags & END_NO_COMPOSITE) {
     if (!mDummyTarget) {
-      // TODO: We should really just set mTarget to null and make sure we can handle that further down the call chain
+      // XXX: We should really just set mTarget to null and make sure we can handle that further down the call chain
       // Creating this temporary surface can be expensive on some platforms (d2d in particular), so cache it between paints.
       nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(gfxIntSize(1, 1), gfxASurface::CONTENT_COLOR);
       mDummyTarget = new gfxContext(surf);

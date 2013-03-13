@@ -163,7 +163,8 @@ class BasicShadowableImageLayer : public BasicImageLayer,
 public:
   BasicShadowableImageLayer(BasicShadowLayerManager* aManager) :
     BasicImageLayer(aManager),
-    mImageClient(nullptr)
+    mImageClient(nullptr),
+    mImageClientTypeContainer(BUFFER_UNKNOWN)
   {
     MOZ_COUNT_CTOR(BasicShadowableImageLayer);
   }
@@ -171,6 +172,12 @@ public:
   {
     DestroyBackBuffer();
     MOZ_COUNT_DTOR(BasicShadowableImageLayer);
+  }
+
+  virtual void SetContainer(ImageContainer* aContainer) MOZ_OVERRIDE
+  {
+    ImageLayer::SetContainer(aContainer);
+    mImageClientTypeContainer = BUFFER_UNKNOWN;
   }
 
   virtual void Paint(gfxContext* aContext, Layer* aMaskLayer);
@@ -188,21 +195,9 @@ public:
   virtual Layer* AsLayer() { return this; }
   virtual ShadowableLayer* AsShadowableLayer() { return this; }
 
-  // surely someone should call these at some point?
-  /*virtual void SetBackBuffer(const SurfaceDescriptor& aBuffer)
-  {
-    // only called for ImageBridge and then there is nothing to do
-  }
-
-  virtual void SetBackBuffer(const TextureInfo& aTextureInfo,
-                             const SurfaceDescriptor& aBuffer)
-  {
-    mImageClient->SetBuffer(aTextureInfo, aBuffer);
-  }*/
-
   virtual void Disconnect()
   {
-    mImageClient = nullptr;
+    DestroyBackBuffer();
     BasicShadowableLayer::Disconnect();
   }
 
@@ -223,19 +218,24 @@ private:
 
   CompositableType GetImageClientType()
   {
-    if (mContainer->IsAsync()) {
-      return BUFFER_BRIDGE;
+    if (mImageClientTypeContainer != BUFFER_UNKNOWN) {
+      return mImageClientTypeContainer;
     }
 
-    //TODO[nrc] this is nasty, we might wait on a monitor just to get the type
-    // we should cache it
+    if (mContainer->IsAsync()) {
+      mImageClientTypeContainer = BUFFER_BRIDGE;
+      return mImageClientTypeContainer;
+    }
+
     nsRefPtr<gfxASurface> surface;
     AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
 
-    return TextureClient::TypeForImage(autoLock.GetImage());
+    mImageClientTypeContainer = TextureClient::TypeForImage(autoLock.GetImage());
+    return mImageClientTypeContainer;
   }
 
-  RefPtr<ImageClient>  mImageClient;
+  RefPtr<ImageClient> mImageClient;
+  CompositableType mImageClientTypeContainer;
 };
 
 void
