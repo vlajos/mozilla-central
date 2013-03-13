@@ -217,7 +217,7 @@ CompositorD3D11::Initialize()
   dxgiDevice->GetAdapter(getter_AddRefs(dxgiAdapter));
 
 #ifdef MOZ_METRO
-  if (gfxWindowsPlatform::IsRunningInWindowsMetro()) {
+  if (gfxWindowsPlatform::IsRunningInWindows8Metro()) {
     nsRefPtr<IDXGIFactory2> dxgiFactory;
     dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory.StartAssignment()));
 
