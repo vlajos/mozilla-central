@@ -1759,6 +1759,7 @@ public:
   {
     MOZ_ASSERT(!mFirstChild && !mLastChild);
     MOZ_ASSERT(!aLayer->GetParent());
+    MOZ_ASSERT(aLayer->Manager() == Manager());
 
     mFirstChild = mLastChild = aLayer;
     aLayer->SetParent(this);
