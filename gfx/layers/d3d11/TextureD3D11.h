@@ -155,7 +155,7 @@ public:
 #endif
 
 protected:
-  virtual void SwapTexturesImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
 private:
   void LockTexture();
   void ReleaseTexture();

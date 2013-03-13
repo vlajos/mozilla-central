@@ -150,6 +150,10 @@ TextureClientD3D11::SetDescriptor(const SurfaceDescriptor& aDescriptor)
   mDescriptor = aDescriptor;
   mSurface = nullptr;
 
+  if (aDescriptor.type() == SurfaceDescriptor::T__None) {
+    return;
+  }
+
   MOZ_ASSERT(aDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
   ID3D10Device *device = gfxWindowsPlatform::GetPlatform()->GetD3D10Device();
 
@@ -327,7 +331,7 @@ TextureHostDXGID3D11::Unlock()
 }
 
 void
-TextureHostDXGID3D11::SwapTexturesImpl(const SurfaceDescriptor& aImage, nsIntRegion *aRegion)
+TextureHostDXGID3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
   
