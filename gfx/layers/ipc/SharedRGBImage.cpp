@@ -33,6 +33,7 @@ SharedRGBImage::~SharedRGBImage()
     DropToSurfaceDescriptor(desc);
     mSurfaceAllocator->DestroySharedSurface(&desc);
   }
+  delete mShmem;
 }
 
 already_AddRefed<SharedRGBImage>
@@ -138,6 +139,8 @@ SharedRGBImage::DropToSurfaceDescriptor(SurfaceDescriptor& aResult)
                      nsIntRect(0, 0, mSize.width, mSize.height),
                      mImageFormat,
                      0);
+  *mShmem = ipc::Shmem();
+  mAllocated = false;
   return true;
 }
 
