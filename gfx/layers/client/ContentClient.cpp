@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/ContentClient.h"
-#include "mozilla/gfx/2d.h"
+#include "mozilla/gfx/2D.h"
 #include "BasicThebesLayer.h"
 #include "BasicTiledThebesLayer.h"
 #include "nsIWidget.h"
