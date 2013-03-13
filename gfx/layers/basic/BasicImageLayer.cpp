@@ -9,6 +9,7 @@
 #include "gfxUtils.h"
 #include "gfxSharedImageSurface.h"
 #include "mozilla/layers/ImageClient.h"
+#include "mozilla/layers/TextureClient.h"
 #ifdef MOZ_X11
 #include "gfxXlibSurface.h"
 #endif
@@ -231,7 +232,7 @@ private:
     nsRefPtr<gfxASurface> surface;
     AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
 
-    return CompositingFactory::TypeForImage(autoLock.GetImage());
+    return TextureClient::TypeForImage(autoLock.GetImage());
   }
 
   RefPtr<ImageClient>  mImageClient;

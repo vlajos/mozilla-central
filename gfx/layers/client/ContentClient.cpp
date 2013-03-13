@@ -63,9 +63,9 @@ using namespace gfx;
 namespace layers {
 
 /* static */ TemporaryRef<ContentClient>
-CompositingFactory::CreateContentClient(LayersBackend aParentBackend,
-                                        CompositableType aCompositableHostType,
-                                        CompositableForwarder* aForwarder)
+ContentClient::CreateContentClient(LayersBackend aParentBackend,
+                                   CompositableType aCompositableHostType,
+                                   CompositableForwarder* aForwarder)
 {
   if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
     return nullptr;

@@ -26,6 +26,15 @@ using namespace mozilla::gl;
 namespace mozilla {
 namespace layers {
 
+/* static */ CompositableType
+TextureClient::TypeForImage(Image* aImage) {
+  if (!aImage) {
+    return BUFFER_UNKNOWN;
+  }
+
+  return BUFFER_IMAGE_SINGLE;
+}
+
 TextureClient::TextureClient(CompositableForwarder* aForwarder,
                              CompositableType aCompositableType)
   : mForwarder(aForwarder)
@@ -131,7 +140,7 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxPattern* pat)
 {
   nsRefPtr<gfxASurface> surface = pat->GetSurface();
-  CompositableType type = CompositingFactory::TypeForImage(aImage);
+  CompositableType type = TextureClient::TypeForImage(aImage);
   if (type != BUFFER_IMAGE_SINGLE) {
     return type == BUFFER_UNKNOWN;
   }
@@ -328,15 +337,6 @@ TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,
   NS_RUNTIMEABORT("not enough arguments to do this (need both Y and CbCr sizes)");
 }
 
-
-/* static */ CompositableType
-CompositingFactory::TypeForImage(Image* aImage) {
-  if (!aImage) {
-    return BUFFER_UNKNOWN;
-  }
-
-  return BUFFER_IMAGE_SINGLE;
-}
 
 TextureClientTile::TextureClientTile(const TextureClientTile& aOther)
 : TextureClient(mForwarder

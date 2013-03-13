@@ -491,10 +491,8 @@ ImageBridgeChild::CreateImageClientNow(CompositableType aType)
   mCompositorBackend = LAYERS_OPENGL;
 #endif
   RefPtr<ImageClient> client 
-    = CompositingFactory::CreateImageClient(mCompositorBackend,
-                                            aType,
-                                            this,
-                                            0);
+    = ImageClient::CreateImageClient(mCompositorBackend,
+                                     aType, this, 0);
   MOZ_ASSERT(client, "failed to create ImageClient");
   if (client) {
     client->Connect();

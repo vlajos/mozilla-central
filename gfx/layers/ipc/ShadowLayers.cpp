@@ -17,7 +17,6 @@
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/PLayersParent.h"
 #include "mozilla/layers/TextureChild.h"
-#include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/LayerTransaction.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "ShadowLayers.h"
@@ -522,9 +521,9 @@ ShadowLayerForwarder::CreateImageClientFor(const CompositableType& aCompositable
                                            ShadowableLayer* aLayer,
                                            TextureFlags aFlags)
 {
-  RefPtr<ImageClient> client = CompositingFactory::CreateImageClient(GetCompositorBackendType(),
-                                                                     aCompositableType,
-                                                                     this, aFlags);
+  RefPtr<ImageClient> client = ImageClient::CreateImageClient(GetCompositorBackendType(),
+                                                              aCompositableType,
+                                                              this, aFlags);
   if (aCompositableType == BUFFER_BRIDGE) {
     static_cast<ImageClientBridge*>(client.get())->SetLayer(aLayer);
   }
@@ -536,9 +535,9 @@ ShadowLayerForwarder::CreateCanvasClientFor(const CompositableType& aCompositabl
                                             ShadowableLayer* aLayer,
                                             TextureFlags aFlags)
 {
-  RefPtr<CanvasClient> client = CompositingFactory::CreateCanvasClient(GetCompositorBackendType(),
-                                                                       aCompositableType,
-                                                                       this, aFlags);
+  RefPtr<CanvasClient> client = CanvasClient::CreateCanvasClient(GetCompositorBackendType(),
+                                                                 aCompositableType,
+                                                                 this, aFlags);
   return client.forget();
 }
 
@@ -546,9 +545,9 @@ TemporaryRef<ContentClient>
 ShadowLayerForwarder::CreateContentClientFor(const CompositableType& aCompositableType,
                                              ShadowableLayer* aLayer)
 {
-  RefPtr<ContentClient> client = CompositingFactory::CreateContentClient(GetCompositorBackendType(),
-                                                                         aCompositableType,
-                                                                         this);
+  RefPtr<ContentClient> client = ContentClient::CreateContentClient(GetCompositorBackendType(),
+                                                                    aCompositableType,
+                                                                    this);
   return client.forget();
 }
 

@@ -18,10 +18,10 @@ namespace mozilla {
 namespace layers {
 
 /* static */ TemporaryRef<CanvasClient>
-CompositingFactory::CreateCanvasClient(LayersBackend aParentBackend,
-                                       CompositableType aCompositableHostType,
-                                       CompositableForwarder* aForwarder,
-                                       TextureFlags aFlags)
+CanvasClient::CreateCanvasClient(LayersBackend aParentBackend,
+                                 CompositableType aCompositableHostType,
+                                 CompositableForwarder* aForwarder,
+                                 TextureFlags aFlags)
 {
   if (aCompositableHostType == BUFFER_IMAGE_SINGLE) {
     return new CanvasClient2D(aForwarder, aFlags);

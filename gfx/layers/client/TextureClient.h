@@ -54,6 +54,8 @@ public:
   typedef gl::GLContext GLContext;
   typedef gl::TextureImage TextureImage;
 
+  static CompositableType TypeForImage(Image* aImage);
+
   virtual ~TextureClient();
 
   /* This will return an identifier that can be sent accross a process or

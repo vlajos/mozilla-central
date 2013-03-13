@@ -54,6 +54,9 @@ class BasicTiledLayerBuffer;
 class TextureClientShmem;
 class ContentClientRemote;
 class CompositableChild;
+class ImageClient;
+class CanvasClient;
+class ContentClient;
 
 enum OpenMode {
   OPEN_READ_ONLY,

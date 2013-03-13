@@ -210,49 +210,6 @@ protected:
   static LayersBackend sBackend;
 };
 
-class ImageClient;
-class CanvasClient;
-class ContentClient;
-class CompositableForwarder;
-
-class CompositingFactory
-{
-public:
-  /**
-   * The Create*Client methods each create, configure, and return a new compositable
-   * client. If necessary, a message will be sent to the compositor
-   * to create a corresponding compositable host.
-   *
-   * The implementations are in *Client.cpp.
-   */
-  static TemporaryRef<ImageClient> CreateImageClient(LayersBackend aBackendType,
-                                                     CompositableType aImageHostType,
-                                                     CompositableForwarder* aFwd,
-                                                     TextureFlags aFlags);
-  static TemporaryRef<CanvasClient> CreateCanvasClient(LayersBackend aBackendType,
-                                                       CompositableType aImageHostType,
-                                                       CompositableForwarder* aFwd,
-                                                       TextureFlags aFlags);
-  static TemporaryRef<ContentClient> CreateContentClient(LayersBackend aBackendType,
-                                                         CompositableType aImageHostType,
-                                                         CompositableForwarder* aFwd);
-
-  static CompositableType TypeForImage(Image* aImage);
-};
-
-/**
- * Create a new texture host to handle surfaces of aDescriptorType
- *
- * @param aDescriptorType The SurfaceDescriptor type being passed
- * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
- * @param aTextureFlags Flags to pass to the new TextureHost
- * @param aBuffered True if the texture will be buffered (and updated via SwapTextures), or false if it will be used
- * unbuffered (and updated using Update).
- * #@param aDeAllocator A surface deallocator..
- */
-TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
-                                            uint32_t aTextureHostFlags,
-                                            uint32_t aTextureFlags);
 
 }
 }

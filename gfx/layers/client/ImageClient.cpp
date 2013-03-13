@@ -21,10 +21,10 @@ namespace mozilla {
 namespace layers {
 
 /* static */ TemporaryRef<ImageClient>
-CompositingFactory::CreateImageClient(LayersBackend aParentBackend,
-                                      CompositableType aCompositableHostType,
-                                      CompositableForwarder* aForwarder,
-                                      TextureFlags aFlags)
+ImageClient::CreateImageClient(LayersBackend aParentBackend,
+                               CompositableType aCompositableHostType,
+                               CompositableForwarder* aForwarder,
+                               TextureFlags aFlags)
 {
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {

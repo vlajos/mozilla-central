@@ -19,6 +19,16 @@ class TextureIdentifier;
 class CanvasClient : public CompositableClient
 {
 public:
+  /**
+   * Creates, configures, and returns a new canvas client. If necessary, a
+   * message will be sent to the compositor to create a corresponding image
+   * host.
+   */
+  static TemporaryRef<CanvasClient> CreateCanvasClient(LayersBackend aBackendType,
+                                                       CompositableType aImageHostType,
+                                                       CompositableForwarder* aFwd,
+                                                       TextureFlags aFlags);
+
   CanvasClient(CompositableForwarder* aFwd, TextureFlags aFlags)
   : CompositableClient(aFwd), mFlags(aFlags)
   {}

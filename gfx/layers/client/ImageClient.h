@@ -30,6 +30,16 @@ class ImageClient : public CompositableClient,
                     public SharedImageFactory
 {
 public:
+  /**
+   * Creates, configures, and returns a new image client. If necessary, a
+   * message will be sent to the compositor to create a corresponding image
+   * host.
+   */
+  static TemporaryRef<ImageClient> CreateImageClient(LayersBackend aBackendType,
+                                                     CompositableType aImageHostType,
+                                                     CompositableForwarder* aFwd,
+                                                     TextureFlags aFlags);
+  
   ImageClient(CompositableForwarder* aFwd);
   virtual ~ImageClient() {}
 
