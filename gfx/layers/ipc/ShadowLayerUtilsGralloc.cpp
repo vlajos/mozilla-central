@@ -433,10 +433,6 @@ ShadowLayerForwarder::PlatformCloseDescriptor(const SurfaceDescriptor& aDescript
   }
 
   sp<GraphicBuffer> buffer = GrallocBufferActor::GetFrom(aDescriptor);
-  // If the buffer wasn't lock()d, this probably blows up.  But since
-  // PlatformCloseDescriptor() is private and only used by
-  // AutoOpenSurface, we want to know if the logic is wrong there.
-  // XXX FIXME [bjacob]: the above comment seems obsolete, the new gfx layers code calls PlatformCloseDescriptor.
   DebugOnly<status_t> status = buffer->unlock();
   // If we fail to unlock, we'll subsequently fail to lock and end up aborting anyway.
   MOZ_ASSERT(status == OK);

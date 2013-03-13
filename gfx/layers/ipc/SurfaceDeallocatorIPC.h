@@ -11,10 +11,11 @@ template<typename Self>
 class SurfaceDeallocator : public ISurfaceAllocator {
 public:
   Self* cast() { return static_cast<Self*>(this); }
-  void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE {
-    // FIXME [bjacob] this function is empty???
+  void DestroySharedSurface(gfxSharedImageSurface* aSurface) MOZ_OVERRIDE
+  {
+    // TODO[bjacob] this function is empty???
     //Self* self = static_cast<Self*>(this);
-    NS_RUNTIMEABORT("TODO: DestroySharedSurface(gfxSharedImageSurface*) not implemented"); 
+    NS_RUNTIMEABORT("DestroySharedSurface(gfxSharedImageSurface*) not implemented"); 
   }
   void DestroySharedSurface(SurfaceDescriptor* aSurface) MOZ_OVERRIDE {
     Self* self = cast();

@@ -45,11 +45,6 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
 {
   RefPtr<CompositableHost> result;
   switch (aType) {
-#if 0 // FIXME [bjacob] reenable that
-#ifdef MOZ_WIDGET_GONK
-  case BUFFER_DIRECT_EXTERNAL:
-#endif
-#endif
   case BUFFER_IMAGE_BUFFERED:
     result = new ImageHostBuffered(aCompositor, aType);
     return result;
