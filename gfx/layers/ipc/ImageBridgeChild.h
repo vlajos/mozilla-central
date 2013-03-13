@@ -230,15 +230,6 @@ public:
 
   virtual void Connect(CompositableClient* aCompositable) MOZ_OVERRIDE;
 
-  // at the moment we don't need to implement these. They are only used for
-  // thebes layers which don't support async updates.
-  virtual void CreatedSingleBuffer(CompositableClient* aCompositable,
-                                   TextureClient* aBuffer) MOZ_OVERRIDE {}
-  virtual void CreatedDoubleBuffer(CompositableClient* aCompositable,
-                                   TextureClient* aFront,
-                                   TextureClient* aBack) MOZ_OVERRIDE {}
-  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) MOZ_OVERRIDE {} 
-
   /**
    * Communicate to the compositor that the texture identified by aLayer
    * and aIdentifier has been updated to aImage.
@@ -246,27 +237,35 @@ public:
   virtual void UpdateTexture(TextureClient* aTexture,
                              const SurfaceDescriptor& aImage) MOZ_OVERRIDE;
 
-  // at the moment we don't need to implement this. Only used for
-  // thebes layers which don't support async updates.
-  virtual void UpdateTextureRegion(CompositableClient* aCompositable,
-                                   const ThebesBufferData& aThebesBufferData,
-                                   const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE {}
-
   /**
    * Communicate the picture rect of a YUV image in aLayer to the compositor
    */
   virtual void UpdatePictureRect(CompositableClient* aCompositable,
                                  const nsIntRect& aRect) MOZ_OVERRIDE;
 
-  /**
-   * not implemented.
-   * We may want to implement it if we ever need to transfer thebes buffers
-   * out of the main thread (without a ShadowLayerForwarder, that is). It is
-   * not the case at the moment.
-   */
+
+  // at the moment we don't need to implement these. They are only used for
+  // thebes layers which don't support async updates.
+  virtual void CreatedSingleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aBuffer) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("should not be called");
+  }
+  virtual void CreatedDoubleBuffer(CompositableClient* aCompositable,
+                                   TextureClient* aFront,
+                                   TextureClient* aBack) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("should not be called");
+  }
+  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("should not be called");
+  }
+  virtual void UpdateTextureRegion(CompositableClient* aCompositable,
+                                   const ThebesBufferData& aThebesBufferData,
+                                   const nsIntRegion& aUpdatedRegion) MOZ_OVERRIDE {
+    NS_RUNTIMEABORT("should not be called");
+  }
   virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) MOZ_OVERRIDE
   {
-    NS_RUNTIMEABORT("not implemented");
+    NS_RUNTIMEABORT("should not be called");
   }
 
 
