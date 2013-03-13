@@ -11,6 +11,59 @@
 namespace mozilla {
 namespace layers {
 
+// implemented in TextureOGL.cpp
+TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
+                                               uint32_t aTextureHostFlags,
+                                               uint32_t aTextureFlags);
+
+TemporaryRef<TextureHost> CreateTextureHostD3D9(SurfaceDescriptorType aDescriptorType,
+                                                uint32_t aTextureHostFlags,
+                                                uint32_t aTextureFlags)
+{
+  NS_RUNTIMEABORT("not implemented");
+  return nullptr;
+}
+
+#ifdef MOZ_ENABLE_D3D10_LAYER
+TemporaryRef<TextureHost> CreateTextureHostD3D10(SurfaceDescriptorType aDescriptorType,
+                                                 uint32_t aTextureHostFlags,
+                                                 uint32_t aTextureFlags)
+{
+  NS_RUNTIMEABORT("not implemented");
+  return nullptr;
+}
+
+// implemented in TextureD3D11.cpp
+TemporaryRef<TextureHost> CreateTextureHostD3D11(SurfaceDescriptorType aDescriptorType,
+                                                 uint32_t aTextureHostFlags,
+                                                 uint32_t aTextureFlags);
+#endif // MOZ_ENABLE_D3D10_LAYER
+
+/* static */ TemporaryRef<TextureHost> 
+TextureHost::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+                               uint32_t aTextureHostFlags,
+                               uint32_t aTextureFlags)
+{
+  switch (Compositor::GetBackend()) {
+    case LAYERS_OPENGL : return CreateTextureHostOGL(aDescriptorType,
+                                                     aTextureHostFlags,
+                                                     aTextureFlags);
+    case LAYERS_D3D9 : return CreateTextureHostD3D9(aDescriptorType,
+                                                    aTextureHostFlags,
+                                                    aTextureFlags);
+#ifdef MOZ_ENABLE_D3D10_LAYER
+    case LAYERS_D3D10 : return CreateTextureHostD3D10(aDescriptorType,
+                                                      aTextureHostFlags,
+                                                      aTextureFlags);
+    case LAYERS_D3D11 : return CreateTextureHostD3D11(aDescriptorType,
+                                                      aTextureHostFlags,
+                                                      aTextureFlags);
+#endif
+    default : return nullptr;
+  }
+}
+
+
 TextureHost::TextureHost()
   : mFlags(NoFlags)
   , mBuffer(nullptr)

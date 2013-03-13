@@ -130,6 +130,20 @@ public:
 class TextureHost : public TextureSource
 {
 public:
+  /**
+   * Create a new texture host to handle surfaces of aDescriptorType
+   *
+   * @param aDescriptorType The SurfaceDescriptor type being passed
+   * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
+   * @param aTextureFlags Flags to pass to the new TextureHost
+   * @param aBuffered True if the texture will be buffered (and updated via SwapTextures), or false if it will be used
+   * unbuffered (and updated using Update).
+   * #@param aDeAllocator A surface deallocator..
+   */
+  static TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
+		                                             uint32_t aTextureHostFlags,
+		                                             uint32_t aTextureFlags);
+
   TextureHost();
   virtual ~TextureHost();
 
