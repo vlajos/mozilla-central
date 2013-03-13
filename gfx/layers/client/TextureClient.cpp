@@ -119,7 +119,6 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
     }
     mDescriptor = aDescriptor;
   } else {
-    // TODO[nical] if this is happenning in a transaction reply is not a good thing
     EnsureTextureClient(mSize, mContentType);
   }
 
@@ -249,24 +248,6 @@ bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
   return true;
 }
 
-AutoLockHandleClient::AutoLockHandleClient(TextureClient* aClient,
-                                           gl::GLContext* aGL,
-                                           gfx::IntSize aSize,
-                                           gl::GLContext::SharedTextureShareType aFlags)
-: AutoLockTextureClient(aClient), mHandle(0)
-{
-  if (mDescriptor->type() == SurfaceDescriptor::TSharedTextureDescriptor) {
-    mHandle = mDescriptor->get_SharedTextureDescriptor().handle();
-  } else {
-    mHandle = aGL->CreateSharedHandle(aFlags);
-    *mDescriptor = SharedTextureDescriptor(aFlags,
-                                          mHandle,
-                                          nsIntSize(aSize.width,
-                                                    aSize.height),
-                                          false);
-  }
-}
-
 already_AddRefed<gfxContext>
 TextureClientShmem::LockContext()
 {
@@ -375,12 +356,6 @@ TextureClientSharedGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxC
   mSize = aSize;
 }
 
-TextureClientBridge::TextureClientBridge(CompositableForwarder* aForwarder,
-                                         CompositableType aCompositableType)
-  : TextureClient(aForwarder, aCompositableType)
-{
-}
-
 /* static */ CompositableType
 CompositingFactory::TypeForImage(Image* aImage) {
   if (!aImage) {
@@ -389,6 +364,23 @@ CompositingFactory::TypeForImage(Image* aImage) {
 
   return BUFFER_IMAGE_SINGLE;
 }
+
+TextureClientTile::TextureClientTile(const TextureClientTile& aOther)
+: TextureClient(mForwarder
+, mTextureInfo.mCompositableType)
+, mSurface(aOther.mSurface)
+{}
+
+TextureClientTile::~TextureClientTile()
+{}
+
+TextureClientTile::TextureClientTile(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+  : TextureClient(aForwarder, aCompositableType)
+  , mSurface(nullptr)
+{
+  mTextureInfo.mTextureHostFlags = TEXTURE_HOST_TILED;
+}
+
 
 void
 TextureClientTile::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)

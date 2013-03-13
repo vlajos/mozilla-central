@@ -16,8 +16,6 @@
 #include "mozilla/layers/CompositorTypes.h"
 #include "Layers.h"
 
-//#define GFX_COMPOSITOR_LOGGING
-
 class gfxContext;
 class gfxASurface;
 class gfxImageSurface;
@@ -25,7 +23,6 @@ class nsIWidget;
 class gfxReusableSurfaceWrapper;
 
 typedef int32_t SurfaceDescriptorType;
-static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
 
 namespace mozilla {
 namespace gfx {
@@ -73,7 +70,7 @@ enum TextureClientType
   TEXTURE_YCBCR, // Texture source is a ShmemYCbCrImage
   TEXTURE_SHARED_GL, // Texture source is an GLContext::SharedTextureHandle
   TEXTURE_SHARED_GL_EXTERNAL, // Texture source is a GLContext::SharedTextureHandle and is owned by the caller
-  TEXTURE_STREAM_GL
+  TEXTURE_STREAM_GL // WebGL streaming buffer
 };
 
 /**
@@ -383,10 +380,14 @@ public:
    */
   virtual void SetTargetContext(gfxContext *aTarget) = 0;
 
+  /**
+   * Make sure that the underlying rendering API selects the right current
+   * rendering context.
+   */
   virtual void MakeCurrent(bool aForce = false) = 0;
 
   /**
-   * modifies the TextureIdentifier if needed in a fallback situation for aId
+   * Modifies the TextureIdentifier if needed in a fallback situation for aId
    */
   virtual void FallbackTextureInfo(TextureInfo& aInfo) {}
 
@@ -462,7 +463,8 @@ public:
   // resotre the previous viewport and return its bounds
   virtual gfx::IntRect RestoreViewport() = 0;
 
-  /* Whether textures created by this compositor can receive partial updates.
+  /**
+   * Whether textures created by this compositor can receive partial updates.
    */
   virtual bool SupportsPartialTextureUpdate() = 0;
 
@@ -470,16 +472,22 @@ public:
   virtual const char* Name() const = 0;
 #endif // MOZ_DUMP_PAINTING
 
-  // these methods refer to the ID of the Compositor in terms of the Compositor
-  // IPDL protocol and CompositorParent
+
+  /**
+   * Each Compositor has a unique ID.
+   * This ID is used to keep references to each Compositor in a map accessed
+   * from the compositor thread only, so that async compositables can find
+   * the right compositor parent and schedule compositing even if the compositor
+   * changed.
+   */
+  uint32_t GetCompositorID() const
+  {
+    return mCompositorID;
+  }
   void SetCompositorID(uint32_t aID)
   {
     NS_ASSERTION(mCompositorID==0, "The compositor ID must be set only once.");
     mCompositorID = aID;
-  }
-  uint32_t GetCompositorID() const
-  {
-    return mCompositorID;
   }
 
   virtual void NotifyShadowTreeTransaction() = 0;
@@ -500,6 +508,11 @@ public:
     return nullptr;
   }
 
+  /**
+   * We enforce that there can only be one Compositor backend type off the main
+   * thread at the same time. The backend type in use can be checked with this
+   * static method.
+   */
   static LayersBackend GetBackend();
 protected:
   uint32_t mCompositorID;

@@ -10,12 +10,13 @@
 #include "gfxSharedImageSurface.h"
 #include "gfxPlatform.h"
 #include "gfxASurface.h"
-#include "prenv.h"
 #include "mozilla/layers/LayersSurfaces.h"
 #include "mozilla/layers/SharedPlanarYCbCrImage.h"
 #include "mozilla/layers/SharedRGBImage.h"
-#include "mozilla/ReentrantMonitor.h"
-#include "base/thread.h"
+
+#ifdef DEBUG
+#include "prenv.h"
+#endif
 
 using namespace mozilla::ipc;
 
@@ -98,9 +99,6 @@ ISurfaceAllocator::AllocSurfaceDescriptorWithCaps(const gfxIntSize& aSize,
 void
 ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
 {
-#ifdef GFX_COMPOSITOR_LOGGING
-  printf(" -- ISurfaceAllocator::DestroySharedSurface\n");
-#endif
   MOZ_ASSERT(aSurface);
   if (!aSurface) {
     return;
@@ -126,9 +124,6 @@ ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
       break;
     case SurfaceDescriptor::Tnull_t:
     case SurfaceDescriptor::T__None:
-#ifdef GFX_COMPOSITOR_LOGGING
-      printf("    DestroySharedSurface: empty surface\n");
-#endif
       break;
     default:
       NS_RUNTIMEABORT("surface type not implemented!");

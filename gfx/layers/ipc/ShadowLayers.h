@@ -306,27 +306,6 @@ public:
    *   buffer, and the double-buffer pair is gone.
    */
 
-  /**
-   * Shmem (gfxSharedImageSurface) buffers are available on all
-   * platforms, but they may not be optimal.
-   *
-   * In the absence of platform-specific buffers these fall back to
-   * Shmem/gfxSharedImageSurface.
-   */
-/*
-  virtual bool AllocBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           SurfaceDescriptor* aBuffer) MOZ_OVERRIDE;
-  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
-                                   gfxASurface::gfxContentType aContent,
-                                   uint32_t aCaps,
-                                   SurfaceDescriptor* aBuffer) MOZ_OVERRIDE;
-
-  virtual bool AllocateUnsafe(size_t aSize,
-                              ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) MOZ_OVERRIDE;
-
-*/
   // ISurfaceAllocator
   virtual bool AllocUnsafeShmem(size_t aSize,
                                 ipc::SharedMemory::SharedMemoryType aType,

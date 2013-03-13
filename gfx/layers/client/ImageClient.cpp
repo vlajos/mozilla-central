@@ -199,9 +199,6 @@ already_AddRefed<Image>
 ImageClient::CreateImage(const uint32_t *aFormats,
                          uint32_t aNumFormats)
 {
-#ifdef GFX_COMPOSITOR_LOGGING
-  printf("ImageClient::CreateImage\n");
-#endif
   nsRefPtr<Image> img;
   for (uint32_t i = 0; i < aNumFormats; i++) {
     switch (aFormats[i]) {

@@ -122,9 +122,6 @@ void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
     mTexture = nullptr;
     // if we have a buffer we reupload it with the new gl context
     if (newGL && mBuffer && IsSurfaceDescriptorValid(*mBuffer)) {
-#ifdef GFX_COMPOSITOR_LOGGING
-      printf("TextureImageTextureHostOGL: Reupload buffer\n");
-#endif
       UpdateImpl(*mBuffer);
     }
   }
@@ -358,9 +355,6 @@ SurfaceStreamHostOGL::Lock()
 void
 YCbCrTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
-#ifdef GFX_COMPOSITOR_LOGGING
-  printf("YCbCrTextureHostOGL::SetCompositor %p\n", aCompositor);
-#endif
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
   GLContext* newGL = glCompositor ? glCompositor->gl() : nullptr;
   if (mGL != newGL) {
@@ -370,9 +364,6 @@ YCbCrTextureHostOGL::SetCompositor(Compositor* aCompositor)
     mCrTexture->mTexImage = nullptr;
     // if we have a buffer we reupload it with the new gl context
     if (newGL && mBuffer && mBuffer->type() == SurfaceDescriptor::TYCbCrImage) {
-#ifdef GFX_COMPOSITOR_LOGGING
-      printf("YCbCrTetxureHostOGL: Reupload YCbCr buffer\n");
-#endif
       UpdateImpl(*mBuffer);
     }
   }
@@ -383,9 +374,6 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                 nsIntRegion* aRegion)
 {
   if (!mGL) {
-#ifdef GFX_COMPOSITOR_LOGGING
-    printf("trying to update a TextureHost without calling SetCompositor\n");
-#endif
     return;
   }
   NS_ASSERTION(aImage.type() == SurfaceDescriptor::TYCbCrImage, "SurfaceDescriptor mismatch");

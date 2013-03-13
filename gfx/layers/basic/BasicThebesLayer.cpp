@@ -74,7 +74,9 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   nsRefPtr<gfxASurface> targetSurface = aContext->CurrentSurface();
 
   if (!mContentClient) {
-    mContentClient = new ContentClientBasic(nullptr, BasicManager()); // TODO[nical] use a forwarder!
+    // we pass a null pointer for the Forwarder argument, which means
+    // this will not have a ContentHost on the other side.
+    mContentClient = new ContentClientBasic(nullptr, BasicManager());
   }
 
   nsTArray<ReadbackProcessor::Update> readbackUpdates;

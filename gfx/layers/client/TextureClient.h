@@ -11,8 +11,8 @@
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/CompositorTypes.h" // for TextureInfo
-#include "GLContext.h"
-#include "gfxReusableSurfaceWrapper.h"
+
+class gfxReusableSurfaceWrapper;
 
 namespace mozilla {
 
@@ -220,21 +220,6 @@ public:
   bool Update(Image* aImage, uint32_t aContentFlags, gfxPattern* pat);
 };
 
-/**
- * Writes a texture handle into a SurfaceDescriptor.
- */
-class AutoLockHandleClient : public AutoLockTextureClient
-{
-public:
-  AutoLockHandleClient(TextureClient* aClient,
-                       gl::GLContext* aGL,
-                       gfx::IntSize aSize,
-                       gl::GLContext::SharedTextureShareType aFlags);
-  gl::SharedTextureHandle GetHandle() { return mHandle; }
-protected:
-  gl::SharedTextureHandle mHandle;
-};
-
 class TextureClientShmem : public TextureClient
 {
 public:
@@ -323,26 +308,16 @@ public:
   virtual void ReleaseResources() { mDescriptor = SurfaceDescriptor(); }
 };
 
-// there is no corresponding texture host for ImageBridge clients
-// we only use the texture client to update the host
-class TextureClientBridge : public TextureClient
-{
-public:
-  TextureClientBridge(CompositableForwarder* aForwarder, CompositableType aCompositableType);
-
-  // always ok
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) {}
-};
-
 class TextureClientTile : public TextureClient
 {
 public:
-  TextureClientTile(const TextureClientTile& aOther)
-    : TextureClient(mForwarder, mTextureInfo.mCompositableType)
-    , mSurface(aOther.mSurface)
-  {}
+  TextureClientTile(const TextureClientTile& aOther);
+  TextureClientTile(CompositableForwarder* aForwarder,
+                    CompositableType aCompositableType);
+  ~TextureClientTile();
 
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
+  virtual void EnsureTextureClient(gfx::IntSize aSize,
+                                   gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
 
   virtual gfxImageSurface* LockImageSurface() MOZ_OVERRIDE;
 
@@ -356,12 +331,6 @@ public:
     MOZ_ASSERT(false, "Tiled texture clients don't use SurfaceDescriptors.");
   }
 
-  TextureClientTile(CompositableForwarder* aForwarder, CompositableType aCompositableType)
-    : TextureClient(aForwarder, aCompositableType)
-    , mSurface(nullptr)
-  {
-    mTextureInfo.mTextureHostFlags = TEXTURE_HOST_TILED;
-  }
 
   virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
 
