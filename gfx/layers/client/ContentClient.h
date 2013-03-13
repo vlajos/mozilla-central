@@ -122,9 +122,6 @@ public:
     , mIsNewBuffer(false)
     , mFrontAndBackBufferDiffer(false)
     , mContentType(gfxASurface::CONTENT_COLOR_ALPHA)
-#ifdef DEBUG
-    , mLockedForCompositor(false)
-#endif
   {}
 
   /**
@@ -166,10 +163,13 @@ protected:
                                        const nsIntRegion& aVisibleRegion,
                                        bool aDidSelfCopy);
 
-  // Create the back buffer for the ContentClient/Host pair if necessary
+  // Create the front buffer for the ContentClient/Host pair if necessary
   // and notify the compositor that we have created the buffer(s).
-  virtual void CreateBackBufferAndNotify(uint32_t aFlags) = 0;
-  virtual void DestroyBackBuffer() {}
+  virtual void CreateFrontBufferAndNotify(uint32_t aFlags) = 0;
+  virtual void DestroyFrontBuffer() {}
+  // We're about to hand off to the compositor, if you've got a back buffer,
+  // lock it now.
+  virtual void LockFrontBuffer() {}
 
   nsIntRegion mValidRegion;
   nsIntRect mBufferRect;
@@ -184,14 +184,6 @@ protected:
   bool mFrontAndBackBufferDiffer;
   gfx::IntSize mSize;
   ContentType mContentType;
-#ifdef DEBUG
-  // Between posting a message to the compositor that the TextureHost is
-  // ready and receiving the reply, the compositor may write to the
-  // texture, therefore we must not touch the TextureClient(s). This is
-  // a 'soft' lock, since locking is only enforced by our own good
-  // behaviour.
-  bool mLockedForCompositor;
-#endif
 };
 
 /**
@@ -225,8 +217,9 @@ public:
   virtual void SyncFrontBufferToBackBuffer() MOZ_OVERRIDE;
 
 protected:
-  virtual void CreateBackBufferAndNotify(uint32_t aFlags) MOZ_OVERRIDE;
-  virtual void DestroyBackBuffer() MOZ_OVERRIDE;
+  virtual void CreateFrontBufferAndNotify(uint32_t aFlags) MOZ_OVERRIDE;
+  virtual void DestroyFrontBuffer() MOZ_OVERRIDE;
+  virtual void LockFrontBuffer() MOZ_OVERRIDE;
 
 private:
   ContentClientDoubleBuffered(gfxASurface* aBuffer,
@@ -266,14 +259,10 @@ public:
     return BUFFER_CONTENT;
   }
 
-  virtual void Updated(const nsIntRegion& aRegionToDraw,
-                       const nsIntRegion& aVisibleRegion,
-                       bool aDidSelfCopy) MOZ_OVERRIDE;
-
   virtual void SyncFrontBufferToBackBuffer(); 
 
 protected:
-  virtual void CreateBackBufferAndNotify(uint32_t aFlags) MOZ_OVERRIDE;
+  virtual void CreateFrontBufferAndNotify(uint32_t aFlags) MOZ_OVERRIDE;
 };
 
 /**

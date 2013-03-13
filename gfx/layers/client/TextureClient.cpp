@@ -281,6 +281,7 @@ TextureClientShmem::GetSurface()
     if (!IsSurfaceDescriptorValid(mDescriptor)) {
       return nullptr;
     }
+    MOZ_ASSERT(mAccessMode == ACCESS_READ_WRITE || mAccessMode == ACCESS_READ_ONLY);
     OpenMode mode = mAccessMode == ACCESS_READ_WRITE
                     ? OPEN_READ_WRITE
                     : OPEN_READ_ONLY;

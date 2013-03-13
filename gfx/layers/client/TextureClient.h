@@ -75,7 +75,7 @@ public:
    * object that can be used for drawing to. Once the user is finished
    * with the object it should call Unlock.
    */
-  // XXX[nical] these will be removed
+  // XXX[nical] these should be removed
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   // XXX[nical] only this one should remain (and be called just "Lock")
@@ -127,18 +127,20 @@ public:
     mTextureInfo.mTextureFlags = aFlags;
   }
 
-  enum AccessMode {
+  enum AccessMode
+  {
+    ACCESS_NONE = 0x0,
     ACCESS_READ_ONLY  = 0x1,
     ACCESS_READ_WRITE = 0x2
   };
 
   void SetAccessMode(AccessMode aAccessMode)
   {
-    MOZ_ASSERT(aAccessMode == ACCESS_READ_ONLY || aAccessMode == ACCESS_READ_WRITE);
     mAccessMode = aAccessMode;
   }
 
-  AccessMode GetAccessMode() const {
+  AccessMode GetAccessMode() const
+  {
     return mAccessMode;
   }
 
