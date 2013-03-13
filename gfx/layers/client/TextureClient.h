@@ -266,48 +266,6 @@ public:
   virtual void ReleaseResources();
 };
 
-class TextureClientSharedGL : public TextureClient
-{
-public:
-  TextureClientSharedGL(CompositableForwarder* aForwarder, CompositableType aCompositableType);
-  ~TextureClientSharedGL() { ReleaseResources(); }
-
-  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_SHARED_GL; }
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
-  virtual void ReleaseResources();
-
-protected:
-  gl::GLContext* mGL;
-  gfx::IntSize mSize;
-
-  friend class CompositingFactory;
-};
-
-// Doesn't own the surface descriptor, so we shouldn't delete it
-class TextureClientSharedGLExternal : public TextureClientSharedGL
-{
-public:
-  TextureClientSharedGLExternal(CompositableForwarder* aForwarder, CompositableType aCompositableType)
-    : TextureClientSharedGL(aForwarder, aCompositableType)
-  {}
-
-  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_SHARED_GL_EXTERNAL; }
-  virtual void ReleaseResources() {}
-};
-
-class TextureClientStreamGL : public TextureClient
-{
-public:
-  TextureClientStreamGL(CompositableForwarder* aForwarder, CompositableType aCompositableType)
-    : TextureClient(aForwarder, aCompositableType)
-  {}
-  ~TextureClientStreamGL() { ReleaseResources(); }
-  
-  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_STREAM_GL; }
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) { }
-  virtual void ReleaseResources() { mDescriptor = SurfaceDescriptor(); }
-};
-
 class TextureClientTile : public TextureClient
 {
 public:

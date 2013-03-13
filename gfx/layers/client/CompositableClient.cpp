@@ -5,6 +5,7 @@
 
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/TextureClient.h"
+#include "mozilla/layers/TextureClientOGL.h"
 #include "mozilla/layers/TextureChild.h"
 #include "mozilla/layers/ShadowLayersChild.h"
 #include "mozilla/layers/CompositableForwarder.h"

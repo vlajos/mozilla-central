@@ -4,12 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/TextureClient.h"
+#include "mozilla/layers/TextureClientOGL.h"
+
 #include "mozilla/layers/ImageClient.h"
 #include "mozilla/layers/CanvasClient.h"
 #include "mozilla/layers/ContentClient.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/SharedPlanarYCbCrImage.h"
-#include "SharedTextureImage.h"
 #include "GLContext.h"
 #include "mozilla/layers/TextureChild.h"
 #include "BasicLayers.h" // for PaintContext
@@ -330,31 +331,6 @@ TextureClientShmemYCbCr::EnsureTextureClient(gfx::IntSize aSize,
   NS_RUNTIMEABORT("not enough arguments to do this (need both Y and CbCr sizes)");
 }
 
-TextureClientSharedGL::TextureClientSharedGL(CompositableForwarder* aForwarder,
-                                             CompositableType aCompositableType)
-  : TextureClient(aForwarder, aCompositableType)
-  , mGL(nullptr)
-{
-}
-
-void
-TextureClientSharedGL::ReleaseResources()
-{
-  if (!IsSurfaceDescriptorValid(mDescriptor) ||
-      mDescriptor.type() != SurfaceDescriptor::TSharedTextureDescriptor) {
-    return;
-  }
-  SharedTextureDescriptor handle = mDescriptor.get_SharedTextureDescriptor();
-  if (mGL && handle.handle()) {
-    mGL->ReleaseSharedHandle(handle.shareType(), handle.handle());
-  }
-}
-
-void
-TextureClientSharedGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aContentType)
-{
-  mSize = aSize;
-}
 
 /* static */ CompositableType
 CompositingFactory::TypeForImage(Image* aImage) {
@@ -380,7 +356,6 @@ TextureClientTile::TextureClientTile(CompositableForwarder* aForwarder, Composit
 {
   mTextureInfo.mTextureHostFlags = TEXTURE_HOST_TILED;
 }
-
 
 void
 TextureClientTile::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
