@@ -19,7 +19,7 @@ class ShadowLayersChild;
 class ImageBridgeChild;
 class ShadowableLayer;
 class CompositableForwarder;
-
+class CompositableChild;
 
 /**
  * CompositableClient manages the texture-specific logic for composite layers,
@@ -102,13 +102,7 @@ public:
    * layer. It is not used if the compositable is used with the regulat shadow
    * layer forwarder.
    */
-  uint64_t GetAsyncID() const
-  {
-    if (mCompositableChild) {
-      return mCompositableChild->GetAsyncID();
-    }
-    return 0; // zero is always an invalid async ID
-  }
+  uint64_t GetAsyncID() const;
 
 protected:
   CompositableChild* mCompositableChild;

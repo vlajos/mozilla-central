@@ -57,6 +57,16 @@ CompositableClient::Destroy()
   mCompositableChild = nullptr;
 }
 
+uint64_t
+CompositableClient::GetAsyncID() const
+{
+  if (mCompositableChild) {
+    return mCompositableChild->GetAsyncID();
+  }
+  return 0; // zero is always an invalid async ID
+}
+
+
 void
 CompositableChild::Destroy()
 {
