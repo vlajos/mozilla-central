@@ -12,6 +12,71 @@
 #include "Layers.h"
 #include "mozilla/layers/TextureHost.h"
 
+
+/**
+ * Different elements of a web pages are rendered into separate "layers" before
+ * they are flattened into the final image that is brought to the screen.
+ * See Layers.h for more informations about layers and why we use retained
+ * structures.
+ *
+ * The main interfaces involved in the compositing system are:
+ *  - Layer, ShadowableLayer and ShadowLayer
+ *    (see Layers.h)
+ *  - CompositableClient and CompositableHost
+ *    (CompositableClient.h CompositableHost.h)
+ *  - TextureClient and TextureHost
+ *    (TextureClient.h TextureHost.h)
+ *  - TextureSource
+ *  - Forwarders
+ *    (CompositableForwarder.h ShadowLayers.h)
+ *  - Compositor
+ *  - IPDL protocols
+ *    (.ipdl files under the gfx/layers/ipc directory)
+ *
+ * The *Client classes are always used in the content thread, just like the
+ * Shadowable* classes.
+ * The *Host and Shadow* classes are always used in the compositor threads.
+ *
+ * If off-main-thread compositing (OMTC) is enabled, compositing is performed
+ * into a dedicated thread. In some setups compositing even happens in a dedicated
+ * process (only in Firefox OS for now), so documentation may refer to either
+ * the compositor thread ot the compositor process alike.
+ *
+ * The following is only relevent to OMTC:
+ * The basic idea is that painted content is handed to ShadowableLayers on the
+ * content thread, which have to forward it to ShadowLayers on the compositor
+ * thread, where composition happens.
+ * Maintaining a shadow layer tree and transfering painted content is done in
+ * layer transactions and compositable transactions (See ShadowLayers.h and
+ * CompositableForwarder.h).
+ *
+ * A layer transaction maintains the shape of the shadow layer tree, and
+ * synchronize the texture data hel by compositables. Layer transactions
+ * are always between the content thread and the compositor thread.
+ * A Compositable transaction is a subset of a layer transaction with which only
+ * compositables and textures can be manipulated, and does not always originate
+ * from the content thread.
+ *
+ * Most layer classes own a Compositable plus some extra information like
+ * transforms and clip rects. They are platform independent.
+ * Compositable classes manipulate Texture objects and are reponsible for
+ * things like tiling, buffer rotation or double buffering. Compositables
+ * are also platform-independent. Examples of compositable classes are:
+ *  - ImageClient
+ *  - CanvasClient
+ *  - ContentHost
+ *  - etc.
+ * Texture classes (TextureClient and TextureHost) are thin abstractions over
+ * platform-dependent texture memory. They are maniplulated by compositables
+ * and don't know about buffer rotations and such. The purposes of TextureClient
+ * and TextureHost are to synchronize, serialize and deserialize texture data.
+ * TextureHosts provide access to TextureSources that are views on the
+ * Texture data providing the necessary api for Compositor backend to composite
+ * them.
+ * See below for more details about the Compositor interface.
+ *
+ */
+
 class gfxContext;
 class nsIWidget;
 

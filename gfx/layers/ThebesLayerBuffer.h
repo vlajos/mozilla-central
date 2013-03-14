@@ -149,6 +149,7 @@ public:
     mBuffer = nullptr;
     mDTBuffer = nullptr;
     mBufferProvider = nullptr;
+    mTextureClientForBuffer = nullptr;
     mBufferRect.SetEmpty();
   }
 

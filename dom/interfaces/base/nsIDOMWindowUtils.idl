@@ -41,7 +41,7 @@ interface nsIDOMClientRect;
 interface nsIURI;
 interface nsIDOMEventTarget;
 
-[scriptable, uuid(69b7d908-c8e4-4416-94cf-4fdbe7a80441)]
+[scriptable, uuid(4767db2a-291d-41d4-b5c8-4d6588a1f052)]
 interface nsIDOMWindowUtils : nsISupports {
 
   /**
@@ -1062,6 +1062,13 @@ interface nsIDOMWindowUtils : nsISupports {
    * error if there is no widget associated with this window.
    */
   readonly attribute AString layerManagerType;
+  
+  /**
+   * True if the layer manager for the widget associated with this window is
+   * forwarding layers to a remote compositor, false otherwise. Throws an
+   * error if there is no widget associated with this window.
+   */
+  readonly attribute boolean layerManagerRemote;
 
   /**
    * Record (and return) frame-intervals and paint-times for frames which were presented
