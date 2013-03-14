@@ -12,6 +12,7 @@ namespace layers {
 typedef int32_t SurfaceDescriptorType;
 static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
 
+// flags used by texture clients and texture hosts
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
 const TextureFlags UseNearestFilter   = 0x1;
@@ -19,42 +20,62 @@ const TextureFlags NeedsYFlip         = 0x2;
 const TextureFlags ForceSingleTile    = 0x4;
 const TextureFlags UseOpaqueSurface   = 0x8;
 const TextureFlags AllowRepeat        = 0x10;
+// the texture represents a tile which is newly created
 const TextureFlags NewTile            = 0x20;
 // The host is responsible for tidying up any shared resources
 const TextureFlags HostRelease        = 0x40;
 
+/**
+ * The kind of memory held by the texture client/host pair. This will
+ * determine how the texture client is drawn into and how the memory
+ * is shared between client and host.
+ */
 enum TextureClientType
 {
-  TEXTURE_CONTENT, // Texture source is dynamically drawn content
-  TEXTURE_SHMEM, // Texture source is shared memory
-  TEXTURE_YCBCR, // Texture source is a ShmemYCbCrImage
-  TEXTURE_SHARED_GL, // Texture source is an GLContext::SharedTextureHandle
-  TEXTURE_SHARED_GL_EXTERNAL, // Texture source is a GLContext::SharedTextureHandle and is owned by the caller
-  TEXTURE_STREAM_GL
-};
-
-enum CompositableType
-{
-  BUFFER_UNKNOWN,
-  BUFFER_IMAGE_SINGLE,  // image/canvas host with one texture
-  BUFFER_IMAGE_BUFFERED,  // image/canvas host with buffering
-  BUFFER_BRIDGE,  // image bridge protocol image layers
-  BUFFER_CONTENT, // thebes layer interface (unbuffered)
-  BUFFER_CONTENT_DIRECT,  // thebes layer interface with direct texturing (buffered)
-  BUFFER_TILED  // tiled thebes layer interface
-};
-
-enum TextureHostFlags
-{
-  TEXTURE_HOST_DEFAULT = 0,       // The default texture host for the given SurfaceDescriptor should be created
-  TEXTURE_HOST_TILED = 1 << 0,    // A texture host that supports tiling should be created
-  TEXTURE_HOST_DIRECT = 1 << 1    // The texture host should attempt to use the SurfaceDescriptor for direct texturing
+  TEXTURE_CONTENT,            // dynamically drawn content
+  TEXTURE_SHMEM,              // shared memory
+  TEXTURE_YCBCR,              // ShmemYCbCrImage
+  TEXTURE_SHARED_GL,          // GLContext::SharedTextureHandle
+  TEXTURE_SHARED_GL_EXTERNAL, // GLContext::SharedTextureHandle, owned by the caller
+  TEXTURE_STREAM_GL           // WebGL streaming buffer
 };
 
 /**
- * Sent from the compositor to the drawing LayerManager, includes properties
- * of the compositor and should (in the future) include information (CompositableType)
- * about what kinds of buffer and texture clients to create.
+ * Compositbales have four kinds of interface - image and canvas layers pass
+ * a SurfaceDescriptor from content to compositor threads and do not maintain
+ * a valid region. Thebes layers keep a valid region to reduce the amount of
+ * painting and compositing. Both the client and host keep a reference to the
+ * SurfaceDescriptor. The SurfaceDescriptor (and the underlying surface) is
+ * created by the content thread and passed on creation to the compositing
+ * thread. Logical ownership is transferred at this point. Image bridge is the
+ * protocol used for async upload of images (for async video). Tiled layers 
+ * have their own, raw memory system.
+ */
+enum CompositableType
+{
+  BUFFER_UNKNOWN,
+  BUFFER_IMAGE_SINGLE,    // image/canvas host with a single texture, single buffered
+  BUFFER_IMAGE_BUFFERED,  // image/canvas host, double buffered
+  BUFFER_BRIDGE,          // image bridge protocol
+  BUFFER_CONTENT,         // thebes layer interface, single buffering
+  BUFFER_CONTENT_DIRECT,  // thebes layer interface, double buffering
+  BUFFER_TILED            // tiled thebes layer
+};
+
+/**
+ * How the texture host is used for composition,
+ */
+enum TextureHostFlags
+{
+  TEXTURE_HOST_DEFAULT = 0,       // The default texture host for the given SurfaceDescriptor
+  TEXTURE_HOST_TILED = 1 << 0,    // A texture host that supports tiling
+  TEXTURE_HOST_DIRECT = 1 << 1    // Direct texturing
+};
+
+/**
+ * Sent from the compositor to the content-side LayerManager, includes properties
+ * of the compositor and should (in the future) include information about what
+ * kinds of buffer and texture clients to create.
  */
 struct TextureFactoryIdentifier
 {
@@ -63,14 +84,9 @@ struct TextureFactoryIdentifier
 };
 
 /**
- * Identifies a texture client/host pair and their type. Sent with updates
- * from a drawing layers to a compositing layer, it should be passed directly
- * to the CompositableHost. How the identifier is used depends on the buffer
- * client/host pair.
+ * Information required by the compositor from the content-side for creating or
+ * using compositables and textures.
  */
- // Wherever we move this, make sure it does not have any c++ dependency becasue IDPL code
- // depends on it. We don't want C++ code that depends on IPDL code that depends on
- // the same C++ code (it breaks build in non obvious ways).
 struct TextureInfo
 {
   CompositableType mCompositableType;
