@@ -16,6 +16,8 @@
 namespace mozilla {
 namespace layers {
 
+// Canvas layers use ImageHosts (but CanvasClients) because compositing a
+// canvas is identical to compositing an image.
 class ImageHost;
 
 // NB: eventually we'll have separate shadow canvas2d and shadow

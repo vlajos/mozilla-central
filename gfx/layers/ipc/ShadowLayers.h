@@ -469,7 +469,8 @@ public:
     mCompositor->SetCompositorID(aID);
   }
 
-  Compositor* GetCompositor() const {
+  Compositor* GetCompositor() const
+  {
     return mCompositor;
   }
 
@@ -607,13 +608,6 @@ public:
        OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion) {
     NS_RUNTIMEABORT("should not use layer swap");
   };
-
-  /**
-   * CONSTRUCTION PHASE ONLY
-   *
-   * Destroy the current front buffer.
-   */
-  virtual void DestroyFrontBuffer() = 0;
 
   virtual ShadowLayer* AsShadowLayer() { return this; }
 

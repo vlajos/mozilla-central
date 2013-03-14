@@ -166,15 +166,9 @@ ThebesLayerComposite::GetCompositableHost() {
 }
 
 void
-ThebesLayerComposite::DestroyFrontBuffer()
-{
-  mBuffer = nullptr;
-}
-
-void
 ThebesLayerComposite::CleanupResources()
 {
-  DestroyFrontBuffer();
+  mBuffer = nullptr;
 }
 
 gfxSize

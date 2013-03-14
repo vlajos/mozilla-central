@@ -29,8 +29,25 @@ class ShadowCanvasLayer;
 class ShadowColorLayer;
 class CompositableHost;
 
-class THEBES_API LayerManagerComposite :
-    public ShadowLayerManager
+/**
+ * Composite layers are for use with OMTC on the compositor thread only. There
+ * must be corresponding Basic layers on the content thread. For composite
+ * layers, the layer manager only maintains the layer tree, all rendering is
+ * done by a Compositor (see Compositor.h). As such, composite layers are
+ * platform-independent and can be used on any platform for which there is a
+ * Compositor implementation.
+ *
+ * The composite layer tree reflects exactly the basic layer tree. To
+ * composite to screen, the layer manager walks the layer tree calling render
+ * methods which in turn call into their CompositableHosts' Composite methods.
+ * These call Compositor::DrawQuad to do the rendering.
+ *
+ * Mostly, layers are updated during the layers transaction. This is done from
+ * CompositableClient to CompositableHost without interacting with the layer.
+ *
+ * mCompositor is stored in ShadowLayerManager.
+ */
+class THEBES_API LayerManagerComposite : public ShadowLayerManager
 {
 public:
   LayerManagerComposite(Compositor* aCompositor);
@@ -45,8 +62,6 @@ public:
    * return True if initialization was succesful, false when it was not.
    */
   bool Initialize();
-
-  Compositor* GetCompositor() const { return mCompositor; }
 
   /**
    * Sets the clipping region for this layer manager. This is important on 
@@ -73,7 +88,6 @@ public:
   void UpdateRenderBounds(const nsIntRect& aRect);
 
   void BeginTransaction();
-
   void BeginTransactionWithTarget(gfxContext* aTarget);
 
   void EndConstruction();
@@ -105,15 +119,10 @@ public:
   }
 
   virtual already_AddRefed<ThebesLayer> CreateThebesLayer();
-
   virtual already_AddRefed<ContainerLayer> CreateContainerLayer();
-
   virtual already_AddRefed<ImageLayer> CreateImageLayer();
-
   virtual already_AddRefed<ColorLayer> CreateColorLayer();
-
   virtual already_AddRefed<CanvasLayer> CreateCanvasLayer();
-
   virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
   virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
   virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer();
@@ -128,7 +137,7 @@ public:
   }
   virtual void GetBackendName(nsAString& name)
   {
-    NS_ERROR("Shouldn't be called for composited layer manager");
+    MOZ_ASSERT(false, "Shouldn't be called for composited layer manager");
     name.AssignLiteral("Composite");
   }
 
@@ -188,7 +197,10 @@ public:
                             bool aIs3D = false);
 
   bool CompositingDisabled() { return mCompositingDisabled; }
-  void SetCompositingDisabled(bool aCompositingDisabled) { mCompositingDisabled = aCompositingDisabled; }
+  void SetCompositingDisabled(bool aCompositingDisabled)
+  {
+    mCompositingDisabled = aCompositingDisabled;
+  }
 
   /**
    * Creates a DrawTarget which is optimized for inter-operating with this
@@ -198,7 +210,8 @@ public:
     CreateDrawTarget(const mozilla::gfx::IntSize &aSize,
                      mozilla::gfx::SurfaceFormat aFormat);
 
-  nsIntSize* GetWidgetSize() {
+  nsIntSize* GetWidgetSize()
+  {
     return mCompositor->GetWidgetSize();
   }
 
@@ -265,7 +278,8 @@ public:
 
   virtual ~LayerComposite() {}
 
-  virtual LayerComposite *GetFirstChildComposite() {
+  virtual LayerComposite *GetFirstChildComposite()
+  {
     return nullptr;
   }
 

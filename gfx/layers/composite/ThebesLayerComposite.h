@@ -17,6 +17,12 @@
 namespace mozilla {
 namespace layers {
 
+/**
+ * Thebes layers use ContentHosts for their compsositable host.
+ * By using different ContentHosts, ThebesLayerComposite support tiled and
+ * non-tiled Thebes layers and single or double buffering.
+ */
+
 class AContentHost;
 
 class ThebesLayerComposite : public ShadowThebesLayer,
@@ -25,8 +31,6 @@ class ThebesLayerComposite : public ShadowThebesLayer,
 public:
   ThebesLayerComposite(LayerManagerComposite *aManager);
   virtual ~ThebesLayerComposite();
-
-  virtual void DestroyFrontBuffer();
 
   virtual void Disconnect();
 
