@@ -132,6 +132,7 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
                                     data->mInverted);
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else if (image->GetFormat() == SHARED_RGB) {
+    EnsureTextureClient(TEXTURE_SHMEM);
     AutoLockTextureClient lock(mTextureClient);
     if (!static_cast<SharedRGBImage*>(image)->ToSurfaceDescriptor(
           *lock.GetSurfaceDescriptor())) {
