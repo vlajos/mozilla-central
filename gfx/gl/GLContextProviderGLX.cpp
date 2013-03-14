@@ -832,6 +832,9 @@ TRY_AGAIN_NO_SHARING:
 
     ~GLContextGLX()
     {
+        MakeCurrent();
+        fFinish();
+
         MarkDestroyed();
 
         // see bug 659842 comment 76
@@ -842,11 +845,11 @@ TRY_AGAIN_NO_SHARING:
         NS_ABORT_IF_FALSE(success,
             "glXMakeCurrent failed to release GL context before we call glXDestroyContext!");
 
-        mGLX->xDestroyContext(mDisplay, mContext);
-
         if (mDeleteDrawable) {
             mGLX->xDestroyPixmap(mDisplay, mDrawable);
         }
+        
+        mGLX->xDestroyContext(mDisplay, mContext);
     }
 
     GLContextType GetContextType() {
