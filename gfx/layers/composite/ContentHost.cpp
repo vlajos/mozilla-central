@@ -472,7 +472,7 @@ TiledContentHost::ProcessUploadQueue(nsIntRegion* aNewValidRegion,
   // Release all the tiles by replacing the tile buffer with an empty
   // tiled buffer. This will prevent us from doing a double unlock when
   // calling  ~TiledThebesLayerComposite.
-  // FIXME: This wont be needed when we do progressive upload and lock
+  // XXX: This wont be needed when we do progressive upload and lock
   // tile by tile.
   mMainMemoryTiledBuffer = BasicTiledLayerBuffer();
   mRegionToUpload = nsIntRegion();

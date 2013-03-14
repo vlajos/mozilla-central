@@ -188,7 +188,7 @@ RotatedBuffer::DrawBufferWithRotation(gfx::DrawTarget *aTarget, float aOpacity,
   SAMPLE_LABEL("RotatedBuffer", "DrawBufferWithRotation");
   // See above, in Azure Repeat should always be a safe, even faster choice
   // though! Particularly on D2D Repeat should be a lot faster, need to look
-  // into that. TODO
+  // into that. TODO[Bas]
   DrawBufferQuadrant(aTarget, LEFT, TOP, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, RIGHT, TOP, aOpacity, aMask, aMaskTransform);
   DrawBufferQuadrant(aTarget, LEFT, BOTTOM, aOpacity, aMask, aMaskTransform);
@@ -561,7 +561,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
 
   gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
   if (contentType == gfxASurface::CONTENT_COLOR_ALPHA && !isClear) {
-    // TODO - this is potentially slow for D2D! In reality we can do this with
+    // TODO[Bas] - this is potentially slow for D2D! In reality we can do this with
     // a series of Azure ClearRects, I should make this so!
     result.mContext->SetOperator(gfxContext::OPERATOR_CLEAR);
     result.mContext->Paint();

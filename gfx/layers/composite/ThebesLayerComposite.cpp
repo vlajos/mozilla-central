@@ -192,10 +192,10 @@ ThebesLayerComposite::GetEffectiveResolution()
 gfxRect
 ThebesLayerComposite::GetDisplayPort()
 {
-  // XXX We use GetTransform instead of GetEffectiveTransform in this function
-  //     as we want the transform of the shadowable layers and not that of the
-  //     shadow layers, which may have been modified due to async scrolling/
-  //     zooming.
+  // We use GetTransform instead of GetEffectiveTransform in this function
+  // as we want the transform of the shadowable layers and not that of the
+  // shadow layers, which may have been modified due to async scrolling/
+  // zooming.
   gfx3DMatrix transform = GetTransform();
 
   // Find out the area of the nearest display-port to invalidate retained

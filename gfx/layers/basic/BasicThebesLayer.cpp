@@ -74,8 +74,9 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   nsRefPtr<gfxASurface> targetSurface = aContext->CurrentSurface();
 
   if (!mContentClient) {
-    //TODO[nrc] why does this get hit?
-    //MOZ_ASSERT(!AsShadowableLayer(), "OMTC layers must have a content client by now");
+    MOZ_ASSERT(!AsShadowableLayer() ||
+                 !static_cast<BasicShadowableThebesLayer*>(AsShadowableLayer())->HasShadow(),
+               "OMTC layers must have a content client by now");
     // we pass a null pointer for the Forwarder argument, which means
     // this will not have a ContentHost on the other side.
     mContentClient = new ContentClientBasic(nullptr, BasicManager());

@@ -160,7 +160,7 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
     mTexture->EndUpdate();
   }
 
-  // XXX - Bas - Get YFlip data out!
+  // TODO[Bas] - Get YFlip data out!
 }
 
 bool

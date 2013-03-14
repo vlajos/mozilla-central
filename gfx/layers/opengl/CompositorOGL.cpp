@@ -1364,8 +1364,8 @@ CompositorOGL::AddFrameAndGetFps(const TimeStamp& timestamp)
     }
     double fps = mFPS->mCompositionFps.AddFrameAndGetFps(timestamp);
 
-    // FIXME [bjacob] copied this from existing code (landed in Bug 804852)
-    // but having a printf_stderr in a performance counter that will trigger a android log call
+    // XXX[bjacob] copied this from existing code (landed in Bug 804852)
+    // having a printf_stderr in a performance counter that will trigger a android log call
     // looks fishy.
     printf_stderr("HWComposer: FPS is %g\n", fps);
 
