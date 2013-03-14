@@ -23,7 +23,7 @@ HasOpaqueAncestorLayer(Layer* aLayer)
   return false;
 }
 
-template<class ContainerT> static void
+template<class ContainerT> void
 ContainerRender(ContainerT* aContainer,
                 CompositingRenderTarget* aPreviousTarget,
                 const nsIntPoint& aOffset,

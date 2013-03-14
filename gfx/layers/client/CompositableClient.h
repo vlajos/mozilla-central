@@ -22,54 +22,9 @@ class CompositableForwarder;
 
 
 /**
- * IPDL actor used by CompositableClient to match with its corresponding
- * CompositableHost on the compositor side. 
- *
- * CompositableChild is owned by a CompositableClient.
- */
-class CompositableChild : public PCompositableChild
-{
-public:
-  CompositableChild()
-  : mCompositableClient(nullptr), mID(0)
-  {
-    MOZ_COUNT_CTOR(CompositableChild);
-  }
-  ~CompositableChild()
-  {
-    MOZ_COUNT_DTOR(CompositableChild);
-  }
-
-  virtual PTextureChild* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
-  virtual bool DeallocPTexture(PTextureChild* aActor) MOZ_OVERRIDE;
-
-  void Destroy();
-
-  void SetClient(CompositableClient* aClient)
-  {
-    mCompositableClient = aClient;
-  }
-
-  CompositableClient* GetCompositableClient() const
-  {
-    return mCompositableClient;
-  }
-
-  void SetAsyncID(uint64_t aID) { mID = aID; }
-  uint64_t GetAsyncID() const
-  {
-    return mID;
-  }
-private:
-  CompositableClient* mCompositableClient;
-  uint64_t mID;
-};
-
-
-/**
- * CompositableClient manages the texture-specific logic for shadow kayers,
- * independently of layers. It is the content side of a ConmpositableClient/CompositableHost
- * pair.
+ * CompositableClient manages the texture-specific logic for composite layers,
+ * independently of layers. It is the content side of a ConmpositableClient/
+ * CompositableHost pair.
  *
  * CompositableClient's purpose is to send texture data to the compositor side
  * along with extra information about how to render the texture such as buffer
@@ -91,6 +46,9 @@ private:
  * ShadowLayerForwarder::Attach(CompositableClient*, ShadowableLayer*). This
  * will let the ShadowLayer on the compositor side now which CompositableHost
  * to use for compositing.
+ *
+ * Subclasses: Thebes layers use ContentClients, ImageLayers use ImageClients,
+ * Canvas layers use CanvasClients (but ImageHosts).
  *
  * To do async texture transfer (like async-video), the CompositableClient
  * should be created with a different CompositableForwarder (like
@@ -155,6 +113,50 @@ public:
 protected:
   CompositableChild* mCompositableChild;
   CompositableForwarder* mForwarder;
+};
+
+/**
+ * IPDL actor used by CompositableClient to match with its corresponding
+ * CompositableHost on the compositor side. 
+ *
+ * CompositableChild is owned by a CompositableClient.
+ */
+class CompositableChild : public PCompositableChild
+{
+public:
+  CompositableChild()
+  : mCompositableClient(nullptr), mID(0)
+  {
+    MOZ_COUNT_CTOR(CompositableChild);
+  }
+  ~CompositableChild()
+  {
+    MOZ_COUNT_DTOR(CompositableChild);
+  }
+
+  virtual PTextureChild* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
+  virtual bool DeallocPTexture(PTextureChild* aActor) MOZ_OVERRIDE;
+
+  void Destroy();
+
+  void SetClient(CompositableClient* aClient)
+  {
+    mCompositableClient = aClient;
+  }
+
+  CompositableClient* GetCompositableClient() const
+  {
+    return mCompositableClient;
+  }
+
+  void SetAsyncID(uint64_t aID) { mID = aID; }
+  uint64_t GetAsyncID() const
+  {
+    return mID;
+  }
+private:
+  CompositableClient* mCompositableClient;
+  uint64_t mID;
 };
 
 } // namespace

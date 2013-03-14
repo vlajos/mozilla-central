@@ -21,15 +21,17 @@
  *
  * The main interfaces involved in the compositing system are:
  *  - Layer, ShadowableLayer and ShadowLayer
- *    (see Layers.h)
+ *    (see Layers.h and ipc/ShadowLayers.h)
  *  - CompositableClient and CompositableHost
- *    (CompositableClient.h CompositableHost.h)
+ *    (client/CompositableClient.h composite/CompositableHost.h)
  *  - TextureClient and TextureHost
- *    (TextureClient.h TextureHost.h)
+ *    (client/TextureClient.h composite/TextureHost.h)
  *  - TextureSource
+      (composite/TextureHost.h)
  *  - Forwarders
- *    (CompositableForwarder.h ShadowLayers.h)
+ *    (ipc/CompositableForwarder.h ipc/ShadowLayers.h)
  *  - Compositor
+      (this file)
  *  - IPDL protocols
  *    (.ipdl files under the gfx/layers/ipc directory)
  *
