@@ -41,6 +41,7 @@ SharedRGBImage::Create(ImageContainer *aImageContainer,
                        nsIntSize aSize,
                        gfxImageFormat aImageFormat)
 {
+  return nullptr;
   NS_ASSERTION(aImageFormat == gfxASurface::ImageFormatARGB32 ||
                aImageFormat == gfxASurface::ImageFormatRGB24 ||
                aImageFormat == gfxASurface::ImageFormatRGB16_565,
