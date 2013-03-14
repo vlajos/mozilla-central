@@ -13,6 +13,23 @@
 namespace mozilla {
 namespace layers {
 
+/**
+ * Effects and effect chains are used by the compositor API (see Compositor.h).
+ * An effect chain represents a rendering method, for example some shader and
+ * the data required for that shader to run. An effect is some component of the
+ * chain and its data.
+ *
+ * An effect chain consists of a primary effect - how the 'texture' memory should
+ * be interpreted (RGBA, BGRX, YCBCR, etc.) - and any number of secondary effects
+ * - any way in which rendering can be changed, for e.g., applying a mask layer.
+ *
+ * During the rendering process, an effect chain is created by the layer being
+ * rendered and the primary effect is added by the compositable host. Secondary
+ * effects may be added by the layer or compositable. The effect chain is passed
+ * to the compositor by the compositable host as a parameter to DrawQuad.
+ */
+
+
 enum EffectTypes
 {
   EFFECT_MASK,
@@ -41,6 +58,7 @@ struct Effect : public RefCounted<Effect>
 #endif
 };
 
+// Render from a texture
 struct TexturedEffect : public Effect
 {
   TexturedEffect(EffectTypes aType,
@@ -54,7 +72,7 @@ struct TexturedEffect : public Effect
   {}
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() =0;
+  virtual const char* Name() = 0;
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
 #endif
 
@@ -64,6 +82,7 @@ struct TexturedEffect : public Effect
   mozilla::gfx::Filter mFilter;;
 };
 
+// Support an alpha mask.
 struct EffectMask : public Effect
 {
   EffectMask(TextureSource *aMaskTexture,
@@ -86,6 +105,7 @@ struct EffectMask : public Effect
   gfx::Matrix4x4 mMaskTransform;
 };
 
+// Render to a render target rather than the screen.
 struct EffectRenderTarget : public TexturedEffect
 {
   EffectRenderTarget(CompositingRenderTarget *aRenderTarget)
