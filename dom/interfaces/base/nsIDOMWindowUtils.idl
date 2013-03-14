@@ -1062,6 +1062,13 @@ interface nsIDOMWindowUtils : nsISupports {
    * error if there is no widget associated with this window.
    */
   readonly attribute AString layerManagerType;
+  
+  /**
+   * True if the layer manager for the widget associated with this window is
+   * forwarding layers to a remote compositor, false otherwise. Throws an
+   * error if there is no widget associated with this window.
+   */
+  readonly attribute boolean layerManagerRemote;
 
   /**
    * Record (and return) frame-intervals and paint-times for frames which were presented
