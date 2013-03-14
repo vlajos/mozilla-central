@@ -59,9 +59,16 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   if (!fillRect.IntersectRect(mBufferRect, quadrantRect))
     return;
 
-  if (!mBuffer->GetAllowUseAsSource()) {
-    return;
+  nsRefPtr<gfxASurface> source;
+
+  if (mBuffer) {
+    source = mBuffer;
+  } else if (mDTBuffer) {
+    source = gfxPlatform::GetPlatform()->GetThebesSurfaceForDrawTarget(mDTBuffer);
+  } else {
+    NS_RUNTIMEABORT("Can't draw a RotatedBuffer without any buffer!");
   }
+
 
   aTarget->NewPath();
   aTarget->Rectangle(gfxRect(fillRect.x, fillRect.y,
@@ -69,7 +76,7 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
                      true);
 
   gfxPoint quadrantTranslation(quadrantRect.x, quadrantRect.y);
-  nsRefPtr<gfxPattern> pattern = new gfxPattern(mBuffer);
+  nsRefPtr<gfxPattern> pattern = new gfxPattern(source);
 
 #ifdef MOZ_GFX_OPTIMIZE_MOBILE
   gfxPattern::GraphicsFilter filter = gfxPattern::FILTER_NEAREST;
@@ -366,9 +373,6 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   // We need to disable rotation if we're going to be resampled when
   // drawing, because we might sample across the rotation boundary.
   bool canHaveRotation = !(aFlags & (PAINT_WILL_RESAMPLE | PAINT_NO_ROTATION));
-  if (mDTBuffer) {
-    mDTBuffer->Flush();
-  }
 
   nsIntRegion validRegion = aLayer->GetValidRegion();
 
@@ -422,10 +426,6 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
 
     break;
   }
-  if (mDTBuffer) {
-    mDTBuffer->Flush();
-  }
-
 
   NS_ASSERTION(destBufferRect.Contains(neededRegion.GetBounds()),
                "Destination rect doesn't contain what we need to paint");
@@ -506,9 +506,6 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
     if (!destBuffer && !destDTBuffer)
       return result;
   }
-  if (mDTBuffer) {
-    mDTBuffer->Flush();
-  }
 
   NS_ASSERTION(!(aFlags & PAINT_WILL_RESAMPLE) || destBufferRect == neededRegion.GetBounds(),
                "If we're resampling, we need to validate the entire buffer");
@@ -539,8 +536,6 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       destDTBuffer->SetTransform(mat);
       DrawBufferWithRotation(destDTBuffer, 1.0, nullptr, nullptr);
       destDTBuffer->SetTransform(Matrix());
-      destDTBuffer->Flush();
-      mDTBuffer->Flush();
     }
 
     mDTBuffer = destDTBuffer.forget();
@@ -550,9 +545,6 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   NS_ASSERTION(canHaveRotation || mBufferRotation == nsIntPoint(0,0),
                "Rotation disabled, but we have nonzero rotation?");
 
-  if (mDTBuffer) {
-    mDTBuffer->Flush();
-  }
   nsIntRegion invalidate;
   invalidate.Sub(aLayer->GetValidRegion(), destBufferRect);
   result.mRegionToInvalidate.Or(result.mRegionToInvalidate, invalidate);
