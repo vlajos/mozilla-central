@@ -1417,6 +1417,7 @@ static nsRefPtr<GLContext> gGlobalContext[GLXLibrary::LIBS_MAX];
 GLContext*
 GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
 {
+#if 0
     LibType libType = GLXLibrary::SelectLibrary(aFlag);
     static bool triedToCreateContext[GLXLibrary::LIBS_MAX] = {false, false};
     if (!triedToCreateContext[libType] && !gGlobalContext[libType]) {
@@ -1429,6 +1430,8 @@ GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
     }
 
     return gGlobalContext[libType];
+#endif
+  return nullptr;
 }
 
 void
