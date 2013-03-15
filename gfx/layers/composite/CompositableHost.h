@@ -30,6 +30,20 @@ class Layer;
 class TextureHost;
 class SurfaceDescriptor;
 
+/**
+ * The compositor-side counterpart to CompositableClient. Responsible for
+ * updating textures and data about textures from IPC and how textures are
+ * composited (tiling, double buffering, etc.).
+ *
+ * Update (for images/canvases) and UpdateThebes (for Thebes) are called during
+ * the layers transaction to update the Compositbale's textures from the
+ * content side. The actual update (and any syncronous upload) is done by the
+ * TextureHost, but it is coordinated by the CompositableHost.
+ *
+ * Composite is called by the owning layer when it is composited. CompositableHost
+ * will use its TextureHost(s) and call Compositor::DrawQuad to do the actual
+ * rendering.
+ */
 class CompositableHost : public RefCounted<CompositableHost>
 {
 public:
@@ -74,9 +88,6 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr,
                          TiledLayerProperties* aLayerProperties = nullptr) = 0;
 
-  virtual void AddTextureHost(TextureHost* aTextureHost,
-                              ISurfaceAllocator* aAllocator = nullptr) = 0;
-
   /**
    * @return true if we should schedule a composition.
    */
@@ -103,12 +114,14 @@ public:
     NS_RUNTIMEABORT("should be implemented or not used");
   }
 
+  virtual void AddTextureHost(TextureHost* aTextureHost,
+                              ISurfaceAllocator* aAllocator = nullptr) = 0;
   virtual TextureHost* GetTextureHost() { return nullptr; }
 
   virtual LayerRenderState GetRenderState() = 0;
 
   virtual void SetPictureRect(const nsIntRect& aPictureRect) {
-    NS_RUNTIMEABORT("If this code is reached it means this method should habe been overridden");
+    NS_RUNTIMEABORT("Should have been overridden");
   }
 
   /**
@@ -124,12 +137,13 @@ public:
     return mCompositor;
   }
 
+  Layer* GetLayer() const { return mLayer; }
+  void SetLayer(Layer* aLayer) { mLayer = aLayer; }
+
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix) { }
 #endif
-
-  Layer* GetLayer() const { return mLayer; }
-  void SetLayer(Layer* aLayer) { mLayer = aLayer; }
+  
 protected:
   Compositor* mCompositor;
   Layer* mLayer;
@@ -182,6 +196,30 @@ private:
 
 /**
  * Global CompositableMap, to use in the compositor thread only.
+ *
+ * PCompositable and PLayer can, in the case of async textures, be managed by
+ * different top level protocols. In this case they don't share the same
+ * communication channel and we can't send an OpAttachCompositable (PCompositable,
+ * PLayer) message.
+ *
+ * In order to attach a layer and the right compositable if the the compositable
+ * is async, we store references to the async compositables in a CompositableMap
+ * that is accessed only on the compositor thread. During a layer transaction we
+ * send the message OpAttachAsyncCompositable(ID, PLayer), and on the compositor
+ * side we lookup the ID in the map and attach the correspondig compositable to
+ * the layer.
+ *
+ * CompositableMap must be global because the image bridge doesn't have any
+ * reference to whatever we have created with PLayers. So, the only way to
+ * actually connect these two worlds is to have something global that they can
+ * both query (in the same  thread). I didn't allocate the map on the stack to
+ * avoid the badness of static initialization.
+ *
+ * Also, we have a compositor/PLayers protocol/etc. per layer manager, and the
+ * ImageBridge is used by all the existing compositors that have a video, so
+ * there isn't an instance or "something" that lives outside the boudaries of a
+ * given layer manager on the compositor thread except the image bridge and the
+ * thread itself.
  */
 namespace CompositableMap {
   void Create();

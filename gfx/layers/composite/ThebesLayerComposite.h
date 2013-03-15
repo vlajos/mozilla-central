@@ -23,7 +23,7 @@ namespace layers {
  * non-tiled Thebes layers and single or double buffering.
  */
 
-class AContentHost;
+class ContentHost;
 
 class ThebesLayerComposite : public ShadowThebesLayer,
                              public LayerComposite
@@ -70,7 +70,7 @@ private:
   gfxSize GetEffectiveResolution();
   gfxRect GetCompositionBounds();
 
-  nsRefPtr<AContentHost> mBuffer;
+  RefPtr<ContentHost> mBuffer;
   bool mRequiresTiledProperties;
 };
 

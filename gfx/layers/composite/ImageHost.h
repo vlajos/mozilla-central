@@ -12,7 +12,12 @@
 namespace mozilla {
 namespace layers {
 
-// abstract
+/**
+ * Used for compositing Image and Canvas layers, matched on the content-side
+ * by an ImageClient or CanvasClient.
+ *
+ * ImageHosts support Update., not UpdateThebes().
+ */
 class ImageHost : public CompositableHost
 {
 public:
@@ -31,6 +36,7 @@ protected:
   }
 };
 
+// ImageHost with a single TextureHost
 class ImageHostSingle : public ImageHost
 {
 public:
@@ -95,6 +101,10 @@ protected:
   bool mHasPictureRect;
 };
 
+// Double buffered ImageHost. We have a single TextureHost and double buffering
+// is done at the TextureHost/Client level. This is in contrast with buffered
+// ContentHosts which do their own double buffering (XXX that is better, 
+// ImageHosts should be changed to follow that model).
 class ImageHostBuffered : public ImageHostSingle
 {
 public:

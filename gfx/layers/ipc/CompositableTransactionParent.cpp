@@ -54,7 +54,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       textureParent->GetTextureHost()->SetBuffer(new SurfaceDescriptor(op.descriptor()),
                                                  compositableParent->GetCompositableManager());
 
-      ContentHost* content = static_cast<ContentHost*>(compositableParent->GetCompositableHost());
+      ContentHostBase* content = static_cast<ContentHostBase*>(compositableParent->GetCompositableHost());
       content->SetTextureHosts(textureParent->GetTextureHost());
 
       break;
@@ -74,7 +74,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       backParent->GetTextureHost()->SetBuffer(new SurfaceDescriptor(op.backDescriptor()),
                                               compositableParent->GetCompositableManager());
 
-      ContentHost* content = static_cast<ContentHost*>(compositableParent->GetCompositableHost());
+      ContentHostBase* content = static_cast<ContentHostBase*>(compositableParent->GetCompositableHost());
       content->SetTextureHosts(frontParent->GetTextureHost(),
                                backParent->GetTextureHost());
 
@@ -84,7 +84,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       MOZ_LAYERS_LOG(("[ParentSide] Created double buffer"));
       const OpDestroyThebesBuffer& op = aEdit.get_OpDestroyThebesBuffer();
       CompositableParent* compositableParent = static_cast<CompositableParent*>(op.compositableParent());
-      ContentHost* content = static_cast<ContentHost*>(compositableParent->GetCompositableHost());
+      ContentHostBase* content = static_cast<ContentHostBase*>(compositableParent->GetCompositableHost());
       content->DestroyTextures();
 
       break;

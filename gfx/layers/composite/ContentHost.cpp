@@ -15,23 +15,23 @@ namespace mozilla {
 using namespace gfx;
 namespace layers {
 
-ContentHost::ContentHost(Compositor* aCompositor)
-  : AContentHost(aCompositor)
+ContentHostBase::ContentHostBase(Compositor* aCompositor)
+  : ContentHost(aCompositor)
   , mPaintWillResample(false)
   , mInitialised(false)
 {}
 
-ContentHost::~ContentHost()
+ContentHostBase::~ContentHostBase()
 {}
 
 TextureHost*
-ContentHost::GetTextureHost()
+ContentHostBase::GetTextureHost()
 {
   return mTextureHost;
 }
 
 void
-ContentHost::DestroyFrontHost()
+ContentHostBase::DestroyFrontHost()
 {
   if (mTextureHost) {
     MOZ_ASSERT(mTextureHost->GetDeAllocator(), "We won't be able to destroy our SurfaceDescriptor");
@@ -40,14 +40,14 @@ ContentHost::DestroyFrontHost()
 }
 
 void
-ContentHost::Composite(EffectChain& aEffectChain,
-                       float aOpacity,
-                       const gfx::Matrix4x4& aTransform,
-                       const Point& aOffset,
-                       const Filter& aFilter,
-                       const Rect& aClipRect,
-                       const nsIntRegion* aVisibleRegion,
-                       TiledLayerProperties* aLayerProperties)
+ContentHostBase::Composite(EffectChain& aEffectChain,
+                           float aOpacity,
+                           const gfx::Matrix4x4& aTransform,
+                           const Point& aOffset,
+                           const Filter& aFilter,
+                           const Rect& aClipRect,
+                           const nsIntRegion* aVisibleRegion,
+                           TiledLayerProperties* aLayerProperties)
 {
   NS_ASSERTION(aVisibleRegion, "Requires a visible region");
 
@@ -634,7 +634,7 @@ TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* 
 
 #ifdef MOZ_LAYERS_HAVE_LOG
 void
-ContentHost::PrintInfo(nsACString& aTo, const char* aPrefix)
+ContentHostBase::PrintInfo(nsACString& aTo, const char* aPrefix)
 {
   aTo += aPrefix;
   aTo += nsPrintfCString("ContentHost (0x%p)", this);

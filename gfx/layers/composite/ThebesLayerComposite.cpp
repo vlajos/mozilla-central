@@ -56,7 +56,7 @@ ThebesLayerComposite::EnsureBuffer(CompositableType aHostType)
     RefPtr<CompositableHost> bufferHost
       = CompositableHost::Create(aHostType, mCompositeManager->GetCompositor());
     NS_ASSERTION(bufferHost->GetType() == BUFFER_TILED, "bad buffer type");
-    mBuffer = static_cast<AContentHost*>(bufferHost.get());
+    mBuffer = static_cast<ContentHost*>(bufferHost.get());
     mRequiresTiledProperties = true;
   }
 }

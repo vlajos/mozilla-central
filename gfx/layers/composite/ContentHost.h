@@ -17,33 +17,54 @@ class ThebesBuffer;
 class OptionalThebesBuffer;
 struct TexturedEffect;
 
-// Base class for OMTC Thebes buffers
-class AContentHost : public CompositableHost
+/**
+ * ContentHosts are used for compositing Thebes layers, always matched by a
+ * ContentClient of the same type.
+ *
+ * ContentHosts support only UpdateThebes(), not Update().
+ */
+class ContentHost : public CompositableHost
 {
 public:
-  AContentHost(Compositor* aCompositor)
-  : CompositableHost(aCompositor)
-  {}
-
-  // Subclasses should implement this method if they support being used as a tiled buffer
+  // Subclasses should implement this method if they support being used as a
+  // tiling.
   virtual TiledLayerComposer* AsTiledLayerComposer() { return nullptr; }
+
+  virtual void UpdateThebes(const ThebesBufferData& aData,
+                            const nsIntRegion& aUpdated,
+                            const nsIntRegion& aOldValidRegionBack,
+                            ThebesBufferData* aResultData,
+                            nsIntRegion* aNewValidRegionFront,
+                            nsIntRegion* aUpdatedRegionBack) = 0;
 
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump() { return nullptr; }
 #endif
+
+protected:
+  ContentHost(Compositor* aCompositor)
+  : CompositableHost(aCompositor) {}
 };
 
-class ContentHost : public AContentHost
+/**
+ * Base class for non-tiled ContentHosts.
+ *
+ * Ownership of the SurfaceDescriptor and the resources it represents is passed
+ * from the ContentClient to the ContentHost when the TextureClient/Hosts are
+ * created, that is recevied here by SetTextureHosts which assigns one or two
+ * texture hosts (for single and double buffering) to the ContentHost.
+ *
+ * It is the responsibility of the ContentHost to destroy its resources when
+ * they are recreated or the ContentHost dies.
+ */
+class ContentHostBase : public ContentHost
 {
 public:
   typedef ThebesLayerBuffer::ContentType ContentType;
   typedef ThebesLayerBuffer::PaintState PaintState;
 
-  ContentHost(Compositor* aCompositor);
-  ~ContentHost();
-
-  void Release() { ContentHost::Release(); }
-  void AddRef() { ContentHost::AddRef(); }
+  ContentHostBase(Compositor* aCompositor);
+  ~ContentHostBase();
 
   virtual void Composite(EffectChain& aEffectChain,
                          float aOpacity,
@@ -54,10 +75,9 @@ public:
                          const nsIntRegion* aVisibleRegion = nullptr,
                          TiledLayerProperties* aLayerProperties = nullptr);
 
-  // CompositingThebesLayerBuffer implementation
-  virtual PaintState BeginPaint(ContentType aContentType, uint32_t)
+  virtual PaintState BeginPaint(ContentType, uint32_t)
   {
-    NS_RUNTIMEABORT("can't BeginPaint for a shadow layer");
+    NS_RUNTIMEABORT("shouldn't BeginPaint for a shadow layer");
     return PaintState();
   }
 
@@ -120,14 +140,14 @@ protected:
   bool mInitialised;
 };
 
-// We can directly texture the drawn surface.  Use that as our new
-// front buffer, and return our previous directly-textured surface
-// to the renderer.
-class ContentHostDoubleBuffered : public ContentHost
+/**
+ * Double buffering is implemented by swapping the front and back TextureHosts.
+ */
+class ContentHostDoubleBuffered : public ContentHostBase
 {
 public:
   ContentHostDoubleBuffered(Compositor* aCompositor)
-    : ContentHost(aCompositor)
+    : ContentHostBase(aCompositor)
   {}
 
   ~ContentHostDoubleBuffered();
@@ -141,6 +161,7 @@ public:
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
+  // We expect both TextureHosts.
   virtual void SetTextureHosts(TextureHost* aNewFront,
                                TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
   virtual void DestroyTextures() MOZ_OVERRIDE;
@@ -153,11 +174,15 @@ protected:
   RefPtr<TextureHost> mBackHost;
 };
 
-class ContentHostSingleBuffered : public ContentHost
+/**
+ * Single buffered, therefore we must synchronously upload the image from the
+ * TextureHost in the layers transaction (i.e., in UpdateThebes).
+ */
+class ContentHostSingleBuffered : public ContentHostBase
 {
 public:
   ContentHostSingleBuffered(Compositor* aCompositor)
-    : ContentHost(aCompositor)
+    : ContentHostBase(aCompositor)
   {}
   virtual ~ContentHostSingleBuffered();
 
@@ -170,6 +195,7 @@ public:
                             nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
+  // We expect only one TextureHost.
   virtual void SetTextureHosts(TextureHost* aNewFront,
                                TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
   virtual void DestroyTextures() MOZ_OVERRIDE;
@@ -259,12 +285,17 @@ private:
 
 class TiledThebesLayerComposite;
 
-class TiledContentHost : public AContentHost,
+/**
+ * ContentHost for tiled Thebes layers. Since tiled layers are special snow
+ * flakes, we don't call UpdateThebes or AddTextureHost, etc. We do call Composite
+ * in the usual way though.
+ */
+class TiledContentHost : public ContentHost,
                          public TiledLayerComposer
 {
 public:
   TiledContentHost(Compositor* aCompositor)
-    : AContentHost(aCompositor)
+    : ContentHost(aCompositor)
     , mVideoMemoryTiledBuffer(aCompositor)
     , mLowPrecisionVideoMemoryTiledBuffer(aCompositor)
     , mPendingUpload(false)
