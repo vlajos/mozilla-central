@@ -832,6 +832,9 @@ TRY_AGAIN_NO_SHARING:
 
     ~GLContextGLX()
     {
+        MakeCurrent();
+        fFinish();
+
         MarkDestroyed();
 
         // see bug 659842 comment 76
@@ -842,11 +845,11 @@ TRY_AGAIN_NO_SHARING:
         NS_ABORT_IF_FALSE(success,
             "glXMakeCurrent failed to release GL context before we call glXDestroyContext!");
 
-        mGLX->xDestroyContext(mDisplay, mContext);
-
         if (mDeleteDrawable) {
             mGLX->xDestroyPixmap(mDisplay, mDrawable);
         }
+        
+        mGLX->xDestroyContext(mDisplay, mContext);
     }
 
     GLContextType GetContextType() {
@@ -1414,6 +1417,7 @@ static nsRefPtr<GLContext> gGlobalContext[GLXLibrary::LIBS_MAX];
 GLContext*
 GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
 {
+#if 0
     LibType libType = GLXLibrary::SelectLibrary(aFlag);
     static bool triedToCreateContext[GLXLibrary::LIBS_MAX] = {false, false};
     if (!triedToCreateContext[libType] && !gGlobalContext[libType]) {
@@ -1426,6 +1430,8 @@ GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
     }
 
     return gGlobalContext[libType];
+#endif
+  return nullptr;
 }
 
 void

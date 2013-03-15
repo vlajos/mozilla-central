@@ -135,11 +135,17 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else if (image->GetFormat() == SHARED_RGB) {
     EnsureTextureClient(TEXTURE_SHMEM);
+    nsIntRect rect(0, 0,
+                   image->GetSize().width,
+                   image->GetSize().height);
+    printf_stderr(" ------ ImageClient rgb %i %i\n", image->GetSize().width, image->GetSize().height);
+    UpdatePictureRect(rect);
     AutoLockTextureClient lock(mTextureClient);
-    if (!static_cast<SharedRGBImage*>(image)->ToSurfaceDescriptor(
-          *lock.GetSurfaceDescriptor())) {
+    SurfaceDescriptor desc;
+    if (!static_cast<SharedRGBImage*>(image)->ToSurfaceDescriptor(desc)) {
       return false;
     }
+    mTextureClient->SetDescriptor(desc);
   } else {
     nsRefPtr<gfxASurface> surface;
     surface = image->GetAsSurface();
