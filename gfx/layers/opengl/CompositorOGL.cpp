@@ -1052,7 +1052,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       color.b *= opacity;
       color.a = opacity;
 
-      program->SetRenderColor(effectSolidColor->mColor);
+      program->SetRenderColor(color);
 
       if (maskType != MaskNone) {
         sourceMask->BindTexture(LOCAL_GL_TEXTURE0);
