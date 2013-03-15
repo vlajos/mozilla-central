@@ -30,12 +30,12 @@ ImageClient::CreateImageClient(LayersBackend aParentBackend,
   switch (aCompositableHostType) {
   case BUFFER_IMAGE_SINGLE:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new ImageClientTexture(aForwarder, aFlags);
+      result = new ImageClientSingle(aForwarder, aFlags, BUFFER_IMAGE_SINGLE);
     }
     break;
   case BUFFER_IMAGE_BUFFERED:
     if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
-      result = new ImageClientTextureBuffered(aForwarder, aFlags);
+      result = new ImageClientSingle(aForwarder, aFlags, BUFFER_IMAGE_BUFFERED);
     }
     break;
   case BUFFER_BRIDGE:
@@ -56,9 +56,10 @@ ImageClient::CreateImageClient(LayersBackend aParentBackend,
 }
 
 
-ImageClient::ImageClient(CompositableForwarder* aFwd)
+ImageClient::ImageClient(CompositableForwarder* aFwd, CompositableType aType)
 : CompositableClient(aFwd)
 , mFilter(gfxPattern::FILTER_GOOD)
+, mType(aType)
 , mLastPaintedImageSerial(0)
 {}
 
@@ -73,14 +74,15 @@ ImageClient::UpdatePictureRect(nsIntRect aRect)
   GetForwarder()->UpdatePictureRect(this, aRect);
 }
 
-ImageClientTexture::ImageClientTexture(CompositableForwarder* aFwd,
-                                       TextureFlags aFlags)
-  : ImageClient(aFwd)
+ImageClientSingle::ImageClientSingle(CompositableForwarder* aFwd,
+                                       TextureFlags aFlags,
+                                       CompositableType aType)
+  : ImageClient(aFwd, aType)
   , mFlags(aFlags)
 {}
 
 void
-ImageClientTexture::EnsureTextureClient(TextureClientType aType)
+ImageClientSingle::EnsureTextureClient(TextureClientType aType)
 {
   // We should not call this method if using ImageBridge or tiled texture
   // clients since SupportsType always fails
@@ -91,7 +93,7 @@ ImageClientTexture::EnsureTextureClient(TextureClientType aType)
 }
 
 bool
-ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
+ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
 {
   AutoLockImage autoLock(aContainer);
   Image *image = autoLock.GetImage();
@@ -166,14 +168,14 @@ ImageClientTexture::UpdateImage(ImageContainer* aContainer, uint32_t aContentFla
 }
 
 void
-ImageClientTexture::Updated()
+ImageClientSingle::Updated()
 {
   mTextureClient->Updated();
 }
 
 ImageClientBridge::ImageClientBridge(CompositableForwarder* aFwd,
                                      TextureFlags aFlags)
-: ImageClient(aFwd)
+: ImageClient(aFwd, BUFFER_BRIDGE)
 , mAsyncContainerID(0)
 , mLayer(nullptr)
 {

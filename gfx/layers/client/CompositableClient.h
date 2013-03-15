@@ -23,32 +23,28 @@ class CompositableChild;
 
 /**
  * CompositableClient manages the texture-specific logic for composite layers,
- * independently of layers. It is the content side of a ConmpositableClient/
+ * independently of the layer. It is the content side of a ConmpositableClient/
  * CompositableHost pair.
  *
  * CompositableClient's purpose is to send texture data to the compositor side
- * along with extra information about how to render the texture such as buffer
- * rotation, or picture rect.
+ * along with any extra information about how the texture is to be composited.
  * Things like opacity or transformation belong to layer and not compositable.
  *
  * Since Compositables are independent of layers it is possible to create one,
- * connetc it to the compositor side, and start sending images to it. This alone
+ * connect it to the compositor side, and start sending images to it. This alone
  * is arguably not very useful, but it means that as long as a shdow layer can
  * do the proper magic to find a reference to the right CompositableHost on the
  * Compositor side, a Compositable client can be used outside of the main
  * shadow layer forwarder machinery that is used on the main thread.
  *
  * The first step is to create a Compositable client and call Connect().
- * Connect() creates the underlyin IPDL actor (see CompositableChild) and the
+ * Connect() creates the underlying IPDL actor (see CompositableChild) and the
  * corresponding CompositableHost on the other side.
  *
  * To do in-transaction texture transfer (the default), call
  * ShadowLayerForwarder::Attach(CompositableClient*, ShadowableLayer*). This
- * will let the ShadowLayer on the compositor side now which CompositableHost
+ * will let the ShadowLayer on the compositor side know which CompositableHost
  * to use for compositing.
- *
- * Subclasses: Thebes layers use ContentClients, ImageLayers use ImageClients,
- * Canvas layers use CanvasClients (but ImageHosts).
  *
  * To do async texture transfer (like async-video), the CompositableClient
  * should be created with a different CompositableForwarder (like
@@ -57,6 +53,11 @@ class CompositableChild;
  * instead of a CompositableChild, since the CompositableClient is not managed
  * by this layer forwarder (the matching uses a global map on the compositor side,
  * see CompositableMap in ImageBridgeParent.cpp)
+ *
+ * Subclasses: Thebes layers use ContentClients, ImageLayers use ImageClients,
+ * Canvas layers use CanvasClients (but ImageHosts). We have a different subclass
+ * where we have a different way of interfacing with the textures - in terms of
+ * drawing into the compositable and/or passing its contents to the compostior.
  */
 class CompositableClient : public RefCounted<CompositableClient>
 {

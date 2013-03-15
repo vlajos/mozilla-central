@@ -22,6 +22,39 @@ namespace layers {
 
 class BasicLayerManager;
 
+/**
+ * A compositable client for Thebes layers. These are different to Image/Canvas
+ * clients due to sending a valid region across IPC and because we do a lot more
+ * optimisation work, encapsualted in ThebesLayerBuffers.
+ *
+ * We use content clients for OMTC and non-OMTC, basic rendering so that
+ * BasicThebesLayer has only one interface to deal with. We support single and
+ * double buffered, and tiled flavours.
+ *
+ * The interface presented by ContentClient is used by the BasicThebesLayer
+ * methods - PaintThebes, which is the same for MT and OMTC, and PaintBuffer
+ * which is different (the OMTC one does a little more). The 'buffer' in the
+ * names of a lot of these method is actually the TextureClient. But, 'buffer'
+ * for the ThebesLayerBuffer (as in SetBuffer) means a gfxSurface. See the
+ * comments for SetBuffer and SetBufferProvider in ThebesLayerBuffer. To keep
+ * these mapped buffers alive, we store a pointer in mOldTextures if the
+ * ThebesLayerBuffer's surface is not the one from our texture client, once we
+ * are done painting we unmap the surface/texture client and don't need to keep
+ * it alive anymore, so we clear mOldTextures.
+ *
+ * The sequence for painting is: BeginPaint (lock our texture client into the
+ * buffer), Paint the layer which calls SyncFrontBufferToBackBuffer (which gets
+ * the surface back from the buffer and puts it back in again with the buffer
+ * attributes), call BeginPaint on the buffer, call PaintBuffer on the layer
+ * (which does the actual painting via the callback, then calls Updated on the
+ * ContentClient, finally calling EndPaint on the ContentClient (which unlocks
+ * the surface from the buffer)).
+ *
+ * Updated() is called when we are done painting and packages up the change in
+ * the appropriate way to be passed to the compositor in the layers transation.
+ *
+ * SwapBuffers is called in repsonse to the transaction reply from the compositor.
+ */
 class ContentClient : public CompositableClient
                     , protected ThebesLayerBuffer
 {
@@ -64,8 +97,8 @@ public:
   }
 
   // Sync front/back buffers content
-  // After executing, the new back buffer has the same (interesting) pixels as the
-  // new front buffer, and mValidRegion et al. are correct wrt the new
+  // After executing, the new back buffer has the same (interesting) pixels as
+  // the new front buffer, and mValidRegion et al. are correct wrt the new
   // back buffer (i.e. as they were for the old back buffer)
   virtual void SyncFrontBufferToBackBuffer() {}
 
@@ -90,7 +123,8 @@ public:
 class ContentClientBasic : public ContentClient
 {
 public:
-  ContentClientBasic(CompositableForwarder* aForwarder, BasicLayerManager* aManager);
+  ContentClientBasic(CompositableForwarder* aForwarder,
+                     BasicLayerManager* aManager);
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
@@ -155,15 +189,22 @@ public:
                            const nsIntRegion& aValidRegion,
                            const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
-  virtual const nsIntRect& BufferRect() { return ThebesLayerBuffer::BufferRect(); }
-  virtual const nsIntPoint& BufferRotation() { return ThebesLayerBuffer::BufferRotation(); }
+  virtual const nsIntRect& BufferRect()
+  {
+    return ThebesLayerBuffer::BufferRect();
+  }
+  virtual const nsIntPoint& BufferRotation()
+  {
+    return ThebesLayerBuffer::BufferRotation();
+  }
   virtual const nsIntRegion& ValidRegion() const { return mValidRegion; }
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntSize& aSize,
                                                      uint32_t aFlags);
-  virtual TemporaryRef<gfx::DrawTarget>
-    CreateDTBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags);
+  virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
+                                                       const nsIntSize& aSize,
+                                                       uint32_t aFlags);
 
   void DestroyBuffers();
 
@@ -172,7 +213,8 @@ protected:
    * Swap out the old backing buffer for |aBuffer| and attributes.
    */
   void SetBackingBuffer(gfxASurface* aBuffer,
-                        const nsIntRect& aRect, const nsIntPoint& aRotation);
+                        const nsIntRect& aRect,
+                        const nsIntPoint& aRotation);
 
   virtual nsIntRegion GetUpdatedRegion(const nsIntRegion& aRegionToDraw,
                                        const nsIntRegion& aVisibleRegion,
@@ -237,10 +279,11 @@ protected:
   virtual void LockFrontBuffer() MOZ_OVERRIDE;
 
 private:
+  // The size policy doesn't really matter here; this constructor is
+  // intended to be used for creating temporaries
   ContentClientDoubleBuffered(gfxASurface* aBuffer,
-                      const nsIntRect& aRect, const nsIntPoint& aRotation)
-    // The size policy doesn't really matter here; this constructor is
-    // intended to be used for creating temporaries
+                              const nsIntRect& aRect,
+                              const nsIntPoint& aRotation)
     : ContentClientRemote(nullptr)
   {
     SetBuffer(aBuffer, aRect, aRotation);
@@ -360,12 +403,14 @@ class BasicShadowLayerManager;
  * which is much faster then painting directly into the tiles.
  */
 
-class BasicTiledLayerBuffer : public TiledLayerBuffer<BasicTiledLayerBuffer, BasicTiledLayerTile>
+class BasicTiledLayerBuffer
+  : public TiledLayerBuffer<BasicTiledLayerBuffer, BasicTiledLayerTile>
 {
   friend class TiledLayerBuffer<BasicTiledLayerBuffer, BasicTiledLayerTile>;
 
 public:
-  BasicTiledLayerBuffer(BasicTiledThebesLayer* aThebesLayer, BasicShadowLayerManager* aManager)
+  BasicTiledLayerBuffer(BasicTiledThebesLayer* aThebesLayer,
+                        BasicShadowLayerManager* aManager)
     : mThebesLayer(aThebesLayer)
     , mManager(aManager)
     , mLastPaintOpaque(false)

@@ -18,16 +18,12 @@ class ImageContainer;
 class ImageLayer;
 class PlanarYCbCrImage;
 
-class SharedImageFactory
-{
-public:
-  virtual already_AddRefed<Image> CreateImage(const uint32_t *aFormats,
-                                              uint32_t aNumFormats) = 0;
-};
-
-// abstract. Used for image and canvas layers
-class ImageClient : public CompositableClient,
-                    public SharedImageFactory
+/**
+ * Image clients are used by basic image layers on the content thread, they
+ * always match with an ImageHost on the compositor thread. See
+ * CompositableClient.h for information on connecting clients to hosts.
+ */
+class ImageClient : public CompositableClient
 {
 public:
   /**
@@ -40,8 +36,12 @@ public:
                                                      CompositableForwarder* aFwd,
                                                      TextureFlags aFlags);
   
-  ImageClient(CompositableForwarder* aFwd);
   virtual ~ImageClient() {}
+
+  virtual CompositableType GetType() const MOZ_OVERRIDE
+  {
+    return mType;
+  }
 
   /**
    * Update this ImageClient from aContainer in aLayer
@@ -58,24 +58,29 @@ public:
   virtual void UpdatePictureRect(nsIntRect aPictureRect);
 
   virtual already_AddRefed<Image> CreateImage(const uint32_t *aFormats,
-                                              uint32_t aNumFormats) MOZ_OVERRIDE;
+                                              uint32_t aNumFormats);
 
 protected:
+  ImageClient(CompositableForwarder* aFwd, CompositableType aType);
+
   gfxPattern::GraphicsFilter mFilter;
+  CompositableType mType;
   int32_t mLastPaintedImageSerial;
   nsIntRect mPictureRect;
 };
 
-class ImageClientTexture : public ImageClient
+/**
+ * An image client which uses a single texture client, may be single or double
+ * buffered. (As opposed to using two texture clients for buffering, as in
+ * ContentClientDoubleBuffered, or using multiple clients for YCbCr or tiled
+ * images).
+ */
+class ImageClientSingle : public ImageClient
 {
 public:
-  ImageClientTexture(CompositableForwarder* aFwd,
-                     TextureFlags aFlags);
-
-  virtual CompositableType GetType() const MOZ_OVERRIDE
-  {
-    return BUFFER_IMAGE_SINGLE;
-  }
+  ImageClientSingle(CompositableForwarder* aFwd,
+                     TextureFlags aFlags,
+                     CompositableType aType);
 
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
 
@@ -87,36 +92,22 @@ private:
   TextureFlags mFlags;
 };
 
-class ImageClientTextureBuffered : public ImageClientTexture
-{
-public:
-   ImageClientTextureBuffered(CompositableForwarder* aFwd,
-                              TextureFlags aFlags)
-   : ImageClientTexture(aFwd, aFlags) {}
-
-  virtual CompositableType GetType() const MOZ_OVERRIDE
-  {
-    return BUFFER_IMAGE_BUFFERED;
-  }
-
-};
-
-// we store the ImageBridge id in the TextureClientIdentifier
+/**
+ * Image class to be used for async image uploads using the image bridge
+ * protocol.
+ * We store the ImageBridge id in the TextureClientIdentifier.
+ */
 class ImageClientBridge : public ImageClient
 {
 public:
   ImageClientBridge(CompositableForwarder* aFwd,
                     TextureFlags aFlags);
 
-  virtual CompositableType GetType() const MOZ_OVERRIDE
-  {
-    return BUFFER_BRIDGE;
-  }
-
   virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags);
   virtual bool Connect() { return false; }
   virtual void Updated() {}
-  void SetLayer(ShadowableLayer* aLayer) {
+  void SetLayer(ShadowableLayer* aLayer)
+  {
     mLayer = aLayer;
   }
 

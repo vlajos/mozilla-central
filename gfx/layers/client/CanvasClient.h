@@ -16,6 +16,9 @@ namespace layers {
 class BasicCanvasLayer;
 class TextureIdentifier;
 
+/**
+ * Compositable client for 2d and webgl canvas.
+ */
 class CanvasClient : public CompositableClient
 {
 public:
@@ -46,10 +49,9 @@ public:
 protected:
   RefPtr<TextureClient> mTextureClient;
   TextureFlags mFlags;
-
 };
 
-// used for 2D canvases and WebGL canvas on non-GL systems where readback is requried
+// Used for 2D canvases and WebGL canvas on non-GL systems where readback is requried.
 class CanvasClient2D : public CanvasClient
 {
 public:
@@ -64,8 +66,8 @@ public:
   virtual void Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer);
 };
 
-// used for GL canvases where we don't need to do any readback, i.e., with a
-// GL backend
+// Used for GL canvases where we don't need to do any readback, i.e., with a
+// GL backend.
 class CanvasClientWebGL : public CanvasClient
 {
 public:
