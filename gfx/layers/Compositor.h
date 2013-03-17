@@ -75,8 +75,16 @@
  * TextureHosts provide access to TextureSources that are views on the
  * Texture data providing the necessary api for Compositor backend to composite
  * them.
- * See below for more details about the Compositor interface.
- *
+ * 
+ * Compositable and Texture clients and hosts are created using factory methods.
+ * They should only be created by using their constructor in exceptional
+ * circumstances. The factory methods are located:
+ *    TextureClient       - CompositableClient::CreateTextureClient
+ *    TextureHost         - TextureHost::CreateTextureHost, which calls a
+ *                          platform-specific function, e.g., CreateTextureHostOGL
+ *    CompositableClient  - in the appropriate subclass, e.g.,
+ *                          CanvasClient::CreateCanvasClient
+ *    CompositableHost    - CompositableHost::Create
  */
 
 class gfxContext;
