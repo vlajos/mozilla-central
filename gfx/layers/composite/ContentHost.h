@@ -289,6 +289,22 @@ class TiledThebesLayerComposite;
  * ContentHost for tiled Thebes layers. Since tiled layers are special snow
  * flakes, we don't call UpdateThebes or AddTextureHost, etc. We do call Composite
  * in the usual way though.
+ *
+ * There is no corresponding content client - on the client side we use a
+ * BasicTiledLayerBuffer owned by a BasicTiledThebesLayer. On the host side, we
+ * just use a regular ThebesLayerComposite, but with a tiled content host.
+ *
+ * TiledContentHost has a TiledLayerBufferComposite which keeps hold of the tiles.
+ * Each tile has a reference to a texture host. During the layers transaction, we
+ * receive a copy of the client-side tile buffer (PaintedTiledLayerBuffer). This is
+ * copied into the main memory tile buffer and then deleted. Copying copies tiles,
+ * but we only copy references to the underlying texture clients.
+ *
+ * When the content host is composited, we first upload any pending tiles
+ * (Process*UploadQueue), then render (RenderLayerBuffer). The former calls Validate
+ * on the tile (via ValidateTile and Update), that calls Update on the texture host,
+ * which works as for regular texture hosts. Rendering takes us to RenderTile which
+ * is similar to Composite for non-tiled ContentHosts.
  */
 class TiledContentHost : public ContentHost,
                          public TiledLayerComposer

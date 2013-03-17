@@ -29,7 +29,9 @@ class BasicLayerManager;
  *
  * We use content clients for OMTC and non-OMTC, basic rendering so that
  * BasicThebesLayer has only one interface to deal with. We support single and
- * double buffered, and tiled flavours.
+ * double buffered flavours. For tiled layers, we do not use a ContentClient
+ * although we do have a ContentHost, and we do use texture clients and texture
+ * hosts.
  *
  * The interface presented by ContentClient is used by the BasicThebesLayer
  * methods - PaintThebes, which is the same for MT and OMTC, and PaintBuffer
@@ -324,8 +326,9 @@ protected:
 };
 
 /**
- * Represent a single tile in tiled buffer. It's backed
- * by a gfxReusableSurfaceWrapper that implements a
+ * Represent a single tile in tiled buffer. The buffer keeps tiles,
+ * each tile keeps a reference to a texture client. The texture client
+ * is backed by a gfxReusableSurfaceWrapper that implements a
  * copy-on-write mechanism while locked. The tile should be
  * locked before being sent to the compositor and unlocked
  * as soon as it is uploaded to prevent a copy.
@@ -402,7 +405,6 @@ class BasicShadowLayerManager;
  * thebes callback and can support painting using a single paint buffer
  * which is much faster then painting directly into the tiles.
  */
-
 class BasicTiledLayerBuffer
   : public TiledLayerBuffer<BasicTiledLayerBuffer, BasicTiledLayerTile>
 {
