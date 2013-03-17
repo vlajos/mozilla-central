@@ -92,10 +92,11 @@ public:
 };
 
 /**
- * Interface
- *
  * TextureHost is a thin abstraction over texture data that need to be shared
- * or transfered from the content process to the compositor process.
+ * or transfered from the content process to the compositor process. It is the
+ * compositor-side half of a TextureClient/TextureHost pair. A corresponding
+ * TextureClient lives on the client-side.
+ *
  * TextureHost only knows how to deserialize or synchronize generic image data
  * (SurfaceDescriptor) and provide access to one or more TextureSource objects
  * (these provide the necessary APIs for compositor backends to composite the
@@ -108,12 +109,12 @@ public:
  *
  * The Lock/Unlock mecanism here mirrors Lock/Unlock in TextureClient. These two
  * methods don't always have to use blocking locks, unless a resource is shared
- * between the two sides (like shared texture handles). For instance, in some cases
- * the data received in Update(...) is a copy in shared memory of the data owned 
- * by the content process, in which case no blocking lock is required.
+ * between the two sides (like shared texture handles). For instance, in some
+ * cases the data received in Update(...) is a copy in shared memory of the data
+ * owned by the content process, in which case no blocking lock is required.
  *
- * The TextureHost class handles buffering and the necessary code for async
- * texture updates, and the internals of this should not be exposed to the
+ * The TextureHost class handles some buffering and the necessary code for
+ * async texture updates, and the internals of this should not be exposed to
  * the different implementations of TextureHost (other than selecting the
  * right strategy at construction time).
  *
@@ -134,15 +135,13 @@ public:
    * Create a new texture host to handle surfaces of aDescriptorType
    *
    * @param aDescriptorType The SurfaceDescriptor type being passed
-   * @param aTextureHostFlags Modifier flags that specify changes in the usage of a aDescriptorType, see TextureHostFlags
+   * @param aTextureHostFlags Modifier flags that specify changes in
+   * the usage of a aDescriptorType, see TextureHostFlags
    * @param aTextureFlags Flags to pass to the new TextureHost
-   * @param aBuffered True if the texture will be buffered (and updated via SwapTextures), or false if it will be used
-   * unbuffered (and updated using Update).
-   * #@param aDeAllocator A surface deallocator..
    */
   static TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
-		                                             uint32_t aTextureHostFlags,
-		                                             uint32_t aTextureFlags);
+    		                                             uint32_t aTextureHostFlags,
+    		                                             uint32_t aTextureFlags);
 
   TextureHost();
   virtual ~TextureHost();

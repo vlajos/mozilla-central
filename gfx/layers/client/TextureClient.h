@@ -38,11 +38,11 @@ class CompositableForwarder;
  * When modifying a TextureClient's data, first call LockDescriptor, modify the
  * data in the descriptor, and then call Unlock. This makes sure that if the data
  * is shared with the compositor, the later will not try to read while the data is
- * being modified (on the other side, TextureHost also has Lock/Unlock semantic).
+ * being modified (on the other side, TextureHost also has Lock/Unlock semantics).
  * after unlocking, call Updated in order to add the modification to the current
  * layer transaction.
  * Depending on whether the data is shared or copied, Lock/Unlock and Updated can be
- * no-ops. What's important is that the Client/Host pair implement the same semantic.
+ * no-ops. What's important is that the Client/Host pair implement the same semantics.
  *
  * Ownership of the surface descriptor depends on how the TextureClient/Host is
  * used by the CompositableClient/Host.
@@ -77,16 +77,12 @@ public:
    * object that can be used for drawing to. Once the user is finished
    * with the object it should call Unlock.
    */
-  // XXX[nical] these should be removed
   virtual gfxImageSurface* LockImageSurface() { return nullptr; }
   virtual gfxASurface* LockSurface() { return nullptr; }
   virtual gfx::DrawTarget* LockDrawTarget() { return nullptr; }
-  // XXX[nical] only this one should remain (and be called just "Lock")
-  // XXX[bas] then this one would probably not return a SurfaceDescriptor eh?
-  // or maybe this was before out discussion on IRC
 
   // note that this is often used simply as a getter for mDescriptor, not to
-  // lock anything, that is  probably bad.
+  // lock anything, that is probably bad.
   virtual SurfaceDescriptor* LockSurfaceDescriptor() { return &mDescriptor; }
   virtual void ReleaseResources() {}
   /**
@@ -150,9 +146,7 @@ public:
     return mAccessMode;
   }
 
-  // TODO - Bas - Really? Do we want this to have a default? It spells trouble
-  // if you don't override it.
-  virtual gfxASurface::gfxContentType GetContentType() { return gfxASurface::CONTENT_COLOR_ALPHA; }
+  virtual gfxASurface::gfxContentType GetContentType();
 
 protected:
   TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
@@ -240,7 +234,7 @@ public:
 
   virtual void ReleaseResources();
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
-  virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
+  virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return mContentType; }
 private:
   gfxASurface* GetSurface();
 
@@ -266,6 +260,7 @@ public:
   virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual void ReleaseResources();
+  virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return gfxASurface::CONTENT_COLOR_ALPHA; }
 };
 
 class TextureClientTile : public TextureClient
