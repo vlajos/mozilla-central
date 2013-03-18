@@ -786,7 +786,7 @@
             // Strip out any null bytes in the content title, since the
             // underlying widget implementations of nsWindow::SetTitle pass
             // null-terminated strings to system APIs.
-            var docTitle = aBrowser.contentTitle.replace("\0", "");
+            var docTitle = aBrowser.contentTitle.replace("\0", "", "g");
 
             if (!docTitle)
               docTitle = docElement.getAttribute("titledefault");
@@ -1432,7 +1432,7 @@
             }
 
             if (animate) {
-              this.tabContainer._handleTabTelemetryStart(this.tabContainer, t, aURI);
+              this.tabContainer._handleTabTelemetryStart(t, aURI);
 
               // kick the animation off
               t.clientTop;
@@ -1575,7 +1575,7 @@
               return;
             }
 
-            this.tabContainer._handleTabTelemetryStart(this.tabContainer, aTab);
+            this.tabContainer._handleTabTelemetryStart(aTab);
 
             this._blurTab(aTab);
             aTab.removeAttribute("fadein");
@@ -2846,17 +2846,13 @@
 
         var tabs = document.getBindingParent(this);
 
-        if (tabs.hasAttribute("dontresize") || tabs.hasAttribute("using-closing-tabs-spacer")) {
-          tabs.mTabstrip._scrollButtonUp.style.visibility = "hidden";
-          tabs.mTabstrip._scrollButtonDown.style.visibility = "hidden";
-        } else {
-          tabs.removeAttribute("overflow");
-        }
-
         tabs.tabbrowser._removingTabs.forEach(tabs.tabbrowser.removeTab,
                                               tabs.tabbrowser);
 
-        tabs._positionPinnedTabs();
+        if (!tabs.hasAttribute("dontresize") && !tabs._closingTabsSpacer.style.minWidth) {
+          tabs.removeAttribute("overflow");
+          tabs._positionPinnedTabs();
+        }
       ]]></handler>
       <handler event="overflow"><![CDATA[
         if (event.detail == 0)
@@ -3112,16 +3108,19 @@
           if (!tabs.length)
             return;
 
-          var isEndTab = (aTab._tPos > tabs[tabs.length-1]._tPos);
-          var tabWidth = aTab.getBoundingClientRect().width;
+          this.tabbrowser.addEventListener("mousemove", this, false);
+          window.addEventListener("mouseout", this, false);
 
-          // Locking is neither in effect nor needed, so let tabs expand normally.
-          if (isEndTab && !this.hasAttribute("dontresize"))
-            return;
-
-          // Let spacer grow to the maximum and lock it, then let tabs expand normally
+          let isEndTab = (aTab._tPos > tabs[tabs.length-1]._tPos);
           if (isEndTab) {
             let spacer = this._closingTabsSpacer;
+            if (!spacer.style.minWidth)
+              spacer.style.minWidth = 0;
+
+            // Locking is neither in effect nor needed, so let tabs expand normally
+            if (!this.hasAttribute("dontresize"))
+              return;
+
             spacer.style.MozBoxFlex = 1;
             spacer.style.minWidth = getComputedStyle(spacer).width;
             spacer.style.MozBoxFlex = "";
@@ -3134,6 +3133,7 @@
           }
 
           if (!this.hasAttribute("dontresize")) {
+            let tabWidth = aTab.getBoundingClientRect().width;
             this._delayResizingRule.style.setProperty("max-width", tabWidth + "px", "important");
             this.setAttribute("dontanimate", "true");
             this.setAttribute("dontresize", "true");
@@ -3144,21 +3144,16 @@
           if (!this.mTabstrip._scrollButtonUp.disabled) {
             let spacer = this._closingTabsSpacer;
             let width = parseFloat(spacer.style.minWidth) || 0;
-            width += tabWidth;
+            width += aTab.getBoundingClientRect().width;
 
             if (!this.mTabstrip._scrollButtonDown.disabled) {
               let scrollbox = this.mTabstrip._scrollbox;
               width -= scrollbox.scrollLeftMax - scrollbox.scrollLeft;
             }
 
-            if (width >= 0) {
+            if (width >= 0)
               spacer.style.minWidth = width + "px";
-              this.setAttribute("using-closing-tabs-spacer", "true");
-            }
           }
-
-          this.tabbrowser.addEventListener("mousemove", this, false);
-          window.addEventListener("mouseout", this, false);
         ]]></body>
       </method>
 
@@ -3168,13 +3163,12 @@
           window.removeEventListener("mouseout", this, false);
 
           this._closingTabsSpacer.style.minWidth = "";
-          this.removeAttribute("using-closing-tabs-spacer");
           this.removeAttribute("dontresize");
 
-          if (this.hasAttribute("overflow") && this.mTabstrip._scrollbox.scrollWidth <= this.mTabstrip._scrollbox.clientWidth) {
-            this.mTabstrip._scrollButtonUp.style.visibility = "";
-            this.mTabstrip._scrollButtonDown.style.visibility = "";
+          if (this.hasAttribute("overflow") &&
+              this.mTabstrip._scrollbox.scrollWidth <= this.mTabstrip._scrollbox.clientWidth) {
             this.removeAttribute("overflow");
+            this._positionPinnedTabs();
           }
         ]]></body>
       </method>
@@ -3524,13 +3518,12 @@
       </method>
 
       <method name="_handleTabTelemetryStart">
-        <parameter name="aTabContainer"/>
         <parameter name="aTab"/>
         <parameter name="aURI"/>
         <body>
         <![CDATA[
           // Animation-smoothness telemetry/logging
-          if (Services.telemetry.canRecord || aTabContainer._tabAnimationLoggingEnabled) {
+          if (Services.telemetry.canRecord || this._tabAnimationLoggingEnabled) {
             if (aURI == "about:newtab" && (aTab._tPos == 1 || aTab._tPos == 2)) {
               // Indicate newtab page animation where other tabs are unaffected
               // (for which case, the 2nd or 3rd tabs are good representatives, even if not absolute)
@@ -3903,13 +3896,17 @@
             this.tabbrowser.pinTab(newTab);
           this.tabbrowser.moveTabTo(newTab, newIndex);
 
+          // We need to select the tab before calling swapBrowsersAndCloseOther
+          // so that window.content in chrome windows points to the right tab
+          // when pagehide/show events are fired.
+          this.tabbrowser.selectedTab = newTab;
+
           draggedTab.parentNode._finishAnimateTabMove();
           this.tabbrowser.swapBrowsersAndCloseOther(newTab, draggedTab);
 
-          // We need to select the tab after we've done
-          // swapBrowsersAndCloseOther, so that the updateCurrentBrowser
-          // it triggers will correctly update our URL bar.
-          this.tabbrowser.selectedTab = newTab;
+          // Call updateCurrentBrowser to make sure the URL bar is up to date
+          // for our new tab after we've done swapBrowsersAndCloseOther.
+          this.updateCurrentBrowser(true);
         } else {
           // Pass true to disallow dropping javascript: or data: urls
           let url;

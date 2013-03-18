@@ -408,7 +408,7 @@ GLContextProviderCGL::CreateForWindow(nsIWidget *aWidget)
 
     GLContextCGL *shareContext = GetGlobalContextCGL();
 
-    NSOpenGLContext *context = [[NSOpenGLContext alloc] 
+    NSOpenGLContext *context = [[NSOpenGLContext alloc]
                                 initWithFormat:sCGLLibrary.PixelFormat()
                                 shareContext:(shareContext ? shareContext->mContext : NULL)];
     if (!context) {
@@ -416,6 +416,9 @@ GLContextProviderCGL::CreateForWindow(nsIWidget *aWidget)
     }
 
     // make the context transparent
+    GLint opaque = 0;
+    [context setValues:&opaque forParameter:NSOpenGLCPSurfaceOpacity];
+
     SurfaceCaps caps = SurfaceCaps::ForRGBA();
     nsRefPtr<GLContextCGL> glContext = new GLContextCGL(caps,
                                                         shareContext,

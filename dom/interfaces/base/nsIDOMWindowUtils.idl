@@ -41,7 +41,7 @@ interface nsIDOMClientRect;
 interface nsIURI;
 interface nsIDOMEventTarget;
 
-[scriptable, uuid(4767db2a-291d-41d4-b5c8-4d6588a1f052)]
+[scriptable, uuid(04429978-3417-411b-882b-81cd5cec5ecd)]
 interface nsIDOMWindowUtils : nsISupports {
 
   /**
@@ -1145,6 +1145,12 @@ interface nsIDOMWindowUtils : nsISupports {
   void restoreNormalRefresh();
 
   /**
+   * Reports whether the current state is test-controlled refreshes
+   * (see advanceTimeAndRefresh and restoreNormalRefresh above).
+   */
+  readonly attribute bool isTestControllingRefreshes;
+
+  /**
    * Method for testing nsStyleAnimation::ComputeDistance.
    *
    * Returns the distance between the two values as reported by
@@ -1356,4 +1362,9 @@ interface nsIDOMWindowUtils : nsISupports {
     * attribute or -moz-user-input: none/disabled.
     */
    boolean isNodeDisabledForEvents(in nsIDOMNode aNode);
+
+   /**
+    * Setting paintFlashing to true will flash newly painted area.
+    */
+   attribute boolean paintFlashing;
 };

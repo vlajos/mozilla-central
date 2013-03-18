@@ -163,6 +163,7 @@
   padding-bottom: 0;
   -moz-padding-start: 18px;
   -moz-padding-end: 12px;
+  font-size: inherit;
 }
 
 .devtools-searchinput:-moz-locale-dir(rtl) {
@@ -231,6 +232,10 @@
 }
 
 /* In-tools sidebar */
+
+.devtools-toolbox-side-iframe {
+  min-width: 465px;
+}
 
 .devtools-sidebar-tabs {
   -moz-appearance: none;
@@ -378,3 +383,5 @@
 .devtools-theme-attrvalue {
   color: hsl(24,85%,39%); /* orange */
 }
+
+%include ../../shared/devtools/common.inc.css

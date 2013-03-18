@@ -9,7 +9,9 @@ generated_webidl_files = \
   $(NULL)
 
 webidl_files = \
+  AnimationEvent.webidl \
   ArchiveReader.webidl \
+  ArchiveRequest.webidl \
   AudioBuffer.webidl \
   AudioBufferSourceNode.webidl \
   AudioContext.webidl \
@@ -26,7 +28,9 @@ webidl_files = \
   CDATASection.webidl \
   CFStateChangeEvent.webidl \
   CharacterData.webidl \
+  ClientRect.webidl \
   ClientRectList.webidl \
+  CommandEvent.webidl \
   Comment.webidl \
   CSS.webidl \
   CSSPrimitiveValue.webidl \
@@ -37,8 +41,10 @@ webidl_files = \
   Document.webidl \
   DocumentFragment.webidl \
   DocumentType.webidl \
+  DOMCursor.webidl \
   DOMImplementation.webidl \
   DOMParser.webidl \
+  DOMRequest.webidl \
   DOMSettableTokenList.webidl \
   DOMStringMap.webidl \
   DOMTokenList.webidl \
@@ -55,6 +61,7 @@ webidl_files = \
   FileHandle.webidl \
   FileList.webidl \
   FileReaderSync.webidl \
+  FileRequest.webidl \
   FormData.webidl \
   Function.webidl \
   GainNode.webidl \
@@ -116,11 +123,16 @@ webidl_files = \
   HTMLTimeElement.webidl \
   HTMLTitleElement.webidl \
   HTMLUListElement.webidl \
+  IDBVersionChangeEvent.webidl \
   ImageData.webidl \
+  InspectorUtils.webidl \
   LinkStyle.webidl \
   LocalMediaStream.webidl \
   Location.webidl \
   MediaStream.webidl \
+  MessageEvent.webidl \
+  MozActivity.webidl \
+  MutationEvent.webidl \
   MutationObserver.webidl \
   Node.webidl \
   NodeFilter.webidl \
@@ -133,6 +145,7 @@ webidl_files = \
   PerformanceNavigation.webidl \
   PerformanceTiming.webidl \
   ProcessingInstruction.webidl \
+  Range.webidl \
   Rect.webidl \
   RGBColor.webidl \
   RTCConfiguration.webidl \
@@ -163,6 +176,8 @@ webidl_files = \
   SVGFilterElement.webidl \
   SVGFilterPrimitiveStandardAttributes.webidl \
   SVGFEBlendElement.webidl \
+  SVGFEComponentTransferElement.webidl \
+  SVGFEDistantLightElement.webidl \
   SVGFEFloodElement.webidl \
   SVGFEFuncAElement.webidl \
   SVGFEFuncBElement.webidl \
@@ -171,6 +186,8 @@ webidl_files = \
   SVGFEImageElement.webidl \
   SVGFEMergeElement.webidl \
   SVGFEMergeNodeElement.webidl \
+  SVGFEPointLightElement.webidl \
+  SVGFETileElement.webidl \
   SVGFitToViewBox.webidl \
   SVGForeignObjectElement.webidl \
   SVGGElement.webidl \
@@ -222,7 +239,9 @@ webidl_files = \
   TextDecoder.webidl \
   TextEncoder.webidl \
   TimeRanges.webidl \
+  TransitionEvent.webidl \
   TreeWalker.webidl \
+  UIEvent.webidl \
   URL.webidl \
   ValidityState.webidl \
   WebComponents.webidl \

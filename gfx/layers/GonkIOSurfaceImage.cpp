@@ -20,6 +20,7 @@ uint32_t GonkIOSurfaceImage::sColorIdMap[] = {
     HAL_PIXEL_FORMAT_YCbCr_420_P, OMX_COLOR_FormatYUV420Planar,
     HAL_PIXEL_FORMAT_YCbCr_422_P, OMX_COLOR_FormatYUV422Planar,
     HAL_PIXEL_FORMAT_YCbCr_420_SP, OMX_COLOR_FormatYUV420SemiPlanar,
+    HAL_PIXEL_FORMAT_YCrCb_420_SP, -1,
     HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO, -1,
     HAL_PIXEL_FORMAT_YV12, OMX_COLOR_FormatYUV420Planar,
     0, 0
@@ -123,6 +124,15 @@ GonkIOSurfaceImage::GetAsSurface()
     uint8_t* buffer_as_bytes = static_cast<uint8_t*>(buffer);
     ConvertYVU420SPToRGB565(buffer, alignedWidth,
                             buffer_as_bytes + uvOffset, uvStride,
+                            imageSurface->Data(),
+                            width, height);
+
+    return imageSurface.forget();
+  }
+  else if (format == HAL_PIXEL_FORMAT_YCrCb_420_SP) {
+    uint32_t uvOffset = height * width;
+    ConvertYVU420SPToRGB565(buffer, width,
+                            buffer + uvOffset, width,
                             imageSurface->Data(),
                             width, height);
 

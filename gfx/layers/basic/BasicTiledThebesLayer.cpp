@@ -3,7 +3,6 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/PLayersChild.h"
-#include "mozilla/MathAlgorithms.h"
 #include "BasicTiledThebesLayer.h"
 #include "gfxImageSurface.h"
 #include "sampler.h"
@@ -12,7 +11,6 @@
 
 namespace mozilla {
 namespace layers {
-
 
 BasicTiledThebesLayer::BasicTiledThebesLayer(BasicShadowLayerManager* const aManager)
   : ThebesLayer(aManager, static_cast<BasicImplData*>(this))

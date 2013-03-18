@@ -5,6 +5,7 @@
 
 #include "mozilla/layers/ContentClient.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/MathAlgorithms.h"
 #include "BasicThebesLayer.h"
 #include "BasicTiledThebesLayer.h"
 #include "nsIWidget.h"
@@ -777,7 +778,7 @@ BasicTiledLayerBuffer::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvali
     if (!aRegionToPaint.IsEmpty()) {
       break;
     }
-    if (std::abs(scrollDiffY) >= std::abs(scrollDiffX)) {
+    if (Abs(scrollDiffY) >= Abs(scrollDiffX)) {
       tileBounds.x += incX;
     } else {
       tileBounds.y += incY;
