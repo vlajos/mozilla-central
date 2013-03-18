@@ -35,18 +35,20 @@
  *  - IPDL protocols
  *    (.ipdl files under the gfx/layers/ipc directory)
  *
- * The *Client classes are always used in the content thread, just like the
- * Shadowable* classes.
- * The *Host and Shadow* classes are always used in the compositor threads.
+ * The *Client and Shadowable* classes are always used on the content thread.
+ * Forwarders are always used on the content thread.
+ * The *Host and Shadow* classes are always used on the compositor thread.
+ * Compositors, TextureSource, and Effects are always used on the compositor
+ * thread.
  *
  * If off-main-thread compositing (OMTC) is enabled, compositing is performed
- * into a dedicated thread. In some setups compositing even happens in a dedicated
- * process (only in Firefox OS for now), so documentation may refer to either
- * the compositor thread ot the compositor process alike.
+ * in a dedicated thread. In some setups compositing happens in a dedicated
+ * process, so documentation may refer to either the compositor thread ot the
+ * compositor process.
  *
  * The following is only relevent to OMTC:
- * The basic idea is that painted content is handed to ShadowableLayers on the
- * content thread, which have to forward it to ShadowLayers on the compositor
+ * The basic idea is that painted content is handed to BasicShadowableLayers on
+ * the content thread, which have to forward it to ShadowLayers on the compositor
  * thread, where composition happens.
  * Maintaining a shadow layer tree and transfering painted content is done in
  * layer transactions and compositable transactions (See ShadowLayers.h and
