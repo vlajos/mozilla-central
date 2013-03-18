@@ -73,7 +73,7 @@ public:
   virtual void Unlock();
 
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor);
-    virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
+  virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
 
 
 private:
