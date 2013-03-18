@@ -129,6 +129,22 @@ public:
  * to keep the ownership model simple (especially on the OpenGL case, where
  * we have additionnal constraints).
  *
+ * There are two fundamental operations carried out on texture hosts - update
+ * from the content thread and composition. Texture upload can occur in either
+ * phase. Update happens in response to an IPDL message from content and
+ * composition when the compositor 'ticks'. We may composite many times before
+ * update.
+ *
+ * Update ends up at TextureHost::UpdateImpl. It always occurs in a layers
+ * transacton. (TextureParent should call EnsureTexture before updating to
+ * ensure the TextureHost exists and is of the correct type).
+ *
+ * CompositableHost::Composite does compositing. It should check the texture
+ * host exists (and give up otherwise), then lock the texture host
+ * (TextureHost::Lock). Then it passes the texture host to the Compositor in an
+ * effect as a texture source, which does the actual composition. Finally the
+ * compositable calls Unlock on the TextureHost.
+ *
  * The class TextureImageTextureHostOGL is a good example of a TextureHost
  * implementation.
  *
