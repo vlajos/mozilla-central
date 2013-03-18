@@ -160,16 +160,19 @@ public:
    * This creates a Surface that can be used as a rendering target by this
    * compositor.
    */
-  virtual TemporaryRef<CompositingRenderTarget> CreateRenderTarget(const gfx::IntRect &aRect,
-                                                                              SurfaceInitMode aInit) = 0;
+  virtual TemporaryRef<CompositingRenderTarget>
+  CreateRenderTarget(const gfx::IntRect &aRect,
+                     SurfaceInitMode aInit) = 0;
 
   /**
-   * This creates a Surface that can be used as a rendering target by this compositor,
-   * and initializes this surface by copying from the given surface. If the given surface
-   * is nullptr, the screen frame in progress is used as the source.
+   * Creates a Surface that can be used as a rendering target by this
+   * compositor, and initializes the surface by copying from aSource.
+   * If aSource is null, then the screen frame in progress
+   * is used as source.
    */
-  virtual TemporaryRef<CompositingRenderTarget> CreateRenderTargetFromSource(const gfx::IntRect &aRect,
-                                                                             const CompositingRenderTarget* aSource) = 0;
+  virtual TemporaryRef<CompositingRenderTarget>
+  CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+                               const CompositingRenderTarget* aSource) = 0;
 
   /**
    * Sets the given surface as the target for subsequent calls to DrawQuad.
@@ -185,10 +188,11 @@ public:
   virtual void SetRenderTargetSize(int aWidth, int aHeight) = 0;
 
   /**
-   * This tells the compositor to actually draw a quad, where the area is
-   * specified in userspace, and the source rectangle is the area of the
-   * currently set textures to sample from. This area may not refer directly
-   * to pixels depending on the effect.
+   * This tells the compositor to actually draw a quad. What to do draw and how
+   * is specified by aEffectChain. aRect is the quad to draw, in user space.
+   * aTransform transforms from user space to screen space. aOffset is the
+   * offset of the render target from 0,0 of the screen. If texture coords are
+   * required, these will be in the primary effect in the effect chain.
    */
   virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
                         const EffectChain &aEffectChain,

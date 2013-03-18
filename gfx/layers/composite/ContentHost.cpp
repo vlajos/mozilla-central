@@ -122,7 +122,8 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
   bool usingTiles = (tileIter && tileIter->GetTileCount() > 1);
   do {
     if (iterOnWhite) {
-      NS_ASSERTION(iterOnWhite->GetTileRect() == tileIter->GetTileRect(), "component alpha textures should be the same size.");
+      NS_ASSERTION(iterOnWhite->GetTileRect() == tileIter->GetTileRect(),
+                   "component alpha textures should be the same size.");
     }
 
     nsIntRect texRect = tileIter ? tileIter->GetTileRect()
@@ -167,9 +168,9 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
                            tileScreenRect.width, tileScreenRect.height);
 
             effect->mTextureCoords = Rect(Float(tileRegionRect.x) / texRect.width,
-                                                  Float(tileRegionRect.y) / texRect.height,
-                                                  Float(tileRegionRect.width) / texRect.width,
-                                                  Float(tileRegionRect.height) / texRect.height);
+                                          Float(tileRegionRect.y) / texRect.height,
+                                          Float(tileRegionRect.width) / texRect.width,
+                                          Float(tileRegionRect.height) / texRect.height);
             GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
         }
       }
