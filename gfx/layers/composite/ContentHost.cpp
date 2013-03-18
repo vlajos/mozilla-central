@@ -176,9 +176,17 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
       }
     }
 
-    if (iterOnWhite)
-        iterOnWhite->NextTile();
+    if (iterOnWhite) {
+      iterOnWhite->NextTile();
+    }
   } while (usingTiles && tileIter->NextTile());
+
+  if (tileIter) {
+    tileIter->EndTileIteration();
+  }
+  if (iterOnWhite) {
+    iterOnWhite->EndTileIteration();
+  }
 
   mTextureHost->Unlock();
 }

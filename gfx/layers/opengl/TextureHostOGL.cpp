@@ -148,7 +148,7 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
 
   // XXX this is always just ridiculously slow
   nsIntRegion updateRegion;
-  
+
   if (!aRegion) {
     updateRegion = nsIntRegion(nsIntRect(0, 0, size.width, size.height));
   } else {
@@ -385,25 +385,22 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
 
   if (!mYTexture->mTexImage || mYTexture->mTexImage->GetSize() != gfxSize) {
-    mYTexture->mTexImage = gl::CreateBasicTextureImage(mGL,
-                                                       gfxSize,
-                                                       gfxASurface::CONTENT_ALPHA,
-                                                       WrapMode(mGL, mFlags & AllowRepeat),
-                                                       FlagsToGLFlags(mFlags));
+    mYTexture->mTexImage = mGL->CreateTextureImage(gfxSize,
+                                                   gfxASurface::CONTENT_ALPHA,
+                                                   WrapMode(mGL, mFlags & AllowRepeat),
+                                                   FlagsToGLFlags(mFlags));
   }
   if (!mCbTexture->mTexImage || mCbTexture->mTexImage->GetSize() != gfxCbCrSize) {
-    mCbTexture->mTexImage = gl::CreateBasicTextureImage(mGL,
-                                                        gfxCbCrSize,
-                                                        gfxASurface::CONTENT_ALPHA,
-                                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                                        FlagsToGLFlags(mFlags));
+    mCbTexture->mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
+                                                    gfxASurface::CONTENT_ALPHA,
+                                                    WrapMode(mGL, mFlags & AllowRepeat),
+                                                    FlagsToGLFlags(mFlags));
   }
   if (!mCrTexture->mTexImage || mCrTexture->mTexImage->GetSize() != gfxSize) {
-    mCrTexture->mTexImage = gl::CreateBasicTextureImage(mGL,
-                                                        gfxCbCrSize,
-                                                        gfxASurface::CONTENT_ALPHA,
-                                                        WrapMode(mGL, mFlags & AllowRepeat),
-                                                        FlagsToGLFlags(mFlags));
+    mCrTexture->mTexImage = mGL->CreateTextureImage(gfxCbCrSize,
+                                                    gfxASurface::CONTENT_ALPHA,
+                                                    WrapMode(mGL, mFlags & AllowRepeat),
+                                                    FlagsToGLFlags(mFlags));
   }
 
   RefPtr<gfxImageSurface> tempY = new gfxImageSurface(shmemImage.GetYData(),

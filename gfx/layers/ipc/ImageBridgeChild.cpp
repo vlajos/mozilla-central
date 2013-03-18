@@ -617,7 +617,7 @@ ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
 {
   if (InImageBridgeChildThread()) {
 #ifdef MOZ_LAYERS_HAVE_LOG
-    printf(" ++ [%i] ImageBridge AllocShmem (unsafe)\n", ++mDebugAllocCount);
+    printf_stderr(" ++ [%i] ImageBridge AllocShmem (unsafe)\n", ++mDebugAllocCount);
 #endif
     return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
   } else {
@@ -720,7 +720,7 @@ ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
 {
   if (InImageBridgeChildThread()) {
 #ifdef MOZ_LAYERS_HAVE_LOG
-    printf(" -- [%i] ImageBridge DeallocShmem\n", --mDebugAllocCount);
+    printf_stderr(" -- [%i] ImageBridge DeallocShmem\n", --mDebugAllocCount);
 #endif
     PImageBridgeChild::DeallocShmem(aShmem);
   } else {

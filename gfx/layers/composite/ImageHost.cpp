@@ -74,6 +74,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
       GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain,
                                 aOpacity, aTransform, aOffset);
     } while (it->NextTile());
+    it->EndTileIteration();
   } else {
     IntSize textureSize = mTextureHost->GetSize();
     gfx::Rect rect(0, 0,
@@ -138,6 +139,7 @@ ImageHostBuffered::AddTextureHost(TextureHost* aHost,
   mTextureHost = aHost;
   mTextureHost->SetBuffer(new SurfaceDescriptor(null_t()),
                           aAllocator);
+  mHasPictureRect = false;
 }
 
 }

@@ -138,7 +138,6 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
     nsIntRect rect(0, 0,
                    image->GetSize().width,
                    image->GetSize().height);
-    printf_stderr(" ------ ImageClient rgb %i %i\n", image->GetSize().width, image->GetSize().height);
     UpdatePictureRect(rect);
     AutoLockTextureClient lock(mTextureClient);
     SurfaceDescriptor desc;

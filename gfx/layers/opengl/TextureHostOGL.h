@@ -80,6 +80,7 @@ public:
   TextureImageTextureHostOGL(gl::TextureImage* aTexImage = nullptr)
     : mTexture(aTexImage)
     , mGL(nullptr)
+    , mIterating(false)
   {
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
   }
@@ -126,6 +127,10 @@ public:
   gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
     if (mTexture) {
+      if (mIterating) {
+        nsIntRect rect = mTexture->GetTileRect();
+        return gfx::IntSize(rect.width, rect.height);
+      }
       return gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
     }
     return gfx::IntSize(0, 0);
@@ -160,6 +165,12 @@ public:
   void BeginTileIteration() MOZ_OVERRIDE
   {
     mTexture->BeginTileIteration();
+    mIterating = true;
+  }
+
+  void EndTileIteration() MOZ_OVERRIDE
+  {
+    mIterating = false;
   }
 
   nsIntRect GetTileRect() MOZ_OVERRIDE
@@ -184,6 +195,7 @@ public:
 protected:
   nsRefPtr<gl::TextureImage> mTexture;
   gl::GLContext* mGL;
+  bool mIterating;
 };
 
 

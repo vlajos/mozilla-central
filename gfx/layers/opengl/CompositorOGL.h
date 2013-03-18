@@ -38,11 +38,7 @@ public:
   {
     TextureFactoryIdentifier result;
     result.mParentBackend = LAYERS_OPENGL;
-    GLint texSize = 0;
-    mGLContext->fGetIntegerv(LOCAL_GL_MAX_TEXTURE_SIZE,
-                             &texSize);
-    MOZ_ASSERT(texSize != 0);
-    result.mMaxTextureSize = texSize;
+    result.mMaxTextureSize = GetMaxTextureSize();
     return result;
   }
 
@@ -73,10 +69,10 @@ public:
 
   virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) MOZ_OVERRIDE
   {
-      if (!mGLContext)
-          return false;
-      int32_t maxSize = GetMaxTextureSize();
-      return aSize <= gfxIntSize(maxSize, maxSize);
+    if (!mGLContext)
+      return false;
+    int32_t maxSize = GetMaxTextureSize();
+    return aSize <= gfxIntSize(maxSize, maxSize);
   }
 
   virtual int32_t GetMaxTextureSize() const MOZ_OVERRIDE

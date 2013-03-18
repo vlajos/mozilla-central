@@ -465,9 +465,9 @@ ShadowLayerForwarder::OpenDescriptor(OpenMode aMode,
     uint32_t stride = gfxASurface::BytesPerPixel(rgbFormat) * rgb.picture().width;
     nsIntSize size(rgb.picture().width, rgb.picture().height);
     surf = new gfxImageSurface(rgb.data().get<uint8_t>(),
-                                                        size,
-                                                        stride,
-                                                        rgbFormat);
+                               size,
+                               stride,
+                               rgbFormat);
     return surf.forget();
   }
   default:

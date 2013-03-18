@@ -40,6 +40,7 @@ class TileIterator
 {
 public:
   virtual void BeginTileIteration() = 0;
+  virtual void EndTileIteration() {};
   virtual nsIntRect GetTileRect() = 0;
   virtual size_t GetTileCount() = 0;
   virtual bool NextTile() = 0;
@@ -66,6 +67,11 @@ public:
     MOZ_COUNT_DTOR(TextureSource);
   };
 
+  /**
+   * Returns the size of the texture in texels.
+   * If the underlying texture host is a tile iterator, GetSize must return the
+   * size of the current tile.
+   */
   virtual gfx::IntSize GetSize() const = 0;
   /**
    * Cast to an TextureSource for the OpenGL backend.

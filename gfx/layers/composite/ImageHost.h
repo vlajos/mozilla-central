@@ -66,7 +66,6 @@ public:
   virtual bool Update(const SurfaceDescriptor& aImage,
                       SurfaceDescriptor* aResult = nullptr) MOZ_OVERRIDE
   {
-    mHasPictureRect = false;
     return ImageHost::Update(aImage, aResult);
   }
 

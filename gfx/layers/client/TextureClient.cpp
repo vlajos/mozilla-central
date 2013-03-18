@@ -132,7 +132,8 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
   mSurface = nullptr;
 
   MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc ||
-             mDescriptor.type() == SurfaceDescriptor::TShmem);
+             mDescriptor.type() == SurfaceDescriptor::TShmem ||
+             mDescriptor.type() == SurfaceDescriptor::TRGBImage);
 }
 
 
