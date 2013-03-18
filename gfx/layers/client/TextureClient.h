@@ -146,7 +146,7 @@ public:
     return mAccessMode;
   }
 
-  virtual gfxASurface::gfxContentType GetContentType();
+  virtual gfxASurface::gfxContentType GetContentType() = 0;
 
 protected:
   TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
