@@ -439,6 +439,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   RefPtr<DrawTarget> destDTBuffer;
   uint32_t bufferFlags = canHaveRotation ? ALLOW_REPEAT : 0;
   if (canReuseBuffer) {
+    EnsureBuffer();
     nsIntRect keepArea;
     if (keepArea.IntersectRect(destBufferRect, mBufferRect)) {
       // Set mBufferRotation so that the pixels currently in mBuffer
@@ -521,6 +522,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       nsIntPoint offset = -destBufferRect.TopLeft();
       tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
       tmpCtx->Translate(gfxPoint(offset.x, offset.y));
+      EnsureBuffer();
       DrawBufferWithRotation(tmpCtx, 1.0, nullptr, nullptr);
     }
 
@@ -534,6 +536,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       Matrix mat;
       mat.Translate(offset.x, offset.y);
       destDTBuffer->SetTransform(mat);
+      EnsureBuffer();
       DrawBufferWithRotation(destDTBuffer, 1.0, nullptr, nullptr);
       destDTBuffer->SetTransform(Matrix());
     }

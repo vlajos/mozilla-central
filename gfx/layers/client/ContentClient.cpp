@@ -285,6 +285,7 @@ ContentClientRemote::SwapBuffers(const ThebesBufferData &aData,
   MOZ_ASSERT(mTextureClient->GetAccessMode() == TextureClient::ACCESS_NONE);
   MOZ_ASSERT(mTextureClient);
 
+  mValidRegion = aValidRegion;
   mFrontAndBackBufferDiffer = true;
   mBufferRect = aData.rect();
   mBufferRotation = aData.rotation();
@@ -348,7 +349,6 @@ ContentClientDoubleBuffered::SwapBuffers(const ThebesBufferData &aData,
                                          const nsIntRegion& aFrontUpdatedRegion)
 {
   mFrontUpdatedRegion = aFrontUpdatedRegion;
-  mValidRegion = aValidRegion;
 
   RefPtr<TextureClient> oldBack = mTextureClient;
   mTextureClient = mFrontClient;
