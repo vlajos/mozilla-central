@@ -113,10 +113,6 @@ public:
   // destroy our front buffer so that we can continue to composite.
   virtual void DestroyTextures() = 0;
 
-#ifdef MOZ_LAYERS_HAVE_LOG
-  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
-#endif
-
 protected:
   virtual nsIntPoint GetOriginOffset() {
     return mBufferRect.TopLeft() - mBufferRotation;
@@ -166,6 +162,9 @@ public:
                                TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
   virtual void DestroyTextures() MOZ_OVERRIDE;
 
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
 protected:
   nsIntRegion mValidRegionForNextBackBuffer;
   // Texture host for the back buffer. We never read or write this buffer. We
@@ -199,6 +198,10 @@ public:
   virtual void SetTextureHosts(TextureHost* aNewFront,
                                TextureHost* aNewBack = nullptr) MOZ_OVERRIDE;
   virtual void DestroyTextures() MOZ_OVERRIDE;
+
+#ifdef MOZ_LAYERS_HAVE_LOG
+  virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
+#endif
 };
 
 class TiledTexture {
