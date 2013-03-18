@@ -635,10 +635,31 @@ TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* 
 
 #ifdef MOZ_LAYERS_HAVE_LOG
 void
-ContentHostBase::PrintInfo(nsACString& aTo, const char* aPrefix)
+ContentHostSingleBuffered::PrintInfo(nsACString& aTo, const char* aPrefix)
 {
   aTo += aPrefix;
-  aTo += nsPrintfCString("ContentHost (0x%p)", this);
+  aTo += nsPrintfCString("ContentHostSingleBuffered (0x%p)", this);
+
+  AppendToString(aTo, mBufferRect, " [buffer-rect=", "]");
+  AppendToString(aTo, mBufferRotation, " [buffer-rotation=", "]");
+  if (PaintWillResample()) {
+    aTo += " [paint-will-resample]";
+  }
+
+  nsAutoCString pfx(aPrefix);
+  pfx += "  ";
+
+  if (mTextureHost) {
+    aTo += "\n";
+    mTextureHost->PrintInfo(aTo, pfx.get());
+  }
+}
+
+void
+ContentHostDoubleBuffered::PrintInfo(nsACString& aTo, const char* aPrefix)
+{
+  aTo += aPrefix;
+  aTo += nsPrintfCString("ContentHostDoubleBuffered (0x%p)", this);
 
   AppendToString(aTo, mBufferRect, " [buffer-rect=", "]");
   AppendToString(aTo, mBufferRotation, " [buffer-rotation=", "]");
@@ -654,9 +675,9 @@ ContentHostBase::PrintInfo(nsACString& aTo, const char* aPrefix)
     mTextureHost->PrintInfo(aTo, pfx.get());
   }
 
-  if (mTextureHostOnWhite) {
+  if (mBackHost) {
     aTo += "\n";
-    mTextureHostOnWhite->PrintInfo(aTo, pfx.get());
+    mBackHost->PrintInfo(aTo, pfx.get());
   }
 }
 

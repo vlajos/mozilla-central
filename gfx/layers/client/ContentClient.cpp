@@ -74,7 +74,8 @@ ContentClient::CreateContentClient(LayersBackend aParentBackend,
     return new ContentClientSingleBuffered(aForwarder);
   }
   if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
-    if (ShadowLayerManager::SupportsDirectTexturing()) {
+    if (ShadowLayerManager::SupportsDirectTexturing() ||
+        PR_GetEnv("MOZ_FORCE_DOUBLE_BUFFERING")) {
       return new ContentClientDoubleBuffered(aForwarder);
     }
     return new ContentClientSingleBuffered(aForwarder);
