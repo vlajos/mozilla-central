@@ -55,6 +55,10 @@ public:
    */
   virtual void Updated() = 0;
 
+  /**
+   * The picture rect is the area of the texture which makes up the image. That
+   * is, the area that should be composited. In texture space.
+   */
   virtual void UpdatePictureRect(nsIntRect aPictureRect);
 
   virtual already_AddRefed<Image> CreateImage(const uint32_t *aFormats,
