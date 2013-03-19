@@ -65,26 +65,16 @@ namespace layers {
 
 /* static */ TemporaryRef<ContentClient>
 ContentClient::CreateContentClient(LayersBackend aParentBackend,
-                                   CompositableType aCompositableHostType,
                                    CompositableForwarder* aForwarder)
 {
   if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
     return nullptr;
   }
-  if (aCompositableHostType == BUFFER_CONTENT) {
-    return new ContentClientSingleBuffered(aForwarder);
+  if (ShadowLayerManager::SupportsDirectTexturing() ||
+      PR_GetEnv("MOZ_FORCE_DOUBLE_BUFFERING")) {
+    return new ContentClientDoubleBuffered(aForwarder);
   }
-  if (aCompositableHostType == BUFFER_CONTENT_DIRECT) {
-    if (ShadowLayerManager::SupportsDirectTexturing() ||
-        PR_GetEnv("MOZ_FORCE_DOUBLE_BUFFERING")) {
-      return new ContentClientDoubleBuffered(aForwarder);
-    }
-    return new ContentClientSingleBuffered(aForwarder);
-  }
-  if (aCompositableHostType == BUFFER_TILED) {
-    MOZ_NOT_REACHED("No CompositableClient for tiled layers");
-  }
-  return nullptr;
+  return new ContentClientSingleBuffered(aForwarder);
 }
 
 ContentClientBasic::ContentClientBasic(CompositableForwarder* aForwarder,

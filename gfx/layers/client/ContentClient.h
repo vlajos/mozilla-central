@@ -67,7 +67,6 @@ public:
    * host.
    */
   static TemporaryRef<ContentClient> CreateContentClient(LayersBackend aBackendType,
-                                                         CompositableType aImageHostType,
                                                          CompositableForwarder* aFwd);
 
   ContentClient(CompositableForwarder* aForwarder)

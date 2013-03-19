@@ -338,8 +338,7 @@ public:
   TemporaryRef<CanvasClient> CreateCanvasClientFor(const CompositableType& aCompositableType,
                                                    ShadowableLayer* aLayer,
                                                    TextureFlags aFlags);
-  TemporaryRef<ContentClient> CreateContentClientFor(const CompositableType& aCompositableType,
-                                                     ShadowableLayer* aLayer);
+  TemporaryRef<ContentClient> CreateContentClientFor(ShadowableLayer* aLayer);
 
   static void PlatformSyncBeforeUpdate();
 
