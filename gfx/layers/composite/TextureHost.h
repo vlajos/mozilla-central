@@ -119,11 +119,6 @@ public:
  * cases the data received in Update(...) is a copy in shared memory of the data
  * owned by the content process, in which case no blocking lock is required.
  *
- * The TextureHost class handles some buffering and the necessary code for
- * async texture updates, and the internals of this should not be exposed to
- * the different implementations of TextureHost (other than selecting the
- * right strategy at construction time).
- *
  * TextureHosts can be changed at any time, for example if we receive a
  * SurfaceDescriptor type that was not expected. This should be an incentive
  * to keep the ownership model simple (especially on the OpenGL case, where

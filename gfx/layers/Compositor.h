@@ -18,8 +18,13 @@
  * they are flattened into the final image that is brought to the screen.
  * See Layers.h for more informations about layers and why we use retained
  * structures.
+ * Most of the documentation for layers is directly in the source code in the
+ * form of doc comments. An overview can also be found in the the wiki:
+ * https://wiki.mozilla.org/Gecko:Overview#Graphics
  *
- * The main interfaces involved in the compositing system are:
+ *
+ * # Main interfaces and abstractions
+ *
  *  - Layer, ShadowableLayer and ShadowLayer
  *    (see Layers.h and ipc/ShadowLayers.h)
  *  - CompositableClient and CompositableHost
@@ -27,11 +32,11 @@
  *  - TextureClient and TextureHost
  *    (client/TextureClient.h composite/TextureHost.h)
  *  - TextureSource
-      (composite/TextureHost.h)
+ *    (composite/TextureHost.h)
  *  - Forwarders
  *    (ipc/CompositableForwarder.h ipc/ShadowLayers.h)
  *  - Compositor
-      (this file)
+ *    (this file)
  *  - IPDL protocols
  *    (.ipdl files under the gfx/layers/ipc directory)
  *
@@ -40,26 +45,48 @@
  * The *Host and Shadow* classes are always used on the compositor thread.
  * Compositors, TextureSource, and Effects are always used on the compositor
  * thread.
+ * Most enums and constants are declared in LayersTypes.h and CompositorTypes.h
+ *
+ *
+ * # IPDL
  *
  * If off-main-thread compositing (OMTC) is enabled, compositing is performed
  * in a dedicated thread. In some setups compositing happens in a dedicated
- * process, so documentation may refer to either the compositor thread ot the
+ * process Documentation may refer to either the compositor thread ot the
  * compositor process.
  *
- * The following is only relevent to OMTC:
- * The basic idea is that painted content is handed to BasicShadowableLayers on
- * the content thread, which have to forward it to ShadowLayers on the compositor
- * thread, where composition happens.
- * Maintaining a shadow layer tree and transfering painted content is done in
- * layer transactions and compositable transactions (See ShadowLayers.h and
- * CompositableForwarder.h).
+ * The layer tree is managed on the content thread, and shadowed in the compositor
+ * thread. The shadow layer tree is only kept in sync with whatever happens in
+ * the content thread. To do this we use IPDL protocols. IPDL is a domain
+ * specific language that describes how two processes or thread should
+ * communicate. C++ code is generated from .ipdl files to implement the message
+ * passing, synchronization and serialization logic. To use the generated code
+ * we implement classes that inherit the generated IPDL actor. the ipdl actors
+ * of a protocol PX are PXChild or PXParent (the generated class), and we
+ * conventionally implement XChild and XParent. The Parent side of the protocol
+ * is the one that lives on the compositor thread. Think of IPDL actors as
+ * endpoints of communication. they are useful to send messages and also to
+ * dispatch the message to the right actor on the other side. One nice property
+ * of an IPDL actor is that when an actor, say PXChild is sent in a message, the
+ * PXParent comes out in the other side. we use this property a lot to dispatch
+ * messages to the right layers and compositable, each of which have their own
+ * ipdl actor on both side.
  *
- * A layer transaction maintains the shape of the shadow layer tree, and
- * synchronize the texture data hel by compositables. Layer transactions
+ * Most of the synchronization logic happens in layer transactions and
+ * compositable transactions.
+ * A transaction is a set of changes to the layers and/or the compositables
+ * that are sent and applied together to the compositor thread to keep the
+ * ShadowLayer in a coherent state.
+ * Layer transactions maintain the shape of the shadow layer tree, and
+ * synchronize the texture data held by compositables. Layer transactions
  * are always between the content thread and the compositor thread.
- * A Compositable transaction is a subset of a layer transaction with which only
+ * (See ShadowLayers.h)
+ * Compositable transactions are subset of a layer transaction with which only
  * compositables and textures can be manipulated, and does not always originate
- * from the content thread.
+ * from the content thread. (See CompositableForwarder.h)
+ *
+ *
+ * # Texture transfer
  *
  * Most layer classes own a Compositable plus some extra information like
  * transforms and clip rects. They are platform independent.
@@ -87,6 +114,17 @@
  *    CompositableClient  - in the appropriate subclass, e.g.,
  *                          CanvasClient::CreateCanvasClient
  *    CompositableHost    - CompositableHost::Create
+ *
+ *
+ * # Backend implementations
+ *
+ * compositor backend like OpenGL or flavours of D3D live in their own directory
+ * under gfx/layer/. To add a new backend, implement at least the following
+ * interfaces:
+ * - Compositor (ex. CompositorOGL)
+ * - TextureHost (ex. TextureImageTextureHost)
+ * Depending on the type of data that needs to be serialized, you may need to
+ * add specific TextureClient implementations.
  */
 
 class gfxContext;

@@ -100,27 +100,6 @@ public:
    */
   virtual void DestroyedThebesBuffer(const SurfaceDescriptor& aBackBufferToDestroy) = 0;
 
-  /**
-   * Shmem (gfxSharedImageSurface) buffers are available on all
-   * platforms, but they may not be optimal.
-   *
-   * In the absence of platform-specific buffers these fall back to
-   * Shmem/gfxSharedImageSurface.
-   */
-/*
-  virtual bool AllocBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           SurfaceDescriptor* aBuffer) = 0;
-
-  virtual bool AllocBufferWithCaps(const gfxIntSize& aSize,
-                                   gfxASurface::gfxContentType aContent,
-                                   uint32_t aCaps,
-                                   SurfaceDescriptor* aBuffer) = 0;
-
-  virtual bool AllocateUnsafe(size_t aSize,
-                              ipc::SharedMemory::SharedMemoryType aType,
-                              ipc::Shmem* aShmem) = 0;
-*/
   void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
 
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
