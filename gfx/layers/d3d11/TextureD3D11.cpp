@@ -263,7 +263,7 @@ IntSize
 TextureHostShmemD3D11::GetSize() const
 {
   if (mIterating) {
-    nsIntRect rect = GetTileRect();
+    nsIntRect rect = GetTileRect(mCurrentTile);
     return gfx::IntSize(rect.width, rect.height);
   }
   return TextureSourceD3D11::GetSize();
@@ -360,7 +360,7 @@ TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *
 }
 
 IntRect
-TextureHostShmemD3D11::GetTileRect(uint32_t aID)
+TextureHostShmemD3D11::GetTileRect(uint32_t aID) const
 {
   uint32_t maxSize = GetMaxTextureSizeForFeatureLevel(mDevice->GetFeatureLevel());
   uint32_t horizontalTiles = GetRequiredTiles(mSize.width, maxSize);

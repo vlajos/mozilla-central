@@ -114,7 +114,7 @@ public:
 
   virtual gfx::IntSize GetSize() const MOZ_OVERRIDE;
 
-  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE { return LayerRenderState(); }
+  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
 
   virtual bool Lock() MOZ_OVERRIDE { return true; }
 
@@ -143,12 +143,13 @@ protected:
                           nsIntRegion* aRegion) MOZ_OVERRIDE;
 private:
 
-  gfx::IntRect GetTileRect(uint32_t aID);
+  gfx::IntRect GetTileRect(uint32_t aID) const;
 
   RefPtr<ID3D11Device> mDevice;
   bool mIsTiled;
   std::vector< RefPtr<ID3D11Texture2D> > mTileTextures;
   uint32_t mCurrentTile;
+  bool mIterating;
 };
 
 class TextureHostDXGID3D11 : public TextureHost
@@ -166,7 +167,7 @@ public:
 
   virtual gfx::IntSize GetSize() const MOZ_OVERRIDE;
 
-  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE {
+  virtual LayerRenderState GetRenderState() {
     return LayerRenderState();
   }
 
@@ -184,7 +185,7 @@ private:
   void LockTexture();
   void ReleaseTexture();
 
-  gfx::IntRect GetTileRect(uint32_t aID);
+  gfx::IntRect GetTileRect(uint32_t aID) const; // TODO[Bas] not defined anywhere?
 
   RefPtr<ID3D11Device> mDevice;
 };
