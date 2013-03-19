@@ -159,8 +159,6 @@ void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
   if (mTexture->InUpdate()) {
     mTexture->EndUpdate();
   }
-
-  // TODO[Bas] - Get YFlip data out!
 }
 
 bool
