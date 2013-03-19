@@ -33,8 +33,6 @@ public:
   virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack,
-                            ThebesBufferData* aResultData,
-                            nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack) = 0;
 
 #ifdef MOZ_DUMP_PAINTING
@@ -153,8 +151,6 @@ public:
   virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack,
-                            ThebesBufferData* aResultData,
-                            nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
   // We expect both TextureHosts.
@@ -190,8 +186,6 @@ public:
   virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack,
-                            ThebesBufferData* aResultData,
-                            nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack);
 
   // We expect only one TextureHost.
@@ -331,8 +325,6 @@ public:
   virtual void UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack,
-                            ThebesBufferData* aResultData,
-                            nsIntRegion* aNewValidRegionFront,
                             nsIntRegion* aUpdatedRegionBack)
   {
     MOZ_ASSERT(false, "N/A for tiled layers");

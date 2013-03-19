@@ -106,18 +106,11 @@ public:
   // Called as part of the layers transation reply. Conveys data about our
   // buffer(s) from the compositor. If appropriate we should swap references
   // to our buffers.
-  virtual void SwapBuffers(const ThebesBufferData &aData,
-                           const nsIntRegion& aValidRegion,
-                           const nsIntRegion& aFrontUpdatedRegion) {}
+  virtual void SwapBuffers(const nsIntRegion& aFrontUpdatedRegion) {}
 
   // call before and after painting into this content client
   virtual void BeginPaint() {}
   virtual void EndPaint() {}
-  virtual const nsIntRegion& ValidRegion() const
-  {
-    MOZ_ASSERT(false);
-    return *(new nsIntRegion());
-  }
 };
 
 // thin wrapper around BasicThebesLayerBuffer, for on-mtc
@@ -128,10 +121,10 @@ public:
                      BasicLayerManager* aManager);
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
-                                                     const nsIntSize& aSize,
+                                                     const nsIntRect& aRect,
                                                      uint32_t aFlags);
   virtual TemporaryRef<gfx::DrawTarget>
-    CreateDTBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags);
+    CreateDTBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags);
 
   virtual CompositableType GetType() const MOZ_OVERRIDE
   {
@@ -186,9 +179,7 @@ public:
                        const nsIntRegion& aVisibleRegion,
                        bool aDidSelfCopy);
 
-  virtual void SwapBuffers(const ThebesBufferData &aData,
-                           const nsIntRegion& aValidRegion,
-                           const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
+  virtual void SwapBuffers(const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
   virtual const nsIntRect& BufferRect()
   {
@@ -198,13 +189,12 @@ public:
   {
     return ThebesLayerBuffer::BufferRotation();
   }
-  virtual const nsIntRegion& ValidRegion() const { return mValidRegion; }
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
-                                                     const nsIntSize& aSize,
+                                                     const nsIntRect& aRect,
                                                      uint32_t aFlags);
   virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
-                                                       const nsIntSize& aSize,
+                                                       const nsIntRect& aRect,
                                                        uint32_t aFlags);
 
   void DestroyBuffers();
@@ -223,15 +213,11 @@ protected:
 
   // Create the front buffer for the ContentClient/Host pair if necessary
   // and notify the compositor that we have created the buffer(s).
-  virtual void CreateFrontBufferAndNotify(uint32_t aFlags) = 0;
+  virtual void CreateFrontBufferAndNotify(const nsIntRect& aBufferRect, uint32_t aFlags) = 0;
   virtual void DestroyFrontBuffer() {}
   // We're about to hand off to the compositor, if you've got a back buffer,
   // lock it now.
   virtual void LockFrontBuffer() {}
-
-  nsIntRegion mValidRegion;
-  nsIntRect mBufferRect;
-  nsIntPoint mBufferRotation;
 
   RefPtr<TextureClient> mTextureClient;
   // keep a record of texture clients we have created and need to keep
@@ -268,14 +254,12 @@ public:
     return BUFFER_CONTENT_DIRECT;
   }
 
-  virtual void SwapBuffers(const ThebesBufferData &aData,
-                           const nsIntRegion& aValidRegion,
-                           const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
+  virtual void SwapBuffers(const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
   virtual void SyncFrontBufferToBackBuffer() MOZ_OVERRIDE;
 
 protected:
-  virtual void CreateFrontBufferAndNotify(uint32_t aFlags) MOZ_OVERRIDE;
+  virtual void CreateFrontBufferAndNotify(const nsIntRect& aBufferRect, uint32_t aFlags) MOZ_OVERRIDE;
   virtual void DestroyFrontBuffer() MOZ_OVERRIDE;
   virtual void LockFrontBuffer() MOZ_OVERRIDE;
 
@@ -295,6 +279,8 @@ private:
 
   RefPtr<TextureClient> mFrontClient;
   nsIntRegion mFrontUpdatedRegion;
+  nsIntRect mFrontBufferRect;
+  nsIntPoint mFrontBufferRotation;
 };
 
 /**
@@ -321,7 +307,7 @@ public:
   virtual void SyncFrontBufferToBackBuffer(); 
 
 protected:
-  virtual void CreateFrontBufferAndNotify(uint32_t aFlags) MOZ_OVERRIDE;
+  virtual void CreateFrontBufferAndNotify(const nsIntRect& aBufferRect, uint32_t aFlags) MOZ_OVERRIDE;
 };
 
 /**

@@ -479,9 +479,9 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
           // So allocate a new buffer for the destination.
           destBufferRect = ComputeBufferRect(neededRegion.GetBounds());
           if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
-            destDTBuffer = CreateDTBuffer(contentType, destBufferRect.Size(), bufferFlags);
+            destDTBuffer = CreateDTBuffer(contentType, destBufferRect, bufferFlags);
           } else {
-            destBuffer = CreateBuffer(contentType, destBufferRect.Size(), bufferFlags);
+            destBuffer = CreateBuffer(contentType, destBufferRect, bufferFlags);
           }
           if (!destBuffer && !destDTBuffer)
             return result;
@@ -500,9 +500,9 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
   } else {
     // The buffer's not big enough, so allocate a new one
     if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
-      destDTBuffer = CreateDTBuffer(contentType, destBufferRect.Size(), bufferFlags);
+      destDTBuffer = CreateDTBuffer(contentType, destBufferRect, bufferFlags);
     } else {
-      destBuffer = CreateBuffer(contentType, destBufferRect.Size(), bufferFlags);
+      destBuffer = CreateBuffer(contentType, destBufferRect, bufferFlags);
     }
     if (!destBuffer && !destDTBuffer)
       return result;

@@ -314,8 +314,6 @@ union Edit {
 
 struct OpContentBufferSwap {
   PCompositable compositable;
-  ThebesBufferData bufferData;
-  nsIntRegion newValidRegion;
   nsIntRegion frontUpdatedRegion;
 };
 

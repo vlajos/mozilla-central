@@ -205,9 +205,9 @@ public:
    * to allow repeat-mode, otherwise it should be in pad (clamp) mode
    */
   virtual already_AddRefed<gfxASurface>
-  CreateBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags) = 0;
+  CreateBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags) = 0;
   virtual TemporaryRef<gfx::DrawTarget>
-  CreateDTBuffer(ContentType aType, const nsIntSize& aSize, uint32_t aFlags)
+  CreateDTBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags)
   { NS_RUNTIMEABORT("CreateDTBuffer not implemented on this platform!"); return nullptr; }
 
   /**

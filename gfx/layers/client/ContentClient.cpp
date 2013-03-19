@@ -84,7 +84,7 @@ ContentClientBasic::ContentClientBasic(CompositableForwarder* aForwarder,
 
 already_AddRefed<gfxASurface>
 ContentClientBasic::CreateBuffer(ContentType aType,
-                                 const nsIntSize& aSize,
+                                 const nsIntRect& aRect,
                                  uint32_t aFlags)
 {
   nsRefPtr<gfxASurface> referenceSurface = GetBuffer();
@@ -100,12 +100,12 @@ ContentClientBasic::CreateBuffer(ContentType aType,
     }
   }
   return referenceSurface->CreateSimilarSurface(
-    aType, gfxIntSize(aSize.width, aSize.height));
+    aType, gfxIntSize(aRect.width, aRect.height));
 }
 
 TemporaryRef<DrawTarget>
 ContentClientBasic::CreateDTBuffer(ContentType aType,
-                                 const nsIntSize& aSize,
+                                 const nsIntRect& aRect,
                                  uint32_t aFlags)
 {
 #if 0
@@ -169,7 +169,7 @@ ContentClientRemote::EndPaint()
 
 TemporaryRef<DrawTarget>
 ContentClientRemote::CreateDTBuffer(ContentType aType,
-                                    const nsIntSize& aSize,
+                                    const nsIntRect& aRect,
                                     uint32_t aFlags)
 {
   NS_ABORT_IF_FALSE(!mIsNewBuffer,
@@ -184,12 +184,12 @@ ContentClientRemote::CreateDTBuffer(ContentType aType,
   mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags | HostRelease);
 
   mContentType = aType;
-  mSize = gfx::IntSize(aSize.width, aSize.height);
+  mSize = gfx::IntSize(aRect.width, aRect.height);
   mTextureClient->EnsureTextureClient(mSize, mContentType);
   // note that LockSurfaceDescriptor doesn't actually lock anything
   MOZ_ASSERT(IsSurfaceDescriptorValid(*mTextureClient->LockSurfaceDescriptor()));
 
-  CreateFrontBufferAndNotify(aFlags | HostRelease);
+  CreateFrontBufferAndNotify(aRect, aFlags | HostRelease);
 
   RefPtr<DrawTarget> ret = mTextureClient->LockDrawTarget();
   return ret.forget();
@@ -197,7 +197,7 @@ ContentClientRemote::CreateDTBuffer(ContentType aType,
 
 already_AddRefed<gfxASurface>
 ContentClientRemote::CreateBuffer(ContentType aType,
-                                  const nsIntSize& aSize,
+                                  const nsIntRect& aRect,
                                   uint32_t aFlags)
 {
   NS_ABORT_IF_FALSE(!mIsNewBuffer,
@@ -212,12 +212,12 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   mTextureClient = CreateTextureClient(TEXTURE_CONTENT, aFlags | HostRelease);
 
   mContentType = aType;
-  mSize = gfx::IntSize(aSize.width, aSize.height);
+  mSize = gfx::IntSize(aRect.width, aRect.height);
   mTextureClient->EnsureTextureClient(mSize, mContentType);
   // note that LockSurfaceDescriptor doesn't actually lock anything
   MOZ_ASSERT(IsSurfaceDescriptorValid(*mTextureClient->LockSurfaceDescriptor()));
 
-  CreateFrontBufferAndNotify(aFlags | HostRelease);
+  CreateFrontBufferAndNotify(aRect, aFlags | HostRelease);
 
   nsRefPtr<gfxASurface> ret = mTextureClient->LockSurface();
   return ret.forget();
@@ -270,18 +270,12 @@ ContentClientRemote::Updated(const nsIntRegion& aRegionToDraw,
 }
 
 void
-ContentClientRemote::SwapBuffers(const ThebesBufferData &aData,
-                                 const nsIntRegion& aValidRegion,
-                                 const nsIntRegion& aFrontUpdatedRegion)
+ContentClientRemote::SwapBuffers(const nsIntRegion& aFrontUpdatedRegion)
 {
   MOZ_ASSERT(mTextureClient->GetAccessMode() == TextureClient::ACCESS_NONE);
   MOZ_ASSERT(mTextureClient);
 
-  mValidRegion = aValidRegion;
   mFrontAndBackBufferDiffer = true;
-  mBufferRect = aData.rect();
-  mBufferRotation = aData.rotation();
-
   mTextureClient->SetAccessMode(TextureClient::ACCESS_READ_WRITE);
 }
 
@@ -310,9 +304,12 @@ ContentClientDoubleBuffered::~ContentClientDoubleBuffered()
 }
 
 void
-ContentClientDoubleBuffered::CreateFrontBufferAndNotify(uint32_t aFlags)
+ContentClientDoubleBuffered::CreateFrontBufferAndNotify(const nsIntRect& aBufferRect,
+                                                        uint32_t aFlags)
 {
   mFrontClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
+  mFrontBufferRect = aBufferRect;
+  mFrontBufferRotation = nsIntPoint();
   mFrontClient->EnsureTextureClient(mSize, mContentType);
 
   mForwarder->CreatedDoubleBuffer(this, mFrontClient, mTextureClient);
@@ -336,9 +333,7 @@ ContentClientDoubleBuffered::LockFrontBuffer()
 }
 
 void
-ContentClientDoubleBuffered::SwapBuffers(const ThebesBufferData &aData,
-                                         const nsIntRegion& aValidRegion,
-                                         const nsIntRegion& aFrontUpdatedRegion)
+ContentClientDoubleBuffered::SwapBuffers(const nsIntRegion& aFrontUpdatedRegion)
 {
   mFrontUpdatedRegion = aFrontUpdatedRegion;
 
@@ -346,10 +341,18 @@ ContentClientDoubleBuffered::SwapBuffers(const ThebesBufferData &aData,
   mTextureClient = mFrontClient;
   mFrontClient = oldBack;
 
+  nsIntRect oldBufferRect = mBufferRect;
+  mBufferRect = mFrontBufferRect;
+  mFrontBufferRect = oldBufferRect;
+
+  nsIntPoint oldBufferRotation = mBufferRotation;
+  mBufferRotation = mFrontBufferRotation;
+  mFrontBufferRotation = oldBufferRotation;
+
   MOZ_ASSERT(mFrontClient);
   mFrontClient->SetAccessMode(TextureClient::ACCESS_READ_ONLY);
 
-  ContentClientRemote::SwapBuffers(aData, aValidRegion, aFrontUpdatedRegion);
+  ContentClientRemote::SwapBuffers(aFrontUpdatedRegion);
 }
 
 struct AutoTextureClient {
@@ -396,19 +399,21 @@ ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
   AutoTextureClient autoTextureFront;
   if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
     RotatedBuffer frontBuffer(autoTextureFront.GetDrawTarget(mFrontClient),
-                              mBufferRect,
-                              mBufferRotation);
+                              mFrontBufferRect,
+                              mFrontBufferRotation);
     UpdateDestinationFrom(frontBuffer,
                           mFrontUpdatedRegion);
   } else {
     RotatedBuffer frontBuffer(autoTextureFront.GetSurface(mFrontClient),
-                              mBufferRect,
-                              mBufferRotation);
+                              mFrontBufferRect,
+                              mFrontBufferRotation);
     UpdateDestinationFrom(frontBuffer,
                           mFrontUpdatedRegion);
   }
 
   mIsNewBuffer = false;
+  mBufferRect = mFrontBufferRect;
+  mBufferRotation = mFrontBufferRotation;
   mFrontAndBackBufferDiffer = false;
 }
 
@@ -439,7 +444,8 @@ ContentClientSingleBuffered::~ContentClientSingleBuffered()
 }
 
 void
-ContentClientSingleBuffered::CreateFrontBufferAndNotify(uint32_t aFlags)
+ContentClientSingleBuffered::CreateFrontBufferAndNotify(const nsIntRect& aBufferRect,
+                                                        uint32_t aFlags)
 {
   mForwarder->CreatedSingleBuffer(this, mTextureClient);
 }

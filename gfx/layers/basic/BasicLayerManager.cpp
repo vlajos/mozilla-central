@@ -1241,9 +1241,7 @@ BasicShadowLayerManager::ForwardTransaction()
           static_cast<ContentClientRemote*>(compositableChild->GetCompositableClient());
         MOZ_ASSERT(contentClient);
 
-        contentClient->SwapBuffers(obs.bufferData(),
-                                   obs.newValidRegion(),
-                                   obs.frontUpdatedRegion());
+        contentClient->SwapBuffers(obs.frontUpdatedRegion());
 
         break;
       }

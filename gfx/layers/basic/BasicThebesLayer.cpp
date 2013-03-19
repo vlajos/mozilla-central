@@ -259,8 +259,6 @@ BasicShadowableThebesLayer::PaintThebes(gfxContext* aContext,
     MOZ_ASSERT(mContentClient->GetForwarder());
   }
 
-  mValidRegion.And(mValidRegion,mContentClient->ValidRegion());
-  
   mContentClient->BeginPaint();
   BasicThebesLayer::PaintThebes(aContext, nullptr, aCallback, aCallbackData, aReadback);
   mContentClient->EndPaint();
