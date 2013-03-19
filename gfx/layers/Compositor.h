@@ -83,7 +83,7 @@
  * (See ShadowLayers.h)
  * Compositable transactions are subset of a layer transaction with which only
  * compositables and textures can be manipulated, and does not always originate
- * from the content thread. (See CompositableForwarder.h)
+ * from the content thread. (See CompositableForwarder.h and ImageBridgeChild.h)
  *
  *
  * # Texture transfer

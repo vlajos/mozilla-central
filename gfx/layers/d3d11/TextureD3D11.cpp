@@ -262,6 +262,10 @@ TextureClientD3D11::ClearDT()
 IntSize
 TextureHostShmemD3D11::GetSize() const
 {
+  if (mIterating) {
+    nsIntRect rect = GetTileRect();
+    return gfx::IntSize(rect.width, rect.height);
+  }
   return TextureSourceD3D11::GetSize();
 }
 

@@ -17,7 +17,6 @@ namespace mozilla {
 namespace layers {
 
 class CompositableClient;
-class ShadowableLayer;
 class TextureFactoryIdentifier;
 class SurfaceDescriptor;
 class ThebesBufferData;
@@ -102,8 +101,16 @@ public:
 
   void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
 
+  /**
+   * Returns the maximum texture size supported by the compositor.
+   */
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
 
+  /**
+   * Returns the type of backend that is used off the main thread.
+   * We only don't allow changing the backend type at runtime so this value can
+   * be queried once and will not change until Gecko is restarted.
+   */
   LayersBackend GetCompositorBackendType() {
     return mCompositorBackend;
   }

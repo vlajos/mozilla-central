@@ -16,11 +16,9 @@
 #include "mozilla/layers/CompositorOGL.h"
 
 using namespace mozilla::gl;
+using namespace mozilla::gfx;
 
 namespace mozilla {
-
-using namespace gfx;
-
 namespace layers {
 
 TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
@@ -112,6 +110,19 @@ gfx::SurfaceFormat FormatFromShaderType(ShaderProgramType aShaderType)
     return FORMAT_UNKNOWN;
   }
 }
+
+gfx::IntSize TextureImageTextureHostOGL::GetSize() const
+{
+  if (mTexture) {
+    if (mIterating) {
+      nsIntRect rect = mTexture->GetTileRect();
+      return gfx::IntSize(rect.width, rect.height);
+    }
+    return gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
+  }
+  return gfx::IntSize(0, 0);
+}
+
 
 void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {

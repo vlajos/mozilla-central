@@ -11,7 +11,6 @@
 #include "gfxSharedImageSurface.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/ReentrantMonitor.h"
-//#include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/TextureChild.h"
 #include "nsXULAppAPI.h"

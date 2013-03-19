@@ -105,9 +105,9 @@ public:
   // TextureHost
 
   void UpdateImpl(const SurfaceDescriptor& aImage,
-                  nsIntRegion* aRegion = nullptr);
+                  nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
 
-  virtual void SetCompositor(Compositor* aCompositor);
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
   bool IsValid() const MOZ_OVERRIDE
   {
@@ -124,17 +124,7 @@ public:
     mTexture->BindTexture(aTextureUnit);
   }
 
-  gfx::IntSize GetSize() const MOZ_OVERRIDE
-  {
-    if (mTexture) {
-      if (mIterating) {
-        nsIntRect rect = mTexture->GetTileRect();
-        return gfx::IntSize(rect.width, rect.height);
-      }
-      return gfx::IntSize(mTexture->GetSize().width, mTexture->GetSize().height);
-    }
-    return gfx::IntSize(0, 0);
-  }
+  gfx::IntSize GetSize() const MOZ_OVERRIDE;
 
   gl::ShaderProgramType GetShaderProgram() const MOZ_OVERRIDE
   {
@@ -150,6 +140,7 @@ public:
   {
     return mTexture;
   }
+
   void SetTextureImage(gl::TextureImage* aImage)
   {
     mTexture = aImage;
@@ -228,7 +219,7 @@ public:
     MOZ_COUNT_DTOR(YCbCrTextureHostOGL);
   }
 
-  virtual void SetCompositor(Compositor* aCompositor);
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
                           nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
@@ -282,7 +273,7 @@ public:
     return nullptr;
   }
 
-  gfx::IntSize GetSize() const
+  gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
     if (!mYTexture->mTexImage) {
       NS_WARNING("YCbCrTextureHost::GetSize called but no data has been set yet");
@@ -318,7 +309,7 @@ public:
     , mShareType(GLContext::SameProcess)
   {}
 
-  virtual void SetCompositor(Compositor* aCompositor);
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
   virtual ~SharedTextureHostOGL()
   {
@@ -345,13 +336,13 @@ public:
   // override from TextureHost, we support both buffered
   // and unbuffered operation.
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
-                          nsIntRegion* aRegion = nullptr);
+                          nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                nsIntRegion* aRegion = nullptr);
-  virtual bool Lock();
-  virtual void Unlock();
+                                nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
+  virtual void Unlock() MOZ_OVERRIDE;
 
-  virtual GLenum GetWrapMode() const { return mWrapMode; }
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE { return mWrapMode; }
   virtual void SetWrapMode(GLenum aMode) { mWrapMode = aMode; }
 
   gl::ShaderProgramType GetShaderProgram() const MOZ_OVERRIDE
@@ -359,7 +350,7 @@ public:
     return mShaderProgram;
   }
 
-  gfx::IntSize GetSize() const {
+  gfx::IntSize GetSize() const MOZ_OVERRIDE {
     return mSize;
   }
 
@@ -368,7 +359,7 @@ public:
     return mTextureTarget;
   }
 
-  void BindTexture(GLenum activetex)
+  void BindTexture(GLenum activetex) MOZ_OVERRIDE
   {
     MOZ_ASSERT(mGL);
     mGL->fActiveTexture(activetex);
@@ -416,7 +407,7 @@ public:
     *mBuffer = SurfaceDescriptor();
   }
 
-  virtual void SetCompositor(Compositor* aCompositor);
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
   virtual GLuint GetTextureHandle()
   {
@@ -429,11 +420,11 @@ public:
 
   // override from TextureHost
   virtual void SwapTexturesImpl(const SurfaceDescriptor& aImage,
-                                nsIntRegion* aRegion = nullptr);
-  virtual bool Lock();
-  virtual void Unlock();
+                                nsIntRegion* aRegion = nullptr) MOZ_OVERRIDE;
+  virtual bool Lock() MOZ_OVERRIDE;
+  virtual void Unlock() MOZ_OVERRIDE;
 
-  virtual GLenum GetWrapMode() const {
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE {
     return mWrapMode;
   }
   virtual void SetWrapMode(GLenum aMode) {
@@ -445,7 +436,7 @@ public:
     return mShaderProgram;
   }
 
-  gfx::IntSize GetSize() const {
+  gfx::IntSize GetSize() const MOZ_OVERRIDE {
     return mSize;
   }
 
@@ -454,7 +445,7 @@ public:
     return LOCAL_GL_TEXTURE_2D;
   }
 
-  void BindTexture(GLenum activetex) {
+  void BindTexture(GLenum activetex) MOZ_OVERRIDE {
     MOZ_ASSERT(mGL);
     mGL->fActiveTexture(activetex);
     mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);

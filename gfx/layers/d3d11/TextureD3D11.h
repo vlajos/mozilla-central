@@ -100,33 +100,47 @@ public:
     : mDevice(nullptr)
     , mIsTiled(false)
     , mCurrentTile(0)
+    , mIterating(false)
   {
   }
 
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
-  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
+  virtual TextureSourceD3D11* AsSourceD3D11() MOZ_OVERRIDE { return this; }
 
-  virtual ID3D11Texture2D *GetD3D11Texture() { return mIsTiled ? mTileTextures[mCurrentTile] : TextureSourceD3D11::GetD3D11Texture(); }
+  virtual ID3D11Texture2D *GetD3D11Texture() MOZ_OVERRIDE {
+    return mIsTiled ? mTileTextures[mCurrentTile] : TextureSourceD3D11::GetD3D11Texture();
+  }
 
-  virtual gfx::IntSize GetSize() const;
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE;
 
-  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE { return LayerRenderState(); }
 
-  virtual bool Lock() { return true; }
+  virtual bool Lock() MOZ_OVERRIDE { return true; }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual const char* Name() { return "TextureHostShmemD3D11"; }
 #endif
 
-  virtual void BeginTileIteration() { mCurrentTile = 0; }
-  virtual nsIntRect GetTileRect();
-  virtual size_t GetTileCount() { return mTileTextures.size(); }
-  virtual bool NextTile() { return (++mCurrentTile < mTileTextures.size()); }
+  virtual void BeginTileIteration() MOZ_OVERRIDE {
+    mIterating = true;
+    mCurrentTile = 0;
+  }
+  virtual void EndTileIteration() MOZ_OVERRIDE {
+    mIterating = false;
+  }
+  virtual nsIntRect GetTileRect() MOZ_OVERRIDE;
+  virtual size_t GetTileCount() MOZ_OVERRIDE { return mTileTextures.size(); }
+  virtual bool NextTile() MOZ_OVERRIDE {
+    return (++mCurrentTile < mTileTextures.size());
+  }
 
-  virtual TileIterator* AsTileIterator() { return mIsTiled ? this : nullptr; }
+  virtual TileIterator* AsTileIterator() MOZ_OVERRIDE {
+    return mIsTiled ? this : nullptr;
+  }
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface,
+                          nsIntRegion* aRegion) MOZ_OVERRIDE;
 private:
 
   gfx::IntRect GetTileRect(uint32_t aID);
@@ -148,21 +162,24 @@ public:
 
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
-  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
+  virtual TextureSourceD3D11* AsSourceD3D11() MOZ_OVERRIDE { return this; }
 
-  virtual gfx::IntSize GetSize() const;
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE;
 
-  virtual LayerRenderState GetRenderState() { return LayerRenderState(); }
+  virtual LayerRenderState GetRenderState() MOZ_OVERRIDE {
+    return LayerRenderState();
+  }
 
-  virtual bool Lock();
-  virtual void Unlock();
+  virtual bool Lock() MOZ_OVERRIDE;
+  virtual void Unlock() MOZ_OVERRIDE;
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual const char* Name() { return "TextureHostDXGID3D11"; }
 #endif
 
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface,
+                          nsIntRegion* aRegion) MOZ_OVERRIDE;
 private:
   void LockTexture();
   void ReleaseTexture();
@@ -184,9 +201,9 @@ public:
 
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
-  virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
+  virtual TextureSourceD3D11* AsSourceD3D11() MOZ_OVERRIDE { return this; }
 
-  virtual gfx::IntSize GetSize() const;
+  virtual gfx::IntSize GetSize() const MOZ_OVERRIDE;
 
   virtual bool IsYCbCrSource() const { return true; }
 
@@ -195,7 +212,8 @@ public:
 #endif
 
 protected:
-  virtual void UpdateImpl(const SurfaceDescriptor& aSurface, nsIntRegion* aRegion);
+  virtual void UpdateImpl(const SurfaceDescriptor& aSurface,
+                          nsIntRegion* aRegion) MOZ_OVERRIDE;
 
 private:
   RefPtr<ID3D11Device> mDevice;
