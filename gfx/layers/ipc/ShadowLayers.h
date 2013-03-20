@@ -104,6 +104,38 @@ enum OpenMode {
  * There are only shadow types for layers that have different shadow
  * vs. not-shadow behavior.  ColorLayers and ContainerLayers behave
  * the same way in both regimes (so far).
+ *
+ *
+ * The mecanism to shadow the layer tree on the compositor through IPC works as
+ * follows:
+ * The layer tree is managed on the content thread, and shadowed in the compositor
+ * thread. The shadow layer tree is only kept in sync with whatever happens in
+ * the content thread. To do this we use IPDL protocols. IPDL is a domain
+ * specific language that describes how two processes or thread should
+ * communicate. C++ code is generated from .ipdl files to implement the message
+ * passing, synchronization and serialization logic. To use the generated code
+ * we implement classes that inherit the generated IPDL actor. the ipdl actors
+ * of a protocol PX are PXChild or PXParent (the generated class), and we
+ * conventionally implement XChild and XParent. The Parent side of the protocol
+ * is the one that lives on the compositor thread. Think of IPDL actors as
+ * endpoints of communication. they are useful to send messages and also to
+ * dispatch the message to the right actor on the other side. One nice property
+ * of an IPDL actor is that when an actor, say PXChild is sent in a message, the
+ * PXParent comes out in the other side. we use this property a lot to dispatch
+ * messages to the right layers and compositable, each of which have their own
+ * ipdl actor on both side.
+ *
+ * Most of the synchronization logic happens in layer transactions and
+ * compositable transactions.
+ * A transaction is a set of changes to the layers and/or the compositables
+ * that are sent and applied together to the compositor thread to keep the
+ * ShadowLayer in a coherent state.
+ * Layer transactions maintain the shape of the shadow layer tree, and
+ * synchronize the texture data held by compositables. Layer transactions
+ * are always between the content thread and the compositor thread.
+ * Compositable transactions are subset of a layer transaction with which only
+ * compositables and textures can be manipulated, and does not always originate
+ * from the content thread. (See CompositableForwarder.h and ImageBridgeChild.h)
  */
 
 class ShadowLayerForwarder : public CompositableForwarder

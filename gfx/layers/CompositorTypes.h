@@ -36,26 +36,18 @@ enum TextureClientType
   TEXTURE_SHMEM,              // shared memory
   TEXTURE_YCBCR,              // ShmemYCbCrImage
   TEXTURE_SHARED_GL,          // GLContext::SharedTextureHandle
-  TEXTURE_SHARED_GL_EXTERNAL, // GLContext::SharedTextureHandle, owned by the caller
+  TEXTURE_SHARED_GL_EXTERNAL, // GLContext::SharedTextureHandle, owned by the caller TODO: rephrase, what is the caller?
   TEXTURE_STREAM_GL           // WebGL streaming buffer
 };
 
 /**
- * Compositbales have four kinds of interface - image and canvas layers pass
- * a SurfaceDescriptor from content to compositor threads and do not maintain
- * a valid region. Thebes layers keep a valid region to reduce the amount of
- * painting and compositing. Both the client and host keep a reference to the
- * SurfaceDescriptor. The SurfaceDescriptor (and the underlying surface) is
- * created by the content thread and passed on creation to the compositing
- * thread. Logical ownership is transferred at this point. Image bridge is the
- * protocol used for async upload of images (for async video). Tiled layers 
- * have their own, raw memory system.
+ * How the Compositable should manage textures.
  */
 enum CompositableType
 {
   BUFFER_UNKNOWN,
-  BUFFER_IMAGE_SINGLE,    // image/canvas host with a single texture, single buffered
-  BUFFER_IMAGE_BUFFERED,  // image/canvas host, double buffered
+  BUFFER_IMAGE_SINGLE,    // image/canvas with a single texture, single buffered
+  BUFFER_IMAGE_BUFFERED,  // image/canvas, double buffered
   BUFFER_BRIDGE,          // image bridge protocol
   BUFFER_CONTENT,         // thebes layer interface, single buffering
   BUFFER_CONTENT_DIRECT,  // thebes layer interface, double buffering
