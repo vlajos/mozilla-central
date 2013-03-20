@@ -95,6 +95,9 @@ ISurfaceAllocator() {}
   virtual void DestroySharedSurface(SurfaceDescriptor* aSurface);
 
 protected:
+  // this method is needed for a temporary fix, will be removed after
+  // TextureClient/Host rework.
+  virtual bool IsOnCompositorSide() const = 0;
   static bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
   virtual bool PlatformAllocSurfaceDescriptor(const gfxIntSize& aSize,
                                               gfxASurface::gfxContentType aContent,

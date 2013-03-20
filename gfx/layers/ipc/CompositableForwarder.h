@@ -106,6 +106,8 @@ public:
    */
   virtual int32_t GetMaxTextureSize() const { return mMaxTextureSize; }
 
+  bool IsOnCompositorSide() const MOZ_OVERRIDE { return false; }
+
   /**
    * Returns the type of backend that is used off the main thread.
    * We only don't allow changing the backend type at runtime so this value can
