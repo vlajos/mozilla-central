@@ -399,7 +399,10 @@ GLXLibrary::CreatePixmap(gfxASurface* aSurface)
         break;
     }
     if (matchIndex == -1) {
-        NS_WARN_IF_FALSE(format->depth == 8, "[GLX] Couldn't find a FBConfig matching Pixmap format");
+        // GLX can't handle A8 surfaces, so this is not really unexpected. The
+        // caller should deal with this situation.
+        NS_WARN_IF_FALSE(format->depth == 8,
+                         "[GLX] Couldn't find a FBConfig matching Pixmap format");
         return None;
     }
 
@@ -1096,7 +1099,8 @@ GLContextGLX::CreateTextureImage(const nsIntSize& aSize,
 
     Display *display = DefaultXDisplay();
     int xscreen = DefaultScreen(display);
-    gfxASurface::gfxImageFormat imageFormat = gfxPlatform::GetPlatform()->OptimalFormatForContent(aContentType);
+    gfxASurface::gfxImageFormat imageFormat =
+      gfxPlatform::GetPlatform()->OptimalFormatForContent(aContentType);
 
     XRenderPictFormat* xrenderFormat =
         gfxXlibSurface::FindRenderFormat(display, imageFormat);
@@ -1118,6 +1122,8 @@ GLContextGLX::CreateTextureImage(const nsIntSize& aSize,
 
     MakeCurrent();
     GLXPixmap pixmap = mGLX->CreatePixmap(surface);
+    // GLX might not be able to give us an A8 pixmap. If so, just use CPU
+    // memory.
     if (!pixmap && imageFormat == gfxASurface::ImageFormatA8) {
         return GLContext::CreateTextureImage(aSize,
                                              aContentType,

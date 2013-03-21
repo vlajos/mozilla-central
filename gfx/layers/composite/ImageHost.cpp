@@ -139,7 +139,7 @@ ImageHostBuffered::AddTextureHost(TextureHost* aHost,
   mTextureHost = aHost;
   mTextureHost->SetBuffer(new SurfaceDescriptor(null_t()),
                           aAllocator);
-  mHasPictureRect = false;
+  mPictureRect = nsIntRect(0, 0, -1, -1);
 }
 
 }
