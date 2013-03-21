@@ -257,22 +257,6 @@ public:
    */
   virtual bool SupportsPartialTextureUpdate() = 0;
 
-  void EnableColoredBorders()
-  {
-    mDrawColoredBorders = true;
-  }
-  void DisableColoredBorders()
-  {
-    mDrawColoredBorders = false;
-  }
-
-  void DrawColoredBorders(const gfx::Color& color,
-                          const gfx::Rect& visibleRect,
-                          const gfx::Rect* aClipRect,
-                          const gfx::Matrix4x4& transform,
-                          const gfx::Point& aOffset);
-
-
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const = 0;
 #endif // MOZ_DUMP_PAINTING
@@ -322,7 +306,6 @@ public:
   static LayersBackend GetBackend();
 protected:
   uint32_t mCompositorID;
-  bool mDrawColoredBorders;
   static LayersBackend sBackend;
 };
 

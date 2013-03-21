@@ -13,8 +13,6 @@
 
 #include "mozilla/TimeStamp.h"
 
-class gfxRGBA;
-
 namespace mozilla {
 
 namespace layers {
@@ -119,7 +117,9 @@ public:
                         viewport.height);
   }
 
+  
   virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) MOZ_OVERRIDE;
+
 
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const MOZ_OVERRIDE { return "OGL"; }

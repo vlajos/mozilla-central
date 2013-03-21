@@ -243,7 +243,8 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       AsShadowLayer(edit.get_OpCreateRefLayer())->Bind(layer);
       break;
     }
-    // Attributes
+
+      // Attributes
     case Edit::TOpSetLayerAttributes: {
       MOZ_LAYERS_LOG(("[ParentSide] SetLayerAttributes"));
 
@@ -333,15 +334,6 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
       }
       break;
     }
-    case Edit::TOpSetColoredBorders: {
-      if (edit.get_OpSetColoredBorders().enabled()) {
-        mLayerManager->GetCompositor()->EnableColoredBorders();
-      } else {
-        mLayerManager->GetCompositor()->DisableColoredBorders();
-      }
-      break;
-    }
-
     // Tree ops
     case Edit::TOpSetRoot: {
       MOZ_LAYERS_LOG(("[ParentSide] SetRoot"));

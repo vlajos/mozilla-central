@@ -96,8 +96,6 @@ static int gCMSIntent = -2;
 static void ShutdownCMS();
 static void MigratePrefs();
 
-static bool sDrawLayerBorders = false;
-
 #include "mozilla/gfx/2D.h"
 using namespace mozilla::gfx;
 
@@ -380,10 +378,6 @@ gfxPlatform::Init()
     }
 
     gPlatform->mOrientationSyncMillis = Preferences::GetUint("layers.orientation.sync.timeout", (uint32_t)0);
-
-    mozilla::Preferences::AddBoolVarCache(&sDrawLayerBorders,
-                                          "layers.draw-borders",
-                                          false);
 }
 
 void
@@ -1087,13 +1081,6 @@ gfxPlatform::IsLangCJK(eFontPrefLang aLang)
             return false;
     }
 }
-
-bool
-gfxPlatform::DrawLayerBorders()
-{
-    return sDrawLayerBorders;
-}
-
 
 void
 gfxPlatform::GetLangPrefs(eFontPrefLang aPrefLangs[], uint32_t &aLen, eFontPrefLang aCharLang, eFontPrefLang aPageLang)

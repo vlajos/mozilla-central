@@ -3915,7 +3915,7 @@ pref("layers.acceleration.force-enabled", false);
 #endif
 
 pref("layers.acceleration.draw-fps", false);
-pref("layers.draw-borders", false);
+
 pref("layers.offmainthreadcomposition.enabled", false);
 // Whether to animate simple opacity and transforms on the compositor
 pref("layers.offmainthreadcomposition.animate-opacity", false);
