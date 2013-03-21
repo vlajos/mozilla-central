@@ -42,7 +42,7 @@ template<typename T> OutParamRef<T> byRef(RefPtr<T>&);
  */
 #ifdef DEBUG
 namespace detail {
-static const unsigned int DEAD = 0xffffdead;
+static const int DEAD = 0xffffdead;
 }
 #endif
 
@@ -58,6 +58,7 @@ class RefCounted
   public:
     // Compatibility with nsRefPtr.
     void AddRef() {
+      MOZ_ASSERT(refCnt >= 0);
       ++refCnt;
     }
 
@@ -81,7 +82,7 @@ class RefCounted
     }
 
   private:
-    unsigned int refCnt;
+    int refCnt;
 };
 
 /**

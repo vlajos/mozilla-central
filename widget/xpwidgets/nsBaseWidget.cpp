@@ -1281,7 +1281,7 @@ void
 nsBaseWidget::ResolveIconName(const nsAString &aIconName,
                               const nsAString &aIconSuffix,
                               nsIFile **aResult)
-{ 
+{
   *aResult = nullptr;
 
   nsCOMPtr<nsIProperties> dirSvc = do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
@@ -1636,7 +1636,7 @@ static int32_t
 _GetPrintCount()
 {
   static int32_t sCount = 0;
-  
+
   return ++sCount;
 }
 //////////////////////////////////////////////////////////////
