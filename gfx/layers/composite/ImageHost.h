@@ -44,7 +44,7 @@ public:
     : ImageHost(aCompositor)
     , mTextureHost(nullptr)
     , mType(aType)
-    , mPictureRect(0, 0, -1, -1)
+    , mHasPictureRect(false)
   {}
 
   virtual CompositableType GetType() { return mType; }
@@ -72,6 +72,7 @@ public:
   virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE
   {
     mPictureRect = aPictureRect;
+    mHasPictureRect = true;
   }
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
@@ -96,6 +97,7 @@ protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
   CompositableType mType;
+  bool mHasPictureRect;
 };
 
 // Double buffered ImageHost. We have a single TextureHost and double buffering

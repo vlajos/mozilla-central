@@ -164,6 +164,9 @@ public:
    * Set the target for rendering, intended to be used for the duration of a
    * transaction. Results will have been written to aTarget by the time that
    * EndFrame returns.
+   *
+   * If this method is not used, or we pass in nullptr, we target the compositor's
+   * usual swap chain and render to the screen.
    */
   virtual void SetTargetContext(gfxContext *aTarget) = 0;
 
@@ -171,11 +174,17 @@ public:
    * Make this compositor's rendering context the current context for the
    * underlying graphics API. This may be a global operation, depending on the
    * API. Our context will remain the current one until someone else changes it.
+   *
+   * Clients of the compositor should call this at the start of the compositing
+   * process, it might be required by texture uploads etc.
    */
   virtual void MakeCurrent(bool aForce = false) = 0;
 
   /**
-   * Modifies the TextureIdentifier if needed in a fallback situation for aId.
+   * Modifies the TextureIdentifier in aInfo to a more reliable kind. For use by
+   * when creating texture hosts/clients. If the desired texture cannot be
+   * created, this method allows the compositor to suggest a less desirable, but
+   * more reliable kind of texture.
    */
   virtual void FallbackTextureInfo(TextureInfo& aInfo) {}
 
@@ -203,15 +212,14 @@ public:
   virtual void SetRenderTarget(CompositingRenderTarget *aSurface) = 0;
 
   /**
-   * Mostly the compositor will pull the size from a widget and this will
-   * be ignored, but compositor implementations are free to use it if they
-   * like.
+   * Mostly the compositor will pull the size from a widget and this method will
+   * be ignored, but compositor implementations are free to use it if they like.
    */
   virtual void SetRenderTargetSize(int aWidth, int aHeight) = 0;
 
   /**
-   * This tells the compositor to actually draw a quad. What to do draw and how
-   * is specified by aEffectChain. aRect is the quad to draw, in user space.
+   * Tell the compositor to actually draw a quad. What to do draw and how it is
+   * drawn is specified by aEffectChain. aRect is the quad to draw, in user space.
    * aTransform transforms from user space to screen space. aOffset is the
    * offset of the render target from 0,0 of the screen. If texture coords are
    * required, these will be in the primary effect in the effect chain.
@@ -222,8 +230,8 @@ public:
                         const gfx::Point &aOffset) = 0;
 
   /**
-   * Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen
-   * dimensions. 
+   * Start a new frame.
+   * If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn,
                           const gfxMatrix& aTransform,
@@ -231,18 +239,18 @@ public:
                           gfx::Rect *aClipRectOut = nullptr) = 0;
 
   /**
-   * Flush the current frame to the screen.
+   * Flush the current frame to the screen and tidy up.
    */
   virtual void EndFrame(const gfxMatrix& aTransform) = 0;
 
   /**
-   * Post rendering stuff if the rendering is outside of this Compositor
+   * Post-rendering stuff if the rendering is done outside of this Compositor
    * e.g., by Composer2D
    */
   virtual void EndFrameForExternalComposition(const gfxMatrix& aTransform) = 0;
 
   /**
-   * Tidy up if BeginFrame has been called, but EndFrame won't be
+   * Tidy up if BeginFrame has been called, but EndFrame won't be.
    */
   virtual void AbortFrame() = 0;
 
@@ -287,20 +295,19 @@ public:
   virtual void NotifyShadowTreeTransaction() = 0;
 
   /**
-   * Notify the compositor that composition is being paused/resumed.
+   * Notify the compositor that composition is being paused.
    */
   virtual void Pause() {}
   /**
+   * Notify the compositor that composition is being resumed.
    * Returns true if succeeded
    */
   virtual bool Resume() { return true; }
 
-  // I expect we will want to move mWidget into this class and implement this
-  // method properly.
+  // XXX I expect we will want to move mWidget into this class and implement
+  // these methods properly.
   virtual nsIWidget* GetWidget() const { return nullptr; }
-  virtual nsIntSize* GetWidgetSize() {
-    return nullptr;
-  }
+  virtual nsIntSize* GetWidgetSize() { return nullptr; }
 
   /**
    * We enforce that there can only be one Compositor backend type off the main
