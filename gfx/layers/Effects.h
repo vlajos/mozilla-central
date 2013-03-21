@@ -21,7 +21,7 @@ namespace layers {
  *
  * An effect chain consists of a primary effect - how the 'texture' memory should
  * be interpreted (RGBA, BGRX, YCBCR, etc.) - and any number of secondary effects
- * - any way in which rendering can be changed, for e.g., applying a mask layer.
+ * - any way in which rendering can be changed, e.g., applying a mask layer.
  *
  * During the rendering process, an effect chain is created by the layer being
  * rendered and the primary effect is added by the compositable host. Secondary
@@ -33,7 +33,7 @@ namespace layers {
 enum EffectTypes
 {
   EFFECT_MASK,
-  EFFECT_PRIMARY,
+  EFFECT_MAX_SECONDARY, // sentinel for the count of secondary effect types
   EFFECT_BGRX,
   EFFECT_RGBX,
   EFFECT_BGRA,
@@ -43,7 +43,7 @@ enum EffectTypes
   EFFECT_COMPONENT_ALPHA,
   EFFECT_SOLID_COLOR,
   EFFECT_RENDER_TARGET,
-  EFFECT_MAX
+  EFFECT_MAX  //sentinel for the count of all effect types
 };
 
 struct Effect : public RefCounted<Effect>
@@ -236,7 +236,7 @@ struct EffectSolidColor : public Effect
 struct EffectChain
 {
   RefPtr<Effect> mPrimaryEffect;
-  RefPtr<Effect> mSecondaryEffects[EFFECT_PRIMARY];
+  RefPtr<Effect> mSecondaryEffects[EFFECT_MAX_SECONDARY];
 };
 
 inline TemporaryRef<TexturedEffect>
