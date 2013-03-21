@@ -313,11 +313,9 @@ ContentHostDoubleBuffered::UpdateThebes(const ThebesBufferData& aData,
     return;
   }
 
-  bool needsReset = false;
   if (mNewFrontHost) {
     DestroyFrontHost();
     mTextureHost = mNewFrontHost;
-    needsReset = true;
     mNewFrontHost = nullptr;
   }
 
