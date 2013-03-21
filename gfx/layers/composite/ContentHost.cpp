@@ -172,6 +172,9 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
                                           Float(tileRegionRect.width) / texRect.width,
                                           Float(tileRegionRect.height) / texRect.height);
             GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+            GetCompositor()->DrawColoredBorders(gfx::Color(0.0,1.0,0.0,1.0),
+                                                rect, &aClipRect, aTransform, aOffset);
+
         }
       }
     }
@@ -536,6 +539,8 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
                                   textureRect.width / aTextureBounds.width,
                                   textureRect.height / aTextureBounds.height);
     mCompositor->DrawQuad(graphicsRect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+    mCompositor->DrawColoredBorders(gfx::Color(0.0,0.5,0.0,1.0),
+                                    graphicsRect, &aClipRect, aTransform, aOffset);
   }
 
   aTile.mTextureHost->Unlock();

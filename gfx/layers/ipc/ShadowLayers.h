@@ -389,16 +389,6 @@ protected:
 #endif
 
 private:
-/*
-  bool AllocBuffer(const gfxIntSize& aSize,
-                   gfxASurface::gfxContentType aContent,
-                   gfxSharedImageSurface** aBuffer);
-
-  bool PlatformAllocBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           uint32_t aCaps,
-                           SurfaceDescriptor* aBuffer);
-*/
   /**
    * Try to query the content type efficiently, but at worst map the
    * surface and return it in *aSurface.
@@ -444,6 +434,7 @@ private:
   Transaction* mTxn;
 
   bool mIsFirstPaint;
+  bool mDrawColoredBorders;
 };
 
 class ShadowLayerManager : public LayerManager
@@ -452,14 +443,6 @@ public:
   virtual ~ShadowLayerManager() {}
 
   virtual void GetBackendName(nsAString& name) { name.AssignLiteral("Shadow"); }
-
-/*
-  void DestroySharedSurface(gfxSharedImageSurface* aSurface,
-                            PLayersParent* aDeallocator);
-
-  void DestroySharedSurface(SurfaceDescriptor* aSurface,
-                            PLayersParent* aDeallocator);
-*/
 
   /** CONSTRUCTION PHASE ONLY */
   virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer() = 0;

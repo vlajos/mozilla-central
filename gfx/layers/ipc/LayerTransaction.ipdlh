@@ -231,6 +231,7 @@ struct OpRemoveChild      { PLayer container; PLayer childLayer; };
 struct OpRepositionChild  { PLayer container; PLayer childLayer; PLayer after; };
 struct OpRaiseToTopChild  { PLayer container; PLayer childLayer; };
 
+struct OpSetColoredBorders { bool enabled; };
 
 // Paint (buffer update)
 struct OpPaintTiledLayerBuffer {
@@ -294,6 +295,7 @@ union Edit {
   OpCreateRefLayer;
 
   OpSetLayerAttributes;
+  OpSetColoredBorders;
   
   OpSetRoot;
   OpInsertAfter;
