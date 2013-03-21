@@ -277,9 +277,8 @@ gfxPlatform::Init()
 #endif
 
     bool useOffMainThreadCompositing = false;
-    useOffMainThreadCompositing = Preferences::GetBool(
-          "layers.offmainthreadcomposition.enabled", false) ||
-          Preferences::GetBool("browser.tabs.remote", false);
+    useOffMainThreadCompositing = GetPrefLayersOffMainThreadCompositionEnabled() ||
+        Preferences::GetBool("browser.tabs.remote", false);
 
     if (useOffMainThreadCompositing && (XRE_GetProcessType() ==
                                         GeckoProcessType_Default)) {
