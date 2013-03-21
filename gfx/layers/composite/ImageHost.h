@@ -44,6 +44,7 @@ public:
     : ImageHost(aCompositor)
     , mTextureHost(nullptr)
     , mType(aType)
+    , mHasPictureRect(false)
   {}
 
   virtual CompositableType GetType() { return mType; }
@@ -68,13 +69,10 @@ public:
     return ImageHost::Update(aImage, aResult);
   }
 
-  /**
-   * The picture rect is the area of the texture which makes up the image. That
-   * is, the area that should be composited. In texture space.
-   */
   virtual void SetPictureRect(const nsIntRect& aPictureRect) MOZ_OVERRIDE
   {
     mPictureRect = aPictureRect;
+    mHasPictureRect = true;
   }
 
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE
@@ -99,6 +97,7 @@ protected:
   RefPtr<TextureHost> mTextureHost;
   nsIntRect mPictureRect;
   CompositableType mType;
+  bool mHasPictureRect;
 };
 
 // Double buffered ImageHost. We have a single TextureHost and double buffering

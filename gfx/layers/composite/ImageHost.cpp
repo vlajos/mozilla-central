@@ -80,10 +80,15 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     gfx::Rect rect(0, 0,
                    mPictureRect.width,
                    mPictureRect.height);
-    effect->mTextureCoords = Rect(Float(mPictureRect.x) / textureSize.width,
-                                  Float(mPictureRect.y) / textureSize.height,
-                                  Float(mPictureRect.width) / textureSize.width,
-                                  Float(mPictureRect.height) / textureSize.height);
+    if (mHasPictureRect) {
+      effect->mTextureCoords = Rect(Float(mPictureRect.x) / textureSize.width,
+                                    Float(mPictureRect.y) / textureSize.height,
+                                    Float(mPictureRect.width) / textureSize.width,
+                                    Float(mPictureRect.height) / textureSize.height);
+    } else {
+      effect->mTextureCoords = Rect(0, 0, 1, 1);
+      rect = gfx::Rect(0, 0, textureSize.width, textureSize.height);
+    }
 
     if (mTextureHost->GetFlags() & NeedsYFlip) {
       effect->mTextureCoords.y = effect->mTextureCoords.YMost();
@@ -134,8 +139,7 @@ ImageHostBuffered::AddTextureHost(TextureHost* aHost,
   mTextureHost = aHost;
   mTextureHost->SetBuffer(new SurfaceDescriptor(null_t()),
                           aAllocator);
-  IntSize textureSize = mTextureHost->GetSize();
-  mPictureRect = nsIntRect(0, 0, textureSize.width, textureSize.height);
+  mHasPictureRect = false;
 }
 
 }
