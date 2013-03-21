@@ -36,7 +36,9 @@ enum TextureClientType
   TEXTURE_SHMEM,              // shared memory
   TEXTURE_YCBCR,              // ShmemYCbCrImage
   TEXTURE_SHARED_GL,          // GLContext::SharedTextureHandle
-  TEXTURE_SHARED_GL_EXTERNAL, // GLContext::SharedTextureHandle, owned by the caller TODO: rephrase, what is the caller?
+  TEXTURE_SHARED_GL_EXTERNAL, // GLContext::SharedTextureHandle, the ownership of
+                              // the SurfaceDescriptor passed to the texture
+                              // remains with whoever passed it.
   TEXTURE_STREAM_GL           // WebGL streaming buffer
 };
 
@@ -59,7 +61,8 @@ enum CompositableType
  */
 enum TextureHostFlags
 {
-  TEXTURE_HOST_DEFAULT = 0,       // The default texture host for the given SurfaceDescriptor
+  TEXTURE_HOST_DEFAULT = 0,       // The default texture host for the given
+                                  // SurfaceDescriptor
   TEXTURE_HOST_TILED = 1 << 0,    // A texture host that supports tiling
   TEXTURE_HOST_DIRECT = 1 << 1    // Direct texturing
 };

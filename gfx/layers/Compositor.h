@@ -82,15 +82,15 @@
  *
  * If off-main-thread compositing (OMTC) is enabled, compositing is performed
  * in a dedicated thread. In some setups compositing happens in a dedicated
- * process Documentation may refer to either the compositor thread ot the
+ * process. Documentation may refer to either the compositor thread or the
  * compositor process.
  * See explanations in ShadowLayers.h
  *
  *
  * # Backend implementations
  *
- * compositor backend like OpenGL or flavours of D3D live in their own directory
- * under gfx/layer/. To add a new backend, implement at least the following
+ * Compositor backends like OpenGL or flavours of D3D live in their own directory
+ * under gfx/layers/. To add a new backend, implement at least the following
  * interfaces:
  * - Compositor (ex. CompositorOGL)
  * - TextureHost (ex. TextureImageTextureHost)
@@ -123,13 +123,13 @@ enum SurfaceInitMode
 /**
  * Common interface for compositor backends.
  *
- * Compositor provides a cross-platform interface to a set of operations useful
- * to composite quads.
- * While being a mean to composite layers, Compositor does not own states like
- * the layer tree.
- * In theory it should be possible for different widget to use the same compositor
- * and this will probably possible in the future. In practice, a few implementation
- * details make us use one compositor per window.
+ * Compositor provides a cross-platform interface to a set of operations for
+ * compositing quads. Compositor knows nothing about the layer tree. It must be
+ * told everything about each composited quad - contents, location, transform,
+ * opacity, etc.
+ *
+ * In theory it should be possible for different widgets to use the same
+ * compositor. In practice, we use one compositor per window.
  */
 class Compositor : public RefCounted<Compositor>
 {
@@ -155,24 +155,27 @@ public:
     GetTextureFactoryIdentifier() = 0;
 
   /**
-   * Properties of the compositor
+   * Properties of the compositor.
    */
   virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) = 0;
   virtual int32_t GetMaxTextureSize() const = 0;
 
   /**
-   * Set the target for rendering, intended to be used for the duration of a transaction
+   * Set the target for rendering, intended to be used for the duration of a
+   * transaction. Results will have been written to aTarget by the time that
+   * EndFrame returns.
    */
   virtual void SetTargetContext(gfxContext *aTarget) = 0;
 
   /**
-   * Make sure that the underlying rendering API selects the right current
-   * rendering context.
+   * Make this compositor's rendering context the current context for the
+   * underlying graphics API. This may be a global operation, depending on the
+   * API. Our context will remain the current one until someone else changes it.
    */
   virtual void MakeCurrent(bool aForce = false) = 0;
 
   /**
-   * Modifies the TextureIdentifier if needed in a fallback situation for aId
+   * Modifies the TextureIdentifier if needed in a fallback situation for aId.
    */
   virtual void FallbackTextureInfo(TextureInfo& aInfo) {}
 
@@ -181,8 +184,7 @@ public:
    * compositor.
    */
   virtual TemporaryRef<CompositingRenderTarget>
-  CreateRenderTarget(const gfx::IntRect &aRect,
-                     SurfaceInitMode aInit) = 0;
+  CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aInit) = 0;
 
   /**
    * Creates a Surface that can be used as a rendering target by this
@@ -220,10 +222,13 @@ public:
                         const gfx::Point &aOffset) = 0;
 
   /**
-   * Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
+   * Start a new frame. If aClipRectIn is null, sets *aClipRectOut to the screen
+   * dimensions. 
    */
-  virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut = nullptr) = 0;
+  virtual void BeginFrame(const gfx::Rect *aClipRectIn,
+                          const gfxMatrix& aTransform,
+                          const gfx::Rect& aRenderBounds,
+                          gfx::Rect *aClipRectOut = nullptr) = 0;
 
   /**
    * Flush the current frame to the screen.
