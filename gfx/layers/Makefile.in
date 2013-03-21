@@ -31,7 +31,7 @@ DEFINES += -DD3D_DEBUG_INFO
 endif
 
 EXPORTS = \
-		BasicCanvasLayer.h \
+        BasicCanvasLayer.h \
         BasicImplData.h \
         BasicLayers.h \
         BasicLayersImpl.h \
@@ -50,7 +50,7 @@ EXPORTS = \
         ImageHost.h \
         ImageTypes.h \
         Layers.h \
-		LayersLogging.h \
+        LayersLogging.h \
         LayerManagerOGLShaders.h \
         LayerManagerOGL.h \
         LayerManagerOGLProgram.h \
@@ -121,7 +121,6 @@ CPPSRCS += \
         DeviceManagerD3D9.cpp \
         Nv3DVUtils.cpp \
         $(NULL)
-#        ShadowBufferD3D9.cpp 
 endif
 ifdef MOZ_ENABLE_D3D10_LAYER
 EXPORTS += \
@@ -231,10 +230,10 @@ endif #}
 
 ifdef MOZ_ENABLE_D3D10_LAYER
 EXPORTS_mozilla/layers += \
-                       ShadowLayerUtilsD3D10.h \
-                       CompositorD3D11.h \
-                       TextureD3D11.h \
-                       $(NULL)
+        ShadowLayerUtilsD3D10.h \
+        CompositorD3D11.h \
+        TextureD3D11.h \
+        $(NULL)
 DEFINES	+= -DMOZ_ENABLE_D3D10_LAYER
 endif
 
