@@ -97,6 +97,9 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
 {
   AutoLockImage autoLock(aContainer);
   Image *image = autoLock.GetImage();
+  if (!image) {
+    return false;
+  }
 
   if (mLastPaintedImageSerial == image->GetSerial()) {
     return true;

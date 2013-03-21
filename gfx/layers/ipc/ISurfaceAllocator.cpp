@@ -103,12 +103,7 @@ ISurfaceAllocator::DestroySharedSurface(SurfaceDescriptor* aSurface)
   if (!aSurface) {
     return;
   }
-  if (IsSurfaceDescriptorOwned(*aSurface) && IsOnCompositorSide()) {
-    // sad temporary hack that will be removed after TextureClient/Host rework
-    // we can't destroy the surface if it is owned by the content process
-    return;
-  }
-  if (ReleaseOwnedSurfaceDescriptor(*aSurface)) {
+  if (!IsOnCompositorSide() && ReleaseOwnedSurfaceDescriptor(*aSurface)) {
     *aSurface = SurfaceDescriptor();
     return;
   }
