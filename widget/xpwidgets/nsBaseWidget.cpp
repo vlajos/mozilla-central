@@ -877,9 +877,9 @@ void nsBaseWidget::CreateCompositor(int aWidth, int aHeight)
 #ifdef MOZ_ANDROID_OMTC
   renderToEGLSurface = true;
 #endif
-  AsyncChannel *parentChannel = mCompositorParent->GetIPCChannel();
   mCompositorParent =
     new CompositorParent(this, renderToEGLSurface, aWidth, aHeight);
+  AsyncChannel *parentChannel = mCompositorParent->GetIPCChannel();
   LayerManager* lm = CreateBasicLayerManager();
   MessageLoop *childMessageLoop = CompositorParent::CompositorLoop();
   mCompositorChild = new CompositorChild(lm);

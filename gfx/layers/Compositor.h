@@ -161,9 +161,8 @@ public:
   virtual int32_t GetMaxTextureSize() const = 0;
 
   /**
-   * Set the target for rendering, intended to be used for the duration of a
-   * transaction. Results will have been written to aTarget by the time that
-   * EndFrame returns.
+   * Set the target for rendering. Results will have been written to aTarget by
+   * the time that EndFrame returns.
    *
    * If this method is not used, or we pass in nullptr, we target the compositor's
    * usual swap chain and render to the screen.
@@ -177,6 +176,9 @@ public:
    *
    * Clients of the compositor should call this at the start of the compositing
    * process, it might be required by texture uploads etc.
+   *
+   * If aForce is true, then we will (re-)set our context on the underlying API
+   * even if it is already the current context.
    */
   virtual void MakeCurrent(bool aForce = false) = 0;
 
@@ -260,9 +262,13 @@ public:
    */
   virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) = 0;
 
-  // save the current viewport
+  /**
+   * save the current viewport
+   */
   virtual void SaveViewport() = 0;
-  // resotre the previous viewport and return its bounds
+  /**
+   * resotre the previous viewport and return its bounds
+   */
   virtual gfx::IntRect RestoreViewport() = 0;
 
   /**
@@ -292,6 +298,9 @@ public:
     mCompositorID = aID;
   }
 
+  /**
+   * TODO comment
+   */
   virtual void NotifyShadowTreeTransaction() = 0;
 
   /**
