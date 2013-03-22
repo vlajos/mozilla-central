@@ -118,14 +118,15 @@ public:
   }
 
   
-  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) MOZ_OVERRIDE;
+  virtual void PrepareViewport(int aWidth, int aHeight,
+                               const gfxMatrix& aWorldTransform) MOZ_OVERRIDE;
 
 
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const MOZ_OVERRIDE { return "OGL"; }
 #endif // MOZ_DUMP_PAINTING
 
-  virtual void NotifyShadowTreeTransaction() MOZ_OVERRIDE;
+  virtual void NotifyLayersTransaction() MOZ_OVERRIDE;
 
   virtual void Pause() MOZ_OVERRIDE;
   virtual bool Resume() MOZ_OVERRIDE;

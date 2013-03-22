@@ -130,6 +130,39 @@ enum SurfaceInitMode
  *
  * In theory it should be possible for different widgets to use the same
  * compositor. In practice, we use one compositor per window.
+ *
+ * # Usage
+ *
+ * For an example of a user of Compositor, see LayerManagerComposite
+ *
+ * Initialisation: create a Compositor object, call Initialize().
+ *
+ * Destruction: destroy any resources associated with the compositor, call
+ * Destroy(), delete the Compositor object.
+ *
+ * Composition:
+ *  call BeginFrame,
+ *  for each quad to be composited:
+ *    call MakeCurrent if necessary (not necessary if no other context has been
+ *      made current),
+ *    take care of any texture upload required to composite the quad, this step
+ *      is backend-dependent,
+ *    construct an EffectChain for the quad,
+ *    call DrawQuad,
+ *  call EndFrame.
+ * If the user has to stop compositing at any point before EndFrame, call
+ * AbortFrame.
+ * If the compositor is usually used for compositing but compositing is
+ * temporarily done without the compositor, call EndFrameForExternalComposition
+ * after compositing each frame so the compositor can remain internally
+ * consistent.
+ *
+ * By default, the compositor will render to the screen, to render to a target,
+ * call SetTargetContext or SetRenderTarget, the latter with a target created
+ * by CreateRenderTarget or CreateRenderTargetFromSource.
+ *
+ * The target and viewport methods can be called before any DrawQuad call and
+ * affect any subsequent DrawQuad calls. 
  */
 class Compositor : public RefCounted<Compositor>
 {
@@ -200,8 +233,7 @@ public:
   /**
    * Creates a Surface that can be used as a rendering target by this
    * compositor, and initializes the surface by copying from aSource.
-   * If aSource is null, then the screen frame in progress
-   * is used as source.
+   * If aSource is null, then the current screen buffer is used as source.
    */
   virtual TemporaryRef<CompositingRenderTarget>
   CreateRenderTargetFromSource(const gfx::IntRect &aRect,
@@ -260,15 +292,16 @@ public:
    * Setup the viewport and projection matrix for rendering
    * to a window of the given dimensions.
    */
-  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform) = 0;
+  virtual void PrepareViewport(int aWidth, int aHeight,
+                               const gfxMatrix& aWorldTransform) = 0;
 
   /**
-   * save the current viewport
+   * The compositor maintains (or appears to maintain) a viewport stack. There
+   * is an implicit current viewport. SaveViewport saves the current viewport
+   * to the stack. RestoreViewport pops a viewport from the stack, makes that
+   * the current viewport, and returns a rectangle which defines that viewport.
    */
   virtual void SaveViewport() = 0;
-  /**
-   * resotre the previous viewport and return its bounds
-   */
   virtual gfx::IntRect RestoreViewport() = 0;
 
   /**
@@ -299,17 +332,22 @@ public:
   }
 
   /**
-   * TODO comment
+   * Notify the compositor that a layers transaction has occured. This is only
+   * used for FPS information at the moment.
+   * XXX: surely there is a better way to do this?
    */
-  virtual void NotifyShadowTreeTransaction() = 0;
+  virtual void NotifyLayersTransaction() = 0;
 
   /**
-   * Notify the compositor that composition is being paused.
+   * Notify the compositor that composition is being paused. This allows the
+   * compositor to temporarily release any resources.
+   * Between calling Pause and Resume, compositing may fail.
    */
   virtual void Pause() {}
   /**
-   * Notify the compositor that composition is being resumed.
-   * Returns true if succeeded
+   * Notify the compositor that composition is being resumed. The compositor
+   * regain any resources it requires for compositing.
+   * Returns true if succeeded.
    */
   virtual bool Resume() { return true; }
 

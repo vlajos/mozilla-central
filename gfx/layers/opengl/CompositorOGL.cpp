@@ -1376,7 +1376,7 @@ CompositorOGL::AddFrameAndGetFps(const TimeStamp& timestamp)
 }
 
 void
-CompositorOGL::NotifyShadowTreeTransaction()
+CompositorOGL::NotifyLayersTransaction()
 {
   if (mFPS) {
     mFPS->NotifyShadowTreeTransaction();

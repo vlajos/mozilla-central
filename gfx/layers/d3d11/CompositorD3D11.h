@@ -109,7 +109,7 @@ public:
 
   virtual const char* Name() const { return "Direct3D 11"; }
 
-  virtual void NotifyShadowTreeTransaction() { }
+  virtual void NotifyLayersTransaction() { }
 
   virtual nsIWidget* GetWidget() const { return mWidget; }
   virtual nsIntSize* GetWidgetSize();

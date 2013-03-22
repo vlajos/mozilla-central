@@ -93,7 +93,7 @@ public:
   void EndConstruction();
   virtual void NotifyShadowTreeTransaction()
   {
-    mCompositor->NotifyShadowTreeTransaction();
+    mCompositor->NotifyLayersTransaction();
   }
 
   virtual bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT);
