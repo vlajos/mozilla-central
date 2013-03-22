@@ -114,7 +114,7 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     mSize = aSize;
 
     if (!mForwarder->AllocSurfaceDescriptor(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
-      NS_ASSERTION("creating SurfaceDescriptor failed!");
+      NS_ERROR("creating SurfaceDescriptor failed!");
     }
   }
 }

@@ -1166,18 +1166,10 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
   } else if (mShadowTarget) {
     if (mWidget) {
       if (CompositorChild* remoteRenderer = mWidget->GetRemoteRenderer()) {
-        gfxASurface::gfxContentType contentType;
-
-        if (mShadowTarget->IsCairo()) {
-          contentType = mShadowTarget->OriginalSurface()->GetContentType();
-        } else {
-          contentType = mShadowTarget->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8X8 ?
-            gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
-        }
         nsIntRect bounds;
         mWidget->GetBounds(bounds);
         SurfaceDescriptor inSnapshot, snapshot;
-        if (AllocSurfaceDescriptor(bounds.Size(), contentType,
+        if (AllocSurfaceDescriptor(bounds.Size(), gfxASurface::CONTENT_COLOR_ALPHA,
                                    &inSnapshot) &&
             // The compositor will usually reuse |snapshot| and return
             // it through |outSnapshot|, but if it doesn't, it's
