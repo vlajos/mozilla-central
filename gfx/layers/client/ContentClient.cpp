@@ -388,6 +388,7 @@ ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
     return;
   }
   MOZ_ASSERT(mFrontClient);
+  MOZ_ASSERT(mFrontClient->GetAccessMode() == TextureClient::ACCESS_READ_ONLY);
 
   MOZ_LAYERS_LOG(("BasicShadowableThebes(%p): reading back <x=%d,y=%d,w=%d,h=%d>",
                   this,
