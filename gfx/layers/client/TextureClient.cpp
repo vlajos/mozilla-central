@@ -114,7 +114,7 @@ TextureClientShmem::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxCont
     mSize = aSize;
 
     if (!mForwarder->AllocSurfaceDescriptor(gfxIntSize(mSize.width, mSize.height), mContentType, &mDescriptor)) {
-      NS_RUNTIMEABORT("creating SurfaceDescriptor failed!");
+      NS_ASSERTION("creating SurfaceDescriptor failed!");
     }
   }
 }
@@ -131,9 +131,10 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 
   mSurface = nullptr;
 
-  MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc ||
-             mDescriptor.type() == SurfaceDescriptor::TShmem ||
-             mDescriptor.type() == SurfaceDescriptor::TRGBImage);
+  NS_ASSERTION(mDescriptor.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc ||
+               mDescriptor.type() == SurfaceDescriptor::TShmem ||
+               mDescriptor.type() == SurfaceDescriptor::TRGBImage,
+               "Invalid surface descriptor");
 }
 
 
@@ -168,6 +169,9 @@ bool AutoLockShmemClient::Update(Image* aImage, uint32_t aContentFlags, gfxPatte
   nsRefPtr<gfxASurface> tmpASurface =
     ShadowLayerForwarder::OpenDescriptor(mode,
                                          *mTextureClient->LockSurfaceDescriptor());
+  if (!tmpASurface) {
+    return false;
+  }
   nsRefPtr<gfxContext> tmpCtx = new gfxContext(tmpASurface.get());
   tmpCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
   PaintContext(pat,
@@ -191,7 +195,6 @@ AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
   }
 
   if (!EnsureTextureClient(aImage)) {
-    NS_RUNTIMEABORT("DARNIT!");
     return false;
   }
 

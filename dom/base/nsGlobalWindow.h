@@ -14,10 +14,8 @@
 #include "nsCOMPtr.h"
 #include "nsAutoPtr.h"
 #include "nsWeakReference.h"
-#include "nsHashtable.h"
 #include "nsDataHashtable.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsDOMScriptObjectHolder.h"
 
 // Interfaces Needed
 #include "nsDOMWindowList.h"
@@ -63,6 +61,9 @@
 #include "nsWrapperCacheInlines.h"
 #include "nsIIdleObserver.h"
 #include "nsIDOMWakeLock.h"
+#ifdef MOZ_GAMEPAD
+#include "nsDOMGamepad.h"
+#endif
 
 #include "mozilla/dom/EventTarget.h"
 
@@ -379,6 +380,8 @@ public:
   virtual NS_HIDDEN_(void) RefreshCompartmentPrincipal();
   virtual NS_HIDDEN_(nsresult) SetFullScreenInternal(bool aIsFullScreen, bool aRequireTrust);
 
+  virtual NS_HIDDEN_(void) SetHasGamepadEventListener(bool aHasGamepad = true);
+
   // nsIDOMStorageIndexedDB
   NS_DECL_NSIDOMSTORAGEINDEXEDDB
 
@@ -528,7 +531,7 @@ public:
 
   virtual NS_HIDDEN_(void)
     CacheXBLPrototypeHandler(nsXBLPrototypeHandler* aKey,
-                             nsScriptObjectHolder<JSObject>& aHandler);
+                             JS::Handle<JSObject*> aHandler);
 
   virtual bool TakeFocus(bool aFocus, uint32_t aFocusMethod);
   virtual void SetReadyForFocus();
@@ -609,6 +612,23 @@ public:
   {
     mAllowScriptsToClose = true;
   }
+
+#ifdef MOZ_GAMEPAD
+  void AddGamepad(PRUint32 aIndex, nsDOMGamepad* aGamepad);
+  void RemoveGamepad(PRUint32 aIndex);
+  already_AddRefed<nsDOMGamepad> GetGamepad(PRUint32 aIndex);
+  void SetHasSeenGamepadInput(bool aHasSeen);
+  bool HasSeenGamepadInput();
+  void SyncGamepadState();
+  static PLDHashOperator EnumGamepadsForSync(const PRUint32& aKey,
+                                             nsDOMGamepad* aData,
+                                             void* userArg);
+#endif
+
+  // Enable/disable updates for gamepad input.
+  void EnableGamepadUpdates();
+  void DisableGamepadUpdates();
+
 
 #define EVENT(name_, id_, type_, struct_)                                     \
   mozilla::dom::EventHandlerNonNull* GetOn##name_()                           \
@@ -1044,6 +1064,13 @@ protected:
   // true if tab navigation has occurred for this window. Focus rings
   // should be displayed.
   bool                   mFocusByKeyOccurred : 1;
+
+  // Indicates whether this window wants gamepad input events
+  bool                   mHasGamepad : 1;
+#ifdef MOZ_GAMEPAD
+  nsRefPtrHashtable<nsUint32HashKey, nsDOMGamepad> mGamepads;
+  bool mHasSeenGamepadInput;
+#endif
 
   // whether we've sent the destroy notification for our window id
   bool                   mNotifiedIDDestroyed : 1;

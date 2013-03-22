@@ -2941,18 +2941,26 @@ IonBuilder::inlineScriptedCall(HandleFunction target, CallInfo &callInfo)
     if (!oracle.init(cx, calleeScript))
         return false;
 
+    // Copy the CallInfo as the addTypeBarrier is mutating it.
+    bool argsBarrier = callInfo.argsBarrier();
+    CallInfo clonedCallInfo(cx, callInfo.constructing());
+    CallInfo &thisCall = argsBarrier ? clonedCallInfo : callInfo;
+
     // Add exclude type barriers.
-    if (callInfo.argsBarrier()) {
-        addTypeBarrier(0, callInfo, oracle.thisTypeSet(calleeScript));
-        int32_t max = (callInfo.argc() < target->nargs) ? callInfo.argc() : target->nargs;
+    if (argsBarrier) {
+        if (!thisCall.init(callInfo))
+            return false;
+
+        addTypeBarrier(0, thisCall, oracle.thisTypeSet(calleeScript));
+        int32_t max = (thisCall.argc() < target->nargs) ? thisCall.argc() : target->nargs;
         for (int32_t i = 1; i <= max; i++)
-            addTypeBarrier(i, callInfo, oracle.parameterTypeSet(calleeScript, i - 1));
+            addTypeBarrier(i, thisCall, oracle.parameterTypeSet(calleeScript, i - 1));
     }
 
     // Start inlining.
     LifoAlloc *alloc = GetIonContext()->temp->lifoAlloc();
     CompileInfo *info = alloc->new_<CompileInfo>(calleeScript.get(), target,
-                                                 (jsbytecode *)NULL, callInfo.constructing(),
+                                                 (jsbytecode *)NULL, thisCall.constructing(),
                                                  SequentialExecution);
     if (!info)
         return false;
@@ -2962,7 +2970,7 @@ IonBuilder::inlineScriptedCall(HandleFunction target, CallInfo &callInfo)
 
     // Build the graph.
     IonBuilder inlineBuilder(cx, &temp(), &graph(), &oracle, info, inliningDepth_ + 1, loopDepth_);
-    if (!inlineBuilder.buildInline(this, outerResumePoint, callInfo)) {
+    if (!inlineBuilder.buildInline(this, outerResumePoint, thisCall)) {
         JS_ASSERT(calleeScript->hasAnalysis());
 
         // Inlining the callee failed. Disable inlining the function
@@ -2990,7 +2998,7 @@ IonBuilder::inlineScriptedCall(HandleFunction target, CallInfo &callInfo)
 
     // Accumulate return values.
     MIRGraphExits &exits = *inlineBuilder.graph().exitAccumulator();
-    MDefinition *retvalDefn = patchInlinedReturns(callInfo, exits, returnBlock);
+    MDefinition *retvalDefn = patchInlinedReturns(thisCall, exits, returnBlock);
     if (!retvalDefn)
         return false;
     returnBlock->push(retvalDefn);
@@ -3060,6 +3068,16 @@ IonBuilder::addTypeBarrier(uint32_t i, CallInfo &callinfo, types::StackTypeSet *
     if (needsBarrier) {
         MTypeBarrier *barrier = MTypeBarrier::New(ins, cloneTypeSet(calleeObs), Bailout_Normal);
         current->add(barrier);
+
+        // Non-matching types are boxed such as the MIRType does not conflict
+        // with the inferred type.
+        if (callerObs->getKnownTypeTag() != calleeObs->getKnownTypeTag() &&
+            ins->type() != MIRType_Value)
+        {
+            MBox *box = MBox::New(ins);
+            current->add(box);
+            ins = box;
+        }
     }
 
     if (i == 0)

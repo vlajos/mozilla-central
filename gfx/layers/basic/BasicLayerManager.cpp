@@ -1166,22 +1166,18 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
   } else if (mShadowTarget) {
     if (mWidget) {
       if (CompositorChild* remoteRenderer = mWidget->GetRemoteRenderer()) {
-
         gfxASurface::gfxContentType contentType;
-        gfxIntSize size;
 
         if (mShadowTarget->IsCairo()) {
           contentType = mShadowTarget->OriginalSurface()->GetContentType();
-          size = mShadowTarget->OriginalSurface()->GetSize();
         } else {
           contentType = mShadowTarget->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8X8 ?
             gfxASurface::CONTENT_COLOR : gfxASurface::CONTENT_COLOR_ALPHA;
-          IntSize intSize = mShadowTarget->GetDrawTarget()->GetSize();
-          size = gfxIntSize(intSize.width, intSize.height);
         }
-        nsRefPtr<gfxASurface> target = mShadowTarget->OriginalSurface();
+        nsIntRect bounds;
+        mWidget->GetBounds(bounds);
         SurfaceDescriptor inSnapshot, snapshot;
-        if (AllocSurfaceDescriptor(size, contentType,
+        if (AllocSurfaceDescriptor(bounds.Size(), contentType,
                                    &inSnapshot) &&
             // The compositor will usually reuse |snapshot| and return
             // it through |outSnapshot|, but if it doesn't, it's
@@ -1190,8 +1186,6 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
           AutoOpenSurface opener(OPEN_READ_ONLY, snapshot);
           gfxASurface* source = opener.Get();
 
-          gfxContextAutoSaveRestore restore(mShadowTarget);
-          mShadowTarget->SetOperator(gfxContext::OPERATOR_OVER);
           mShadowTarget->DrawSurface(source, source->GetSize());
         }
         if (IsSurfaceDescriptorValid(snapshot)) {

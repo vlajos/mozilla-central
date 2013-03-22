@@ -471,7 +471,7 @@ ShadowLayerForwarder::OpenDescriptor(OpenMode aMode,
     return surf.forget();
   }
   default:
-    NS_RUNTIMEABORT("unexpected SurfaceDescriptor type!");
+    NS_ERROR("unexpected SurfaceDescriptor type!");
     return nullptr;
   }
 }

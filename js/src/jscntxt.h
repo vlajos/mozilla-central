@@ -58,6 +58,8 @@ js_ReportAllocationOverflow(JSContext *cx);
 
 namespace js {
 
+typedef Rooted<JSLinearString*> RootedLinearString;
+
 struct CallsiteCloneKey {
     /* The original function that we are cloning. */
     JSFunction *original;
@@ -226,8 +228,9 @@ class SourceDataCache
 
 struct EvalCacheLookup
 {
-    JSLinearString *str;
-    JSFunction *caller;
+    EvalCacheLookup(JSContext *cx) : str(cx), caller(cx) {}
+    RootedLinearString str;
+    RootedFunction caller;
     unsigned staticLevel;
     JSVersion version;
     JSCompartment *compartment;
@@ -2327,6 +2330,7 @@ JSBool intrinsic_ThrowError(JSContext *cx, unsigned argc, Value *vp);
 JSBool intrinsic_NewDenseArray(JSContext *cx, unsigned argc, Value *vp);
 JSBool intrinsic_UnsafeSetElement(JSContext *cx, unsigned argc, Value *vp);
 JSBool intrinsic_ShouldForceSequential(JSContext *cx, unsigned argc, Value *vp);
+JSBool intrinsic_NewParallelArray(JSContext *cx, unsigned argc, Value *vp);
 
 #ifdef DEBUG
 JSBool intrinsic_Dump(JSContext *cx, unsigned argc, Value *vp);

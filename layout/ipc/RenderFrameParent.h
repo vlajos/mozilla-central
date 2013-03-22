@@ -93,8 +93,9 @@ public:
 
   void SetBackgroundColor(nscolor aColor) { mBackgroundColor = gfxRGBA(aColor); };
 
-  void NotifyInputEvent(const nsInputEvent& aEvent,
-                        nsInputEvent* aOutEvent);
+  void NotifyInputEvent(const nsInputEvent& aEvent);
+
+  void ApplyZoomCompensationToEvent(nsInputEvent* aEvent);
 
   void NotifyDimensionsChanged(int width, int height);
 

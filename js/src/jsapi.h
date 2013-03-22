@@ -4953,6 +4953,13 @@ extern JS_PUBLIC_API(JSObject *)
 JS_DecodeInterpretedFunction(JSContext *cx, const void *data, uint32_t length,
                              JSPrincipals *principals, JSPrincipals *originPrincipals);
 
+namespace JS {
+
+extern JS_PUBLIC_DATA(const HandleId) JSID_VOIDHANDLE;
+extern JS_PUBLIC_DATA(const HandleId) JSID_EMPTYHANDLE;
+
+};
+
 namespace js {
 
 /*
@@ -5027,8 +5034,6 @@ using JS::MutableHandleScript;
 using JS::MutableHandleString;
 using JS::MutableHandleId;
 using JS::MutableHandleValue;
-
-using JS::NullPtr;  /* To be removed by bug 781070. */
 
 using JS::Zone;
 
