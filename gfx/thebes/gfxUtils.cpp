@@ -528,15 +528,18 @@ PathFromRegionInternal(gfx::DrawTarget* aTarget, const nsIntRegion& aRegion,
   Matrix mat = aTarget->GetTransform();
   const gfxFloat epsilon = 0.000001;
 #define WITHIN_E(a,b) (fabs((a)-(b)) < epsilon)
-  bool shouldSnap = aSnap && (!WITHIN_E(mat._11,1.0) || !WITHIN_E(mat._22,1.0) ||
-                              !WITHIN_E(mat._12,0.0) || !WITHIN_E(mat._21,0.0));
+  // TODO: This snapping critera should have some kind of justification.
+  bool shouldNotSnap = !aSnap || (WITHIN_E(mat._11,1.0) &&
+                                  WITHIN_E(mat._22,1.0) &&
+                                  WITHIN_E(mat._12,0.0) &&
+                                  WITHIN_E(mat._21,0.0));
 #undef WITHIN_E
 
   RefPtr<PathBuilder> pb = aTarget->CreatePathBuilder();
   nsIntRegionRectIterator iter(aRegion);
 
   const nsIntRect* r;
-  if (!shouldSnap) {
+  if (shouldNotSnap) {
     while ((r = iter.Next()) != nullptr) {
       pb->MoveTo(Point(r->x, r->y));
       pb->LineTo(Point(r->XMost(), r->y));

@@ -1437,7 +1437,7 @@ GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
 
     return gGlobalContext[libType];
 #endif
-  return nullptr;
+    return nullptr;
 }
 
 void
