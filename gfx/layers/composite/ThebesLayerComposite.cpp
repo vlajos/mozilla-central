@@ -158,6 +158,8 @@ ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
   if (mRequiresTiledProperties) {
     mValidRegion = tiledLayerProps.mValidRegion;
   }
+
+  mCompositeManager->GetCompositor()->MakeCurrent();
 }
 
 CompositableHost*
