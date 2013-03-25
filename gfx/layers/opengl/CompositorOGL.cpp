@@ -1130,7 +1130,6 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
       sourceCr->BindTexture(LOCAL_GL_TEXTURE2);
       mGLContext->ApplyFilterToBoundTexture(filter);
 
-      program->Activate();
       program->SetYCbCrTextureUnits(Y, Cb, Cr);
       program->SetLayerOpacity(aOpacity);
 
@@ -1152,6 +1151,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
 
       surface->BindTexture(LOCAL_GL_TEXTURE0);
     
+      program->Activate();
       program->SetTextureUnit(0);
       program->SetLayerOpacity(aOpacity);
 
