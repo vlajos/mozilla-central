@@ -150,7 +150,6 @@ LayerManagerComposite::EndTransaction(DrawThebesLayerCallback aCallback,
 
     mThebesLayerCallback = aCallback;
     mThebesLayerCallbackData = aCallbackData;
-    SetCompositingDisabled(aFlags & END_NO_COMPOSITE);
 
     Render();
 

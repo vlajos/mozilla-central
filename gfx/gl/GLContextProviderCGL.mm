@@ -171,9 +171,9 @@ public:
 
     bool SwapBuffers()
     {
-      SAMPLE_LABEL("GLContext", "SwapBuffers");
-      [mContext flushBuffer];
-      return true;
+        SAMPLE_LABEL("GLContext", "SwapBuffers");
+        [mContext flushBuffer];
+        return true;
     }
 
     virtual SharedTextureHandle CreateSharedHandle(SharedTextureShareType aShareType)

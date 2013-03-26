@@ -87,14 +87,12 @@ ContainerRender(ContainerT* aContainer,
 
     aManager->SaveViewport();
     surfaceRect -= gfx::IntPoint(childOffset.x, childOffset.y);
-    if (!aManager->CompositingDisabled()) {
-      if (surfaceCopyNeeded) {
-        surface = compositor->CreateRenderTargetFromSource(surfaceRect, previousTarget);
-      } else {
-        surface = compositor->CreateRenderTarget(surfaceRect, mode);
-      }
-      compositor->SetRenderTarget(surface);
+    if (surfaceCopyNeeded) {
+      surface = compositor->CreateRenderTargetFromSource(surfaceRect, previousTarget);
+    } else {
+      surface = compositor->CreateRenderTarget(surfaceRect, mode);
     }
+    compositor->SetRenderTarget(surface);
     childOffset.x = visibleRect.x;
     childOffset.y = visibleRect.y;
   } else {
@@ -138,20 +136,18 @@ ContainerRender(ContainerT* aContainer,
 
     aManager->RestoreViewport();
     compositor->SetRenderTarget(previousTarget);
-    if (!aManager->CompositingDisabled()) {
-      EffectChain effectChain;
-      LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(),
-                                           effectChain,
-                                           !aContainer->GetTransform().CanDraw2D());
+    EffectChain effectChain;
+    LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(),
+                                         effectChain,
+                                         !aContainer->GetTransform().CanDraw2D());
 
-      effectChain.mPrimaryEffect = new EffectRenderTarget(surface);
-      gfx::Matrix4x4 transform;
-      ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
+    effectChain.mPrimaryEffect = new EffectRenderTarget(surface);
+    gfx::Matrix4x4 transform;
+    ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 
-      gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
-      aManager->GetCompositor()->DrawQuad(rect, nullptr, effectChain, opacity,
-                                          transform, gfx::Point(aOffset.x, aOffset.y));
-    }
+    gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
+    aManager->GetCompositor()->DrawQuad(rect, nullptr, effectChain, opacity,
+                                        transform, gfx::Point(aOffset.x, aOffset.y));
   }
 }
 

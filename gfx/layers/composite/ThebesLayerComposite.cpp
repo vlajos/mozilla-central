@@ -107,10 +107,6 @@ void
 ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                   const nsIntRect& aClipRect)
 {
-  if (mCompositeManager->CompositingDisabled()) {
-    return;
-  }
-
   if (!mBuffer) {
     return;
   }

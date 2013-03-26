@@ -196,12 +196,6 @@ public:
                             EffectChain& aEffect,
                             bool aIs3D = false);
 
-  bool CompositingDisabled() { return mCompositingDisabled; }
-  void SetCompositingDisabled(bool aCompositingDisabled)
-  {
-    mCompositingDisabled = aCompositingDisabled;
-  }
-
   /**
    * Creates a DrawTarget which is optimized for inter-operating with this
    * layermanager.
@@ -258,7 +252,6 @@ private:
   DrawThebesLayerCallback mThebesLayerCallback;
   void *mThebesLayerCallbackData;
   gfxMatrix mWorldMatrix;
-  bool mCompositingDisabled;
   bool mInTransaction;
 };
 

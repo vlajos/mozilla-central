@@ -309,7 +309,7 @@ float4 SampleBlendTextureSeparablePS_1( VS_OUTPUT In) : SV_Target
     else
       retval.g = background.g ? 1 : 0;
     if(output.b > 0)
-     retval.b = 1 - min(1, (1 - background.b) / output.b);
+      retval.b = 1 - min(1, (1 - background.b) / output.b);
     else
       retval.b = background.b ? 1 : 0;
   }

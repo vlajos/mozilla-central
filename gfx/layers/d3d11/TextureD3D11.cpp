@@ -298,7 +298,7 @@ TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TShmem);
 
   AutoOpenSurface openSurf(OPEN_READ_ONLY, aImage);
-  
+
   nsRefPtr<gfxImageSurface> surf = openSurf.GetAsImage();
 
   gfxIntSize size = surf->GetSize();
@@ -325,7 +325,7 @@ TextureHostShmemD3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *
   }
 
   mSize = IntSize(size.width, size.height);
-      
+
   CD3D11_TEXTURE2D_DESC desc(dxgiFormat, size.width, size.height,
                             1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_IMMUTABLE);
 
@@ -405,7 +405,7 @@ void
 TextureHostDXGID3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *aRegion)
 {
   MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceDescriptorD3D10);
-  
+
   mDevice->OpenSharedResource((HANDLE)aImage.get_SurfaceDescriptorD3D10().handle(),
                               __uuidof(ID3D11Texture2D), (void**)(ID3D11Texture2D**)byRef(mTextures[0]));
   mFormat = aImage.get_SurfaceDescriptorD3D10().hasAlpha() ? FORMAT_B8G8R8A8 : FORMAT_B8G8R8X8;
@@ -458,7 +458,7 @@ TextureHostYCbCrD3D11::UpdateImpl(const SurfaceDescriptor& aImage, nsIntRegion *
   gfxIntSize gfxCbCrSize = shmemImage.GetCbCrSize();
 
   gfxIntSize size = shmemImage.GetYSize();
-  
+
   D3D11_SUBRESOURCE_DATA initData;
   initData.pSysMem = shmemImage.GetYData();
   initData.SysMemPitch = shmemImage.GetYStride();

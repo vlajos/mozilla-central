@@ -135,7 +135,7 @@ private:
   RefPtr<ID3D11Device> mDevice;
   RefPtr<IDXGISwapChain> mSwapChain;
   RefPtr<ID3D11RenderTargetView> mDefaultRT;
-  
+
   DeviceAttachmentsD3D11 *mAttachments;
 
   nsRefPtr<gfxContext> mTarget;

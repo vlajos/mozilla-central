@@ -31,10 +31,10 @@ struct Vertex
 };
 
 // {1E4D7BEB-D8EC-4A0B-BF0A-63E6DE129425}
-static const GUID sDeviceAttachmentsD3D11 = 
+static const GUID sDeviceAttachmentsD3D11 =
 { 0x1e4d7beb, 0xd8ec, 0x4a0b, { 0xbf, 0xa, 0x63, 0xe6, 0xde, 0x12, 0x94, 0x25 } };
 // {88041664-C835-4AA8-ACB8-7EC832357ED8}
-static const GUID sLayerManagerCount = 
+static const GUID sLayerManagerCount =
 { 0x88041664, 0xc835, 0x4aa8, { 0xac, 0xb8, 0x7e, 0xc8, 0x32, 0x35, 0x7e, 0xd8 } };
 
 const FLOAT sBlendFactor[] = { 0, 0, 0, 0 };
@@ -128,7 +128,7 @@ CompositorD3D11::Initialize()
                                     LayerQuadVS,
                                     sizeof(LayerQuadVS),
                                     byRef(mAttachments->mInputLayout));
-    
+
     if (FAILED(hr)) {
       return false;
     }
@@ -230,7 +230,7 @@ CompositorD3D11::Initialize()
     swapDesc.Height = rect.height;
     // This is the most common swapchain format
     swapDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    swapDesc.Stereo = false; 
+    swapDesc.Stereo = false;
     // Don't use multi-sampling
     swapDesc.SampleDesc.Count = 1;
     swapDesc.SampleDesc.Quality = 0;
@@ -290,7 +290,7 @@ CompositorD3D11::Initialize()
      * Create a swap chain, this swap chain will contain the backbuffer for
      * the window we draw to. The front buffer is the full screen front
      * buffer.
-    */
+     */
     hr = dxgiFactory->CreateSwapChain(dxgiDevice, &swapDesc, byRef(mSwapChain));
     if (FAILED(hr)) {
      return false;
@@ -418,7 +418,7 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
   bool isPremultiplied = true;
 
   MaskMode maskMode = UNMASKED;
-  
+
   if (aEffectChain.mSecondaryEffects[EFFECT_MASK]) {
     if (aTransform.Is2D()) {
       maskMode = MASKED;
@@ -649,7 +649,7 @@ CompositorD3D11::VerifyBufferSize()
   }
 
   mDefaultRT = nullptr;
-  if (gfxWindowsPlatform::IsOptimus()) { 
+  if (gfxWindowsPlatform::IsOptimus()) {
     mSwapChain->ResizeBuffers(1, rect.width, rect.height,
                               DXGI_FORMAT_B8G8R8A8_UNORM,
                               0);
@@ -674,7 +674,7 @@ CompositorD3D11::UpdateRenderTarget()
   HRESULT hr;
 
   nsRefPtr<ID3D11Texture2D> backBuf;
-  
+
   hr = mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuf.StartAssignment());
   if (FAILED(hr)) {
     return;
@@ -769,7 +769,7 @@ void
 CompositorD3D11::PaintToTarget()
 {
   nsRefPtr<ID3D11Texture2D> backBuf;
-  
+
   mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuf.StartAssignment());
 
   D3D11_TEXTURE2D_DESC bbDesc;

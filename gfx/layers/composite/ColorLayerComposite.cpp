@@ -11,39 +11,27 @@ namespace mozilla {
 namespace layers {
 
 void
-RenderColorLayer(ColorLayer* aLayer, Compositor *aCompositor,
-                 const nsIntPoint& aOffset, const nsIntRect& aClipRect)
+ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
+                                 const nsIntRect& aClipRect)
 {
   EffectChain effects;
-  gfxRGBA color(aLayer->GetColor());
+  gfxRGBA color(GetColor());
   effects.mPrimaryEffect = new EffectSolidColor(gfx::Color(color.r,
                                                            color.g,
                                                            color.b,
                                                            color.a));
-  nsIntRect visibleRect = aLayer->GetEffectiveVisibleRegion().GetBounds();
+  nsIntRect visibleRect = GetEffectiveVisibleRegion().GetBounds();
 
-  LayerManagerComposite::AddMaskEffect(aLayer->GetMaskLayer(), effects);
+  LayerManagerComposite::AddMaskEffect(GetMaskLayer(), effects);
 
   gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
-  float opacity = aLayer->GetEffectiveOpacity();
+  float opacity = GetEffectiveOpacity();
   gfx::Matrix4x4 transform;
-  ToMatrix4x4(aLayer->GetEffectiveTransform(), transform);
+  ToMatrix4x4(GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-  aCompositor->DrawQuad(rect, &clipRect, effects, opacity,
+  mCompositor->DrawQuad(rect, &clipRect, effects, opacity,
                         transform, gfx::Point(aOffset.x, aOffset.y));
 }
-
-void
-ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
-                                 const nsIntRect& aClipRect)
-{
-  if (mCompositeManager->CompositingDisabled()) {
-    return;
-  }
-
-  RenderColorLayer(this, mCompositor, aOffset, aClipRect);
-}
-
 
 } /* layers */
 } /* mozilla */
