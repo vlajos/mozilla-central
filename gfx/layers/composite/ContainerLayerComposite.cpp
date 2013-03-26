@@ -129,7 +129,6 @@ ContainerRender(ContainerT* aContainer,
 
   if (needsSurface) {
     // Unbind the current surface and rebind the previous one.
-    compositor->SetRenderTarget(previousTarget);
 #ifdef MOZ_DUMP_PAINTING
     if (gfxUtils::sDumpPainting) {
       nsRefPtr<gfxImageSurface> surf = surface->Dump(aManager->GetCompositor());
@@ -138,6 +137,7 @@ ContainerRender(ContainerT* aContainer,
 #endif
 
     aManager->RestoreViewport();
+    compositor->SetRenderTarget(previousTarget);
     if (!aManager->CompositingDisabled()) {
       EffectChain effectChain;
       LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(),

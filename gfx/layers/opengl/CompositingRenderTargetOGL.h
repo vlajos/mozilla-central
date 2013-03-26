@@ -36,10 +36,10 @@ public:
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
-  void BindTexture(GLenum aTextureUnit) {
+  void BindTexture(GLenum aTextureUnit, GLenum aTextureTarget) {
     MOZ_ASSERT(mTextureHandle != 0);
     mGL->fActiveTexture(aTextureUnit);
-    mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mTextureHandle);
+    mGL->fBindTexture(aTextureTarget, mTextureHandle);
   }
 
   // TextureSourceOGL

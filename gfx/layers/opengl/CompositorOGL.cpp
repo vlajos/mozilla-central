@@ -1157,7 +1157,7 @@ CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
 
       ShaderProgramOGL *program = GetProgram(GetFBOLayerProgramType(), maskType);
 
-      surface->BindTexture(LOCAL_GL_TEXTURE0);
+      surface->BindTexture(LOCAL_GL_TEXTURE0, mFBOTextureTarget);
     
       program->Activate();
       program->SetTextureUnit(0);
