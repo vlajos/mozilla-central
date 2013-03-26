@@ -246,6 +246,13 @@ public:
   virtual void SetRenderTarget(CompositingRenderTarget *aSurface) = 0;
 
   /**
+   * Returns the current target for rendering. Will return null if we are
+   * rendering to the screen.
+   */
+  virtual CompositingRenderTarget*
+  GetCurrentRenderTarget() = 0;
+
+  /**
    * Mostly the compositor will pull the size from a widget and this method will
    * be ignored, but compositor implementations are free to use it if they like.
    */

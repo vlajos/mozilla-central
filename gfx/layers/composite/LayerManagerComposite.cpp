@@ -247,7 +247,7 @@ LayerManagerComposite::Render()
   }
 
   // Render our layers.
-  RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect, nullptr);
+  RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect);
 
   mCompositor->EndFrame(mWorldMatrix);
 }

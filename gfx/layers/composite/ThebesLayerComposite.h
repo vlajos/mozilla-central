@@ -48,8 +48,7 @@ public:
   virtual TiledLayerComposer* AsTiledLayerComposer();
   virtual bool IsEmpty();
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+                           const nsIntRect& aClipRect);
   virtual void CleanupResources();
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;

@@ -76,8 +76,8 @@ CanvasLayerComposite::GetRenderState()
 }
 
 void
-CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset, const nsIntRect& aClipRect,
-                                  CompositingRenderTarget*)
+CanvasLayerComposite::RenderLayer(const nsIntPoint& aOffset,
+                                  const nsIntRect& aClipRect)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;

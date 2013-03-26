@@ -105,8 +105,7 @@ ThebesLayerComposite::GetRenderState()
 
 void
 ThebesLayerComposite::RenderLayer(const nsIntPoint& aOffset,
-                                  const nsIntRect& aClipRect,
-                                  CompositingRenderTarget* aPreviousTarget)
+                                  const nsIntRect& aClipRect)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;

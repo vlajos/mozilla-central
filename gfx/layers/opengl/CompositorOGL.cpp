@@ -226,7 +226,7 @@ CompositorOGL::CompositorOGL(nsIWidget *aWidget, int aSurfaceWidth,
   : mWidget(aWidget)
   , mWidgetSize(-1, -1)
   , mSurfaceSize(aSurfaceWidth, aSurfaceHeight)
-  , mBoundFBO(0)
+  , mCurrentRenderTarget(nullptr)
   , mHasBGRA(0)
   , mIsRenderingToEGLSurface(aIsRenderingToEGLSurface)
   , mFrameInProgress(false)
@@ -656,8 +656,9 @@ CompositorOGL::CreateRenderTarget(const IntRect &aRect, SurfaceInitMode aInit)
   GLuint tex = 0;
   GLuint fbo = 0;
   CreateFBOWithTexture(aRect, aInit, 0, &fbo, &tex);
-  RefPtr<CompositingRenderTargetOGL> rt = new CompositingRenderTargetOGL(mGLContext, tex, fbo);
-  return rt.forget();
+  RefPtr<CompositingRenderTargetOGL> surface
+    = new CompositingRenderTargetOGL(mGLContext, tex, fbo);
+  return surface.forget();
 }
 
 TemporaryRef<CompositingRenderTarget>
@@ -687,14 +688,20 @@ CompositorOGL::SetRenderTarget(CompositingRenderTarget *aSurface)
   if (aSurface) {
     CompositingRenderTargetOGL* surface
       = static_cast<CompositingRenderTargetOGL*>(aSurface);
-    if (mBoundFBO != surface->mFBO) {
+    if (mCurrentRenderTarget != surface) {
       mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, surface->mFBO);
-      mBoundFBO = surface->mFBO;
+      mCurrentRenderTarget = surface;
     }
-  } else if (mBoundFBO != 0) {
+  } else if (mCurrentRenderTarget) {
     mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
-    mBoundFBO = 0;
+    mCurrentRenderTarget = nullptr;
   }
+}
+
+CompositingRenderTarget*
+CompositorOGL::GetCurrentRenderTarget()
+{
+  return mCurrentRenderTarget;
 }
 
 static GLenum
@@ -844,8 +851,8 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
   mGLContext->fBindTexture(mFBOTextureTarget, tex);
 
   if (aInit == INIT_MODE_COPY) {
-
-    if (mBoundFBO != aSourceFrameBuffer) {
+    GLuint curFBO = mCurrentRenderTarget ? mCurrentRenderTarget->mFBO : 0;
+    if (curFBO != aSourceFrameBuffer) {
       mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aSourceFrameBuffer);
     }
 
@@ -941,7 +948,8 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
     mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT);
   }
 
-  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mBoundFBO);
+  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
+    mCurrentRenderTarget ? mCurrentRenderTarget->mFBO : 0);
 
   *aFBO = fbo;
   *aTexture = tex;

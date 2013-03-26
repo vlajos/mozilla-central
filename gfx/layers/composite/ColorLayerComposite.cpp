@@ -35,8 +35,7 @@ RenderColorLayer(ColorLayer* aLayer, Compositor *aCompositor,
 
 void
 ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
-                                 const nsIntRect& aClipRect,
-                                 CompositingRenderTarget*)
+                                 const nsIntRect& aClipRect)
 {
   if (mCompositeManager->CompositingDisabled()) {
     return;

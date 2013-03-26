@@ -38,8 +38,7 @@ public:
   virtual void Destroy() { mDestroyed = true; }
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+                           const nsIntRect& aClipRect);
   virtual void CleanupResources() {};
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }

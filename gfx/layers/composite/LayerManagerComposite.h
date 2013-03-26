@@ -291,8 +291,7 @@ public:
   virtual Layer* GetLayer() = 0;
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousSurface = nullptr) = 0;
+                           const nsIntRect& aClipRect) = 0;
 
   virtual void SetCompositableHost(CompositableHost* aHost)
   {

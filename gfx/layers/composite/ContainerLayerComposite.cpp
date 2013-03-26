@@ -25,7 +25,6 @@ HasOpaqueAncestorLayer(Layer* aLayer)
 
 template<class ContainerT> void
 ContainerRender(ContainerT* aContainer,
-                CompositingRenderTarget* aPreviousTarget,
                 const nsIntPoint& aOffset,
                 LayerManagerComposite* aManager,
                 const nsIntRect& aClipRect)
@@ -36,6 +35,8 @@ ContainerRender(ContainerT* aContainer,
   RefPtr<CompositingRenderTarget> surface;
 
   Compositor* compositor = aManager->GetCompositor();
+
+  RefPtr<CompositingRenderTarget> previousTarget = compositor->GetCurrentRenderTarget();
 
   nsIntPoint childOffset(aOffset);
   nsIntRect visibleRect = aContainer->GetEffectiveVisibleRegion().GetBounds();
@@ -88,7 +89,7 @@ ContainerRender(ContainerT* aContainer,
     surfaceRect -= gfx::IntPoint(childOffset.x, childOffset.y);
     if (!aManager->CompositingDisabled()) {
       if (surfaceCopyNeeded) {
-        surface = compositor->CreateRenderTargetFromSource(surfaceRect, aPreviousTarget);
+        surface = compositor->CreateRenderTargetFromSource(surfaceRect, previousTarget);
       } else {
         surface = compositor->CreateRenderTarget(surfaceRect, mode);
       }
@@ -97,7 +98,7 @@ ContainerRender(ContainerT* aContainer,
     childOffset.x = visibleRect.x;
     childOffset.y = visibleRect.y;
   } else {
-    surface = aPreviousTarget;
+    surface = previousTarget;
     aContainer->mSupportsComponentAlphaChildren = (aContainer->GetContentFlags() & Layer::CONTENT_OPAQUE) ||
       (aContainer->GetParent() && aContainer->GetParent()->SupportsComponentAlphaChildren());
   }
@@ -121,14 +122,14 @@ ContainerRender(ContainerT* aContainer,
       continue;
     }
 
-    layerToRender->RenderLayer(childOffset, scissorRect, surface);
+    layerToRender->RenderLayer(childOffset, scissorRect);
     // invariant: our GL context should be current here, I don't think we can
     // assert it though
   }
 
   if (needsSurface) {
     // Unbind the current surface and rebind the previous one.
-    compositor->SetRenderTarget(aPreviousTarget);
+    compositor->SetRenderTarget(previousTarget);
 #ifdef MOZ_DUMP_PAINTING
     if (gfxUtils::sDumpPainting) {
       nsRefPtr<gfxImageSurface> surf = surface->Dump(aManager->GetCompositor());
@@ -317,10 +318,9 @@ ContainerLayerComposite::RepositionChild(Layer* aChild, Layer* aAfter)
 
 void
 ContainerLayerComposite::RenderLayer(const nsIntPoint& aOffset,
-                                     const nsIntRect& aClipRect,
-                                     CompositingRenderTarget* aPreviousTarget)
+                                     const nsIntRect& aClipRect)
 {
-  ContainerRender(this, aPreviousTarget, aOffset, mCompositeManager, aClipRect);
+  ContainerRender(this, aOffset, mCompositeManager, aClipRect);
 }
 
 void
@@ -362,10 +362,9 @@ RefLayerComposite::GetFirstChildComposite()
 
 void
 RefLayerComposite::RenderLayer(const nsIntPoint& aOffset,
-                               const nsIntRect& aClipRect,
-                               CompositingRenderTarget* aPreviousTarget)
+                               const nsIntRect& aClipRect)
 {
-  ContainerRender(this, aPreviousTarget, aOffset, mCompositeManager, aClipRect);
+  ContainerRender(this, aOffset, mCompositeManager, aClipRect);
 }
 
 void

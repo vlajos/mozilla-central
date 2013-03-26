@@ -14,10 +14,10 @@
 #include "mozilla/TimeStamp.h"
 
 namespace mozilla {
-
 namespace layers {
 
 struct FPSState;
+class CompositingRenderTargetOGL;
 
 class CompositorOGL : public Compositor
 {
@@ -52,6 +52,7 @@ public:
                                const CompositingRenderTarget *aSource) MOZ_OVERRIDE;
 
   virtual void SetRenderTarget(CompositingRenderTarget *aSurface) MOZ_OVERRIDE;
+  virtual CompositingRenderTarget* GetCurrentRenderTarget() MOZ_OVERRIDE;
 
   virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
                         const EffectChain &aEffectChain,
@@ -168,8 +169,8 @@ private:
   /** Texture target to use for FBOs */
   GLenum mFBOTextureTarget;
 
-  /** Currently bound FBO */
-  GLuint mBoundFBO;
+  /** Currently bound render target */
+  RefPtr<CompositingRenderTargetOGL> mCurrentRenderTarget;
 
   /** VBO that has some basics in it for a textured quad,
    *  including vertex coords and texcoords for both
@@ -295,6 +296,7 @@ private:
 
   /**
    * Copies the content of our backbuffer to the set transaction target.
+   * Does not restore the target FBO, so only call from EndFrame.
    */
   void CopyToTarget(gfxContext *aTarget, const gfxMatrix& aWorldMatrix);
 

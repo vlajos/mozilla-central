@@ -24,7 +24,6 @@ class ContainerLayerComposite : public ShadowContainerLayer,
 {
 template<class ContainerT>
 friend void ContainerRender(ContainerT* aContainer,
-                            CompositingRenderTarget* aPreviousTarget,
                             const nsIntPoint& aOffset,
                             LayerManagerComposite* aManager,
                             const nsIntRect& aClipRect);
@@ -46,8 +45,7 @@ public:
   LayerComposite* GetFirstChildComposite();
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+                           const nsIntRect& aClipRect);
 
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {
@@ -71,7 +69,6 @@ class RefLayerComposite : public ShadowRefLayer,
 {
 template<class ContainerT>
 friend void ContainerRender(ContainerT* aContainer,
-                            CompositingRenderTarget* aPreviousTarget,
                             const nsIntPoint& aOffset,
                             LayerManagerComposite* aManager,
                             const nsIntRect& aClipRect);
@@ -87,8 +84,7 @@ public:
   LayerComposite* GetFirstChildComposite();
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+                           const nsIntRect& aClipRect);
 
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {

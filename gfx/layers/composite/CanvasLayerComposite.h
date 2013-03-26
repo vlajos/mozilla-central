@@ -60,8 +60,7 @@ public:
   void Destroy();
   Layer* GetLayer();
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect,
-                           CompositingRenderTarget* aPreviousTarget = nullptr);
+                           const nsIntRect& aClipRect);
 
   virtual void CleanupResources();
 
