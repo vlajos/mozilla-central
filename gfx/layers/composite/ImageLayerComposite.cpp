@@ -78,10 +78,6 @@ ImageLayerComposite::RenderLayer(const nsIntPoint& aOffset,
                                  const nsIntRect& aClipRect,
                                  CompositingRenderTarget*)
 {
-  if (mCompositeManager->CompositingDisabled()) {
-    return;
-  }
-
   if (!mImageHost) {
     return;
   }
