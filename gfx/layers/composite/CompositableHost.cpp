@@ -30,8 +30,8 @@ bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
                                const gfx::Matrix4x4& aTransform,
                                bool aIs3D)
 {
-  TextureSource* source = GetTextureHost();
-  EffectMask* effect = new EffectMask(source,
+  RefPtr<TextureSource> source = GetTextureHost();
+  RefPtr<EffectMask> effect = new EffectMask(source,
                                       source->GetSize(),
                                       aTransform);
   effect->mIs3D = aIs3D;
@@ -102,8 +102,8 @@ CompositableParent::~CompositableParent()
 }
 
 namespace CompositableMap {
-  typedef std::map<uint64_t, CompositableParent*> Map_t;
-  static Map_t* sCompositableMap = nullptr;
+  typedef std::map<uint64_t, CompositableParent*> CompositableMap_t;
+  static CompositableMap_t* sCompositableMap = nullptr;
   bool IsCreated() {
     return sCompositableMap != nullptr;
   }
@@ -112,7 +112,7 @@ namespace CompositableMap {
     if (!IsCreated() || (aID == 0)) {
       return nullptr;
     }
-    Map_t::iterator it = sCompositableMap->find(aID);
+    CompositableMap_t::iterator it = sCompositableMap->find(aID);
     if (it == sCompositableMap->end()) {
       return nullptr;
     }
@@ -130,7 +130,7 @@ namespace CompositableMap {
     if (!IsCreated() || (aID == 0)) {
       return;
     }
-    Map_t::iterator it = sCompositableMap->find(aID);
+    CompositableMap_t::iterator it = sCompositableMap->find(aID);
     if (it != sCompositableMap->end()) {
       sCompositableMap->erase(it);
     }
@@ -145,7 +145,7 @@ namespace CompositableMap {
   void Create()
   {
     if (sCompositableMap == nullptr) {
-      sCompositableMap = new Map_t;
+      sCompositableMap = new CompositableMap_t;
     }
   }
   void Destroy()

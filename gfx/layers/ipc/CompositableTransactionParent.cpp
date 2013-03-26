@@ -111,7 +111,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       if (layer) {
         RenderTraceInvalidateStart(layer, "FF00FF", layer->GetVisibleRegion().GetBounds());
       }
-      
+
       const SurfaceDescriptor& descriptor = op.image();
       textureParent->EnsureTextureHost(descriptor.type());
       MOZ_ASSERT(textureParent->GetTextureHost());

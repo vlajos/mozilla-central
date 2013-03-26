@@ -32,7 +32,7 @@ class CompositableChild;
  *
  * Since Compositables are independent of layers it is possible to create one,
  * connect it to the compositor side, and start sending images to it. This alone
- * is arguably not very useful, but it means that as long as a shdow layer can
+ * is arguably not very useful, but it means that as long as a shdaow layer can
  * do the proper magic to find a reference to the right CompositableHost on the
  * Compositor side, a Compositable client can be used outside of the main
  * shadow layer forwarder machinery that is used on the main thread.
@@ -112,7 +112,7 @@ protected:
 
 /**
  * IPDL actor used by CompositableClient to match with its corresponding
- * CompositableHost on the compositor side. 
+ * CompositableHost on the compositor side.
  *
  * CompositableChild is owned by a CompositableClient.
  */

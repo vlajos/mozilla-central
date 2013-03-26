@@ -25,13 +25,6 @@ TemporaryRef<TextureHost> CreateTextureHostD3D9(SurfaceDescriptorType aDescripto
 }
 
 #ifdef MOZ_ENABLE_D3D10_LAYER
-TemporaryRef<TextureHost> CreateTextureHostD3D10(SurfaceDescriptorType aDescriptorType,
-                                                 uint32_t aTextureHostFlags,
-                                                 uint32_t aTextureFlags)
-{
-  NS_RUNTIMEABORT("not implemented");
-  return nullptr;
-}
 
 // implemented in TextureD3D11.cpp
 TemporaryRef<TextureHost> CreateTextureHostD3D11(SurfaceDescriptorType aDescriptorType,
@@ -52,9 +45,6 @@ TextureHost::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                                     aTextureHostFlags,
                                                     aTextureFlags);
 #ifdef MOZ_ENABLE_D3D10_LAYER
-    case LAYERS_D3D10 : return CreateTextureHostD3D10(aDescriptorType,
-                                                      aTextureHostFlags,
-                                                      aTextureFlags);
     case LAYERS_D3D11 : return CreateTextureHostD3D11(aDescriptorType,
                                                       aTextureHostFlags,
                                                       aTextureFlags);
