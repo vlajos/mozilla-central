@@ -46,9 +46,9 @@ typedef uint64_t GLuint64;
 
 // OES_EGL_image (GLES)
 typedef void* GLeglImage;
-typedef void* EGLImage;
 
 // EGL types
+typedef void* EGLImage;
 typedef int EGLint;
 typedef unsigned int EGLBoolean;
 typedef unsigned int EGLenum;

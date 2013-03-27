@@ -446,7 +446,7 @@ public:
 
     bool BindExternalBuffer(GLuint texture, void* buffer) MOZ_OVERRIDE
     {
-#if defined(MOZ_WIDGET_GONK)
+#ifdef MOZ_WIDGET_GONK
         EGLImage image = CreateEGLImageForNativeBuffer(buffer);
         // FIXME [bjacob] There is a bug here: GL_TEXTURE_EXTERNAL here is incompatible
         // with GL_TEXTURE_2D in UnbindExternalBuffer. Specifically, binding a texture to
