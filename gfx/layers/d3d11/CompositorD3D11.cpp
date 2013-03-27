@@ -58,7 +58,8 @@ struct DeviceAttachmentsD3D11
 };
 
 CompositorD3D11::CompositorD3D11(nsIWidget *aWidget)
-  : mWidget(aWidget)
+  : mCurrentRT(nullptr)
+  , mWidget(aWidget)
   , mAttachments(nullptr)
 {
   sBackend = LAYERS_D3D11;
@@ -356,6 +357,7 @@ CompositorD3D11::SetRenderTarget(CompositingRenderTarget *aRenderTarget)
   ID3D11RenderTargetView *view;
   if (!aRenderTarget) {
     view = mDefaultRT;
+    mCurrentRT = nullptr;
     mContext->OMSetRenderTargets(1, &view, nullptr);
     return;
   }
@@ -363,6 +365,7 @@ CompositorD3D11::SetRenderTarget(CompositingRenderTarget *aRenderTarget)
   CompositingRenderTargetD3D11 *newRT =
     static_cast<CompositingRenderTargetD3D11*>(aRenderTarget);
   view = newRT->mRTView;
+  mCurrentRT = newRT;
   mContext->OMSetRenderTargets(1, &view, nullptr);
 }
 

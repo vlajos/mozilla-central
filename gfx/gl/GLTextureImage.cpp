@@ -596,10 +596,9 @@ CreateBasicTextureImage(GLContext* aGL,
     bool useNearestFilter = aFlags & TextureImage::UseNearestFilter;
     aGL->MakeCurrent();
 
-    GLuint texture;
+    GLuint texture = 0;
     aGL->fGenTextures(1, &texture);
 
-    aGL->fActiveTexture(LOCAL_GL_TEXTURE0);
     aGL->fBindTexture(LOCAL_GL_TEXTURE_2D, texture);
 
     GLint texfilter = useNearestFilter ? LOCAL_GL_NEAREST : LOCAL_GL_LINEAR;
@@ -608,9 +607,9 @@ CreateBasicTextureImage(GLContext* aGL,
     aGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, aWrapMode);
     aGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, aWrapMode);
 
-    nsRefPtr<BasicTextureImage> teximage(
-        new BasicTextureImage(texture, aSize, aWrapMode, aContentType, aGL, aFlags));
-    return teximage.forget();
+    nsRefPtr<BasicTextureImage> texImage =
+        new BasicTextureImage(texture, aSize, aWrapMode, aContentType, aGL, aFlags);
+    return texImage.forget();
 }
 
 } // namespace

@@ -2190,9 +2190,6 @@ public:
             height = -1;
             border = -1;
         }
-        if ((GLint)format != internalformat) {
-          NS_WARNING("format mismatch in texture upload is sloooow");
-        }
         raw_fTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
     }
 

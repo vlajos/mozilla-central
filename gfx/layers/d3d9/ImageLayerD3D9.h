@@ -57,35 +57,6 @@ struct PlanarYCbCrD3D9BackendData : public ImageBackendData
   nsRefPtr<IDirect3DTexture9> mCbTexture;
 };
 
-/*
-class ShadowImageLayerD3D9 : public ShadowImageLayer,
-                            public LayerD3D9
-{
-public:
-  ShadowImageLayerD3D9(LayerManagerD3D9* aManager);
-  virtual ~ShadowImageLayerD3D9();
-
-  // ShadowImageLayer impl
-  virtual void Swap(const SurfaceDescriptor& aFront,
-                    SurfaceDescriptor* aNewBack);
-
-  virtual void Disconnect();
-
-  // LayerD3D9 impl
-  virtual void Destroy();
-
-  virtual Layer* GetLayer();
-
-  virtual void RenderLayer();
-
-  virtual already_AddRefed<IDirect3DTexture9> GetAsTexture(gfxIntSize* aSize);
-
-private:
-  nsRefPtr<ShadowBufferD3D9> mBuffer;
-  nsRefPtr<PlanarYCbCrImage> mYCbCrImage;
-};
-*/
-
 } /* layers */
 } /* mozilla */
 #endif /* GFX_IMAGELAYERD3D9_H */

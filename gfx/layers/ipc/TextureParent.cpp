@@ -26,7 +26,8 @@ TextureParent::~TextureParent()
 }
 
 bool
-TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType) {
+TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType)
+{
   if (!SurfaceTypeChanged(aSurfaceType)) {
     return false;
   }

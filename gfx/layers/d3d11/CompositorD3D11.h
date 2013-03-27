@@ -64,6 +64,10 @@ public:
                                  const CompositingRenderTarget *aSource);
 
   virtual void SetRenderTarget(CompositingRenderTarget *aSurface);
+  virtual CompositingRenderTarget* GetCurrentRenderTarget() MOZ_OVERRIDE
+  {
+    return mCurrentRT;
+  }
 
   virtual void SetRenderTargetSize(int aWidth, int aHeight) { }
 
@@ -135,6 +139,7 @@ private:
   RefPtr<ID3D11Device> mDevice;
   RefPtr<IDXGISwapChain> mSwapChain;
   RefPtr<ID3D11RenderTargetView> mDefaultRT;
+  CompositingRenderTargetD3D11 *mCurrentRT;
 
   DeviceAttachmentsD3D11 *mAttachments;
 
