@@ -41,7 +41,6 @@ ContainerRender(ContainerT* aContainer,
   nsIntPoint childOffset(aOffset);
   nsIntRect visibleRect = aContainer->GetEffectiveVisibleRegion().GetBounds();
 
-  nsIntRect cachedScissor = aClipRect;
   aContainer->mSupportsComponentAlphaChildren = false;
 
   float opacity = aContainer->GetEffectiveOpacity();
@@ -49,8 +48,8 @@ ContainerRender(ContainerT* aContainer,
   if (needsSurface) {
     SurfaceInitMode mode = INIT_MODE_CLEAR;
     bool surfaceCopyNeeded = false;
-    gfx::IntRect surfaceRect = gfx::IntRect(visibleRect.x, visibleRect.y, visibleRect.width,
-                                            visibleRect.height);
+    gfx::IntRect surfaceRect = gfx::IntRect(visibleRect.x, visibleRect.y,
+                                            visibleRect.width, visibleRect.height);
     // we're about to create a framebuffer backed by textures to use as an intermediate
     // surface. What to do if its size (as given by framebufferRect) would exceed the
     // maximum texture size supported by the GL? The present code chooses the compromise
@@ -115,7 +114,7 @@ ContainerRender(ContainerT* aContainer,
     }
 
     nsIntRect scissorRect = layerToRender->GetLayer()->
-        CalculateScissorRect(cachedScissor, &aManager->GetWorldTransform());
+        CalculateScissorRect(aClipRect, &aManager->GetWorldTransform());
     if (scissorRect.IsEmpty()) {
       continue;
     }
@@ -146,7 +145,8 @@ ContainerRender(ContainerT* aContainer,
     ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 
     gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
-    aManager->GetCompositor()->DrawQuad(rect, nullptr, effectChain, opacity,
+    gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
+    aManager->GetCompositor()->DrawQuad(rect, &clipRect, effectChain, opacity,
                                         transform, gfx::Point(aOffset.x, aOffset.y));
   }
 }

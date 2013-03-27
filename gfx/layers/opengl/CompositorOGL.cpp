@@ -657,7 +657,8 @@ CompositorOGL::CreateRenderTarget(const IntRect &aRect, SurfaceInitMode aInit)
   GLuint fbo = 0;
   CreateFBOWithTexture(aRect, aInit, 0, &fbo, &tex);
   RefPtr<CompositingRenderTargetOGL> surface
-    = new CompositingRenderTargetOGL(mGLContext, tex, fbo);
+    = new CompositingRenderTargetOGL(this, tex, fbo);
+  surface->Initialize(aRect, mFBOTextureTarget, aInit);
   return surface.forget();
 }
 
@@ -670,7 +671,7 @@ CompositorOGL::CreateRenderTargetFromSource(const IntRect &aRect,
   const CompositingRenderTargetOGL* sourceSurface
     = static_cast<const CompositingRenderTargetOGL*>(aSource);
   if (aSource) {
-    CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->mFBO,
+    CreateFBOWithTexture(aRect, INIT_MODE_COPY, sourceSurface->GetFBO(),
                          &fbo, &tex);
   } else {
     CreateFBOWithTexture(aRect, INIT_MODE_COPY, 0,
@@ -678,7 +679,8 @@ CompositorOGL::CreateRenderTargetFromSource(const IntRect &aRect,
   }
 
   RefPtr<CompositingRenderTargetOGL> surface
-    = new CompositingRenderTargetOGL(mGLContext, tex, fbo);
+    = new CompositingRenderTargetOGL(this, tex, fbo);
+  surface->Initialize(aRect, mFBOTextureTarget, INIT_MODE_COPY);
   return surface.forget();
 }
 
@@ -689,7 +691,7 @@ CompositorOGL::SetRenderTarget(CompositingRenderTarget *aSurface)
     CompositingRenderTargetOGL* surface
       = static_cast<CompositingRenderTargetOGL*>(aSurface);
     if (mCurrentRenderTarget != surface) {
-      mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, surface->mFBO);
+      surface->BindRenderTarget();
       mCurrentRenderTarget = surface;
     }
   } else if (mCurrentRenderTarget) {
@@ -851,7 +853,7 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
   mGLContext->fBindTexture(mFBOTextureTarget, tex);
 
   if (aInit == INIT_MODE_COPY) {
-    GLuint curFBO = mCurrentRenderTarget ? mCurrentRenderTarget->mFBO : 0;
+    GLuint curFBO = mCurrentRenderTarget ? mCurrentRenderTarget->GetFBO() : 0;
     if (curFBO != aSourceFrameBuffer) {
       mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aSourceFrameBuffer);
     }
@@ -917,39 +919,6 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
   mGLContext->fBindTexture(mFBOTextureTarget, 0);
 
   mGLContext->fGenFramebuffers(1, &fbo);
-  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, fbo);
-  mGLContext->fFramebufferTexture2D(LOCAL_GL_FRAMEBUFFER,
-                                    LOCAL_GL_COLOR_ATTACHMENT0,
-                                    mFBOTextureTarget,
-                                    tex,
-                                    0);
-
-  // Making this call to fCheckFramebufferStatus prevents a crash on
-  // PowerVR. See bug 695246.
-  GLenum result = mGLContext->fCheckFramebufferStatus(LOCAL_GL_FRAMEBUFFER);
-  if (result != LOCAL_GL_FRAMEBUFFER_COMPLETE) {
-    nsAutoCString msg;
-    msg.Append("Framebuffer not complete -- error 0x");
-    msg.AppendInt(result, 16);
-    msg.Append(", mFBOTextureTarget 0x");
-    msg.AppendInt(mFBOTextureTarget, 16);
-    msg.Append(", aRect.width ");
-    msg.AppendInt(aRect.width);
-    msg.Append(", aRect.height ");
-    msg.AppendInt(aRect.height);
-    NS_RUNTIMEABORT(msg.get());
-  }
-
-  PrepareViewport(aRect.width, aRect.height, gfxMatrix());
-  mGLContext->fScissor(0, 0, aRect.width, aRect.height);
-
-  if (aInit == INIT_MODE_CLEAR) {
-    mGLContext->fClearColor(0.0, 0.0, 0.0, 0.0);
-    mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT);
-  }
-
-  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
-    mCurrentRenderTarget ? mCurrentRenderTarget->mFBO : 0);
 
   *aFBO = fbo;
   *aTexture = tex;
