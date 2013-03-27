@@ -406,7 +406,7 @@ CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
 }
 
 void
-CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
+CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect &aClipRect,
                           const EffectChain &aEffectChain,
                           gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                           const gfx::Point &aOffset)
@@ -448,15 +448,10 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
 
 
   D3D11_RECT scissor;
-  if (aClipRect) {
-    scissor.left = aClipRect->x;
-    scissor.right = aClipRect->XMost();
-    scissor.top = aClipRect->y;
-    scissor.bottom = aClipRect->YMost();
-  } else {
-    scissor.left = scissor.top = 0;
-    scissor.right = scissor.bottom = INT16_MAX;
-  }
+  scissor.left = aClipRect.x;
+  scissor.right = aClipRect.XMost();
+  scissor.top = aClipRect.y;
+  scissor.bottom = aClipRect.YMost();
   mContext->RSSetScissorRects(1, &scissor);
   mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
   mContext->VSSetShader(mAttachments->mVSQuadShader[maskMode], nullptr, 0);

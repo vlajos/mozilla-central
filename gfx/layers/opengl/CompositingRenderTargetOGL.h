@@ -64,6 +64,12 @@ public:
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
+  /**
+   * Some initialisation work on the backing FBO and texture.
+   * We do this lazily so that when we first set this render target on the
+   * compositor we do not have to re-bind the FBO after unbinding it, or
+   * alternatively leave the FBO bound after creation.
+   */
   void Initialize(const gfx::IntRect& aRect,
                   GLenum aFBOTextureTarget,
                   SurfaceInitMode aInit)

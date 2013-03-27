@@ -29,7 +29,7 @@ ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);
   gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-  mCompositor->DrawQuad(rect, &clipRect, effects, opacity,
+  mCompositor->DrawQuad(rect, clipRect, effects, opacity,
                         transform, gfx::Point(aOffset.x, aOffset.y));
 }
 

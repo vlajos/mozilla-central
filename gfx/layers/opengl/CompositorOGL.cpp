@@ -951,19 +951,17 @@ CompositorOGL::GetProgramTypeForEffect(Effect *aEffect) const
 }
 
 void
-CompositorOGL::DrawQuad(const Rect &aRect, const Rect *aClipRect,
+CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
                         const EffectChain &aEffectChain,
                         Float aOpacity, const gfx::Matrix4x4 &aTransform,
-                        const Point &aOffset)
+                        const Point& aOffset)
 {
   MOZ_ASSERT(mFrameInProgress, "frame not started");
 
   IntRect intClipRect;
-  if (aClipRect) {
-    aClipRect->ToIntRect(&intClipRect);
-    mGLContext->fScissor(intClipRect.x, intClipRect.y,
-                         intClipRect.width, intClipRect.height);
-  }
+  aClipRect.ToIntRect(&intClipRect);
+  mGLContext->fScissor(intClipRect.x, intClipRect.y,
+                       intClipRect.width, intClipRect.height);
 
   MaskType maskType;
   EffectMask* effectMask;

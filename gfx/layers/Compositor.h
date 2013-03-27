@@ -264,10 +264,10 @@ public:
    * offset of the render target from 0,0 of the screen. If texture coords are
    * required, these will be in the primary effect in the effect chain.
    */
-  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
+  virtual void DrawQuad(const gfx::Rect& aRect, const gfx::Rect& aClipRect,
                         const EffectChain &aEffectChain,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
-                        const gfx::Point &aOffset) = 0;
+                        const gfx::Point& aOffset) = 0;
 
   /**
    * Start a new frame.

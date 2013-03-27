@@ -71,7 +71,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     do {
       nsIntRect tileRect = it->GetTileRect();
       gfx::Rect rect(tileRect.x, tileRect.y, tileRect.width, tileRect.height);
-      GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain,
+      GetCompositor()->DrawQuad(rect, aClipRect, aEffectChain,
                                 aOpacity, aTransform, aOffset);
     } while (it->NextTile());
     it->EndTileIteration();
@@ -95,7 +95,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
       effect->mTextureCoords.height = -effect->mTextureCoords.height;
     }
 
-    GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain,
+    GetCompositor()->DrawQuad(rect, aClipRect, aEffectChain,
                               aOpacity, aTransform, aOffset);
   }
 

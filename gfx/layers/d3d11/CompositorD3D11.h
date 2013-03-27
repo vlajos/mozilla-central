@@ -71,7 +71,7 @@ public:
 
   virtual void SetRenderTargetSize(int aWidth, int aHeight) { }
 
-  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect *aClipRect,
+  virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect &aClipRect,
                         const EffectChain &aEffectChain,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point &aOffset);

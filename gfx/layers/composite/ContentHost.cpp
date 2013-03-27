@@ -171,7 +171,7 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
                                           Float(tileRegionRect.y) / texRect.height,
                                           Float(tileRegionRect.width) / texRect.width,
                                           Float(tileRegionRect.height) / texRect.height);
-            GetCompositor()->DrawQuad(rect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+            GetCompositor()->DrawQuad(rect, aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
         }
       }
     }
@@ -533,7 +533,7 @@ TiledContentHost::RenderTile(const TiledTexture& aTile,
                                   textureRect.y / aTextureBounds.height,
                                   textureRect.width / aTextureBounds.width,
                                   textureRect.height / aTextureBounds.height);
-    mCompositor->DrawQuad(graphicsRect, &aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
+    mCompositor->DrawQuad(graphicsRect, aClipRect, aEffectChain, aOpacity, aTransform, aOffset);
   }
 
   aTile.mTextureHost->Unlock();

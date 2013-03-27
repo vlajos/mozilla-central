@@ -146,7 +146,7 @@ ContainerRender(ContainerT* aContainer,
 
     gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
     gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
-    aManager->GetCompositor()->DrawQuad(rect, &clipRect, effectChain, opacity,
+    aManager->GetCompositor()->DrawQuad(rect, clipRect, effectChain, opacity,
                                         transform, gfx::Point(aOffset.x, aOffset.y));
   }
 }
