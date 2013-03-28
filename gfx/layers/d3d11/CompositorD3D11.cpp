@@ -58,7 +58,7 @@ struct DeviceAttachmentsD3D11
 };
 
 CompositorD3D11::CompositorD3D11(nsIWidget *aWidget)
-  , mWidget(aWidget)
+  : mWidget(aWidget)
   , mAttachments(nullptr)
 {
   sBackend = LAYERS_D3D11;
@@ -341,7 +341,7 @@ CompositorD3D11::CreateRenderTarget(const gfx::IntRect &aRect,
   mDevice->CreateTexture2D(&desc, NULL, byRef(texture));
 
   RefPtr<CompositingRenderTargetD3D11> rt = new CompositingRenderTargetD3D11(texture);
-  rt->SetSize(aRect);
+  rt->SetSize(IntSize(aRect.width, aRect.height));
 
   if (aInit == INIT_MODE_CLEAR) {
     FLOAT clear[] = { 0, 0, 0, 0 };
@@ -363,7 +363,7 @@ CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
   mDevice->CreateTexture2D(&desc, NULL, byRef(texture));
 
   RefPtr<CompositingRenderTargetD3D11> rt = new CompositingRenderTargetD3D11(texture);
-  rt->SetSize(aRect);
+  rt->SetSize(IntSize(aRect.width, aRect.height));
 
   return rt;
 }
@@ -527,7 +527,7 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
 
   nsIntRect rect;
   mWidget->GetClientBounds(rect);
-  mDefaultRT->SetSize(IntRect(rect.width, rect.height))
+  mDefaultRT->SetSize(IntSize(rect.width, rect.height));
 
   mContext->IASetInputLayout(mAttachments->mInputLayout);
 
@@ -645,7 +645,7 @@ CompositorD3D11::UpdateRenderTarget()
     return;
   }
 
-  mRTView = new CompositingRenderTargetD3D11(nullptr);
+  mDefaultRT = new CompositingRenderTargetD3D11(nullptr);
   mDevice->CreateRenderTargetView(backBuf, NULL, byRef(mDefaultRT->mRTView));
 }
 
