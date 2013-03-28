@@ -36,7 +36,7 @@
 
 #include "gfxCrashReporterUtils.h"
 
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 #ifdef MOZ_WIDGET_ANDROID
 #include <android/log.h>
@@ -221,7 +221,7 @@ LayerManagerComposite::RootLayer() const
 void
 LayerManagerComposite::Render()
 {
-  SAMPLE_LABEL("LayerManagerComposite", "Render");
+  PROFILER_LABEL("LayerManagerComposite", "Render");
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return;

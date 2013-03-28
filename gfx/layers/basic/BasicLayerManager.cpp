@@ -16,7 +16,7 @@
 #include "gfxPlatform.h"
 #include "nsXULAppAPI.h"
 #include "RenderTrace.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 #define PIXMAN_DONT_DEFINE_STDINT
 #include "pixman.h"
@@ -524,7 +524,7 @@ BasicLayerManager::EndTransactionInternal(DrawThebesLayerCallback aCallback,
                                           void* aCallbackData,
                                           EndTransactionFlags aFlags)
 {
-  SAMPLE_LABEL("BasicLayerManager", "EndTranscationInternal");
+  PROFILER_LABEL("BasicLayerManager", "EndTransactionInternal");
 #ifdef MOZ_LAYERS_HAVE_LOG
   MOZ_LAYERS_LOG(("  ----- (beginning paint)"));
   Log();
@@ -881,7 +881,14 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
                               void* aCallbackData,
                               ReadbackProcessor* aReadback)
 {
-  PaintLayerContext PaintLayerContext(aTarget, aLayer, aCallback, aCallbackData, aReadback);
+  PROFILER_LABEL("BasicLayerManager", "PaintLayer");
+  PaintLayerContext paintLayerContext(aTarget, aLayer, aCallback, aCallbackData, aReadback);
+
+  // Don't attempt to paint layers with a singular transform, cairo will
+  // just throw an error.
+  if (aLayer->GetEffectiveTransform().IsSingular()) {
+    return;
+  }
 
   RenderTraceScope trace("BasicLayerManager::PaintLayer", "707070");
 
@@ -904,7 +911,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
   gfxContextAutoSaveRestore contextSR;
   gfxMatrix transform;
   // Will return an identity matrix for 3d transforms, and is handled separately below.
-  bool is2D = PaintLayerContext.Setup2DTransform();
+  bool is2D = paintLayerContext.Setup2DTransform();
   NS_ABORT_IF_FALSE(is2D || needsGroup || !aLayer->GetFirstChild(), "Must PushGroup for 3d transforms!");
 
   bool needsSaveRestore =
@@ -919,7 +926,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     }
   }
 
-  PaintLayerContext.Apply2DTransform();
+  paintLayerContext.Apply2DTransform();
 
   const nsIntRegion& visibleRegion = aLayer->GetEffectiveVisibleRegion();
   // If needsGroup is true, we'll clip to the visible region after we've popped the group
@@ -930,12 +937,12 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
   }
   
   if (is2D) {
-    PaintLayerContext.AnnotateOpaqueRect();
+    paintLayerContext.AnnotateOpaqueRect();
   }
 
   bool clipIsEmpty = !aTarget || aTarget->GetClipExtents().IsEmpty();
   if (clipIsEmpty) {
-    PaintSelfOrChildren(PaintLayerContext, aTarget);
+    PaintSelfOrChildren(paintLayerContext, aTarget);
     return;
   }
 
@@ -943,11 +950,11 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     if (needsGroup) {
       nsRefPtr<gfxContext> groupTarget = PushGroupForLayer(aTarget, aLayer, aLayer->GetEffectiveVisibleRegion(),
                                       &needsClipToVisibleRegion);
-      PaintSelfOrChildren(PaintLayerContext, groupTarget);
+      PaintSelfOrChildren(paintLayerContext, groupTarget);
       PopGroupToSourceWithCachedSurface(aTarget, groupTarget);
-      FlushGroup(PaintLayerContext, needsClipToVisibleRegion);
+      FlushGroup(paintLayerContext, needsClipToVisibleRegion);
     } else {
-      PaintSelfOrChildren(PaintLayerContext, aTarget);
+      PaintSelfOrChildren(paintLayerContext, aTarget);
     }
   } else {
     const nsIntRect& bounds = visibleRegion.GetBounds();
@@ -960,7 +967,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
     untransformedSurface->SetDeviceOffset(gfxPoint(-bounds.x, -bounds.y));
     nsRefPtr<gfxContext> groupTarget = new gfxContext(untransformedSurface);
 
-    PaintSelfOrChildren(PaintLayerContext, groupTarget);
+    PaintSelfOrChildren(paintLayerContext, groupTarget);
 
     // Temporary fast fix for bug 725886
     // Revert these changes when 725886 is ready
@@ -994,7 +1001,7 @@ BasicLayerManager::PaintLayer(gfxContext* aTarget,
       aTarget->NewPath();
       aTarget->Rectangle(destRect, true);
       aTarget->Clip();
-      FlushGroup(PaintLayerContext, needsClipToVisibleRegion);
+      FlushGroup(paintLayerContext, needsClipToVisibleRegion);
     }
   }
 }

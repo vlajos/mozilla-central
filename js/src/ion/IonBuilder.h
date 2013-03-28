@@ -196,7 +196,7 @@ class IonBuilder : public MIRGenerator
     JSFunction *getSingleCallTarget(types::StackTypeSet *calleeTypes);
     bool getPolyCallTargets(types::StackTypeSet *calleeTypes,
                             AutoObjectVector &targets, uint32_t maxTargets);
-    bool canInlineTarget(JSFunction *target);
+    bool canInlineTarget(JSFunction *target, CallInfo &callInfo);
 
     void popCfgStack();
     bool processDeferredContinues(CFGState &state);
@@ -460,7 +460,7 @@ class IonBuilder : public MIRGenerator
     bool inlineScriptedCalls(AutoObjectVector &targets, AutoObjectVector &originals,
                              CallInfo &callInfo);
     bool inlineScriptedCall(HandleFunction target, CallInfo &callInfo);
-    bool makeInliningDecision(AutoObjectVector &targets);
+    bool makeInliningDecision(AutoObjectVector &targets, CallInfo &callInfo);
 
     bool anyFunctionIsCloneAtCallsite(types::StackTypeSet *funTypes);
     MDefinition *makeCallsiteClone(HandleFunction target, MDefinition *fun);
@@ -496,7 +496,8 @@ class IonBuilder : public MIRGenerator
 
     // If off thread compilation is successful, the final code generator is
     // attached here. Code has been generated, but not linked (there is not yet
-    // an IonScript). This is heap allocated, and must be explicitly destroyed.
+    // an IonScript). This is heap allocated, and must be explicitly destroyed,
+    // performed by FinishOffThreadBuilder().
     CodeGenerator *backgroundCodegen_;
 
   public:
@@ -536,6 +537,7 @@ class IonBuilder : public MIRGenerator
 
     size_t inliningDepth_;
     Vector<MDefinition *, 0, IonAllocPolicy> inlinedArguments_;
+    Vector<types::StackTypeSet *, 0, IonAllocPolicy> inlinedArgumentTypes_;
 
     // True if script->failedBoundsCheck is set for the current script or
     // an outer script.
@@ -601,7 +603,7 @@ class CallInfo
         fun_ = callInfo.fun();
         thisArg_ = callInfo.thisArg();
 
-        if (!args_.append(callInfo.argv()->begin(), callInfo.argv()->end()))
+        if (!args_.append(callInfo.argv().begin(), callInfo.argv().end()))
             return false;
 
         if (callInfo.hasTypeInfo())
@@ -631,7 +633,7 @@ class CallInfo
 
     bool initCallType(TypeOracle *oracle, HandleScript script, jsbytecode *pc) {
         argsBarriers_ = oracle->callArgsBarrier(script, pc);
-        thisType_ = oracle->getCallTarget(script, argc(), pc);
+        thisType_ = oracle->getCallArg(script, argc(), 0, pc);
         if (!argsType_.reserve(argc()))
             return false;
         for (uint32_t i = 1; i <= argc(); i++)
@@ -639,13 +641,12 @@ class CallInfo
         return true;
     }
 
-    bool initFunApplyArguments(TypeOracle *oracle, HandleScript script, jsbytecode *pc, uint32_t nargs) {
+    bool initFunApplyArguments(TypeOracle *oracle, HandleScript script, jsbytecode *pc,
+                               Vector<types::StackTypeSet *> *types) {
         argsBarriers_ = oracle->callArgsBarrier(script, pc);
-        thisType_ = oracle->getCallArg(script, 2, 0, pc);
-        if (!argsType_.reserve(nargs))
+        thisType_ = oracle->getCallArg(script, 2, 1, pc);
+        if (!argsType_.append(types->begin(), types->end()))
             return false;
-        for (uint32_t i = 0; i < nargs; i++)
-            argsType_.infallibleAppend(oracle->parameterTypeSet(script, i));
         return true;
     }
 
@@ -690,8 +691,8 @@ class CallInfo
         args_.append(args->begin(), args->end());
     }
 
-    Vector<MDefinition *> *argv() {
-        return &args_;
+    Vector<MDefinition *> &argv() {
+        return args_;
     }
 
     Vector<types::StackTypeSet *> &argvType() {

@@ -9,7 +9,7 @@
 #include "BasicThebesLayer.h"
 #include "BasicTiledThebesLayer.h"
 #include "nsIWidget.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "gfxUtils.h"
 #include <algorithm>
 
@@ -535,7 +535,7 @@ BasicTiledLayerBuffer::PaintThebes(const nsIntRegion& aNewValidRegion,
   if (useSinglePaintBuffer) {
     const nsIntRect bounds = aPaintRegion.GetBounds();
     {
-      SAMPLE_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferAlloc");
+      PROFILER_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferAlloc");
       mSinglePaintBuffer = new gfxImageSurface(
         gfxIntSize(ceilf(bounds.width * mResolution),
                    ceilf(bounds.height * mResolution)),
@@ -552,7 +552,7 @@ BasicTiledLayerBuffer::PaintThebes(const nsIntRegion& aNewValidRegion,
     }
     start = PR_IntervalNow();
 #endif
-    SAMPLE_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferDraw");
+    PROFILER_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferDraw");
 
     mCallback(mThebesLayer, ctxt, aPaintRegion, nsIntRegion(), mCallbackData);
   }
@@ -572,7 +572,7 @@ BasicTiledLayerBuffer::PaintThebes(const nsIntRegion& aNewValidRegion,
   start = PR_IntervalNow();
 #endif
 
-  SAMPLE_LABEL("BasicTiledLayerBuffer", "PaintThebesUpdate");
+  PROFILER_LABEL("BasicTiledLayerBuffer", "PaintThebesUpdate");
   Update(aNewValidRegion, aPaintRegion);
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
@@ -641,7 +641,7 @@ BasicTiledLayerBuffer::ValidateTile(BasicTiledLayerTile aTile,
                                     const nsIntPoint& aTileOrigin,
                                     const nsIntRegion& aDirtyRegion)
 {
-  SAMPLE_LABEL("BasicTiledLayerBuffer", "ValidateTile");
+  PROFILER_LABEL("BasicTiledLayerBuffer", "ValidateTile");
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
   if (aDirtyRegion.IsComplex()) {
@@ -707,7 +707,7 @@ BasicTiledLayerBuffer::ComputeProgressiveUpdateRegion(const nsIntRegion& aInvali
   if (mManager->ProgressiveUpdateCallback(!staleRegion.Contains(aInvalidRegion),
                                           viewport,
                                           scaleX, scaleY, !drawingLowPrecision)) {
-    SAMPLE_MARKER("Abort painting");
+    PROFILER_LABEL("ContentClient", "Abort painting");
     aRegionToPaint.SetEmpty();
     return aIsRepeated;
   }

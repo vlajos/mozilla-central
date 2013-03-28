@@ -78,8 +78,6 @@ public:
 
   // nsIDOMHTMLElement
   NS_FORWARD_NSIDOMHTMLELEMENT_TO_GENERIC
-
-  virtual void Click() MOZ_OVERRIDE;
   virtual int32_t TabIndexDefault() MOZ_OVERRIDE;
   virtual void Focus(mozilla::ErrorResult& aError) MOZ_OVERRIDE;
 
@@ -147,6 +145,7 @@ public:
   NS_IMETHOD_(int32_t) GetCols();
   NS_IMETHOD_(int32_t) GetWrapCols();
   NS_IMETHOD_(int32_t) GetRows();
+  NS_IMETHOD_(void) GetDefaultValueFromContent(nsAString& aValue);
   NS_IMETHOD_(bool) ValueChanged() const;
   NS_IMETHOD_(void) GetTextEditorValue(nsAString& aValue, bool aIgnoreWrap) const;
   NS_IMETHOD_(nsIEditor*) GetTextEditor();
@@ -729,6 +728,13 @@ protected:
     return aType == NS_FORM_INPUT_NUMBER || aType == NS_FORM_INPUT_DATE ||
            aType == NS_FORM_INPUT_TIME;
   }
+
+  /**
+   * Returns true if the element should prevent dispatching another DOMActivate.
+   * This is used in situations where the anonymous subtree should already have
+   * sent a DOMActivate and prevents firing more than once.
+   */
+  bool ShouldPreventDOMActivateDispatch(nsIDOMEventTarget* aOriginalTarget);
 
   nsCOMPtr<nsIControllers> mControllers;
 

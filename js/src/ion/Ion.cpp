@@ -160,6 +160,7 @@ IonRuntime::IonRuntime()
     enterJIT_(NULL),
     bailoutHandler_(NULL),
     argumentsRectifier_(NULL),
+    parallelArgumentsRectifier_(NULL),
     invalidator_(NULL),
     functionWrappers_(NULL),
     flusher_(NULL)
@@ -197,7 +198,7 @@ IonRuntime::initialize(JSContext *cx)
         FrameSizeClass class_ = FrameSizeClass::FromClass(id);
         if (class_ == FrameSizeClass::ClassLimit())
             break;
-        bailoutTables_.infallibleAppend(NULL);
+        bailoutTables_.infallibleAppend((IonCode *)NULL);
         bailoutTables_[id] = generateBailoutTable(cx, id);
         if (!bailoutTables_[id])
             return false;
@@ -207,9 +208,15 @@ IonRuntime::initialize(JSContext *cx)
     if (!bailoutHandler_)
         return false;
 
-    argumentsRectifier_ = generateArgumentsRectifier(cx);
+    argumentsRectifier_ = generateArgumentsRectifier(cx, SequentialExecution);
     if (!argumentsRectifier_)
         return false;
+
+#ifdef JS_THREADSAFE
+    parallelArgumentsRectifier_ = generateArgumentsRectifier(cx, ParallelExecution);
+    if (!parallelArgumentsRectifier_)
+        return false;
+#endif
 
     invalidator_ = generateInvalidator(cx);
     if (!invalidator_)
@@ -1016,8 +1023,8 @@ OptimizeMIR(MIRGenerator *mir)
     return true;
 }
 
-CodeGenerator *
-GenerateLIR(MIRGenerator *mir, MacroAssembler *maybeMasm = NULL)
+LIRGraph *
+GenerateLIR(MIRGenerator *mir)
 {
     MIRGraph &graph = mir->graph();
 
@@ -1091,11 +1098,15 @@ GenerateLIR(MIRGenerator *mir, MacroAssembler *maybeMasm = NULL)
     if (mir->shouldCancel("Allocate Registers"))
         return NULL;
 
+    return lir;
+}
+
+CodeGenerator *
+GenerateCode(MIRGenerator *mir, LIRGraph *lir, MacroAssembler *maybeMasm)
+{
     CodeGenerator *codegen = js_new<CodeGenerator>(mir, lir, maybeMasm);
-    if (!codegen) {
-        js_delete(codegen);
+    if (!codegen)
         return NULL;
-    }
 
     if (mir->compilingAsmJS()) {
         if (!codegen->generateAsmJS()) {
@@ -1117,7 +1128,12 @@ CompileBackEnd(MIRGenerator *mir, MacroAssembler *maybeMasm)
 {
     if (!OptimizeMIR(mir))
         return NULL;
-    return GenerateLIR(mir, maybeMasm);
+
+    LIRGraph *lir = GenerateLIR(mir);
+    if (!lir)
+        return NULL;
+
+    return GenerateCode(mir, lir, maybeMasm);
 }
 
 class SequentialCompileContext {
@@ -1250,14 +1266,6 @@ IonCompile(JSContext *cx, JSScript *script, JSFunction *fun, jsbytecode *osrPc, 
         IonSpew(IonSpew_Abort, "IM Compilation failed.");
 
     return abortReason;
-}
-
-static inline bool
-OffThreadCompilationEnabled(JSContext *cx)
-{
-    return js_IonOptions.parallelCompilation
-        && cx->runtime->useHelperThreads()
-        && cx->runtime->helperThreadCount() != 0;
 }
 
 static inline bool
@@ -1681,7 +1689,7 @@ ParallelCompileContext::compile(IonBuilder *builder,
     // For the time being, we do not enable parallel compilation.
 
     if (!OptimizeMIR(builder)) {
-        IonSpew(IonSpew_Abort, "Failed during back-end compilation.");
+        IonSpew(IonSpew_Abort, "Failed during MIR optimization.");
         return AbortReason_Disable;
     }
 
@@ -1689,9 +1697,15 @@ ParallelCompileContext::compile(IonBuilder *builder,
         return AbortReason_Disable;
     }
 
-    CodeGenerator *codegen = GenerateLIR(builder);
-    if (!codegen)  {
-        IonSpew(IonSpew_Abort, "Failed during back-end compilation.");
+    LIRGraph *lir = GenerateLIR(builder);
+    if (!lir) {
+        IonSpew(IonSpew_Abort, "Failed during LIR generation.");
+        return AbortReason_Disable;
+    }
+
+    CodeGenerator *codegen = GenerateCode(builder, lir);
+    if (!codegen) {
+        IonSpew(IonSpew_Abort, "Failed during code generation.");
         return AbortReason_Disable;
     }
 

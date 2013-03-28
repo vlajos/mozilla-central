@@ -34,6 +34,7 @@ try:
     import mozcrash
 except:
     deps = ['mozcrash',
+            'mozfile',
             'mozlog']
     for dep in deps:
         module = os.path.join(mozbase, dep)
@@ -547,6 +548,14 @@ user_pref("security.notification_enable_delay", 0);
 
 // Make enablePrivilege continue to work for test code. :-(
 user_pref("security.turn_off_all_security_so_that_viruses_can_take_over_this_computer", true);
+
+// In the default configuration, we bypass XBL scopes (a security feature) for
+// domains whitelisted for remote XUL, so that intranet apps and such continue
+// to work without major rewrites. However, we also use the whitelist mechanism
+// to run our XBL tests in automation, in which case we really want to be testing
+// the configuration that we ship to users without special whitelisting. So we
+// use an additional pref here to allow automation to use the "normal" behavior.
+user_pref("dom.use_xbl_scopes_for_remote_xul", true);
 
 // Get network events.
 user_pref("network.activity.blipIntervalMilliseconds", 250);
@@ -1130,7 +1139,7 @@ user_pref("camino.use_system_proxy_settings", false); // Camino-only, harmless t
       return True
 
     foundZombie = False
-    self.log.info('INFO | automation.py | Reading PID log: %s', processLog)
+    self.log.info('INFO | zombiecheck | Reading PID log: %s', processLog)
     processList = []
     pidRE = re.compile(r'launched child process (\d+)$')
     processLogFD = open(processLog)
@@ -1142,10 +1151,10 @@ user_pref("camino.use_system_proxy_settings", false); // Camino-only, harmless t
     processLogFD.close()
 
     for processPID in processList:
-      self.log.info("INFO | automation.py | Checking for orphan process with PID: %d", processPID)
+      self.log.info("INFO | zombiecheck | Checking for orphan process with PID: %d", processPID)
       if self.isPidAlive(processPID):
         foundZombie = True
-        self.log.info("TEST-UNEXPECTED-FAIL | automation.py | child process %d still alive after shutdown", processPID)
+        self.log.info("TEST-UNEXPECTED-FAIL | zombiecheck | child process %d still alive after shutdown", processPID)
         self.killPid(processPID)
     return foundZombie
 

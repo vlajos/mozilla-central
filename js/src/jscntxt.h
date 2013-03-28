@@ -226,14 +226,20 @@ class SourceDataCache
     void purge();
 };
 
+struct EvalCacheEntry
+{
+    JSScript *script;
+    JSScript *callerScript;
+    jsbytecode *pc;
+};
+
 struct EvalCacheLookup
 {
-    EvalCacheLookup(JSContext *cx) : str(cx), caller(cx) {}
+    EvalCacheLookup(JSContext *cx) : str(cx), callerScript(cx) {}
     RootedLinearString str;
-    RootedFunction caller;
-    unsigned staticLevel;
+    RootedScript callerScript;
     JSVersion version;
-    JSCompartment *compartment;
+    jsbytecode *pc;
 };
 
 struct EvalCacheHashPolicy
@@ -241,10 +247,10 @@ struct EvalCacheHashPolicy
     typedef EvalCacheLookup Lookup;
 
     static HashNumber hash(const Lookup &l);
-    static bool match(RawScript script, const EvalCacheLookup &l);
+    static bool match(const EvalCacheEntry &entry, const EvalCacheLookup &l);
 };
 
-typedef HashSet<RawScript, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
+typedef HashSet<EvalCacheEntry, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
 
 class NativeIterCache
 {
@@ -753,6 +759,7 @@ struct JSRuntime : js::RuntimeFriendFields,
     //-------------------------------------------------------------------------
 
     bool initSelfHosting(JSContext *cx);
+    void finishSelfHosting();
     void markSelfHostingGlobal(JSTracer *trc);
     bool isSelfHostingGlobal(js::HandleObject global) {
         return global == selfHostingGlobal_;
@@ -835,7 +842,6 @@ struct JSRuntime : js::RuntimeFriendFields,
     js::gc::ChunkPool   gcChunkPool;
 
     js::RootedValueMap  gcRootsHash;
-    js::GCLocks         gcLocksHash;
     unsigned            gcKeepAtoms;
     volatile size_t     gcBytes;
     size_t              gcMaxBytes;
@@ -1145,6 +1151,10 @@ struct JSRuntime : js::RuntimeFriendFields,
 
     js::GCHelperThread  gcHelperThread;
 
+#ifdef XP_MACOSX
+    js::AsmJSMachExceptionHandler asmJSMachExceptionHandler;
+#endif
+
 #ifdef JS_THREADSAFE
 # ifdef JS_ION
     js::WorkerThreadState *workerThreadState;
@@ -1180,10 +1190,12 @@ struct JSRuntime : js::RuntimeFriendFields,
      */
     uint32_t            propertyRemovals;
 
-    /* Number localization, used by jsnum.c */
+#if !ENABLE_INTL_API
+    /* Number localization, used by jsnum.cpp. */
     const char          *thousandsSeparator;
     const char          *decimalSeparator;
     const char          *numGrouping;
+#endif
 
   private:
     js::MathCache *mathCache_;

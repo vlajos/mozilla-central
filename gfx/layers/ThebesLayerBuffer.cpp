@@ -13,7 +13,7 @@
 #include "gfxUtils.h"
 #include "ipc/AutoOpenSurface.h"
 #include "nsDeviceContext.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include <algorithm>
 
 namespace mozilla {
@@ -178,7 +178,7 @@ RotatedBuffer::DrawBufferWithRotation(gfxContext* aTarget, float aOpacity,
                                       gfxASurface* aMask,
                                       const gfxMatrix* aMaskTransform) const
 {
-  SAMPLE_LABEL("RotatedBuffer", "DrawBufferWithRotation");
+  PROFILER_LABEL("RotatedBuffer", "DrawBufferWithRotation");
   // Draw four quadrants. We could use REPEAT_, but it's probably better
   // not to, to be performance-safe.
   DrawBufferQuadrant(aTarget, LEFT, TOP, aOpacity, aMask, aMaskTransform);
@@ -192,7 +192,7 @@ RotatedBuffer::DrawBufferWithRotation(gfx::DrawTarget *aTarget, float aOpacity,
                                       gfx::SourceSurface* aMask,
                                       const gfx::Matrix* aMaskTransform) const
 {
-  SAMPLE_LABEL("RotatedBuffer", "DrawBufferWithRotation");
+  PROFILER_LABEL("RotatedBuffer", "DrawBufferWithRotation");
   // See above, in Azure Repeat should always be a safe, even faster choice
   // though! Particularly on D2D Repeat should be a lot faster, need to look
   // into that. TODO[Bas]

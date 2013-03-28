@@ -33,7 +33,7 @@
 #include "mozilla/Attributes.h"
 #include "AccessCheck.h"
 
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "nsJSPrincipals.h"
 #include <algorithm>
 
@@ -377,7 +377,8 @@ void XPCJSRuntime::TraceBlackJS(JSTracer* trc, void* data)
             static_cast<XPCJSObjectHolder*>(e)->TraceJS(trc);
     }
 
-    dom::TraceBlackJS(trc, JS_GetGCParameter(self->GetJSRuntime(), JSGC_NUMBER));
+    dom::TraceBlackJS(trc, JS_GetGCParameter(self->GetJSRuntime(), JSGC_NUMBER),
+                      self->GetXPConnect()->IsShuttingDown());
 }
 
 // static
@@ -1762,11 +1763,29 @@ ReportCompartmentStats(const JS::CompartmentStats &cStats,
                    "stored on the JavaScript heap; those slots "
                    "are not counted here, but in 'gc-heap/objects' instead.");
 
-    ZCREPORT_BYTES(cJSPathPrefix + NS_LITERAL_CSTRING("objects-extra/elements"),
-                   cStats.objectsExtra.elements,
-                   "Memory allocated for object element "
-                   "arrays, which are used to represent indexed object "
-                   "properties.");
+    ZCREPORT_BYTES(cJSPathPrefix + NS_LITERAL_CSTRING("objects-extra/elements/non-asm.js"),
+                   cStats.objectsExtra.elementsNonAsmJS,
+                   "Memory allocated for non-asm.js object element arrays, "
+                   "which are used to represent indexed object properties.");
+
+    // asm.js arrays are heap-allocated on some platforms and
+    // non-heap-allocated on others.  We never put them under sundries,
+    // because (a) in practice they're almost always larger than the sundries
+    // threshold, and (b) we'd need a third category of non-heap, non-GC
+    // sundries, which would be a pain.
+    #define ASM_JS_DESC "Memory allocated for object element " \
+                        "arrays used as asm.js array buffers."
+    size_t asmJSHeap    = cStats.objectsExtra.elementsAsmJSHeap;
+    size_t asmJSNonHeap = cStats.objectsExtra.elementsAsmJSNonHeap;
+    JS_ASSERT(asmJSHeap == 0 || asmJSNonHeap == 0);
+    if (asmJSHeap > 0) {
+        REPORT_BYTES(cJSPathPrefix + NS_LITERAL_CSTRING("objects-extra/elements/asm.js"),
+                     nsIMemoryReporter::KIND_HEAP, asmJSHeap, ASM_JS_DESC);
+    }
+    if (asmJSNonHeap > 0) {
+        REPORT_BYTES(cJSPathPrefix + NS_LITERAL_CSTRING("objects-extra/elements/asm.js"),
+                     nsIMemoryReporter::KIND_NONHEAP, asmJSNonHeap, ASM_JS_DESC);
+    }
 
     ZCREPORT_BYTES(cJSPathPrefix + NS_LITERAL_CSTRING("objects-extra/arguments-data"),
                    cStats.objectsExtra.argumentsData,
@@ -2016,10 +2035,16 @@ ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats &rtStats,
 
     // Report GC numbers that don't belong to a compartment.
 
-    REPORT_GC_BYTES(rtPath + NS_LITERAL_CSTRING("gc-heap/unused-arenas"),
-                    rtStats.gcHeapUnusedArenas,
-                    "Memory on the garbage-collected JavaScript heap taken by "
-                    "empty arenas within non-empty chunks.");
+    // We don't want to report decommitted memory in "explicit", so we just
+    // change the leading "explicit/" to "decommitted/".
+    nsCString rtPath2(rtPath);
+    rtPath2.Replace(0, strlen("explicit"), NS_LITERAL_CSTRING("decommitted"));
+    REPORT_GC_BYTES(rtPath2 + NS_LITERAL_CSTRING("gc-heap/decommitted-arenas"),
+                    rtStats.gcHeapDecommittedArenas,
+                    "Memory on the garbage-collected JavaScript heap, in "
+                    "arenas in non-empty chunks, that is returned to the OS. "
+                    "This means it takes up address space but no physical "
+                    "memory or swap space.");
 
     REPORT_GC_BYTES(rtPath + NS_LITERAL_CSTRING("gc-heap/unused-chunks"),
                     rtStats.gcHeapUnusedChunks,
@@ -2027,12 +2052,10 @@ ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats &rtStats,
                     "empty chunks, which will soon be released unless claimed "
                     "for new allocations.");
 
-    REPORT_GC_BYTES(rtPath + NS_LITERAL_CSTRING("gc-heap/decommitted-arenas"),
-                    rtStats.gcHeapDecommittedArenas,
-                    "Memory on the garbage-collected JavaScript heap, "
-                    "in arenas in non-empty chunks, that is returned to the OS. "
-                    "This means it takes up address space but no physical "
-                    "memory or swap space.");
+    REPORT_GC_BYTES(rtPath + NS_LITERAL_CSTRING("gc-heap/unused-arenas"),
+                    rtStats.gcHeapUnusedArenas,
+                    "Memory on the garbage-collected JavaScript heap taken by "
+                    "empty arenas within non-empty chunks.");
 
     REPORT_GC_BYTES(rtPath + NS_LITERAL_CSTRING("gc-heap/chunk-admin"),
                     rtStats.gcHeapChunkAdmin,
@@ -2310,11 +2333,6 @@ JSMemoryMultiReporter::CollectReports(WindowPaths *windowPaths,
 
     // Report the numbers for memory outside of compartments.
 
-    REPORT_BYTES(NS_LITERAL_CSTRING("js-main-runtime/gc-heap/decommitted-arenas"),
-                 nsIMemoryReporter::KIND_OTHER,
-                 rtStats.gcHeapDecommittedArenas,
-                 "The same as 'explicit/js-non-window/gc-heap/decommitted-arenas'.");
-
     REPORT_BYTES(NS_LITERAL_CSTRING("js-main-runtime/gc-heap/unused-chunks"),
                  nsIMemoryReporter::KIND_OTHER,
                  rtStats.gcHeapUnusedChunks,
@@ -2467,27 +2485,21 @@ PreserveWrapper(JSContext *cx, JSObject *obj)
     if (!ccx.IsValid())
         return false;
 
-    JSObject *obj2 = nullptr;
-    nsIXPConnectWrappedNative *wrapper =
-        XPCWrappedNative::GetWrappedNativeOfJSObject(cx, obj, nullptr, &obj2);
+    if (!IS_WRAPPER_CLASS(js::GetObjectClass(obj)))
+        return mozilla::dom::TryPreserveWrapper(obj);
+
     nsISupports *supports = nullptr;
+    if (IS_WN_WRAPPER_OBJECT(obj))
+        supports = XPCWrappedNative::Get(obj)->Native();
+    else
+        supports = static_cast<nsISupports*>(xpc_GetJSPrivate(obj));
 
-    if (wrapper) {
-        supports = wrapper->Native();
-    } else if (obj2) {
-        supports = static_cast<nsISupports*>(xpc_GetJSPrivate(obj2));
+    // For pre-Paris DOM bindings objects, we only support Node.
+    if (nsCOMPtr<nsINode> node = do_QueryInterface(supports)) {
+        nsContentUtils::PreserveWrapper(supports, node);
+        return true;
     }
-
-    if (supports) {
-        // For pre-Paris DOM bindings objects, we only support Node.
-        if (nsCOMPtr<nsINode> node = do_QueryInterface(supports)) {
-            nsContentUtils::PreserveWrapper(supports, node);
-            return true;
-        }
-        return false;
-    }
-
-    return mozilla::dom::TryPreserveWrapper(obj);
+    return false;
 }
 
 static nsresult

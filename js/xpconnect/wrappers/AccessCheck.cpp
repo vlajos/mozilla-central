@@ -168,7 +168,10 @@ IsPermitted(const char *name, JSFlatString *prop, bool set)
 static bool
 IsFrameId(JSContext *cx, JSObject *obj, jsid id)
 {
-    XPCWrappedNative *wn = XPCWrappedNative::GetWrappedNativeOfJSObject(cx, obj);
+    obj = JS_ObjectToInnerObject(cx, obj);
+    MOZ_ASSERT(!js::IsWrapper(obj));
+    XPCWrappedNative *wn = IS_WN_WRAPPER(obj) ? XPCWrappedNative::Get(obj)
+                                              : nullptr;
     if (!wn) {
         return false;
     }
@@ -269,15 +272,20 @@ AccessCheck::isScriptAccessOnly(JSContext *cx, JSObject *wrapper)
     return false;
 }
 
-enum Access { READ = (1<<0), WRITE = (1<<1), NO_ACCESS = 0 };
-
-static bool
-IsInSandbox(JSContext *cx, JSObject *obj)
+bool
+OnlyIfSubjectIsSystem::isSafeToUnwrap()
 {
-    JSAutoCompartment ac(cx, obj);
-    JSObject *global = JS_GetGlobalForObject(cx, obj);
-    return !strcmp(js::GetObjectJSClass(global)->name, "Sandbox");
+    if (XPCJSRuntime::Get()->XBLScopesEnabled())
+        return false;
+    // It's nasty to use the context stack here, but the alternative is passing cx all
+    // the way down through UnwrapObjectChecked, which we just undid in a 100k patch. :-(
+    JSContext *cx = nsContentUtils::GetCurrentJSContext();
+    if (!cx)
+        return true;
+    return AccessCheck::isSystemOnlyAccessPermitted(cx);
 }
+
+enum Access { READ = (1<<0), WRITE = (1<<1), NO_ACCESS = 0 };
 
 static void
 EnterAndThrow(JSContext *cx, JSObject *wrapper, const char *msg)
@@ -316,26 +324,6 @@ ExposedPropertiesOnly::check(JSContext *cx, JSObject *wrapper, jsid id, Wrapper:
 
     // If no __exposedProps__ existed, deny access.
     if (!found) {
-        // Everything below here needs to be done in the wrapper's compartment.
-        JSAutoCompartment wrapperAC(cx, wrapper);
-        // Make a temporary exception for objects in a chrome sandbox to help
-        // out jetpack. See bug 784233.
-        if (!JS_ObjectIsFunction(cx, wrappedObject) &&
-            IsInSandbox(cx, wrappedObject))
-        {
-            // This little loop hole will go away soon! See bug 553102.
-            nsCOMPtr<nsPIDOMWindow> win =
-                do_QueryInterface(nsJSUtils::GetStaticScriptGlobal(wrapper));
-            if (win) {
-                nsCOMPtr<nsIDocument> doc = win->GetExtantDoc();
-                if (doc) {
-                    doc->WarnOnceAbout(nsIDocument::eNoExposedProps,
-                                       /* asError = */ true);
-                }
-            }
-
-            return true;
-        }
         return false;
     }
 

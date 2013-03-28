@@ -5,12 +5,13 @@
 #include "mozilla/layers/PLayersChild.h"
 #include "BasicTiledThebesLayer.h"
 #include "gfxImageSurface.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "gfxPlatform.h"
 
 
 namespace mozilla {
 namespace layers {
+
 
 BasicTiledThebesLayer::BasicTiledThebesLayer(BasicShadowLayerManager* const aManager)
   : ThebesLayer(aManager, static_cast<BasicImplData*>(this))

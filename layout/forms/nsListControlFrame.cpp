@@ -1572,29 +1572,6 @@ nsListControlFrame::SetFormProperty(nsIAtom* aName,
   return NS_OK;
 }
 
-nsresult 
-nsListControlFrame::GetFormProperty(nsIAtom* aName, nsAString& aValue) const
-{
-  // Get the selected value of option from local cache (optimization vs. widget)
-  if (nsGkAtoms::selected == aName) {
-    nsAutoString val(aValue);
-    nsresult error = NS_OK;
-    bool selected = false;
-    int32_t indx = val.ToInteger(&error, 10); // Get index from aValue
-    if (NS_SUCCEEDED(error))
-       selected = IsContentSelectedByIndex(indx); 
-  
-    aValue.Assign(selected ? NS_LITERAL_STRING("1") : NS_LITERAL_STRING("0"));
-    
-  // For selectedIndex, get the value from the widget
-  } else if (nsGkAtoms::selectedindex == aName) {
-    // You shouldn't be calling me for this!!!
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  return NS_OK;
-}
-
 void
 nsListControlFrame::AboutToDropDown()
 {
@@ -2465,28 +2442,32 @@ nsListControlFrame::KeyPress(nsIDOMEvent* aKeyEvent)
         startIndex++;
       }
 
-      uint32_t i;
-      for (i = 0; i < numOptions; i++) {
+      for (uint32_t i = 0; i < numOptions; ++i) {
         uint32_t index = (i + startIndex) % numOptions;
-        nsCOMPtr<nsIDOMHTMLOptionElement> optionElement =
-          GetOption(options, index);
-        if (optionElement) {
-          nsAutoString text;
-          if (NS_OK == optionElement->GetText(text)) {
-            if (StringBeginsWith(text, incrementalString,
-                                 nsCaseInsensitiveStringComparator())) {
-              bool wasChanged = PerformSelection(index, isShift, isControl);
-              if (wasChanged) {
-                // dispatch event, update combobox, etc.
-                if (!UpdateSelection()) {
-                  return NS_OK;
-                }
-              }
-              break;
-            }
-          }
+        nsCOMPtr<nsIDOMHTMLOptionElement> optionElement = GetOption(options, index);
+        if (!optionElement) {
+          continue;
         }
-      } // for
+
+        nsAutoString text;
+        if (NS_FAILED(optionElement->GetText(text)) ||
+            !StringBeginsWith(nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespaceOrNBSP>(text, false),
+                              incrementalString,
+                              nsCaseInsensitiveStringComparator())) {
+          continue;
+        }
+
+        if (!PerformSelection(index, isShift, isControl)) {
+          break;
+        }
+
+        // If UpdateSelection() returns false, that means the frame is no longer
+        // alive. We should stop doing anything.
+        if (!UpdateSelection()) {
+          return NS_OK;
+        }
+        break;
+      }
 
     } break;//case
   } // switch

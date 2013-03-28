@@ -19,7 +19,6 @@ LIBRARY_NAME	= gklayout
 EXPORT_LIBRARY = 1
 IS_COMPONENT	= 1
 MODULE_NAME	= nsLayoutModule
-GRE_MODULE	= 1
 LIBXUL_LIBRARY	= 1
 ifndef _MSC_VER
 FAIL_ON_WARNINGS = 1
@@ -206,6 +205,12 @@ endif
 ifdef MOZ_DASH
 SHARED_LIBRARY_LIBS += \
   $(DEPTH)/content/media/dash/$(LIB_PREFIX)gkcondash_s.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_WEBSPEECH
+SHARED_LIBRARY_LIBS += \
+  $(DEPTH)/content/media/webspeech/$(LIB_PREFIX)gkconwebspeech_s.$(LIB_SUFFIX) \
   $(NULL)
 endif
 

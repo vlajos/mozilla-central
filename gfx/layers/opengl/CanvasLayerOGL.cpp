@@ -351,4 +351,3 @@ CanvasLayerOGL::CleanupResources()
     mUploadTexture = 0;
   }
 }
-

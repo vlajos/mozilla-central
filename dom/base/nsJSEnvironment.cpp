@@ -81,7 +81,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/CanvasRenderingContext2DBinding.h"
 
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -257,14 +257,11 @@ class nsRootedJSValueArray {
 public:
   explicit nsRootedJSValueArray(JSContext *cx) : avr(cx, vals.Length(), vals.Elements()) {}
 
-  bool SetCapacity(JSContext *cx, size_t capacity) {
-    bool ok = vals.SetCapacity(capacity);
-    if (!ok)
-      return false;
+  void SetCapacity(JSContext *cx, size_t capacity) {
+    vals.SetCapacity(capacity);
     // Values must be safe for the GC to inspect (they must not contain garbage).
     memset(vals.Elements(), 0, vals.Capacity() * sizeof(jsval));
     resetRooter(cx);
-    return true;
   }
 
   jsval *Elements() {
@@ -1251,7 +1248,7 @@ nsJSContext::EvaluateString(const nsAString& aScript,
                             bool aCoerceToString,
                             JS::Value* aRetValue)
 {
-  SAMPLE_LABEL("JS", "EvaluateString");
+  PROFILER_LABEL("JS", "EvaluateString");
   MOZ_ASSERT_IF(aOptions.versionSet, aOptions.version != JSVERSION_UNKNOWN);
   MOZ_ASSERT_IF(aCoerceToString, aRetValue);
   NS_ENSURE_TRUE(mIsInitialized, NS_ERROR_NOT_INITIALIZED);
@@ -1340,7 +1337,7 @@ nsJSContext::CompileScript(const PRUnichar* aText,
                            JS::MutableHandle<JSScript*> aScriptObject,
                            bool aSaveSource /* = false */)
 {
-  SAMPLE_LABEL_PRINTF("JS", "Compile Script", "%s", aURL ? aURL : "");
+  PROFILER_LABEL_PRINTF("JS", "Compile Script", "%s", aURL ? aURL : "");
   NS_ENSURE_TRUE(mIsInitialized, NS_ERROR_NOT_INITIALIZED);
 
   NS_ENSURE_ARG_POINTER(aPrincipal);
@@ -1502,7 +1499,7 @@ nsJSContext::CallEventHandler(nsISupports* aTarget, JSObject* aScope,
     return NS_OK;
   }
 
-  SAMPLE_LABEL("JS", "CallEventHandler");
+  PROFILER_LABEL("JS", "CallEventHandler");
 
   nsAutoMicroTask mt;
   xpc_UnmarkGrayObject(aScope);
@@ -1835,8 +1832,7 @@ nsJSContext::ConvertSupportsTojsvals(nsISupports *aArgs,
 
   // Use the caller's auto guards to release and unroot.
   aTempStorage.construct(mContext);
-  bool ok = aTempStorage.ref().SetCapacity(mContext, argCount);
-  NS_ENSURE_TRUE(ok, NS_ERROR_OUT_OF_MEMORY);
+  aTempStorage.ref().SetCapacity(mContext, argCount);
   jsval *argv = aTempStorage.ref().Elements();
 
   if (argsArray) {
@@ -2560,7 +2556,7 @@ nsJSContext::GarbageCollectNow(JS::gcreason::Reason aReason,
                                IsShrinking aShrinking,
                                int64_t aSliceMillis)
 {
-  SAMPLE_LABEL("GC", "GarbageCollectNow");
+  PROFILER_LABEL("GC", "GarbageCollectNow");
 
   MOZ_ASSERT_IF(aSliceMillis, aIncremental == IncrementalGC);
 
@@ -2627,7 +2623,7 @@ nsJSContext::GarbageCollectNow(JS::gcreason::Reason aReason,
 void
 nsJSContext::ShrinkGCBuffersNow()
 {
-  SAMPLE_LABEL("GC", "ShrinkGCBuffersNow");
+  PROFILER_LABEL("GC", "ShrinkGCBuffersNow");
 
   KillShrinkGCBuffersTimer();
 
@@ -2741,7 +2737,7 @@ nsJSContext::CycleCollectNow(nsICycleCollectorListener *aListener,
     return;
   }
 
-  SAMPLE_LABEL("CC", "CycleCollectNow");
+  PROFILER_LABEL("CC", "CycleCollectNow");
 
   PRTime start = PR_Now();
 
@@ -3304,34 +3300,6 @@ DOMAnalysisPurgeCallback(JSRuntime *aRt, JSFlatString *aDesc)
     (*sPrevAnalysisPurgeCallback)(aRt, aDesc);
 }
 
-// Script object mananagement - note duplicate implementation
-// in nsJSRuntime below...
-nsresult
-nsJSContext::HoldScriptObject(void* aScriptObject)
-{
-    NS_ASSERTION(sIsInitialized, "runtime not initialized");
-    if (! nsJSRuntime::sRuntime) {
-        NS_NOTREACHED("couldn't add GC root - no runtime");
-        return NS_ERROR_FAILURE;
-    }
-
-    ::JS_LockGCThingRT(nsJSRuntime::sRuntime, aScriptObject);
-    return NS_OK;
-}
-
-nsresult
-nsJSContext::DropScriptObject(void* aScriptObject)
-{
-  NS_ASSERTION(sIsInitialized, "runtime not initialized");
-  if (! nsJSRuntime::sRuntime) {
-    NS_NOTREACHED("couldn't remove GC root");
-    return NS_ERROR_FAILURE;
-  }
-
-  ::JS_UnlockGCThingRT(nsJSRuntime::sRuntime, aScriptObject);
-  return NS_OK;
-}
-
 void
 nsJSContext::ReportPendingException()
 {
@@ -3723,34 +3691,6 @@ nsJSRuntime::Shutdown()
 
   sShuttingDown = true;
   sDidShutdown = true;
-}
-
-// Script object mananagement - note duplicate implementation
-// in nsJSContext above...
-nsresult
-nsJSRuntime::HoldScriptObject(void* aScriptObject)
-{
-    NS_ASSERTION(sIsInitialized, "runtime not initialized");
-    if (! sRuntime) {
-        NS_NOTREACHED("couldn't remove GC root - no runtime");
-        return NS_ERROR_FAILURE;
-    }
-
-    ::JS_LockGCThingRT(sRuntime, aScriptObject);
-    return NS_OK;
-}
-
-nsresult
-nsJSRuntime::DropScriptObject(void* aScriptObject)
-{
-  NS_ASSERTION(sIsInitialized, "runtime not initialized");
-  if (! sRuntime) {
-    NS_NOTREACHED("couldn't remove GC root");
-    return NS_ERROR_FAILURE;
-  }
-
-  ::JS_UnlockGCThingRT(sRuntime, aScriptObject);
-  return NS_OK;
 }
 
 // A factory for the runtime.

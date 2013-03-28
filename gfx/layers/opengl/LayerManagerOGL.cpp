@@ -36,7 +36,7 @@
 
 #include "gfxCrashReporterUtils.h"
 
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 #ifdef MOZ_WIDGET_ANDROID
 #include <android/log.h>
@@ -692,6 +692,7 @@ LayerManagerOGL::RootLayer() const
 bool LayerManagerOGL::sDrawFPS = false;
 bool LayerManagerOGL::sFrameCounter = false;
 
+
 // |aTexCoordRect| is the rectangle from the texture that we want to
 // draw using the given program.  The program already has a necessary
 // offset and scale, so the geometry that needs to be drawn is a unit
@@ -770,7 +771,7 @@ LayerManagerOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
 void
 LayerManagerOGL::Render()
 {
-  SAMPLE_LABEL("LayerManagerOGL", "Render");
+  PROFILER_LABEL("LayerManagerOGL", "Render");
   if (mDestroyed) {
     NS_WARNING("Call on destroyed layer manager");
     return;

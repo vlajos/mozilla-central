@@ -24,7 +24,7 @@
 
 #include "gfxCrashReporterUtils.h"
 
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include <algorithm>
 
 #if MOZ_ANDROID_OMTC
@@ -719,7 +719,7 @@ static uint16_t sFrameCount = 0;
 void
 FPSState::DrawFrameCounter(GLContext* context)
 {
-  SAMPLER_FRAME_NUMBER(sFrameCount);
+  profiler_set_frame_number(sFrameCount);
 
   context->fEnable(LOCAL_GL_SCISSOR_TEST);
 
