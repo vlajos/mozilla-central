@@ -226,7 +226,6 @@ CompositorOGL::CompositorOGL(nsIWidget *aWidget, int aSurfaceWidth,
   : mWidget(aWidget)
   , mWidgetSize(-1, -1)
   , mSurfaceSize(aSurfaceWidth, aSurfaceHeight)
-  , mCurrentRenderTarget(nullptr)
   , mHasBGRA(0)
   , mIsRenderingToEGLSurface(aIsRenderingToEGLSurface)
   , mFrameInProgress(false)
@@ -687,17 +686,12 @@ CompositorOGL::CreateRenderTargetFromSource(const IntRect &aRect,
 void
 CompositorOGL::SetRenderTarget(CompositingRenderTarget *aSurface)
 {
-  if (aSurface) {
-    CompositingRenderTargetOGL* surface
-      = static_cast<CompositingRenderTargetOGL*>(aSurface);
-    if (mCurrentRenderTarget != surface) {
-      surface->BindRenderTarget();
-      mCurrentRenderTarget = surface;
-    }
-  } else if (mCurrentRenderTarget) {
-    mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
-    //TODO[nrc] prepare viewport
-    mCurrentRenderTarget = nullptr;
+  MOZ_ASSERT(aSurface);
+  CompositingRenderTargetOGL* surface
+    = static_cast<CompositingRenderTargetOGL*>(aSurface);
+  if (mCurrentRenderTarget != surface) {
+    surface->BindRenderTarget();
+    mCurrentRenderTarget = surface;
   }
 }
 
@@ -811,8 +805,10 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
   TexturePoolOGL::Fill(gl());
 #endif
 
-  mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
-  PrepareViewport(width, height, aTransform);
+  mCurrentRenderTarget = CompositingRenderTargetOGL::RenderTargetForWindow(this,
+                            IntRect(0, 0, width, height),
+                            aTransform);
+  mCurrentRenderTarget->BindRenderTarget();
 
   // Default blend function implements "OVER"
   mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -854,7 +850,7 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
   mGLContext->fBindTexture(mFBOTextureTarget, tex);
 
   if (aInit == INIT_MODE_COPY) {
-    GLuint curFBO = mCurrentRenderTarget ? mCurrentRenderTarget->GetFBO() : 0;
+    GLuint curFBO = mCurrentRenderTarget->GetFBO();
     if (curFBO != aSourceFrameBuffer) {
       mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, aSourceFrameBuffer);
     }
@@ -1228,6 +1224,7 @@ CompositorOGL::EndFrame(const gfxMatrix& aTransform)
 #endif
 
   mFrameInProgress = false;
+  mCurrentRenderTarget = nullptr;
 
   if (mTarget) {
     CopyToTarget(mTarget, aTransform);
@@ -1275,6 +1272,7 @@ CompositorOGL::AbortFrame()
 {
   mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
   mFrameInProgress = false;
+  mCurrentRenderTarget = nullptr;
 }
 
 void

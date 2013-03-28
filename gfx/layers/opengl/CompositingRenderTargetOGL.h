@@ -52,6 +52,7 @@ class CompositingRenderTargetOGL : public CompositingRenderTarget
 public:
   CompositingRenderTargetOGL(CompositorOGL* aCompositor, GLuint aTexure, GLuint aFBO)
     : mInitParams()
+    , mTransform()
     , mCompositor(aCompositor)
     , mGL(aCompositor->gl())
     , mTextureHandle(aTexure)
@@ -62,6 +63,19 @@ public:
   {
     mGL->fDeleteTextures(1, &mTextureHandle);
     mGL->fDeleteFramebuffers(1, &mFBO);
+  }
+
+  static TemporaryRef<CompositingRenderTargetOGL>
+  RenderTargetForWindow(CompositorOGL* aCompositor,
+                        const gfx::IntRect& aRect,
+                        const gfxMatrix& aTransform)
+  {
+    RefPtr<CompositingRenderTargetOGL> result
+      = new CompositingRenderTargetOGL(aCompositor, 0, 0);
+    result->mTransform = aTransform;
+    result->mInitParams = InitParams(aRect, 0, INIT_MODE_NONE);
+    result->mInitParams.mStatus = InitParams::INITIALIZED;
+    return result.forget();
   }
 
   /**
@@ -99,7 +113,7 @@ public:
       mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mFBO);
       mCompositor->PrepareViewport(mInitParams.mRect.width,
                                    mInitParams.mRect.height,
-                                   gfxMatrix());
+                                   mTransform);
     }
   }
 
@@ -181,6 +195,7 @@ private:
   }
 
   InitParams mInitParams;
+  gfxMatrix mTransform;
   CompositorOGL* mCompositor;
   GLContext* mGL;
   GLuint mTextureHandle;
