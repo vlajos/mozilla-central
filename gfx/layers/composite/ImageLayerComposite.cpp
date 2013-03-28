@@ -34,28 +34,20 @@ ImageLayerComposite::~ImageLayerComposite()
 {
   MOZ_COUNT_DTOR(ImageLayerComposite);
   MOZ_ASSERT(mDestroyed);
+
+  CleanupResources();
 }
 
 void
 ImageLayerComposite::SetCompositableHost(CompositableHost* aHost)
 {
   mImageHost = static_cast<ImageHost*>(aHost);
-  mImageHost->SetCompositor(mCompositor);
 }
 
 void
 ImageLayerComposite::Disconnect()
 {
   Destroy();
-}
-
-void
-ImageLayerComposite::Destroy()
-{
-  if (!mDestroyed) {
-    mDestroyed = true;
-    CleanupResources();
-  }
 }
 
 LayerRenderState
@@ -107,9 +99,7 @@ void
 ImageLayerComposite::CleanupResources()
 {
   if (mImageHost) {
-    mImageHost->CleanupResources();
-    mImageHost->SetCompositor(nullptr);
-    mImageHost->SetLayer(nullptr);
+    mImageHost->Detach();
   }
   mImageHost = nullptr;
 }

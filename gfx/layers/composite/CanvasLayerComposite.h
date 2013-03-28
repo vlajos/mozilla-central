@@ -31,7 +31,7 @@ public:
   virtual ~CanvasLayerComposite();
 
   // CanvasLayer impl
-  virtual void Initialize(const Data& aData)
+  virtual void Initialize(const Data& aData) MOZ_OVERRIDE
   {
     NS_RUNTIMEABORT("Incompatibe surface type");
   }
@@ -51,18 +51,17 @@ public:
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
   
-  virtual void Disconnect()
+  virtual void Disconnect() MOZ_OVERRIDE
   {
     Destroy();
   }
 
   // LayerComposite impl
-  void Destroy();
-  Layer* GetLayer();
+  virtual Layer* GetLayer() MOZ_OVERRIDE;
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect);
+                           const nsIntRect& aClipRect) MOZ_OVERRIDE;
 
-  virtual void CleanupResources();
+  virtual void CleanupResources() MOZ_OVERRIDE;
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
 

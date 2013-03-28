@@ -46,6 +46,8 @@ class CompositableHost;
  * CompositableClient to CompositableHost without interacting with the layer.
  *
  * mCompositor is stored in ShadowLayerManager.
+ *
+ * Post-landing TODO: merge LayerComposite with ShadowLayer
  */
 class THEBES_API LayerManagerComposite : public ShadowLayerManager
 {
@@ -247,6 +249,7 @@ private:
 
 
 
+
 /**
  * General information and tree management for layers.
  */
@@ -269,7 +272,7 @@ public:
   /* Do NOT call this from the generic LayerComposite destructor.  Only from the
    * concrete class destructor
    */
-  virtual void Destroy() = 0;
+  virtual void Destroy();
 
   virtual Layer* GetLayer() = 0;
 

@@ -455,8 +455,7 @@ ShadowLayersParent::Attach(ShadowLayerParent* aLayerParent, CompositableParent* 
   CompositableHost* compositable = aCompositable->GetCompositableHost();
   MOZ_ASSERT(compositable);
   layerComposite->SetCompositableHost(compositable);
-  compositable->SetCompositor(compositor);
-  compositable->SetLayer(aLayerParent->AsLayer());
+  compositable->Attach(aLayerParent->AsLayer(), compositor);
 }
 
 bool

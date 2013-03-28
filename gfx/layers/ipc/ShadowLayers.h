@@ -453,14 +453,6 @@ public:
 
   virtual void GetBackendName(nsAString& name) { name.AssignLiteral("Shadow"); }
 
-/*
-  void DestroySharedSurface(gfxSharedImageSurface* aSurface,
-                            PLayersParent* aDeallocator);
-
-  void DestroySharedSurface(SurfaceDescriptor* aSurface,
-                            PLayersParent* aDeallocator);
-*/
-
   /** CONSTRUCTION PHASE ONLY */
   virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer() = 0;
   /** CONSTRUCTION PHASE ONLY */

@@ -32,9 +32,9 @@ public:
   ThebesLayerComposite(LayerManagerComposite *aManager);
   virtual ~ThebesLayerComposite();
 
-  virtual void Disconnect();
+  virtual void Disconnect() MOZ_OVERRIDE;
 
-  virtual void SetValidRegion(const nsIntRegion& aRegion)
+  virtual void SetValidRegion(const nsIntRegion& aRegion) MOZ_OVERRIDE
   {
     ShadowThebesLayer::SetValidRegion(aRegion);
   }
@@ -42,14 +42,17 @@ public:
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
-  // LayerComposite impl
-  virtual void Destroy();
-  virtual Layer* GetLayer();
-  virtual TiledLayerComposer* AsTiledLayerComposer();
-  virtual bool IsEmpty();
+
+  virtual void Destroy() MOZ_OVERRIDE;
+
+  virtual Layer* GetLayer() MOZ_OVERRIDE;
+
+  virtual TiledLayerComposer* AsTiledLayerComposer() MOZ_OVERRIDE;
+
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect);
-  virtual void CleanupResources();
+                           const nsIntRect& aClipRect) MOZ_OVERRIDE;
+
+  virtual void CleanupResources() MOZ_OVERRIDE;
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 

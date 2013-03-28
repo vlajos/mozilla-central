@@ -36,19 +36,16 @@ public:
     NS_ERROR("Not implemented");
   }
 
-  virtual void Disconnect();
+  virtual void Disconnect() MOZ_OVERRIDE;
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
 
-  // LayerOGL impl
-  virtual void Destroy();
-
-  virtual Layer* GetLayer();
+  virtual Layer* GetLayer() MOZ_OVERRIDE;
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
                            const nsIntRect& aClipRect);
 
-  virtual void CleanupResources();
+  virtual void CleanupResources() MOZ_OVERRIDE;
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE;
 

@@ -37,7 +37,7 @@ ThebesLayerComposite::~ThebesLayerComposite()
 {
   MOZ_COUNT_DTOR(ThebesLayerComposite);
   if (mBuffer) {
-    mBuffer->SetLayer(nullptr);
+    mBuffer->Detach();
   }
 }
 
@@ -71,6 +71,9 @@ void
 ThebesLayerComposite::Destroy()
 {
   if (!mDestroyed) {
+    if (mBuffer) {
+      mBuffer->Detach();
+    }
     mBuffer = nullptr;
     mDestroyed = true;
   }
@@ -86,12 +89,6 @@ TiledLayerComposer*
 ThebesLayerComposite::AsTiledLayerComposer()
 {
   return mBuffer->AsTiledLayerComposer();
-}
-
-bool
-ThebesLayerComposite::IsEmpty()
-{
-  return !mBuffer;
 }
 
 LayerRenderState

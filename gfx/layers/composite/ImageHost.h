@@ -80,13 +80,6 @@ public:
     return mTextureHost->GetRenderState();
   }
 
-  virtual void CleanupResources() MOZ_OVERRIDE
-  {
-    if (mTextureHost) {
-      mTextureHost->CleanupResources();
-    }
-  }
-
   virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
 
 #ifdef MOZ_LAYERS_HAVE_LOG

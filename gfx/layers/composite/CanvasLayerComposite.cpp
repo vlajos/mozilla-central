@@ -28,10 +28,8 @@ CanvasLayerComposite::CanvasLayerComposite(LayerManagerComposite* aManager)
 CanvasLayerComposite::~CanvasLayerComposite()
 {
   MOZ_COUNT_DTOR(CanvasLayerComposite);
-  if (mImageHost) {
-    mImageHost->SetLayer(nullptr);
-  }
 
+  CleanupResources();
 }
 
 void
@@ -49,14 +47,6 @@ void CanvasLayerComposite::SetCompositableHost(CompositableHost* aHost) {
   mImageHost = static_cast<ImageHost*>(aHost);
   if (CanUseOpaqueSurface()) {
     mImageHost->GetTextureHost()->AddFlag(UseOpaqueSurface);
-  }
-}
-
-void
-CanvasLayerComposite::Destroy()
-{
-  if (!mDestroyed) {
-    mDestroyed = true;
   }
 }
 
@@ -116,13 +106,11 @@ CanvasLayerComposite::GetCompositableHost() {
   return mImageHost.get();
 }
 
-
 void
 CanvasLayerComposite::CleanupResources()
 {
   if (mImageHost) {
-    mImageHost->CleanupResources();
-    mImageHost->SetCompositor(nullptr);
+    mImageHost->Detach();
   }
   mImageHost = nullptr;
 }

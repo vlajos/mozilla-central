@@ -210,7 +210,13 @@ public:
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }
 
-  virtual void CleanupResources() {}
+  /**
+   * Sets ths TextureHost's compositor.
+   * A TextureHost can change compositor on certain occasions, in particular if
+   * it belongs to an async Compositable.
+   * aCompositor can be null, in which case the TextureHost must cleanup  all
+   * of it's device textures.
+   */
   virtual void SetCompositor(Compositor* aCompositor) {}
 
   ISurfaceAllocator* GetDeAllocator()

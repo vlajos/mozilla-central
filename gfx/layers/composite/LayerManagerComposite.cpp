@@ -589,5 +589,14 @@ LayerManagerComposite::CreateDrawTarget(const IntSize &aSize,
   return LayerManager::CreateDrawTarget(aSize, aFormat);
 }
 
+void
+LayerComposite::Destroy()
+{
+  if (!mDestroyed) {
+    mDestroyed = true;
+    CleanupResources();
+  }
+}
+
 } /* layers */
 } /* mozilla */

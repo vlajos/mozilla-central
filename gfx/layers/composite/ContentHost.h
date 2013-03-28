@@ -88,6 +88,8 @@ public:
     return result;
   }
 
+  virtual void SetCompositor(Compositor* aCompositor) MOZ_OVERRIDE;
+
 #ifdef MOZ_DUMP_PAINTING
   virtual already_AddRefed<gfxImageSurface> Dump()
   {

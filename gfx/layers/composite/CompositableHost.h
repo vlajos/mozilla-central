@@ -64,17 +64,8 @@ public:
 
   virtual CompositableType GetType() = 0;
 
-  virtual void CleanupResources() {
-    mCompositor = nullptr;
-    mLayer = nullptr;
-  }
-
   virtual void SetCompositor(Compositor* aCompositor)
   {
-    if (mCompositor == aCompositor) {
-      return;
-    }
-    CleanupResources();
     mCompositor = aCompositor;
   }
 
@@ -136,6 +127,15 @@ public:
 
   Layer* GetLayer() const { return mLayer; }
   void SetLayer(Layer* aLayer) { mLayer = aLayer; }
+
+  void Attach(Layer* aLayer, Compositor* aCompositor) {
+    SetCompositor(aCompositor);
+    SetLayer(aLayer);
+  }
+  void Detach() {
+    SetLayer(nullptr);
+    SetCompositor(nullptr);
+  }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix) { }

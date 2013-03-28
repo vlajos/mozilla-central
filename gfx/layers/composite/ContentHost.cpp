@@ -191,6 +191,18 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
   mTextureHost->Unlock();
 }
 
+void
+ContentHostBase::SetCompositor(Compositor* aCompositor)
+{
+  CompositableHost::SetCompositor(aCompositor);
+  if (mTextureHost) {
+    mTextureHost->SetCompositor(aCompositor);
+  }
+  if (mTextureHostOnWhite) {
+    mTextureHostOnWhite->SetCompositor(aCompositor);
+  }
+}
+
 ContentHostSingleBuffered::~ContentHostSingleBuffered()
 {
   DestroyTextures();

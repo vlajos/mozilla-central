@@ -33,13 +33,13 @@ public:
   }
 
   // LayerComposite Implementation
-  virtual Layer* GetLayer() { return this; }
+  virtual Layer* GetLayer() MOZ_OVERRIDE { return this; }
 
-  virtual void Destroy() { mDestroyed = true; }
+  virtual void Destroy() MOZ_OVERRIDE { mDestroyed = true; }
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect);
-  virtual void CleanupResources() {};
+                           const nsIntRect& aClipRect) MOZ_OVERRIDE;
+  virtual void CleanupResources() MOZ_OVERRIDE {};
 
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 

@@ -132,6 +132,8 @@ void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
     mGL = newGL;
     mTexture = nullptr;
     // if we have a buffer we reupload it with the new gl context
+    // Post landing TODO: the new TextureClient/Host model will make this
+    // go away.
     if (newGL && mBuffer && IsSurfaceDescriptorValid(*mBuffer)) {
       UpdateImpl(*mBuffer);
     }
