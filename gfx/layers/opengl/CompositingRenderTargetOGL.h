@@ -65,6 +65,10 @@ public:
     mGL->fDeleteFramebuffers(1, &mFBO);
   }
 
+  /**
+   * Create a render target around the default FBO, for rendering straight to
+   * the window.
+   */
   static TemporaryRef<CompositingRenderTargetOGL>
   RenderTargetForWindow(CompositorOGL* aCompositor,
                         const gfx::IntRect& aRect,
