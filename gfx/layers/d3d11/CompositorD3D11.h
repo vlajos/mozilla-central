@@ -69,7 +69,7 @@ public:
     return mCurrentRT;
   }
 
-  virtual void SetRenderTargetSize(int aWidth, int aHeight) { }
+  virtual void SetDestinationSurfaceSize(int aWidth, int aHeight) { }
 
   virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect &aClipRect,
                         const EffectChain &aEffectChain,

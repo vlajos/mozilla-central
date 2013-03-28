@@ -696,6 +696,7 @@ CompositorOGL::SetRenderTarget(CompositingRenderTarget *aSurface)
     }
   } else if (mCurrentRenderTarget) {
     mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
+    //TODO[nrc] prepare viewport
     mCurrentRenderTarget = nullptr;
   }
 }
@@ -1277,7 +1278,7 @@ CompositorOGL::AbortFrame()
 }
 
 void
-CompositorOGL::SetRenderTargetSize(int aWidth, int aHeight)
+CompositorOGL::SetDestinationSurfaceSize(int aWidth, int aHeight)
 {
   mSurfaceSize.width = aWidth;
   mSurfaceSize.height = aHeight;

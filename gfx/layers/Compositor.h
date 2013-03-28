@@ -255,7 +255,7 @@ public:
    * Mostly the compositor will pull the size from a widget and this method will
    * be ignored, but compositor implementations are free to use it if they like.
    */
-  virtual void SetRenderTargetSize(int aWidth, int aHeight) = 0;
+  virtual void SetDestinationSurfaceSize(int aWidth, int aHeight) = 0;
 
   /**
    * Tell the compositor to actually draw a quad. What to do draw and how it is

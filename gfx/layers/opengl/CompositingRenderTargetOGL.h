@@ -97,6 +97,9 @@ public:
     } else {
       MOZ_ASSERT(mInitParams.mStatus == InitParams::INITIALIZED);
       mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mFBO);
+      mCompositor->PrepareViewport(mInitParams.mRect.width,
+                                   mInitParams.mRect.height,
+                                   gfxMatrix());
     }
   }
 

@@ -86,9 +86,10 @@ public:
   }
 
   /**
-   * Set the size of the EGL surface we're rendering to.
+   * Set the size of the EGL surface we're rendering to, if we're rendering to
+   * an EGL surface.
    */
-  virtual void SetRenderTargetSize(int aWidth, int aHeight) MOZ_OVERRIDE;
+  virtual void SetDestinationSurfaceSize(int aWidth, int aHeight) MOZ_OVERRIDE;
 
   virtual void MakeCurrent(bool aForce = false) MOZ_OVERRIDE {
     if (mDestroyed) {
