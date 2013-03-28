@@ -84,7 +84,6 @@ ContainerRender(ContainerT* aContainer,
       }
     }
 
-    aManager->SaveViewport();
     surfaceRect -= gfx::IntPoint(childOffset.x, childOffset.y);
     if (surfaceCopyNeeded) {
       surface = compositor->CreateRenderTargetFromSource(surfaceRect, previousTarget);
@@ -133,7 +132,6 @@ ContainerRender(ContainerT* aContainer,
     }
 #endif
 
-    aManager->RestoreViewport();
     compositor->SetRenderTarget(previousTarget);
     EffectChain effectChain;
     LayerManagerComposite::AddMaskEffect(aContainer->GetMaskLayer(),

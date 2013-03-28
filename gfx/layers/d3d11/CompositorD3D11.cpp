@@ -58,7 +58,6 @@ struct DeviceAttachmentsD3D11
 };
 
 CompositorD3D11::CompositorD3D11(nsIWidget *aWidget)
-  : mCurrentRT(nullptr)
   , mWidget(aWidget)
   , mAttachments(nullptr)
 {
@@ -342,6 +341,7 @@ CompositorD3D11::CreateRenderTarget(const gfx::IntRect &aRect,
   mDevice->CreateTexture2D(&desc, NULL, byRef(texture));
 
   RefPtr<CompositingRenderTargetD3D11> rt = new CompositingRenderTargetD3D11(texture);
+  rt->SetSize(aRect);
 
   if (aInit == INIT_MODE_CLEAR) {
     FLOAT clear[] = { 0, 0, 0, 0 };
@@ -351,22 +351,33 @@ CompositorD3D11::CreateRenderTarget(const gfx::IntRect &aRect,
   return rt;
 }
 
+// TODO[Bas] this method doesn't actually use aSource
+TemporaryRef<CompositingRenderTarget>
+CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+                                              const CompositingRenderTarget *aSource)
+{
+  CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_B8G8R8A8_UNORM, aRect.width, aRect.height, 1, 1,
+                             D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET);
+
+  RefPtr<ID3D11Texture2D> texture;
+  mDevice->CreateTexture2D(&desc, NULL, byRef(texture));
+
+  RefPtr<CompositingRenderTargetD3D11> rt = new CompositingRenderTargetD3D11(texture);
+  rt->SetSize(aRect);
+
+  return rt;
+}
+
 void
 CompositorD3D11::SetRenderTarget(CompositingRenderTarget *aRenderTarget)
 {
-  ID3D11RenderTargetView *view;
-  if (!aRenderTarget) {
-    view = mDefaultRT;
-    mCurrentRT = nullptr;
-    mContext->OMSetRenderTargets(1, &view, nullptr);
-    return;
-  }
-
+  MOZ_ASSERT(aRenderTarget);
   CompositingRenderTargetD3D11 *newRT =
     static_cast<CompositingRenderTargetD3D11*>(aRenderTarget);
-  view = newRT->mRTView;
+  ID3D11RenderTargetView *view = newRT->mRTView;
   mCurrentRT = newRT;
   mContext->OMSetRenderTargets(1, &view, nullptr);
+  PrepareViewport(newRT->GetSize().width, newRT->GetSize().height, gfxMatrix());
 }
 
 void
@@ -389,28 +400,13 @@ CompositorD3D11::SetPSForEffect(Effect *aEffect, MaskMode aMaskMode)
   }
 }
 
-// TODO[Bas] this method doesn't actually use aSource
-TemporaryRef<CompositingRenderTarget>
-CompositorD3D11::CreateRenderTargetFromSource(const gfx::IntRect &aRect,
-                                              const CompositingRenderTarget *aSource)
-{
-  CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_B8G8R8A8_UNORM, aRect.width, aRect.height, 1, 1,
-                             D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET);
-
-  RefPtr<ID3D11Texture2D> texture;
-  mDevice->CreateTexture2D(&desc, NULL, byRef(texture));
-
-  RefPtr<CompositingRenderTargetD3D11> rt = new CompositingRenderTargetD3D11(texture);
-
-  return rt;
-}
-
 void
 CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect &aClipRect,
                           const EffectChain &aEffectChain,
                           gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                           const gfx::Point &aOffset)
 {
+  MOZ_ASSERT(mCurrentRT, "No render target");
   memcpy(&mVSConstants.layerTransform, &aTransform._11, 64);
   mVSConstants.renderTargetOffset[0] = aOffset.x;
   mVSConstants.renderTargetOffset[1] = aOffset.y;
@@ -531,7 +527,7 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
 
   nsIntRect rect;
   mWidget->GetClientBounds(rect);
-  PrepareViewport(rect.width, rect.height, gfxMatrix());
+  mDefaultRT->SetSize(IntRect(rect.width, rect.height))
 
   mContext->IASetInputLayout(mAttachments->mInputLayout);
 
@@ -539,8 +535,7 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
   UINT size = sizeof(Vertex);
   UINT offset = 0;
   mContext->IASetVertexBuffers(0, 1, &buffer, &size, &offset);
-  ID3D11RenderTargetView *view = mDefaultRT;
-  mContext->OMSetRenderTargets(1, &view, nullptr);
+  SetRenderTarget(mDefaultRT);
 
   if (aClipRectOut) {
     nsIntRect rect;
@@ -549,7 +544,7 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
   }
 
   FLOAT black[] = { 0, 0, 0, 0 };
-  mContext->ClearRenderTargetView(mDefaultRT, black);
+  mContext->ClearRenderTargetView(mDefaultRT->mRTView, black);
 
   mContext->OMSetBlendState(mAttachments->mPremulBlendState, sBlendFactor, 0xFFFFFFFF);
   mContext->RSSetState(mAttachments->mRasterizerState);
@@ -564,6 +559,7 @@ CompositorD3D11::EndFrame(const gfxMatrix &aTransform)
   if (mTarget) {
     PaintToTarget();
   }
+  mCurrentRT = nullptr;
 }
 
 void
@@ -590,35 +586,6 @@ CompositorD3D11::PrepareViewport(int aWidth, int aHeight, const gfxMatrix &aWorl
   projection._33 = 0.0f;
 
   memcpy(&mVSConstants.projection, &projection, 64);
-}
-
-void
-CompositorD3D11::SaveViewport()
-{
-  D3D11_VIEWPORT viewport;
-  UINT viewports = 1;
-  mContext->RSGetViewports(&viewports, &viewport);
-
-  mViewportStack.push(IntRect(viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height));
-}
-
-IntRect
-CompositorD3D11::RestoreViewport()
-{
-  IntRect oldViewport = mViewportStack.top();
-  mViewportStack.pop();
-
-  D3D11_VIEWPORT viewport;
-  viewport.MaxDepth = 1.0f;
-  viewport.MinDepth = 0;
-  viewport.Width = oldViewport.width;
-  viewport.Height = oldViewport.height;
-  viewport.TopLeftX = oldViewport.x;
-  viewport.TopLeftY = oldViewport.y;
-
-  mContext->RSSetViewports(1, &viewport);
-
-  return oldViewport;
 }
 
 nsIntSize*
@@ -678,7 +645,8 @@ CompositorD3D11::UpdateRenderTarget()
     return;
   }
 
-  mDevice->CreateRenderTargetView(backBuf, NULL, byRef(mDefaultRT));
+  mRTView = new CompositingRenderTargetD3D11(nullptr);
+  mDevice->CreateRenderTargetView(backBuf, NULL, byRef(mDefaultRT->mRTView));
 }
 
 bool

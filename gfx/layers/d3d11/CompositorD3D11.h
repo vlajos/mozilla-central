@@ -9,7 +9,6 @@
 #include "mozilla/layers/Compositor.h"
 #include "TextureD3D11.h"
 #include <d3d11.h>
-#include <stack>
 
 class nsWidget;
 
@@ -104,11 +103,6 @@ public:
    */
   virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
 
-  // save the current viewport
-  virtual void SaveViewport();
-  // resotre the previous viewport and return its bounds
-  virtual gfx::IntRect RestoreViewport();
-
   virtual bool SupportsPartialTextureUpdate() { return true; }
 
   virtual const char* Name() const { return "Direct3D 11"; }
@@ -138,8 +132,8 @@ private:
   RefPtr<ID3D11DeviceContext> mContext;
   RefPtr<ID3D11Device> mDevice;
   RefPtr<IDXGISwapChain> mSwapChain;
-  RefPtr<ID3D11RenderTargetView> mDefaultRT;
-  CompositingRenderTargetD3D11 *mCurrentRT;
+  RefPtr<CompositingRenderTargetD3D11> mDefaultRT;
+  RefPtr<CompositingRenderTargetD3D11> mCurrentRT;
 
   DeviceAttachmentsD3D11 *mAttachments;
 
@@ -155,8 +149,6 @@ private:
 
   VertexShaderConstants mVSConstants;
   PixelShaderConstants mPSConstants;
-
-  std::stack<gfx::IntRect> mViewportStack;
 };
 
 }

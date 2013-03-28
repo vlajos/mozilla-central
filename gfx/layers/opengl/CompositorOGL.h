@@ -104,22 +104,6 @@ public:
     mTarget = aTarget;
   }
 
-  virtual void SaveViewport() MOZ_OVERRIDE
-  {
-    mGLContext->PushViewportRect();
-  }
-
-  virtual gfx::IntRect RestoreViewport() MOZ_OVERRIDE
-  {
-    mGLContext->PopViewportRect();
-    nsIntRect viewport = mGLContext->ViewportRect();
-    return gfx::IntRect(viewport.x,
-                        viewport.y,
-                        viewport.width,
-                        viewport.height);
-  }
-
-  
   virtual void PrepareViewport(int aWidth, int aHeight,
                                const gfxMatrix& aWorldTransform) MOZ_OVERRIDE;
 

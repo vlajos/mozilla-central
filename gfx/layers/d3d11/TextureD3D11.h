@@ -46,11 +46,14 @@ class CompositingRenderTargetD3D11 : public CompositingRenderTarget,
                                      public TextureSourceD3D11
 {
 public:
+  // Use aTexture == nullptr for rendering to the window
   CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture);
 
   virtual TextureSourceD3D11* AsSourceD3D11() { return this; }
 
   virtual gfx::IntSize GetSize() const;
+
+  void SetSize(const gfx::IntSize& aSize) { mSize = aSize; }
 
 private:
   friend class CompositorD3D11;

@@ -41,6 +41,10 @@ CreateTextureHostD3D11(SurfaceDescriptorType aDescriptorType,
 
 CompositingRenderTargetD3D11::CompositingRenderTargetD3D11(ID3D11Texture2D *aTexture)
 {
+  if (!aTexture) {
+    return;
+  }
+  
   mTextures[0] = aTexture;
 
   RefPtr<ID3D11Device> device;

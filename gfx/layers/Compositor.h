@@ -302,15 +302,6 @@ public:
                                const gfxMatrix& aWorldTransform) = 0;
 
   /**
-   * The compositor maintains (or appears to maintain) a viewport stack. There
-   * is an implicit current viewport. SaveViewport saves the current viewport
-   * to the stack. RestoreViewport pops a viewport from the stack, makes that
-   * the current viewport, and returns a rectangle which defines that viewport.
-   */
-  virtual void SaveViewport() = 0;
-  virtual gfx::IntRect RestoreViewport() = 0;
-
-  /**
    * Whether textures created by this compositor can receive partial updates.
    */
   virtual bool SupportsPartialTextureUpdate() = 0;

@@ -182,16 +182,6 @@ public:
   void SetWorldTransform(const gfxMatrix& aMatrix);
   gfxMatrix& GetWorldTransform(void);
 
-  void SaveViewport()
-  {
-    mCompositor->SaveViewport();
-  }
-  void RestoreViewport()
-  {
-    gfx::IntRect viewport = mCompositor->RestoreViewport();
-    mCompositor->PrepareViewport(viewport.width, viewport.height, mWorldMatrix);
-  }
-
   static bool AddMaskEffect(Layer* aMaskLayer,
                             EffectChain& aEffect,
                             bool aIs3D = false);
