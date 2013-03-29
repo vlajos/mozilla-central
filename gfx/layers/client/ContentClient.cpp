@@ -108,22 +108,7 @@ ContentClientBasic::CreateDTBuffer(ContentType aType,
                                  const nsIntRect& aRect,
                                  uint32_t aFlags)
 {
-#if 0
-  nsRefPtr<gfxASurface> referenceSurface = GetBuffer();
-  if (!referenceSurface) {
-    gfxContext* defaultTarget = mManager->GetDefaultTarget();
-    if (defaultTarget) {
-      referenceSurface = defaultTarget->CurrentSurface();
-    } else {
-      nsIWidget* widget = mManager->GetRetainerWidget();
-      if (!widget || !(referenceSurface = widget->GetThebesSurface())) {
-        referenceSurface = mManager->GetTarget()->CurrentSurface();
-      }
-    }
-  }
-  return referenceSurface->CreateSimilarSurface(
-    aType, gfxIntSize(aSize.width, aSize.height));
-#endif
+  NS_RUNTIMEABORT("ContentClientBasic does not support Moz2D drawing yet!");
   // TODO[Bas] - Implement me!?
   return nullptr;
 }
@@ -157,7 +142,7 @@ ContentClientRemote::BeginPaint()
 void
 ContentClientRemote::EndPaint()
 {
-  // More WOAH! We might still not have a texture client if PaintThebes
+  // post-landing TODO: We might still not have a texture client if PaintThebes
   // decided we didn't need one yet because the region to draw was empty.
   SetTextureClientForBuffer(nullptr);
   mOldTextures.Clear();

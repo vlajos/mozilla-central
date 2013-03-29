@@ -168,42 +168,42 @@ LayerManagerComposite::EndTransaction(DrawThebesLayerCallback aCallback,
 already_AddRefed<gfxASurface>
 LayerManagerComposite::CreateOptimalMaskSurface(const gfxIntSize &aSize)
 {
-  NS_ERROR("Should only be called on the drawing side");
+  NS_RUNTIMEABORT("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ThebesLayer>
 LayerManagerComposite::CreateThebesLayer()
 {
-  NS_ERROR("Should only be called on the drawing side");
+  NS_RUNTIMEABORT("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ContainerLayer>
 LayerManagerComposite::CreateContainerLayer()
 {
-  NS_ERROR("Should only be called on the drawing side");
+  NS_RUNTIMEABORT("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ImageLayer>
 LayerManagerComposite::CreateImageLayer()
 {
-  NS_ERROR("Should only be called on the drawing side");
+  NS_RUNTIMEABORT("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<ColorLayer>
 LayerManagerComposite::CreateColorLayer()
 {
-  NS_ERROR("Should only be called on the drawing side");
+  NS_RUNTIMEABORT("Should only be called on the drawing side");
   return nullptr;
 }
 
 already_AddRefed<CanvasLayer>
 LayerManagerComposite::CreateCanvasLayer()
 {
-  NS_ERROR("Should only be called on the drawing side");
+  NS_RUNTIMEABORT("Should only be called on the drawing side");
   return nullptr;
 }
 
@@ -416,6 +416,7 @@ LayerManagerComposite::ComputeRenderIntegrity()
 
   float lowPrecisionMultiplier = 1.0f;
   float highPrecisionMultiplier = 1.0f;
+// TODO: Will we be wanting this code on other OMTC platforms?
 #ifdef MOZ_ANDROID_OMTC
   // Use the transform on the primary scrollable layer and its FrameMetrics
   // to find out how much of the viewport the current displayport covers
@@ -474,7 +475,7 @@ LayerManagerComposite::ComputeRenderIntegrity()
 #endif // MOZ_ANDROID_OMTC
 
   nsIntRegion screenRegion(screenRect);
-  nsIntRegion lowPrecisionScreenRegion(screenRect);  
+  nsIntRegion lowPrecisionScreenRegion(screenRect);
 gfx3DMatrix transform;
   //nsIntRect screenRect(0, 0, mCompositor->mWidgetSize.width, mCompositor->mWidgetSize.height);
   ComputeRenderIntegrityInternal(root, screenRegion,

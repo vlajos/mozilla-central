@@ -112,13 +112,13 @@ ContainerRender(ContainerT* aContainer,
       continue;
     }
 
-    nsIntRect scissorRect = layerToRender->GetLayer()->
+    nsIntRect clipRect = layerToRender->GetLayer()->
         CalculateScissorRect(aClipRect, &aManager->GetWorldTransform());
-    if (scissorRect.IsEmpty()) {
+    if (clipRect.IsEmpty()) {
       continue;
     }
 
-    layerToRender->RenderLayer(childOffset, scissorRect);
+    layerToRender->RenderLayer(childOffset, clipRect);
     // invariant: our GL context should be current here, I don't think we can
     // assert it though
   }
@@ -156,7 +156,7 @@ ContainerLayerComposite::ContainerLayerComposite(LayerManagerComposite *aManager
   MOZ_COUNT_CTOR(ContainerLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
 }
- 
+
 ContainerLayerComposite::~ContainerLayerComposite()
 {
   MOZ_COUNT_DTOR(ContainerLayerComposite);
@@ -212,7 +212,7 @@ ContainerLayerComposite::InsertAfter(Layer* aChild, Layer* aAfter)
   }
   aAfter->SetNextSibling(aChild);
   NS_ADDREF(aChild);
-  DidInsertChild(aChild);  
+  DidInsertChild(aChild);
 }
 
 void
@@ -241,7 +241,7 @@ ContainerLayerComposite::RemoveChild(Layer *aChild)
   aChild->SetParent(nullptr);
 
   this->DidRemoveChild(aChild);
-  NS_RELEASE(aChild);  
+  NS_RELEASE(aChild);
 }
 
 void
@@ -307,7 +307,7 @@ ContainerLayerComposite::RepositionChild(Layer* aChild, Layer* aAfter)
   }
   aAfter->SetNextSibling(aChild);
   aChild->SetPrevSibling(aAfter);
-  aChild->SetNextSibling(afterNext);  
+  aChild->SetNextSibling(afterNext);
 }
 
 void

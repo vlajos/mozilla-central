@@ -23,10 +23,10 @@ class ContainerLayerComposite : public ShadowContainerLayer,
                                 public LayerComposite
 {
 template<class ContainerT>
-friend void ContainerRender(ContainerT* aContainer,
-                            const nsIntPoint& aOffset,
-                            LayerManagerComposite* aManager,
-                            const nsIntRect& aClipRect);
+  friend void ContainerRender(ContainerT* aContainer,
+                              const nsIntPoint& aOffset,
+                              LayerManagerComposite* aManager,
+                              const nsIntRect& aClipRect);
 public:
   ContainerLayerComposite(LayerManagerComposite *aManager);
   ~ContainerLayerComposite();
@@ -68,10 +68,10 @@ class RefLayerComposite : public ShadowRefLayer,
                           public LayerComposite
 {
 template<class ContainerT>
-friend void ContainerRender(ContainerT* aContainer,
-                            const nsIntPoint& aOffset,
-                            LayerManagerComposite* aManager,
-                            const nsIntRect& aClipRect);
+  friend void ContainerRender(ContainerT* aContainer,
+                              const nsIntPoint& aOffset,
+                              LayerManagerComposite* aManager,
+                              const nsIntRect& aClipRect);
 public:
   RefLayerComposite(LayerManagerComposite *aManager);
   ~RefLayerComposite();

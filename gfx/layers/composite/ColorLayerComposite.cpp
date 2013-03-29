@@ -24,7 +24,8 @@ ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
 
   LayerManagerComposite::AddMaskEffect(GetMaskLayer(), effects);
 
-  gfx::Rect rect(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height);
+  gfx::Rect rect(visibleRect.x, visibleRect.y,
+                 visibleRect.width, visibleRect.height);
   float opacity = GetEffectiveOpacity();
   gfx::Matrix4x4 transform;
   ToMatrix4x4(GetEffectiveTransform(), transform);

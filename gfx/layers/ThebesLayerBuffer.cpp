@@ -291,12 +291,15 @@ ThebesLayerBuffer::GetContextForQuadrantUpdate(const nsIntRect& aBounds)
 gfxASurface::gfxContentType
 ThebesLayerBuffer::BufferContentType()
 {
-  if (mBuffer)
+  if (mBuffer) {
     return mBuffer->GetContentType();
-  if (mBufferProvider)
+  }
+  if (mBufferProvider) {
     return mBufferProvider->ContentType();
-  if (mTextureClientForBuffer)
+  }
+  if (mTextureClientForBuffer) {
     return mTextureClientForBuffer->GetContentType();
+  }
   if (mDTBuffer) {
     switch (mDTBuffer->GetFormat()) {
     case FORMAT_A8:
