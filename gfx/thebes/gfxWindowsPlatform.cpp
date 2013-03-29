@@ -532,6 +532,7 @@ gfxWindowsPlatform::CreateDevice(nsRefPtr<IDXGIAdapter1> &adapter1,
     return E_FAIL;
   D3D10CreateDevice1Func createD3DDevice =
     (D3D10CreateDevice1Func)GetProcAddress(d3d10module, "D3D10CreateDevice1");
+
   if (!createD3DDevice)
     return E_FAIL;
 
@@ -572,11 +573,6 @@ gfxWindowsPlatform::VerifyD2DDevice(bool aAttemptForce)
     }
 
     mozilla::ScopedGfxFeatureReporter reporter("D2D", aAttemptForce);
-
-    nsRefPtr<ID3D10Device1> device;
-    HMODULE d3d11module = LoadLibraryA("d3d11.dll");
-    D3D11CreateDeviceFunc createD3D11Device = (D3D11CreateDeviceFunc)
-        GetProcAddress(d3d11module, "D3D11CreateDevice");
 
     nsModuleHandle dxgiModule(LoadLibrarySystem32(L"dxgi.dll"));
     CreateDXGIFactory1Func createDXGIFactory1 = (CreateDXGIFactory1Func)
@@ -638,6 +634,14 @@ gfxWindowsPlatform::VerifyD2DDevice(bool aAttemptForce)
         }
       }
     }
+
+    HMODULE d3d11module = LoadLibraryA("d3d11.dll");
+    D3D11CreateDeviceFunc createD3D11Device = (D3D11CreateDeviceFunc)
+      GetProcAddress(d3d11module, "D3D11CreateDevice");
+
+    D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_9_3;
+    hr = createD3D11Device(adapter1, D3D_DRIVER_TYPE_UNKNOWN, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+      &featureLevel, 1, D3D11_SDK_VERSION, byRef(mD3D11Device), nullptr, nullptr);
 
     if (!mD2DDevice && aAttemptForce) {
         mD2DDevice = cairo_d2d_create_device();
