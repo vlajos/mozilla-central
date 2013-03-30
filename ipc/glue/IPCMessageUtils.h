@@ -133,7 +133,7 @@ struct EnumSerializer {
   typedef E paramType;
 
   static bool IsLegalValue(const paramType &aValue) {
-    return smallestLegal <= aValue && aValue <= highBound;
+    return smallestLegal <= aValue && aValue < highBound;
   }
 
   static void Write(Message* aMsg, const paramType& aValue) {
@@ -1096,8 +1096,7 @@ template <>
 struct ParamTraits<mozilla::layers::CompositableType>
   : public EnumSerializer<mozilla::layers::CompositableType,
                           mozilla::layers::BUFFER_UNKNOWN,
-                          mozilla::layers::BUFFER_TILED
->
+                          mozilla::layers::BUFFER_COUNT>
 {};
 
 } /* namespace IPC */

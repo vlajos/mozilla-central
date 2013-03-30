@@ -10,10 +10,12 @@
 #include "LayerManagerComposite.h"
 #include "Compositor.h"
 #include "mozilla/layers/CompositableTransactionParent.h"
+
 namespace mozilla {
 namespace layers {
 
-TextureParent::TextureParent(const TextureInfo& aInfo, CompositableParent* aCompositable)
+TextureParent::TextureParent(const TextureInfo& aInfo,
+                             CompositableParent* aCompositable)
 : mTextureInfo(aInfo), mLastSurfaceType(SurfaceDescriptor::Tnull_t)
 {
   MOZ_COUNT_CTOR(TextureParent);

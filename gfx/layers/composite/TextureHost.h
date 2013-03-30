@@ -200,12 +200,6 @@ public:
    */
   virtual void Unlock() {}
 
-  /**
-   * Leave the texture host in a sane state if we abandon an update part-way
-   * through.
-   */
-  virtual void Abort() {}
-
   void SetFlags(TextureFlags aFlags) { mFlags = aFlags; }
   void AddFlag(TextureFlags aFlag) { mFlags |= aFlag; }
   TextureFlags GetFlags() { return mFlags; }

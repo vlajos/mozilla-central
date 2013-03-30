@@ -34,22 +34,6 @@ using namespace mozilla::gl;
 namespace mozilla {
 namespace layers {
 
-static void
-MakeTextureIfNeeded(GLContext* gl, GLuint& aTexture)
-{
-  if (aTexture != 0)
-    return;
-
-  gl->fGenTextures(1, &aTexture);
-
-  gl->fBindTexture(LOCAL_GL_TEXTURE_2D, aTexture);
-
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_LINEAR);
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MAG_FILTER, LOCAL_GL_LINEAR);
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
-  gl->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
-}
-
 /**
  * This is an event used to unref a GLContext on the main thread and
  * optionally delete a texture associated with that context.

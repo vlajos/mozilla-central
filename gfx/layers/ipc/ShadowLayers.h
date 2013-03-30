@@ -362,7 +362,7 @@ public:
   void SetIsFirstPaint() { mIsFirstPaint = true; }
 
   /**
- * Create compositable clients, see comments in CompositingFactory
+   * Create compositable clients, see comments in CompositingFactory
    */
   TemporaryRef<ImageClient> CreateImageClientFor(const CompositableType& aCompositableType,
                                                  ShadowableLayer* aLayer,
@@ -389,16 +389,6 @@ protected:
 #endif
 
 private:
-/*
-  bool AllocBuffer(const gfxIntSize& aSize,
-                   gfxASurface::gfxContentType aContent,
-                   gfxSharedImageSurface** aBuffer);
-
-  bool PlatformAllocBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           uint32_t aCaps,
-                           SurfaceDescriptor* aBuffer);
-*/
   /**
    * Try to query the content type efficiently, but at worst map the
    * surface and return it in *aSurface.
@@ -431,8 +421,10 @@ private:
   static already_AddRefed<gfxASurface>
   PlatformOpenDescriptor(OpenMode aMode, const SurfaceDescriptor& aDescriptor);
 
-  /** Make this descriptor unusable for gfxASurface clients.  A
-   * private interface with AutoOpenSurface. */
+  /**
+   * Make this descriptor unusable for gfxASurface clients. A
+   * private interface with AutoOpenSurface.
+   */
   static void
   CloseDescriptor(const SurfaceDescriptor& aDescriptor);
 

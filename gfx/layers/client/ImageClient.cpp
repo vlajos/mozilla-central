@@ -93,9 +93,11 @@ ImageClientSingle::EnsureTextureClient(TextureClientType aType)
 }
 
 bool
-ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags)
+ImageClientSingle::UpdateImage(ImageContainer* aContainer,
+                               uint32_t aContentFlags)
 {
   AutoLockImage autoLock(aContainer);
+
   Image *image = autoLock.GetImage();
   if (!image) {
     return false;
@@ -111,16 +113,20 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
 
     if (ycbcr->AsSharedPlanarYCbCrImage()) {
       AutoLockTextureClient lock(mTextureClient);
+
       SurfaceDescriptor sd;
       if (!ycbcr->AsSharedPlanarYCbCrImage()->ToSurfaceDescriptor(sd)) {
         return false;
       }
+
       if (IsSurfaceDescriptorValid(*lock.GetSurfaceDescriptor())) {
         GetForwarder()->DestroySharedSurface(lock.GetSurfaceDescriptor());
       }
+
       *lock.GetSurfaceDescriptor() = sd;
     } else {
       AutoLockYCbCrClient clientLock(mTextureClient);
+
       if (!clientLock.Update(ycbcr)) {
         NS_WARNING("failed to update TextureClient (YCbCr)");
         return false;
@@ -128,6 +134,7 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
     }
   } else if (image->GetFormat() == SHARED_TEXTURE) {
     EnsureTextureClient(TEXTURE_SHARED_GL_EXTERNAL);
+    
     SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
     const SharedTextureImage::Data *data = sharedImage->GetData();
 
@@ -138,19 +145,21 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else if (image->GetFormat() == SHARED_RGB) {
     EnsureTextureClient(TEXTURE_SHMEM);
+    
     nsIntRect rect(0, 0,
                    image->GetSize().width,
                    image->GetSize().height);
     UpdatePictureRect(rect);
+
     AutoLockTextureClient lock(mTextureClient);
+
     SurfaceDescriptor desc;
     if (!static_cast<SharedRGBImage*>(image)->ToSurfaceDescriptor(desc)) {
       return false;
     }
     mTextureClient->SetDescriptor(desc);
   } else {
-    nsRefPtr<gfxASurface> surface;
-    surface = image->GetAsSurface();
+    nsRefPtr<gfxASurface> surface = image->GetAsSurface();
     MOZ_ASSERT(surface);
 
     EnsureTextureClient(TEXTURE_SHMEM);
@@ -164,7 +173,9 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag
       return false;
     }
   }
+
   Updated();
+
   if (image->GetFormat() == PLANAR_YCBCR) {
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
     UpdatePictureRect(ycbcr->GetData()->GetPictureRect());

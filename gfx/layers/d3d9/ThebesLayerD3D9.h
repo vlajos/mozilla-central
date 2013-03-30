@@ -15,7 +15,6 @@ namespace mozilla {
 namespace layers {
 
 class ReadbackProcessor;
-//class ShadowBufferD3D9;
 
 class ThebesLayerD3D9 : public ThebesLayer,
                         public LayerD3D9

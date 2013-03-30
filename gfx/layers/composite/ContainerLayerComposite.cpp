@@ -44,6 +44,7 @@ ContainerRender(ContainerT* aContainer,
   aContainer->mSupportsComponentAlphaChildren = false;
 
   float opacity = aContainer->GetEffectiveOpacity();
+
   bool needsSurface = aContainer->UseIntermediateSurface();
   if (needsSurface) {
     SurfaceInitMode mode = INIT_MODE_CLEAR;
@@ -84,7 +85,7 @@ ContainerRender(ContainerT* aContainer,
       }
     }
 
-    surfaceRect -= gfx::IntPoint(childOffset.x, childOffset.y);
+    surfaceRect -= gfx::IntPoint(aOffset.x, aOffset.y);
     if (surfaceCopyNeeded) {
       surface = compositor->CreateRenderTargetFromSource(surfaceRect, previousTarget);
     } else {
@@ -139,6 +140,7 @@ ContainerRender(ContainerT* aContainer,
                                          !aContainer->GetTransform().CanDraw2D());
 
     effectChain.mPrimaryEffect = new EffectRenderTarget(surface);
+    
     gfx::Matrix4x4 transform;
     ToMatrix4x4(aContainer->GetEffectiveTransform(), transform);
 

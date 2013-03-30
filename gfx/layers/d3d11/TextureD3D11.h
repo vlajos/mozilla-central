@@ -69,7 +69,7 @@ public:
 
   virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_CONTENT; }
 
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
+  virtual void EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
 
   virtual gfxASurface* LockSurface();
   virtual gfx::DrawTarget* LockDrawTarget();

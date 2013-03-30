@@ -48,11 +48,10 @@ extern cairo_user_data_key_t gKeyD3D10Texture;
  * This is the LayerManager used for Direct3D 10. For now this will
  * render on the main thread.
  *
- * For the time being, LayerManagerD3D10 both forwards layers
- * transactions and receives forwarded transactions.  In the Azure
- * future, it will only be a ShadowLayerManager.
+ * For the time being, LayerManagerD3D10 forwards layers
+ * transactions.
  */
-class THEBES_API LayerManagerD3D10 : public LayerManager, //ShadowLayerManager,
+class THEBES_API LayerManagerD3D10 : public LayerManager,
                                      public ShadowLayerForwarder {
 public:
   LayerManagerD3D10(nsIWidget *aWidget);
@@ -75,9 +74,6 @@ public:
 
   virtual ShadowLayerForwarder* AsShadowForwarder()
   { return this; }
-
-//  virtual ShadowLayerManager* AsShadowManager()
-//  { return this; }
 
   virtual void SetRoot(Layer *aLayer);
 
@@ -113,23 +109,10 @@ public:
   }
 
   virtual already_AddRefed<ThebesLayer> CreateThebesLayer();
-  //virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
-
   virtual already_AddRefed<ContainerLayer> CreateContainerLayer();
-  //virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
-
   virtual already_AddRefed<ImageLayer> CreateImageLayer();
-  //virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer()
-  //{ return nullptr; }
-
   virtual already_AddRefed<ColorLayer> CreateColorLayer();
-  //virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer()
-  //{ return nullptr; }
-
   virtual already_AddRefed<CanvasLayer> CreateCanvasLayer();
-  //virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer()
-  //{ return nullptr; }
-
   virtual already_AddRefed<ReadbackLayer> CreateReadbackLayer();
 
   virtual already_AddRefed<gfxASurface>

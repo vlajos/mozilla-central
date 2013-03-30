@@ -11,9 +11,6 @@
 
 #include "BasicLayers.h"
 
-#include "mozilla/layers/TextureParent.h"
-#include "LayerManagerComposite.h"
-
 namespace mozilla {
 namespace layers {
 

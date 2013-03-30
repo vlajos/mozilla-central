@@ -184,6 +184,7 @@ EXPORTS_mozilla/layers =\
         TextureClientOGL.h \
         TextureHostOGL.h \
         TextureParent.h \
+        TiledContentClient.h \
         $(NULL)
 
 CPPSRCS += \
@@ -220,6 +221,8 @@ CPPSRCS += \
         TextureChild.cpp \
         TextureHost.cpp \
         TextureParent.cpp \
+        TiledContentClient.cpp \
+        TiledContentHost.cpp \
         $(NULL)
 
 ifdef MOZ_X11 #{

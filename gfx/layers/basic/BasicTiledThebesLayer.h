@@ -8,7 +8,7 @@
 #include "mozilla/layers/ShadowLayers.h"
 #include "BasicLayers.h"
 #include "BasicImplData.h"
-#include "mozilla/layers/ContentClient.h" // tiles and tile buffer
+#include "mozilla/layers/TiledContentClient.h" // tiles and tile buffer
 
 namespace mozilla {
 namespace layers {

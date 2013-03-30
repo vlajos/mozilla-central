@@ -56,8 +56,9 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   // mBufferRect
   nsIntRect quadrantRect = GetQuadrantRectangle(aXSide, aYSide);
   nsIntRect fillRect;
-  if (!fillRect.IntersectRect(mBufferRect, quadrantRect))
+  if (!fillRect.IntersectRect(mBufferRect, quadrantRect)) {
     return;
+  }
 
   nsRefPtr<gfxASurface> source;
 
@@ -147,8 +148,6 @@ RotatedBuffer::DrawBufferQuadrant(gfx::DrawTarget* aTarget,
   gfx::Point quadrantTranslation(quadrantRect.x, quadrantRect.y);
 
   RefPtr<SourceSurface> snapshot = mDTBuffer->Snapshot();
-
-  Matrix mat = aTarget->GetTransform();
 
   // Transform from user -> buffer space.
   Matrix transform;

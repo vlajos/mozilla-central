@@ -24,14 +24,6 @@ TemporaryRef<TextureHost> CreateTextureHostD3D9(SurfaceDescriptorType aDescripto
   return nullptr;
 }
 
-#ifdef MOZ_ENABLE_D3D10_LAYER
-
-// implemented in TextureD3D11.cpp
-TemporaryRef<TextureHost> CreateTextureHostD3D11(SurfaceDescriptorType aDescriptorType,
-                                                 uint32_t aTextureHostFlags,
-                                                 uint32_t aTextureFlags);
-#endif // MOZ_ENABLE_D3D10_LAYER
-
 /* static */ TemporaryRef<TextureHost> 
 TextureHost::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                uint32_t aTextureHostFlags,
@@ -44,11 +36,6 @@ TextureHost::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
     case LAYERS_D3D9 : return CreateTextureHostD3D9(aDescriptorType,
                                                     aTextureHostFlags,
                                                     aTextureFlags);
-#ifdef MOZ_ENABLE_D3D10_LAYER
-    case LAYERS_D3D11 : return CreateTextureHostD3D11(aDescriptorType,
-                                                      aTextureHostFlags,
-                                                      aTextureFlags);
-#endif
     default : return nullptr;
   }
 }

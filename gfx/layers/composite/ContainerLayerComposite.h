@@ -22,7 +22,7 @@ namespace layers {
 class ContainerLayerComposite : public ShadowContainerLayer,
                                 public LayerComposite
 {
-template<class ContainerT>
+  template<class ContainerT>
   friend void ContainerRender(ContainerT* aContainer,
                               const nsIntPoint& aOffset,
                               LayerManagerComposite* aManager,
@@ -67,7 +67,7 @@ public:
 class RefLayerComposite : public ShadowRefLayer,
                           public LayerComposite
 {
-template<class ContainerT>
+  template<class ContainerT>
   friend void ContainerRender(ContainerT* aContainer,
                               const nsIntPoint& aOffset,
                               LayerManagerComposite* aManager,

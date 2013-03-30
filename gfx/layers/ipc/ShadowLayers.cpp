@@ -297,8 +297,8 @@ void
 ShadowLayerForwarder::UpdateTexture(TextureClient* aTexture,
                                     const SurfaceDescriptor& aImage)
 {
-  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None, "[debug] STOP");
-  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::Tnull_t, "[debug] STOP");
+  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::T__None);
+  MOZ_ASSERT(aImage.type() != SurfaceDescriptor::Tnull_t);
   MOZ_ASSERT(aTexture);
   MOZ_ASSERT(aTexture->GetIPDLActor());
   mTxn->AddPaint(OpPaintTexture(nullptr, aTexture->GetIPDLActor(), aImage));

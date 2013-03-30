@@ -33,7 +33,6 @@
 #include "nsDisplayList.h"
 #include "AnimationCommon.h"
 #include "nsAnimationManager.h"
-#include "TiledLayerBuffer.h"
 #include "gfxPlatform.h"
 #include "mozilla/dom/ScreenOrientation.h"
 #include "mozilla/AutoRestore.h"
@@ -230,37 +229,6 @@ CompositorParent::Destroy()
 
   // Ensure that the layer manager is destructed on the compositor thread.
   mLayerManager = NULL;
-}
-
-static void
-DispatchMemoryPressureToLayers(Layer* aLayer)
-{
-  LayerComposite* composite = aLayer->AsLayerComposite();
-  if (composite) {
-    TiledLayerComposer* tileComposer = composite->AsTiledLayerComposer();
-    if (tileComposer) {
-      tileComposer->MemoryPressure();
-    }
-  }
-
-  for (Layer* child = aLayer->GetFirstChild();
-         child; child = child->GetNextSibling()) {
-    DispatchMemoryPressureToLayers(child);
-  }
-
-}
-
-bool
-CompositorParent::RecvMemoryPressure()
-{
-  if (!mLayerManager)
-    return true;
-
-  Layer* layer = mLayerManager->GetRoot();
-  if (layer)
-    DispatchMemoryPressureToLayers(layer);
-
-  return true;
 }
 
 bool
@@ -534,9 +502,6 @@ private:
             ref->DetachReferentLayer(referent);
             referent->RemoveUserData(&sPanZoomUserDataKey);
           }
-        } else {
-          ref->DetachReferentLayer(referent);
-          referent->RemoveUserData(&sPanZoomUserDataKey);
         }
       }
     }
@@ -551,6 +516,7 @@ private:
     bool isO2portrait = (o2 == eScreenOrientation_PortraitPrimary || o2 == eScreenOrientation_PortraitSecondary);
     return !(isO1portrait ^ isO2portrait);
   }
+  
   bool ContentMightReflowOnOrientationChange(nsIntRect& rect) {
     return rect.width != rect.height;
   }
@@ -1368,9 +1334,6 @@ public:
   { return nullptr; }
   virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
   { return false; }
-
-  virtual bool RecvMemoryPressure()
-  { return true; }
 
 private:
   void DeferredDestroy();

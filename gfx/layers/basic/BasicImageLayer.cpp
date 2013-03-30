@@ -230,7 +230,8 @@ private:
     nsRefPtr<gfxASurface> surface;
     AutoLockImage autoLock(mContainer, getter_AddRefs(surface));
 
-    mImageClientTypeContainer = TextureClient::TypeForImage(autoLock.GetImage());
+    mImageClientTypeContainer = autoLock.GetImage() ?
+                                  BUFFER_IMAGE_SINGLE : BUFFER_UNKNOWN;
     return mImageClientTypeContainer;
   }
 

@@ -214,9 +214,9 @@ public:
       surf->CGLTexImageIOSurface2D(mContext, LOCAL_GL_RGBA, LOCAL_GL_BGRA,
                                    LOCAL_GL_UNSIGNED_INT_8_8_8_8_REV, 0);
 
-      fCopyTexSubImage2D(LOCAL_GL_TEXTURE_RECTANGLE_ARB, 0, 0, 0,
-                         0, 0, OffscreenSize().width,
-                         OffscreenSize().height);
+      fCopyTexSubImage2D(LOCAL_GL_TEXTURE_RECTANGLE_ARB, 0,
+                         0, 0,
+                         0, 0, OffscreenSize().width, OffscreenSize().height);
 
       fBindTexture(LOCAL_GL_TEXTURE_RECTANGLE_ARB, oldtex);
       BindFB(prevRead);

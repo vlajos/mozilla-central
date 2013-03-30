@@ -59,7 +59,7 @@ CanvasClient2D::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   gfxASurface::gfxContentType contentType = isOpaque
                                               ? gfxASurface::CONTENT_COLOR
                                               : gfxASurface::CONTENT_COLOR_ALPHA;
-  mTextureClient->EnsureTextureClient(aSize, contentType);
+  mTextureClient->EnsureAllocated(aSize, contentType);
 
   gfxASurface* surface = mTextureClient->LockSurface();
   static_cast<BasicCanvasLayer*>(aLayer)->UpdateSurface(surface, nullptr);
@@ -82,7 +82,7 @@ CanvasClientWebGL::Update(gfx::IntSize aSize, BasicCanvasLayer* aLayer)
   NS_ASSERTION(aLayer->mGLContext, "CanvasClientWebGL should only be used with GL canvases");
 
   // the content type won't be used
-  mTextureClient->EnsureTextureClient(aSize, gfxASurface::CONTENT_COLOR);
+  mTextureClient->EnsureAllocated(aSize, gfxASurface::CONTENT_COLOR);
 
   GLScreenBuffer* screen = aLayer->mGLContext->Screen();
   SurfaceStreamHandle handle = screen->Stream()->GetShareHandle();

@@ -416,7 +416,7 @@ LayerManagerComposite::ComputeRenderIntegrity()
 
   float lowPrecisionMultiplier = 1.0f;
   float highPrecisionMultiplier = 1.0f;
-// TODO: Will we be wanting this code on other OMTC platforms?
+
 #ifdef MOZ_ANDROID_OMTC
   // Use the transform on the primary scrollable layer and its FrameMetrics
   // to find out how much of the viewport the current displayport covers

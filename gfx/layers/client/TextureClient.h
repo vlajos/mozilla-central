@@ -36,13 +36,15 @@ class CompositableForwarder;
  * semantics.
  *
  * When modifying a TextureClient's data, first call LockDescriptor, modify the
- * data in the descriptor, and then call Unlock. This makes sure that if the data
- * is shared with the compositor, the later will not try to read while the data is
- * being modified (on the other side, TextureHost also has Lock/Unlock semantics).
- * after unlocking, call Updated in order to add the modification to the current
+ * data in the descriptor, and then call Unlock. This makes sure that if the
+ * data is shared with the compositor, the later will not try to read while the
+ * data is being modified (on the other side, TextureHost also has Lock/Unlock
+ * semantics).
+ * After unlocking, call Updated in order to add the modification to the current
  * layer transaction.
- * Depending on whether the data is shared or copied, Lock/Unlock and Updated can be
- * no-ops. What's important is that the Client/Host pair implement the same semantics.
+ * Depending on whether the data is shared or copied, Lock/Unlock and Updated
+ * can be no-ops. What's important is that the Client/Host pair implement the
+ * same semantics.
  *
  * Ownership of the surface descriptor depends on how the TextureClient/Host is
  * used by the CompositableClient/Host.
@@ -53,8 +55,6 @@ public:
   typedef gl::SharedTextureHandle SharedTextureHandle;
   typedef gl::GLContext GLContext;
   typedef gl::TextureImage TextureImage;
-
-  static CompositableType TypeForImage(Image* aImage);
 
   virtual ~TextureClient();
 
@@ -91,12 +91,16 @@ public:
    */
   virtual void Unlock() {}
 
-  // ensure that the texture client is suitable for the given size and content type
-  // and that any initialisation has taken place
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) = 0;
+  /**
+   * Ensure that the texture client is suitable for the given size and content
+   * type and that any initialisation has taken place.
+   */
+  virtual void EnsureAllocated(gfx::IntSize aSize,
+                               gfxASurface::gfxContentType aType) = 0;
 
   /**
-   * _Only_ used at the end of the layer transaction when receiving a reply from the compositor.
+   * _Only_ used at the end of the layer transaction when receiving a reply from
+   *  the compositor.
    */
   virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor)
   {
@@ -149,17 +153,97 @@ public:
   virtual gfxASurface::gfxContentType GetContentType() = 0;
 
 protected:
-  TextureClient(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+  TextureClient(CompositableForwarder* aForwarder,
+                CompositableType aCompositableType);
 
   CompositableForwarder* mForwarder;
-  // So far all TextureClients use a SurfaceDescriptor, so it makes sense to keep
-  // the reference here.
+  // So far all TextureClients use a SurfaceDescriptor, so it makes sense to
+  // keep the reference here.
   SurfaceDescriptor mDescriptor;
   TextureInfo mTextureInfo;
   PTextureChild* mTextureChild;
   AccessMode mAccessMode;
 };
 
+class TextureClientShmem : public TextureClient
+{
+public:
+  TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType);
+  ~TextureClientShmem() { ReleaseResources(); }
+
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE
+  {
+    return aType == TEXTURE_SHMEM || aType == TEXTURE_CONTENT;
+  }
+  virtual already_AddRefed<gfxContext> LockContext();
+  virtual gfxImageSurface* LockImageSurface();
+  virtual gfxASurface* LockSurface() { return GetSurface(); }
+  virtual void Unlock();
+  virtual void EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
+
+  virtual void ReleaseResources();
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
+  virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return mContentType; }
+private:
+  gfxASurface* GetSurface();
+
+  nsRefPtr<gfxASurface> mSurface;
+  nsRefPtr<gfxImageSurface> mSurfaceAsImage;
+
+  gfxASurface::gfxContentType mContentType;
+  gfx::IntSize mSize;
+
+  friend class CompositingFactory;
+};
+
+class TextureClientShmemYCbCr : public TextureClient
+{
+public:
+  TextureClientShmemYCbCr(CompositableForwarder* aForwarder, CompositableType aCompositableType)
+    : TextureClient(aForwarder, aCompositableType)
+  { }
+  ~TextureClientShmemYCbCr() { ReleaseResources(); }
+
+  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_YCBCR; }
+  void EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
+  virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
+  virtual void ReleaseResources();
+  virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return gfxASurface::CONTENT_COLOR_ALPHA; }
+};
+
+class TextureClientTile : public TextureClient
+{
+public:
+  TextureClientTile(const TextureClientTile& aOther);
+  TextureClientTile(CompositableForwarder* aForwarder,
+                    CompositableType aCompositableType);
+  ~TextureClientTile();
+
+  virtual void EnsureAllocated(gfx::IntSize aSize,
+                               gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
+
+  virtual gfxImageSurface* LockImageSurface() MOZ_OVERRIDE;
+
+  gfxReusableSurfaceWrapper* GetReusableSurfaceWrapper()
+  {
+    return mSurface;
+  }
+
+  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE
+  {
+    MOZ_ASSERT(false, "Tiled texture clients don't use SurfaceDescriptors.");
+  }
+
+
+  virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
+
+private:
+  gfxASurface::gfxContentType mContentType;
+  nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
+
+  friend class CompositingFactory;
+};
 
 /*
  * The logic of converting input image data into a Surface descriptor should be
@@ -214,86 +298,6 @@ class AutoLockShmemClient : public AutoLockTextureClient
 public:
   AutoLockShmemClient(TextureClient* aTexture) : AutoLockTextureClient(aTexture) {}
   bool Update(Image* aImage, uint32_t aContentFlags, gfxPattern* pat);
-};
-
-class TextureClientShmem : public TextureClient
-{
-public:
-  TextureClientShmem(CompositableForwarder* aForwarder, CompositableType aCompositableType);
-  ~TextureClientShmem() { ReleaseResources(); }
-
-  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE
-  {
-    return aType == TEXTURE_SHMEM || aType == TEXTURE_CONTENT;
-  }
-  virtual already_AddRefed<gfxContext> LockContext();
-  virtual gfxImageSurface* LockImageSurface();
-  virtual gfxASurface* LockSurface() { return GetSurface(); }
-  virtual void Unlock();
-  virtual void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
-
-  virtual void ReleaseResources();
-  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
-  virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return mContentType; }
-private:
-  gfxASurface* GetSurface();
-
-  nsRefPtr<gfxASurface> mSurface;
-  nsRefPtr<gfxImageSurface> mSurfaceAsImage;
-
-  gfxASurface::gfxContentType mContentType;
-  gfx::IntSize mSize;
-
-  friend class CompositingFactory;
-};
-
-class TextureClientShmemYCbCr : public TextureClient
-{
-public:
-  TextureClientShmemYCbCr(CompositableForwarder* aForwarder, CompositableType aCompositableType)
-    : TextureClient(aForwarder, aCompositableType)
-  { }
-  ~TextureClientShmemYCbCr() { ReleaseResources(); }
-
-  virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_YCBCR; }
-  void EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
-  virtual void SetDescriptorFromReply(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
-  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
-  virtual void ReleaseResources();
-  virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return gfxASurface::CONTENT_COLOR_ALPHA; }
-};
-
-class TextureClientTile : public TextureClient
-{
-public:
-  TextureClientTile(const TextureClientTile& aOther);
-  TextureClientTile(CompositableForwarder* aForwarder,
-                    CompositableType aCompositableType);
-  ~TextureClientTile();
-
-  virtual void EnsureTextureClient(gfx::IntSize aSize,
-                                   gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
-
-  virtual gfxImageSurface* LockImageSurface() MOZ_OVERRIDE;
-
-  gfxReusableSurfaceWrapper* GetReusableSurfaceWrapper()
-  {
-    return mSurface;
-  }
-
-  virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE
-  {
-    MOZ_ASSERT(false, "Tiled texture clients don't use SurfaceDescriptors.");
-  }
-
-
-  virtual gfxASurface::gfxContentType GetContentType() { return mContentType; }
-
-private:
-  gfxASurface::gfxContentType mContentType;
-  nsRefPtr<gfxReusableSurfaceWrapper> mSurface;
-
-  friend class CompositingFactory;
 };
 
 }

@@ -78,7 +78,7 @@ TextureClientD3D11::~TextureClientD3D11()
 }
 
 void
-TextureClientD3D11::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
+TextureClientD3D11::EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType)
 {
   D3D10_TEXTURE2D_DESC desc;
 

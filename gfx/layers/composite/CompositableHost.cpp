@@ -6,6 +6,7 @@
 #include "CompositableHost.h"
 #include "ImageHost.h"
 #include "ContentHost.h"
+#include "TiledContentHost.h"
 #include "mozilla/layers/TextureParent.h"
 #include "Effects.h"
 #include "mozilla/layers/CompositableTransactionParent.h"
@@ -32,15 +33,14 @@ bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
 {
   RefPtr<TextureSource> source = GetTextureHost();
   RefPtr<EffectMask> effect = new EffectMask(source,
-                                      source->GetSize(),
-                                      aTransform);
+                                             source->GetSize(),
+                                             aTransform);
   effect->mIs3D = aIs3D;
   aEffects.mSecondaryEffects[EFFECT_MASK] = effect;
   return true;
 }
 
-// static
-TemporaryRef<CompositableHost>
+/* static */ TemporaryRef<CompositableHost>
 CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
 {
   RefPtr<CompositableHost> result;

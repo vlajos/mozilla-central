@@ -296,7 +296,7 @@ public:
 
 protected:
   LayerManagerComposite* mCompositeManager;
-  Compositor* mCompositor;
+  RefPtr<Compositor> mCompositor;
   bool mDestroyed;
 };
 

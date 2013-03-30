@@ -85,14 +85,11 @@ public:
     MOZ_COUNT_CTOR(TextureImageTextureHostOGL);
   }
 
+  ~TextureImageTextureHostOGL();
+
   TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE
   {
     return this;
-  }
-
-  ~TextureImageTextureHostOGL()
-  {
-    MOZ_COUNT_DTOR(TextureImageTextureHostOGL);
   }
 
   // This is a hack that is here to not break on-main-thread ThebesLayerBuffer
@@ -115,8 +112,6 @@ public:
   }
 
   virtual bool Lock() MOZ_OVERRIDE;
-
-  void Abort() MOZ_OVERRIDE;
 
   // textureSource
   void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE

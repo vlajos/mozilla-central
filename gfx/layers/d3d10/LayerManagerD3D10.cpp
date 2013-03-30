@@ -744,6 +744,8 @@ LayerManagerD3D10::Render(EndTransactionFlags aFlags)
   if (mTarget) {
     PaintToTarget();
   } else if (mBackBuffer) {
+    // XXX need to tear all this out really
+    MOZ_ASSERT(false, "We can't really use D3D10 as a layer forwarder any more")
     ShadowLayerForwarder::BeginTransaction(mWidget->GetNaturalBounds(),
                                            ROTATION_0,
                                            mWidget->GetNaturalBounds(),
@@ -788,7 +790,7 @@ LayerManagerD3D10::Render(EndTransactionFlags aFlags)
 
     SurfaceDescriptorD3D10 sd;
     GetDescriptor(mBackBuffer, &sd);
-    //XXX signature of PaintedThebesBuffer has changed
+    // XXX signature of PaintedThebesBuffer has changed
     /*ShadowLayerForwarder::PaintedThebesBuffer(windowLayer,
                                               contentRect,
                                               contentRect, nsIntPoint(),

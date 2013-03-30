@@ -53,7 +53,8 @@ enum CompositableType
   BUFFER_BRIDGE,          // image bridge protocol
   BUFFER_CONTENT,         // thebes layer interface, single buffering
   BUFFER_CONTENT_DIRECT,  // thebes layer interface, double buffering
-  BUFFER_TILED            // tiled thebes layer
+  BUFFER_TILED,           // tiled thebes layer
+  BUFFER_COUNT
 };
 
 /**

@@ -68,7 +68,7 @@ public:
 protected:
   virtual bool RecvUpdate(const EditArray& cset,
                           const TargetConfig& targetConfig,
-                        const bool& isFirstPaint,
+                          const bool& isFirstPaint,
                           EditReplyArray* reply) MOZ_OVERRIDE;
 
   virtual bool RecvUpdateNoSwap(const EditArray& cset,

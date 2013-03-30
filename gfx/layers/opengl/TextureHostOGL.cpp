@@ -21,9 +21,10 @@ using namespace mozilla::gfx;
 namespace mozilla {
 namespace layers {
 
-TemporaryRef<TextureHost> CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
-                                               uint32_t aTextureHostFlags,
-                                               uint32_t aTextureFlags)
+TemporaryRef<TextureHost>
+CreateTextureHostOGL(SurfaceDescriptorType aDescriptorType,
+                     uint32_t aTextureHostFlags,
+                     uint32_t aTextureFlags)
 {
   RefPtr<TextureHost> result = nullptr;
 
@@ -66,7 +67,8 @@ MakeTextureIfNeeded(gl::GLContext* gl, GLenum aTarget, GLuint& aTexture)
   gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
 }
  
-static gl::TextureImage::Flags FlagsToGLFlags(TextureFlags aFlags)
+static gl::TextureImage::Flags
+FlagsToGLFlags(TextureFlags aFlags)
 {
   uint32_t result = TextureImage::NoFlags;
 
@@ -91,27 +93,37 @@ WrapMode(gl::GLContext *aGl, bool aAllowRepeat)
   return LOCAL_GL_CLAMP_TO_EDGE;
 }
 
-gfx::SurfaceFormat FormatFromShaderType(ShaderProgramType aShaderType)
+gfx::SurfaceFormat
+FormatFromShaderType(ShaderProgramType aShaderType)
 {
   switch (aShaderType) {
-  case RGBALayerProgramType:
-  case RGBALayerExternalProgramType:
-  case RGBARectLayerProgramType:
-  case RGBAExternalLayerProgramType:
-    return FORMAT_R8G8B8A8;
-  case RGBXLayerProgramType:
-    return FORMAT_R8G8B8X8;
-  case BGRALayerProgramType:
-    return FORMAT_B8G8R8A8;
-  case BGRXLayerProgramType:
-    return FORMAT_B8G8R8X8;
-  default:
-    MOZ_NOT_REACHED("Unsupported texture shader type");
-    return FORMAT_UNKNOWN;
+    case RGBALayerProgramType:
+    case RGBALayerExternalProgramType:
+    case RGBARectLayerProgramType:
+    case RGBAExternalLayerProgramType:
+      return FORMAT_R8G8B8A8;
+    case RGBXLayerProgramType:
+      return FORMAT_R8G8B8X8;
+    case BGRALayerProgramType:
+      return FORMAT_B8G8R8A8;
+    case BGRXLayerProgramType:
+      return FORMAT_B8G8R8X8;
+    default:
+      MOZ_NOT_REACHED("Unsupported texture shader type");
+      return FORMAT_UNKNOWN;
   }
 }
 
-gfx::IntSize TextureImageTextureHostOGL::GetSize() const
+TextureImageTextureHostOGL::~TextureImageTextureHostOGL()
+{
+  MOZ_COUNT_DTOR(TextureImageTextureHostOGL);
+  if (mTexture->InUpdate()) {
+    mTexture->EndUpdate();
+  }
+}
+
+gfx::IntSize
+TextureImageTextureHostOGL::GetSize() const
 {
   if (mTexture) {
     if (mIterating) {
@@ -124,7 +136,8 @@ gfx::IntSize TextureImageTextureHostOGL::GetSize() const
 }
 
 
-void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
+void
+TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
   GLContext* newGL = glCompositor ? glCompositor->gl() : nullptr;
@@ -140,8 +153,9 @@ void TextureImageTextureHostOGL::SetCompositor(Compositor* aCompositor)
   }
 }
 
-void TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
-                                            nsIntRegion* aRegion)
+void
+TextureImageTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
+                                       nsIntRegion* aRegion)
 {
   if (!mGL) {
     NS_WARNING("trying to update TextureImageTextureHostOGL without a compositor ?");
@@ -191,14 +205,7 @@ TextureImageTextureHostOGL::Lock()
 }
 
 void
-TextureImageTextureHostOGL::Abort()
-{
-  if (mTexture->InUpdate()) {
-    mTexture->EndUpdate();
-  }
-}
-
-void SharedTextureHostOGL::SetCompositor(Compositor* aCompositor)
+SharedTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
   mGL = glCompositor ? glCompositor->gl() : nullptr;
@@ -260,7 +267,8 @@ SharedTextureHostOGL::Unlock()
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, 0);
 }
 
-void SurfaceStreamHostOGL::SetCompositor(Compositor* aCompositor)
+void
+SurfaceStreamHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
   mGL = glCompositor ? glCompositor->gl() : nullptr;

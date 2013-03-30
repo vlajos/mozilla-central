@@ -8,8 +8,6 @@
 
 #include "Layers.h"
 
-//#include "mozilla/layers/ShadowLayers.h"
-
 #include <windows.h>
 #include <d3d9.h>
 
@@ -58,7 +56,7 @@ struct ShaderConstantRect
  * This is the LayerManager used for Direct3D 9. For now this will render on
  * the main thread.
  */
-class THEBES_API LayerManagerD3D9 : public LayerManager { //ShadowLayerManager {
+class THEBES_API LayerManagerD3D9 : public LayerManager {
 public:
   LayerManagerD3D9(nsIWidget *aWidget);
   virtual ~LayerManagerD3D9();
@@ -88,9 +86,6 @@ public:
    * LayerManager implementation.
    */
   virtual void Destroy();
-
-//  virtual ShadowLayerManager* AsShadowManager()
-//  { return this; }
 
   virtual void BeginTransaction();
 

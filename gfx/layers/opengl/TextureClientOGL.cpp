@@ -12,7 +12,7 @@ namespace mozilla {
 namespace layers {
 
 TextureClientSharedOGL::TextureClientSharedOGL(CompositableForwarder* aForwarder,
-                                             CompositableType aCompositableType)
+                                               CompositableType aCompositableType)
   : TextureClient(aForwarder, aCompositableType)
   , mGL(nullptr)
 {
@@ -32,7 +32,8 @@ TextureClientSharedOGL::ReleaseResources()
 }
 
 void
-TextureClientSharedOGL::EnsureTextureClient(gfx::IntSize aSize, gfxASurface::gfxContentType aContentType)
+TextureClientSharedOGL::EnsureAllocated(gfx::IntSize aSize,
+                                        gfxASurface::gfxContentType aContentType)
 {
   mSize = aSize;
 }

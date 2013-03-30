@@ -9,8 +9,6 @@
 #include "mozilla/Util.h"
 
 #include "ipc/AutoOpenSurface.h"
-//#include "mozilla/layers/ShadowLayers.h"
-//#include "ShadowBufferD3D9.h"
 
 #include "ThebesLayerD3D9.h"
 #include "gfxPlatform.h"

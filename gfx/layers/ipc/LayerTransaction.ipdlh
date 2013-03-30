@@ -29,6 +29,7 @@ using mozilla::ScreenRotation;
 using nsCSSProperty;
 using mozilla::dom::ScreenOrientation;
 using mozilla::layers::CompositableType;
+using mozilla::gfx::Margin;
 
 namespace mozilla {
 namespace layers {
@@ -183,6 +184,7 @@ struct CommonLayerAttributes {
   nsIntRect clipRect;
   bool isFixedPosition;
   gfxPoint fixedPositionAnchor;
+  Margin fixedPositionMargin;
   nullable PLayer maskLayer;
   // Animated colors will only honored for ColorLayers.
   Animation[] animations;

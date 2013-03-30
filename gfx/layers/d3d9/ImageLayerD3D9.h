@@ -14,8 +14,6 @@
 namespace mozilla {
 namespace layers {
 
-//class ShadowBufferD3D9;
-
 class THEBES_API ImageLayerD3D9 : public ImageLayer,
                                   public LayerD3D9
 {
