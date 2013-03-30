@@ -745,7 +745,7 @@ LayerManagerD3D10::Render(EndTransactionFlags aFlags)
     PaintToTarget();
   } else if (mBackBuffer) {
     // XXX need to tear all this out really
-    MOZ_ASSERT(false, "We can't really use D3D10 as a layer forwarder any more")
+    MOZ_ASSERT(false, "We can't really use D3D10 as a layer forwarder any more");
     ShadowLayerForwarder::BeginTransaction(mWidget->GetNaturalBounds(),
                                            ROTATION_0,
                                            mWidget->GetNaturalBounds(),

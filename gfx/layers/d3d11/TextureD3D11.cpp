@@ -158,7 +158,7 @@ void
 TextureClientD3D11::SetDescriptor(const SurfaceDescriptor& aDescriptor)
 {
   if (aDescriptor.type() == SurfaceDescriptor::Tnull_t) {
-    EnsureTextureClient(mSize, mContentType);
+    EnsureAllocated(mSize, mContentType);
     return;
   }
 
