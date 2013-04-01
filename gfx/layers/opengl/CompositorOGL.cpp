@@ -1232,13 +1232,15 @@ CompositorOGL::EndFrame()
 #endif
 
   mFrameInProgress = false;
-  mCurrentRenderTarget = nullptr;
 
   if (mTarget) {
     CopyToTarget(mTarget, mCurrentRenderTarget->GetTransform());
     mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
+    mCurrentRenderTarget = nullptr;
     return;
   }
+
+  mCurrentRenderTarget = nullptr;
 
   if (sDrawFPS && !mFPS) {
     mFPS = new FPSState();
