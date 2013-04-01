@@ -377,7 +377,7 @@ CompositorD3D11::SetRenderTarget(CompositingRenderTarget *aRenderTarget)
   ID3D11RenderTargetView *view = newRT->mRTView;
   mCurrentRT = newRT;
   mContext->OMSetRenderTargets(1, &view, nullptr);
-  PrepareViewport(newRT->GetSize().width, newRT->GetSize().height, gfxMatrix());
+  PrepareViewport(newRT->GetSize(), gfxMatrix());
 }
 
 void
