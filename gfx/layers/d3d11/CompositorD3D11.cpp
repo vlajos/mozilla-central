@@ -551,7 +551,7 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
 }
 
 void
-CompositorD3D11::EndFrame(const gfxMatrix &aTransform)
+CompositorD3D11::EndFrame()
 {
   mContext->Flush();
   mSwapChain->Present(0, 0);
@@ -563,13 +563,14 @@ CompositorD3D11::EndFrame(const gfxMatrix &aTransform)
 }
 
 void
-CompositorD3D11::PrepareViewport(int aWidth, int aHeight, const gfxMatrix &aWorldTransform)
+CompositorD3D11::PrepareViewport(const gfx::IntSize& aSize,
+                                 const gfxMatrix &aWorldTransform)
 {
   D3D11_VIEWPORT viewport;
   viewport.MaxDepth = 1.0f;
   viewport.MinDepth = 0;
-  viewport.Width = aWidth;
-  viewport.Height = aHeight;
+  viewport.Width = aSize.width;
+  viewport.Height = aSize.height;
   viewport.TopLeftX = 0;
   viewport.TopLeftY = 0;
 
@@ -577,7 +578,7 @@ CompositorD3D11::PrepareViewport(int aWidth, int aHeight, const gfxMatrix &aWorl
 
   gfxMatrix viewMatrix;
   viewMatrix.Translate(-gfxPoint(1.0, -1.0));
-  viewMatrix.Scale(2.0f / float(aWidth), 2.0f / float(aHeight));
+  viewMatrix.Scale(2.0f / float(aSize.width), 2.0f / float(aSize.height));
   viewMatrix.Scale(1.0f, -1.0f);
 
   viewMatrix = aWorldTransform * viewMatrix;

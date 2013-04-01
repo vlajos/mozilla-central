@@ -30,11 +30,11 @@ class CompositingRenderTargetOGL : public CompositingRenderTarget
   struct InitParams
   {
     InitParams() : mStatus(NO_PARAMS) {}
-    InitParams(const gfx::IntRect& aRect,
+    InitParams(const gfx::IntSize& aSize,
                GLenum aFBOTextureTarget,
                SurfaceInitMode aInit)
       : mStatus(READY)
-      , mRect(aRect)
+      , mSize(aSize)
       , mFBOTextureTarget(aFBOTextureTarget)
       , mInit(aInit)
     {}
@@ -44,7 +44,7 @@ class CompositingRenderTargetOGL : public CompositingRenderTarget
       READY,
       INITIALIZED
     } mStatus;
-    gfx::IntRect mRect;
+    gfx::IntSize mSize;
     GLenum mFBOTextureTarget;
     SurfaceInitMode mInit;
   };
@@ -71,13 +71,13 @@ public:
    */
   static TemporaryRef<CompositingRenderTargetOGL>
   RenderTargetForWindow(CompositorOGL* aCompositor,
-                        const gfx::IntRect& aRect,
+                        const gfx::IntSize& aSize,
                         const gfxMatrix& aTransform)
   {
     RefPtr<CompositingRenderTargetOGL> result
       = new CompositingRenderTargetOGL(aCompositor, 0, 0);
     result->mTransform = aTransform;
-    result->mInitParams = InitParams(aRect, 0, INIT_MODE_NONE);
+    result->mInitParams = InitParams(aSize, 0, INIT_MODE_NONE);
     result->mInitParams.mStatus = InitParams::INITIALIZED;
     return result.forget();
   }
@@ -88,13 +88,13 @@ public:
    * compositor we do not have to re-bind the FBO after unbinding it, or
    * alternatively leave the FBO bound after creation.
    */
-  void Initialize(const gfx::IntRect& aRect,
+  void Initialize(const gfx::IntSize& aSize,
                   GLenum aFBOTextureTarget,
                   SurfaceInitMode aInit)
   {
     MOZ_ASSERT(mInitParams.mStatus == InitParams::NO_PARAMS, "Initialized twice?");
     // postpone initialization until we actually want to use this render target
-    mInitParams = InitParams(aRect, aFBOTextureTarget, aInit);
+    mInitParams = InitParams(aSize, aFBOTextureTarget, aInit);
   }
 
   void BindTexture(GLenum aTextureUnit, GLenum aTextureTarget)
@@ -115,9 +115,7 @@ public:
     } else {
       MOZ_ASSERT(mInitParams.mStatus == InitParams::INITIALIZED);
       mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, mFBO);
-      mCompositor->PrepareViewport(mInitParams.mRect.width,
-                                   mInitParams.mRect.height,
-                                   mTransform);
+      mCompositor->PrepareViewport(mInitParams.mSize, mTransform);
     }
   }
 
@@ -143,6 +141,10 @@ public:
   {
     MOZ_ASSERT(false, "CompositingRenderTargetOGL should not be used as a TextureSource");
     return gfx::IntSize(0, 0);
+  }
+
+  const gfxMatrix& GetTransform() {
+    return mTransform;
   }
 
 #ifdef MOZ_DUMP_PAINTING
@@ -180,16 +182,14 @@ private:
       msg.Append(", aFBOTextureTarget 0x");
       msg.AppendInt(mInitParams.mFBOTextureTarget, 16);
       msg.Append(", aRect.width ");
-      msg.AppendInt(mInitParams.mRect.width);
+      msg.AppendInt(mInitParams.mSize.width);
       msg.Append(", aRect.height ");
-      msg.AppendInt(mInitParams.mRect.height);
+      msg.AppendInt(mInitParams.mSize.height);
       NS_RUNTIMEABORT(msg.get());
     }
 
-    mCompositor->PrepareViewport(mInitParams.mRect.width,
-                                 mInitParams.mRect.height,
-                                 gfxMatrix());
-    mGL->fScissor(0, 0, mInitParams.mRect.width, mInitParams.mRect.height);
+    mCompositor->PrepareViewport(mInitParams.mSize, mTransform);
+    mGL->fScissor(0, 0, mInitParams.mSize.width, mInitParams.mSize.height);
     if (mInitParams.mInit == INIT_MODE_CLEAR) {
       mGL->fClearColor(0.0, 0.0, 0.0, 0.0);
       mGL->fClear(LOCAL_GL_COLOR_BUFFER_BIT);

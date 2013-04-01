@@ -234,9 +234,9 @@ AppendToString(nsACString& s, TextureFlags flags,
     AppendFlag(UseNearestFilter);
     AppendFlag(NeedsYFlip);
     AppendFlag(ForceSingleTile);
-    AppendFlag(UseOpaqueSurface);
     AppendFlag(AllowRepeat);
     AppendFlag(NewTile);
+    AppendFlag(HostRelease);
 
 #undef AppendFlag
   }

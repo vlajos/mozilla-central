@@ -602,10 +602,11 @@ CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
 }
 
 void
-CompositorOGL::PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform)
+CompositorOGL::PrepareViewport(const gfx::IntSize& aSize,
+                               const gfxMatrix& aWorldTransform)
 {
   // Set the viewport correctly.
-  mGLContext->fViewport(0, 0, aWidth, aHeight);
+  mGLContext->fViewport(0, 0, aSize.width, aSize.height);
 
   // We flip the view matrix around so that everything is right-side up; we're
   // drawing directly into the window's back buffer, so this keeps things
@@ -619,7 +620,7 @@ CompositorOGL::PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldT
   // 2, 2) and flip the contents.
   gfxMatrix viewMatrix;
   viewMatrix.Translate(-gfxPoint(1.0, -1.0));
-  viewMatrix.Scale(2.0f / float(aWidth), 2.0f / float(aHeight));
+  viewMatrix.Scale(2.0f / float(aSize.width), 2.0f / float(aSize.height));
   viewMatrix.Scale(1.0f, -1.0f);
 
   viewMatrix = aWorldTransform * viewMatrix;
@@ -657,7 +658,7 @@ CompositorOGL::CreateRenderTarget(const IntRect &aRect, SurfaceInitMode aInit)
   CreateFBOWithTexture(aRect, aInit, 0, &fbo, &tex);
   RefPtr<CompositingRenderTargetOGL> surface
     = new CompositingRenderTargetOGL(this, tex, fbo);
-  surface->Initialize(aRect, mFBOTextureTarget, aInit);
+  surface->Initialize(IntSize(aRect.width, aRect.height), mFBOTextureTarget, aInit);
   return surface.forget();
 }
 
@@ -679,7 +680,9 @@ CompositorOGL::CreateRenderTargetFromSource(const IntRect &aRect,
 
   RefPtr<CompositingRenderTargetOGL> surface
     = new CompositingRenderTargetOGL(this, tex, fbo);
-  surface->Initialize(aRect, mFBOTextureTarget, INIT_MODE_COPY);
+  surface->Initialize(IntSize(aRect.width, aRect.height),
+                      mFBOTextureTarget,
+                      INIT_MODE_COPY);
   return surface.forget();
 }
 
@@ -793,7 +796,7 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
   if (mWidgetSize.width != width ||
       mWidgetSize.height != height)
   {
-    MakeCurrent(true);
+    MakeCurrent(CURRENT_FORCE);
 
     mWidgetSize.width = width;
     mWidgetSize.height = height;
@@ -806,9 +809,12 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
 #endif
 
   mCurrentRenderTarget = CompositingRenderTargetOGL::RenderTargetForWindow(this,
-                            IntRect(0, 0, width, height),
+                            IntSize(width, height),
                             aTransform);
   mCurrentRenderTarget->BindRenderTarget();
+#ifdef DEBUG
+  mWindowRenderTarget = mCurrentRenderTarget;
+#endif
 
   // Default blend function implements "OVER"
   mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -1202,10 +1208,12 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
 }
 
 void
-CompositorOGL::EndFrame(const gfxMatrix& aTransform)
+CompositorOGL::EndFrame()
 {
   // Allow widget to render a custom foreground.
   mWidget->DrawWindowOverlay();
+
+  MOZ_ASSERT(mCurrentRenderTarget == mWindowRenderTarget, "Rendering target not properly restored");
 
 #ifdef MOZ_DUMP_PAINTING
   if (gfxUtils::sDumpPainting) {
@@ -1217,7 +1225,7 @@ CompositorOGL::EndFrame(const gfxMatrix& aTransform)
     }
     nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(rect.Size(), gfxASurface::CONTENT_COLOR_ALPHA);
     nsRefPtr<gfxContext> ctx = new gfxContext(surf);
-    CopyToTarget(ctx, aTransform);
+    CopyToTarget(ctx, mCurrentRenderTarget->GetTransform());
 
     WriteSnapshotToDumpFile(this, surf);
   }
@@ -1227,7 +1235,7 @@ CompositorOGL::EndFrame(const gfxMatrix& aTransform)
   mCurrentRenderTarget = nullptr;
 
   if (mTarget) {
-    CopyToTarget(mTarget, aTransform);
+    CopyToTarget(mTarget, mCurrentRenderTarget->GetTransform());
     mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
     return;
   }
@@ -1276,10 +1284,10 @@ CompositorOGL::AbortFrame()
 }
 
 void
-CompositorOGL::SetDestinationSurfaceSize(int aWidth, int aHeight)
+CompositorOGL::SetDestinationSurfaceSize(const gfx::IntSize& aSize)
 {
-  mSurfaceSize.width = aWidth;
-  mSurfaceSize.height = aHeight;
+  mSurfaceSize.width = aSize.width;
+  mSurfaceSize.height = aSize.height;
 }
 
 void

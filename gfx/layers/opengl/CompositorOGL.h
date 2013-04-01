@@ -59,7 +59,7 @@ public:
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point& aOffset) MOZ_OVERRIDE;
 
-  virtual void EndFrame(const gfxMatrix& aTransform) MOZ_OVERRIDE;
+  virtual void EndFrame() MOZ_OVERRIDE;
   virtual void EndFrameForExternalComposition(const gfxMatrix& aTransform) MOZ_OVERRIDE;
   virtual void AbortFrame() MOZ_OVERRIDE;
 
@@ -89,14 +89,14 @@ public:
    * Set the size of the EGL surface we're rendering to, if we're rendering to
    * an EGL surface.
    */
-  virtual void SetDestinationSurfaceSize(int aWidth, int aHeight) MOZ_OVERRIDE;
+  virtual void SetDestinationSurfaceSize(const gfx::IntSize& aSize) MOZ_OVERRIDE;
 
-  virtual void MakeCurrent(bool aForce = false) MOZ_OVERRIDE {
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = CURRENT_NOFLAGS) MOZ_OVERRIDE {
     if (mDestroyed) {
       NS_WARNING("Call on destroyed layer manager");
       return;
     }
-    mGLContext->MakeCurrent(aForce);
+    mGLContext->MakeCurrent(aFlags == CURRENT_FORCE);
   }
 
   virtual void SetTargetContext(gfxContext* aTarget) MOZ_OVERRIDE
@@ -104,7 +104,7 @@ public:
     mTarget = aTarget;
   }
 
-  virtual void PrepareViewport(int aWidth, int aHeight,
+  virtual void PrepareViewport(const gfx::IntSize& aSize,
                                const gfxMatrix& aWorldTransform) MOZ_OVERRIDE;
 
 
@@ -156,6 +156,9 @@ private:
 
   /** Currently bound render target */
   RefPtr<CompositingRenderTargetOGL> mCurrentRenderTarget;
+#ifdef DEBUG
+  CompositingRenderTargetOGL* mWindowRenderTarget;
+#endif
 
   /** VBO that has some basics in it for a textured quad,
    *  including vertex coords and texcoords for both

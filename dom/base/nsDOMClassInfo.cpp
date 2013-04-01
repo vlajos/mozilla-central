@@ -2721,6 +2721,7 @@ nsDOMClassInfo::Init()
   MOZ_STATIC_ASSERT(MOZ_ARRAY_LENGTH(sClassInfoData) == eDOMClassInfoIDCount,
                     "The number of items in sClassInfoData doesn't match the "
                     "number of nsIDOMClassInfo ID's, this is bad! Fix it!");
+
 #ifdef DEBUG
   for (size_t i = 0; i < eDOMClassInfoIDCount; i++) {
     if (!sClassInfoData[i].u.mConstructorFptr ||
@@ -2738,8 +2739,8 @@ nsDOMClassInfo::Init()
                       "mozilla will not work without this fixed!");
 
       return NS_ERROR_NOT_INITIALIZED;
-    }
-  }
+     }
+   }
 #endif
 
   // Initialize static JSString's

@@ -248,7 +248,7 @@ LayerManagerComposite::Render()
   // Render our layers.
   RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect);
 
-  mCompositor->EndFrame(mWorldMatrix);
+  mCompositor->EndFrame();
 }
 
 void

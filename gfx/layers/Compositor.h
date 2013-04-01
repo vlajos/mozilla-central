@@ -45,7 +45,7 @@
  * The *Host and Shadow* classes are always used on the compositor thread.
  * Compositors, TextureSource, and Effects are always used on the compositor
  * thread.
- * Most enums and constants are declared in LayersTypes.h and CompositorTypes.h
+ * Most enums and constants are declared in LayersTypes.h and CompositorTypes.h.
  *
  *
  * # Texture transfer
@@ -84,7 +84,7 @@
  * in a dedicated thread. In some setups compositing happens in a dedicated
  * process. Documentation may refer to either the compositor thread or the
  * compositor process.
- * See explanations in ShadowLayers.h
+ * See explanations in ShadowLayers.h.
  *
  *
  * # Backend implementations
@@ -133,7 +133,7 @@ enum SurfaceInitMode
  *
  * # Usage
  *
- * For an example of a user of Compositor, see LayerManagerComposite
+ * For an example of a user of Compositor, see LayerManagerComposite.
  *
  * Initialisation: create a Compositor object, call Initialize().
  *
@@ -202,6 +202,10 @@ public:
    */
   virtual void SetTargetContext(gfxContext *aTarget) = 0;
 
+  enum MakeCurrentFlags {
+    CURRENT_NOFLAGS,
+    CURRENT_FORCE
+  };
   /**
    * Make this compositor's rendering context the current context for the
    * underlying graphics API. This may be a global operation, depending on the
@@ -210,10 +214,10 @@ public:
    * Clients of the compositor should call this at the start of the compositing
    * process, it might be required by texture uploads etc.
    *
-   * If aForce is true, then we will (re-)set our context on the underlying API
-   * even if it is already the current context.
+   * If aFlags == CURRENT_FORCE then we will (re-)set our context on the
+   * underlying API even if it is already the current context.
    */
-  virtual void MakeCurrent(bool aForce = false) = 0;
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = CURRENT_NOFLAGS) = 0;
 
   /**
    * Modifies the TextureIdentifier in aInfo to a more reliable kind. For use by
@@ -255,7 +259,7 @@ public:
    * Mostly the compositor will pull the size from a widget and this method will
    * be ignored, but compositor implementations are free to use it if they like.
    */
-  virtual void SetDestinationSurfaceSize(int aWidth, int aHeight) = 0;
+  virtual void SetDestinationSurfaceSize(const gfx::IntSize& aSize) = 0;
 
   /**
    * Tell the compositor to actually draw a quad. What to do draw and how it is
@@ -271,7 +275,12 @@ public:
 
   /**
    * Start a new frame.
-   * If aClipRectIn is null, sets *aClipRectOut to the screen dimensions. 
+   * aClipRectIn is the clip rect for the window in window space (optional).
+   * aTransform is the transform from user space to window space.
+   * aRenderBounds bounding rect for rendering, in user space.  
+   * If aClipRectIn is null, this method sets *aClipRectOut to the clip rect
+   * actually used for rendering (if aClipRectIn is non-null, we will use that
+   * for the clip rect).
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn,
                           const gfxMatrix& aTransform,
@@ -281,11 +290,12 @@ public:
   /**
    * Flush the current frame to the screen and tidy up.
    */
-  virtual void EndFrame(const gfxMatrix& aTransform) = 0;
+  virtual void EndFrame() = 0;
 
   /**
    * Post-rendering stuff if the rendering is done outside of this Compositor
-   * e.g., by Composer2D
+   * e.g., by Composer2D.
+   * aTransform is the transform from user space to window space.
    */
   virtual void EndFrameForExternalComposition(const gfxMatrix& aTransform) = 0;
 
@@ -297,8 +307,10 @@ public:
   /**
    * Setup the viewport and projection matrix for rendering
    * to a window of the given dimensions.
+   * aWorldTransform is the transform from user space to the new viewport's
+   * coordinate space.
    */
-  virtual void PrepareViewport(int aWidth, int aHeight,
+  virtual void PrepareViewport(const gfx::IntSize& aSize,
                                const gfxMatrix& aWorldTransform) = 0;
 
   /**

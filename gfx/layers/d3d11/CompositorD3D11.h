@@ -52,7 +52,7 @@ public:
 
   virtual void SetTargetContext(gfxContext *aTarget) { mTarget = aTarget; }
 
-  virtual void MakeCurrent(bool) { }
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = CURRENT_NOFLAGS) { }
 
   virtual TemporaryRef<CompositingRenderTarget>
     CreateRenderTarget(const gfx::IntRect &aRect,
@@ -68,7 +68,7 @@ public:
     return mCurrentRT;
   }
 
-  virtual void SetDestinationSurfaceSize(int aWidth, int aHeight) { }
+  virtual void SetDestinationSurfaceSize(const gfx::IntSize& aSize) { }
 
   virtual void DrawQuad(const gfx::Rect &aRect, const gfx::Rect &aClipRect,
                         const EffectChain &aEffectChain,
@@ -84,7 +84,7 @@ public:
   /**
    * Flush the current frame to the screen.
    */
-  virtual void EndFrame(const gfxMatrix& aTransform);
+  virtual void EndFrame();
 
   /**
    * Post rendering stuff if the rendering is outside of this Compositor
@@ -101,7 +101,8 @@ public:
    * Setup the viewport and projection matrix for rendering
    * to a window of the given dimensions.
    */
-  virtual void PrepareViewport(int aWidth, int aHeight, const gfxMatrix& aWorldTransform);
+  virtual void PrepareViewport(const gfx::IntSize& aSize,
+                               const gfxMatrix& aWorldTransform);
 
   virtual bool SupportsPartialTextureUpdate() { return true; }
 

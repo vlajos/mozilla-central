@@ -15,15 +15,19 @@ static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
 // flags used by texture clients and texture hosts
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
+// Use nearest-neighbour texture filtering (as opposed to linear filtering).
 const TextureFlags UseNearestFilter   = 0x1;
+// The texture should be flipped around the y-axis when composited.
 const TextureFlags NeedsYFlip         = 0x2;
+// Force the texture to be represented using a single tile (note that this means
+// tiled textures, not tiled layers).
 const TextureFlags ForceSingleTile    = 0x4;
-const TextureFlags UseOpaqueSurface   = 0x8;
-const TextureFlags AllowRepeat        = 0x10;
-// the texture represents a tile which is newly created
-const TextureFlags NewTile            = 0x20;
-// The host is responsible for tidying up any shared resources
-const TextureFlags HostRelease        = 0x40;
+// Allow using 'repeat' mode for wrapping.
+const TextureFlags AllowRepeat        = 0x8;
+// The texture represents a tile which is newly created.
+const TextureFlags NewTile            = 0x10;
+// The host is responsible for tidying up any shared resources.
+const TextureFlags HostRelease        = 0x20;
 
 /**
  * The kind of memory held by the texture client/host pair. This will

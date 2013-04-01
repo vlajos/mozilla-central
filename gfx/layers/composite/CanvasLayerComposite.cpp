@@ -45,9 +45,6 @@ CanvasLayerComposite::EnsureImageHost(CompositableType aHostType)
 
 void CanvasLayerComposite::SetCompositableHost(CompositableHost* aHost) {
   mImageHost = static_cast<ImageHost*>(aHost);
-  if (CanUseOpaqueSurface()) {
-    mImageHost->GetTextureHost()->AddFlag(UseOpaqueSurface);
-  }
 }
 
 Layer*
