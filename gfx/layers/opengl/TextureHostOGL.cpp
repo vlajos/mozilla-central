@@ -117,7 +117,7 @@ FormatFromShaderType(ShaderProgramType aShaderType)
 TextureImageTextureHostOGL::~TextureImageTextureHostOGL()
 {
   MOZ_COUNT_DTOR(TextureImageTextureHostOGL);
-  if (mTexture->InUpdate()) {
+  if (mTexture && mTexture->InUpdate()) {
     mTexture->EndUpdate();
   }
 }
