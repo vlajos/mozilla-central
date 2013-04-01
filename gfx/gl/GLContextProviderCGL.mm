@@ -17,7 +17,6 @@
 #include "prenv.h"
 #include "mozilla/Preferences.h"
 #include "GeckoProfiler.h"
-#include "mozilla/gfx/MacIOSurface.h"
 
 using namespace mozilla::gfx;
 
@@ -93,19 +92,11 @@ public:
                  bool isOffscreen = false)
         : GLContext(caps, shareContext, isOffscreen),
           mContext(context),
-          mTempTextureName(0),
-          mTemporaryIOSurfaceTexture(0)
+          mTempTextureName(0)
     {}
 
     ~GLContextCGL()
     {
-        if (MakeCurrent()) {
-            if (mTemporaryIOSurfaceTexture != 0) {
-                fDeleteTextures(1, &mTemporaryIOSurfaceTexture);
-                mTemporaryIOSurfaceTexture = 0;
-            }
-        }
-
         MarkDestroyed();
 
         if (mContext)
@@ -173,79 +164,6 @@ public:
     {
       PROFILER_LABEL("GLContext", "SwapBuffers");
       [mContext flushBuffer];
-        return true;
-    }
-
-    virtual SharedTextureHandle CreateSharedHandle(SharedTextureShareType aShareType)
-    {
-      RefPtr<MacIOSurface> surf =
-        MacIOSurface::CreateIOSurface(OffscreenSize().width,
-                                      OffscreenSize().height);
-
-      return (SharedTextureHandle)surf.forget().drop();
-    }
-
-    virtual void UpdateSharedHandle(SharedTextureShareType shareType,
-                                    SharedTextureHandle sharedHandle)
-    {
-      MakeCurrent();
-      MacIOSurface* surf = reinterpret_cast<MacIOSurface*>(sharedHandle);
-
-      GLuint prevRead = GetFB();
-      BindFB(0);
-
-      GLint oldtex = -1;
-      fGetIntegerv(LOCAL_GL_TEXTURE_BINDING_RECTANGLE_ARB, &oldtex);
-      MOZ_ASSERT(oldtex != -1);
-
-      if (!mTemporaryIOSurfaceTexture) {
-        fGenTextures(1, &mTemporaryIOSurfaceTexture);
-        fBindTexture(LOCAL_GL_TEXTURE_RECTANGLE_ARB, mTemporaryIOSurfaceTexture);
-        fTexParameteri(LOCAL_GL_TEXTURE_RECTANGLE_ARB,
-                       LOCAL_GL_TEXTURE_MIN_FILTER,
-                       LOCAL_GL_NEAREST);
-        fTexParameteri(LOCAL_GL_TEXTURE_RECTANGLE_ARB,
-                       LOCAL_GL_TEXTURE_MAG_FILTER,
-                       LOCAL_GL_NEAREST);
-      } else {
-        fBindTexture(LOCAL_GL_TEXTURE_RECTANGLE_ARB, mTemporaryIOSurfaceTexture);
-      }
-
-      surf->CGLTexImageIOSurface2D(mContext, LOCAL_GL_RGBA, LOCAL_GL_BGRA,
-                                   LOCAL_GL_UNSIGNED_INT_8_8_8_8_REV, 0);
-
-      fCopyTexSubImage2D(LOCAL_GL_TEXTURE_RECTANGLE_ARB, 0,
-                         0, 0,
-                         0, 0, OffscreenSize().width, OffscreenSize().height);
-
-      fBindTexture(LOCAL_GL_TEXTURE_RECTANGLE_ARB, oldtex);
-      BindFB(prevRead);
-      fFinish();
-    }
-
-    virtual void ReleaseSharedHandle(SharedTextureShareType shareType,
-                                     SharedTextureHandle sharedHandle)
-    {
-      if (sharedHandle) {
-        reinterpret_cast<MacIOSurface*>(sharedHandle)->Release();
-      }
-    }
-
-    virtual bool GetSharedHandleDetails(SharedTextureShareType shareType,
-                                        SharedTextureHandle sharedHandle,
-                                        SharedHandleDetails& details)
-    {
-      details.mTarget = LOCAL_GL_TEXTURE_RECTANGLE_ARB;
-      details.mProgramType = RGBARectLayerProgramType;
-      return true;
-    }
-
-    virtual bool AttachSharedHandle(SharedTextureShareType shareType,
-                                    SharedTextureHandle sharedHandle)
-    {
-      MacIOSurface* surf = reinterpret_cast<MacIOSurface*>(sharedHandle);
-      surf->CGLTexImageIOSurface2D(mContext, LOCAL_GL_RGBA, LOCAL_GL_BGRA,
-                                   LOCAL_GL_UNSIGNED_INT_8_8_8_8_REV, 0);
       return true;
     }
 
@@ -261,10 +179,6 @@ public:
 
     NSOpenGLContext *mContext;
     GLuint mTempTextureName;
-
-    // A dummy texture ID that can be used when we need a texture object whose
-    // images we're going to define with CGLTexImageIOSurface.
-    GLuint mTemporaryIOSurfaceTexture;
 };
 
 bool
