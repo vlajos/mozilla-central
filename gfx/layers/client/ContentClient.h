@@ -13,6 +13,7 @@
 #include "ThebesLayerBuffer.h"
 #include "ipc/AutoOpenSurface.h"
 #include "ipc/ShadowLayerChild.h"
+#include "gfxPlatform.h"
 
 namespace mozilla {
 namespace layers {
@@ -193,6 +194,11 @@ public:
   virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
                                                        const nsIntRect& aRect,
                                                        uint32_t aFlags);
+  
+  virtual bool SupportsAzureContent() const MOZ_OVERRIDE
+  { 
+    return gfxPlatform::GetPlatform()->SupportsAzureContent(); 
+  }
 
   void DestroyBuffers();
 

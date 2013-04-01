@@ -330,7 +330,7 @@ ThebesLayerBuffer::EnsureBuffer()
     mBuffer = mBufferProvider->Get();
   }
   if ((!mBuffer && !mDTBuffer) && mTextureClientForBuffer) {
-    if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+    if (SupportsAzureContent()) {
       mDTBuffer = mTextureClientForBuffer->LockDrawTarget();
     } else {
       mBuffer = mTextureClientForBuffer->LockSurface();
@@ -480,7 +480,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
           // We can't do a real self-copy because the buffer is rotated.
           // So allocate a new buffer for the destination.
           destBufferRect = ComputeBufferRect(neededRegion.GetBounds());
-          if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+          if (SupportsAzureContent()) {
             destDTBuffer = CreateDTBuffer(contentType, destBufferRect, bufferFlags);
           } else {
             destBuffer = CreateBuffer(contentType, destBufferRect, bufferFlags);
@@ -501,7 +501,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
     }
   } else {
     // The buffer's not big enough, so allocate a new one
-    if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
+    if (SupportsAzureContent()) {
       destDTBuffer = CreateDTBuffer(contentType, destBufferRect, bufferFlags);
     } else {
       destBuffer = CreateBuffer(contentType, destBufferRect, bufferFlags);

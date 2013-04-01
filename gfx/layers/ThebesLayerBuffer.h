@@ -209,6 +209,8 @@ public:
   virtual TemporaryRef<gfx::DrawTarget>
   CreateDTBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags)
   { NS_RUNTIMEABORT("CreateDTBuffer not implemented on this platform!"); return nullptr; }
+  virtual bool SupportsAzureContent() const 
+  { return false; }
 
   /**
    * Get the underlying buffer, if any. This is useful because we can pass
