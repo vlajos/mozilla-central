@@ -291,7 +291,7 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   }
   
   if (!mCanvasClient) {
-    TextureFlags flags = NoFlags;
+    TextureFlags flags = 0;
     if (mNeedsYFlip) {
       flags |= NeedsYFlip;
     }

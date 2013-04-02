@@ -261,7 +261,7 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
     mImageClient = BasicManager()->CreateImageClientFor(GetImageClientType(), this,
                                                         mForceSingleTile
                                                           ? ForceSingleTile
-                                                          : NoFlags);
+                                                          : 0);
     if (!mImageClient) {
       return;
     }

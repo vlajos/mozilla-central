@@ -54,7 +54,7 @@ TextureHost::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
 
 
 TextureHost::TextureHost()
-  : mFlags(NoFlags)
+  : mFlags(0)
   , mBuffer(nullptr)
   , mFormat(gfx::FORMAT_UNKNOWN)
   , mTextureParent(nullptr)

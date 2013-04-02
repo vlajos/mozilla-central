@@ -19,7 +19,6 @@ static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
  * texture clients.
  */
 typedef uint32_t TextureFlags;
-const TextureFlags NoFlags            = 0x0;
 // Use nearest-neighbour texture filtering (as opposed to linear filtering).
 const TextureFlags UseNearestFilter   = 0x1;
 // The texture should be flipped around the y-axis when composited.
