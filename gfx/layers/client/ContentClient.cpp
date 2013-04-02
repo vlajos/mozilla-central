@@ -161,7 +161,7 @@ ContentClientRemote::CreateBuffer(ContentType aType,
   return ret.forget();
 }
 
-nsIntRegion 
+nsIntRegion
 ContentClientRemote::GetUpdatedRegion(const nsIntRegion& aRegionToDraw,
                                       const nsIntRegion& aVisibleRegion,
                                       bool aDidSelfCopy)

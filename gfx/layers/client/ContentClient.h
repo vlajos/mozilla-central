@@ -120,7 +120,7 @@ public:
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntRect& aRect,
-                                                     uint32_t aFlags);
+                                                     uint32_t aFlags) MOZ_OVERRIDE;
   virtual TemporaryRef<gfx::DrawTarget>
     CreateDTBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags);
 
@@ -179,21 +179,25 @@ public:
 
   virtual void SwapBuffers(const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
-  virtual const nsIntRect& BufferRect()
+  // TODO: Why do we overload BufferRect and BufferRotation?
+  // This could cause problem if base class override this, since
+  // it's still ThebesLayerBuffer's implementation that would get called on 
+  // const objects.
+  virtual const nsIntRect& BufferRect() const
   {
     return ThebesLayerBuffer::BufferRect();
   }
-  virtual const nsIntPoint& BufferRotation()
+  virtual const nsIntPoint& BufferRotation() const
   {
     return ThebesLayerBuffer::BufferRotation();
   }
 
   virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
                                                      const nsIntRect& aRect,
-                                                     uint32_t aFlags);
+                                                     uint32_t aFlags) MOZ_OVERRIDE;
   virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
                                                        const nsIntRect& aRect,
-                                                       uint32_t aFlags);
+                                                       uint32_t aFlags) MOZ_OVERRIDE;
   
   virtual bool SupportsAzureContent() const MOZ_OVERRIDE
   { 
@@ -307,7 +311,7 @@ public:
     return BUFFER_CONTENT;
   }
 
-  virtual void SyncFrontBufferToBackBuffer(); 
+  virtual void SyncFrontBufferToBackBuffer() MOZ_OVERRIDE;
 
 protected:
   virtual void CreateFrontBufferAndNotify(const nsIntRect& aBufferRect, uint32_t aFlags) MOZ_OVERRIDE;

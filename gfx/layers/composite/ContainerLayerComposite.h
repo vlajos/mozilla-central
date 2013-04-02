@@ -34,7 +34,7 @@ public:
   void InsertAfter(Layer* aChild, Layer* aAfter);
 
   void RemoveChild(Layer* aChild);
-  
+
   void RepositionChild(Layer* aChild, Layer* aAfter);
 
   // LayerComposite Implementation

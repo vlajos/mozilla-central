@@ -26,7 +26,9 @@ ColorLayerComposite::RenderLayer(const nsIntPoint& aOffset,
 
   gfx::Rect rect(visibleRect.x, visibleRect.y,
                  visibleRect.width, visibleRect.height);
-  gfx::Rect clipRect(aClipRect.x, aClipRect.y, aClipRect.width, aClipRect.height);
+  gfx::Rect clipRect(aClipRect.x, aClipRect.y,
+                     aClipRect.width, aClipRect.height);
+
   float opacity = GetEffectiveOpacity();
 
   gfx::Matrix4x4 transform;

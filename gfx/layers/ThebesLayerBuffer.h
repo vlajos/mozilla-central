@@ -76,7 +76,7 @@ protected:
     TOP, BOTTOM
   };
   nsIntRect GetQuadrantRectangle(XSide aXSide, YSide aYSide) const;
-  
+
   /*
    * If aMask is non-null, then it is used as an alpha mask for rendering this
    * buffer. aMaskTransform must be non-null if aMask is non-null, and is used
@@ -285,7 +285,7 @@ protected:
    */
   already_AddRefed<gfxContext>
   GetContextForQuadrantUpdate(const nsIntRect& aBounds);
-  
+
   static bool IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegion);
 
 protected:

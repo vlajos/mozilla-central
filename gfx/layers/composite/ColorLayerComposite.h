@@ -44,7 +44,7 @@ public:
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
-  
+
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual const char* Name() const { return "ColorLayerComposite"; }
 #endif

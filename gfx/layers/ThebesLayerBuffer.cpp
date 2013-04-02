@@ -118,7 +118,7 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   nsRefPtr<gfxASurface> surf = aTarget->CurrentSurface();
   surf->Flush();
 }
- 
+
 /**
  * @param aXSide LEFT means we draw from the left side of the buffer (which
  * is drawn on the right side of mBufferRect). RIGHT means we draw from
@@ -207,7 +207,7 @@ ThebesLayerBuffer::IsClippingCheap(gfxContext* aTarget, const nsIntRegion& aRegi
   // Assume clipping is cheap if the context just has an integer
   // translation, and the visible region is simple.
   return !aTarget->CurrentMatrix().HasNonIntegerTranslation() &&
-         aRegion.GetNumRects() <= 1; 
+         aRegion.GetNumRects() <= 1;
 }
 
 void

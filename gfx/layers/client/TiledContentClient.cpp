@@ -413,7 +413,7 @@ BasicTiledLayerBuffer::ProgressiveUpdate(nsIntRegion& aValidRegion,
                                             repeat);
 
     // There's no further work to be done.
-    if (regionToPaint.IsEmpty()) {  
+    if (regionToPaint.IsEmpty()) {
       break;
     }
 
@@ -445,7 +445,7 @@ BasicTiledLayerBuffer::DeepCopy() const
 
   for (size_t i = 0; i < result.mRetainedTiles.Length(); i++) {
     if (result.mRetainedTiles[i].IsPlaceholderTile()) continue;
-    
+
     result.mRetainedTiles[i].mTextureClient =
       new TextureClientTile(*result.mRetainedTiles[i].mTextureClient);
   }

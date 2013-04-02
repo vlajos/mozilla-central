@@ -60,7 +60,7 @@ ContainerRender(ContainerT* aContainer,
     int32_t maxTextureSize = compositor->GetMaxTextureSize();
     surfaceRect.width = std::min(maxTextureSize, surfaceRect.width);
     surfaceRect.height = std::min(maxTextureSize, surfaceRect.height);
-    if (aContainer->GetEffectiveVisibleRegion().GetNumRects() == 1 && 
+    if (aContainer->GetEffectiveVisibleRegion().GetNumRects() == 1 &&
         (aContainer->GetContentFlags() & Layer::CONTENT_OPAQUE))
     {
       // don't need a background, we're going to paint all opaque stuff

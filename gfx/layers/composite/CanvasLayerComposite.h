@@ -50,7 +50,7 @@ public:
   }
 
   virtual void SetCompositableHost(CompositableHost* aHost) MOZ_OVERRIDE;
-  
+
   virtual void Disconnect() MOZ_OVERRIDE
   {
     Destroy();

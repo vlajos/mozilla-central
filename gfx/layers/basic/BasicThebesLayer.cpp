@@ -209,7 +209,7 @@ BasicThebesLayer::PaintThebes(gfxContext* aContext,
   if (GetMaskData(aMaskLayer, &mask)) {
     maskSurface = mask.GetSurface();
     maskTransform = &mask.GetTransform();
-  } 
+  }
 
   if (!IsHidden() && !clipExtents.IsEmpty()) {
     AutoSetOperator setOperator(aContext, GetOperator());
