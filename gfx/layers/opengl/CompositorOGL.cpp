@@ -796,7 +796,7 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
   if (mWidgetSize.width != width ||
       mWidgetSize.height != height)
   {
-    MakeCurrent(CURRENT_FORCE);
+    MakeCurrent(ForceMakeCurrent);
 
     mWidgetSize.width = width;
     mWidgetSize.height = height;

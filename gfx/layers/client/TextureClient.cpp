@@ -96,7 +96,7 @@ TextureClientShmem::ReleaseResources()
 
 void
 TextureClientShmem::EnsureAllocated(gfx::IntSize aSize,
-                                        gfxASurface::gfxContentType aContentType)
+                                    gfxASurface::gfxContentType aContentType)
 {
   if (aSize != mSize ||
       aContentType != mContentType ||
@@ -208,7 +208,7 @@ TextureClientShmemYCbCr::SetDescriptorFromReply(const SurfaceDescriptor& aDescri
 
 void
 TextureClientShmemYCbCr::EnsureAllocated(gfx::IntSize aSize,
-                                             gfxASurface::gfxContentType aType)
+                                         gfxASurface::gfxContentType aType)
 {
   NS_RUNTIMEABORT("not enough arguments to do this (need both Y and CbCr sizes)");
 }

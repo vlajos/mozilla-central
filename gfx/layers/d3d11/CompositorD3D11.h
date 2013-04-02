@@ -52,7 +52,7 @@ public:
 
   virtual void SetTargetContext(gfxContext *aTarget) { mTarget = aTarget; }
 
-  virtual void MakeCurrent(MakeCurrentFlags aFlags = CURRENT_NOFLAGS) { }
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = 0) { }
 
   virtual TemporaryRef<CompositingRenderTarget>
     CreateRenderTarget(const gfx::IntRect &aRect,

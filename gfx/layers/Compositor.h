@@ -202,10 +202,8 @@ public:
    */
   virtual void SetTargetContext(gfxContext *aTarget) = 0;
 
-  enum MakeCurrentFlags {
-    CURRENT_NOFLAGS,
-    CURRENT_FORCE
-  };
+  typedef uint32_t MakeCurrentFlags;
+  static const MakeCurrentFlags ForceMakeCurrent = 0x1;
   /**
    * Make this compositor's rendering context the current context for the
    * underlying graphics API. This may be a global operation, depending on the
@@ -217,7 +215,7 @@ public:
    * If aFlags == CURRENT_FORCE then we will (re-)set our context on the
    * underlying API even if it is already the current context.
    */
-  virtual void MakeCurrent(MakeCurrentFlags aFlags = CURRENT_NOFLAGS) = 0;
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = 0) = 0;
 
   /**
    * Modifies the TextureIdentifier in aInfo to a more reliable kind. For use by
@@ -305,8 +303,12 @@ public:
   virtual void AbortFrame() = 0;
 
   /**
-   * Setup the viewport and projection matrix for rendering
-   * to a window of the given dimensions.
+   * Setup the viewport and projection matrix for rendering to a target of the
+   * given dimensions. The size and transform here will override those set in
+   * BeginFrame. BeginFrame sets a size and transform for the default render
+   * target, usually the screen. Calling this method prepares the compositor to
+   * render using a different viewport (that is, size and transform), usually
+   * associated with a new render target.
    * aWorldTransform is the transform from user space to the new viewport's
    * coordinate space.
    */

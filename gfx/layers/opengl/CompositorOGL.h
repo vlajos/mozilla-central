@@ -91,12 +91,12 @@ public:
    */
   virtual void SetDestinationSurfaceSize(const gfx::IntSize& aSize) MOZ_OVERRIDE;
 
-  virtual void MakeCurrent(MakeCurrentFlags aFlags = CURRENT_NOFLAGS) MOZ_OVERRIDE {
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = 0) MOZ_OVERRIDE {
     if (mDestroyed) {
       NS_WARNING("Call on destroyed layer manager");
       return;
     }
-    mGLContext->MakeCurrent(aFlags == CURRENT_FORCE);
+    mGLContext->MakeCurrent(aFlags == ForceMakeCurrent);
   }
 
   virtual void SetTargetContext(gfxContext* aTarget) MOZ_OVERRIDE

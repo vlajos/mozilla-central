@@ -12,7 +12,12 @@ namespace layers {
 typedef int32_t SurfaceDescriptorType;
 static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
 
-// flags used by texture clients and texture hosts
+/**
+ * Flags used by texture clients and texture hosts. These are passed from client
+ * side to host side when textures and compositables are created. Usually set
+ * by the compositableCient, they may be modified by either the compositable or
+ * texture clients.
+ */
 typedef uint32_t TextureFlags;
 const TextureFlags NoFlags            = 0x0;
 // Use nearest-neighbour texture filtering (as opposed to linear filtering).
