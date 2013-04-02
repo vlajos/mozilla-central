@@ -1176,7 +1176,8 @@ BasicShadowLayerManager::EndTransaction(DrawThebesLayerCallback aCallback,
         nsIntRect bounds;
         mWidget->GetBounds(bounds);
         SurfaceDescriptor inSnapshot, snapshot;
-        if (AllocSurfaceDescriptor(bounds.Size(), gfxASurface::CONTENT_COLOR_ALPHA,
+        if (AllocSurfaceDescriptor(bounds.Size(),
+                                   gfxASurface::CONTENT_COLOR_ALPHA,
                                    &inSnapshot) &&
             // The compositor will usually reuse |snapshot| and return
             // it through |outSnapshot|, but if it doesn't, it's
