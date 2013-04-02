@@ -188,6 +188,8 @@ Animation*
 Layer::AddAnimation(TimeStamp aStart, TimeDuration aDuration, float aIterations,
                     int aDirection, nsCSSProperty aProperty, const AnimationData& aData)
 {
+  MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) AddAnimation", this));
+
   Animation* anim = mAnimations.AppendElement();
   anim->startTime() = aStart;
   anim->duration() = aDuration;
@@ -203,6 +205,11 @@ Layer::AddAnimation(TimeStamp aStart, TimeDuration aDuration, float aIterations,
 void
 Layer::ClearAnimations()
 {
+  if (mAnimations.IsEmpty() && mAnimationData.IsEmpty()) {
+    return;
+  }
+
+  MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) ClearAnimations", this));
   mAnimations.Clear();
   mAnimationData.Clear();
   Mutated();
@@ -330,6 +337,8 @@ CreateCSSValueList(const InfallibleTArray<TransformFunction>& aFunctions)
 void
 Layer::SetAnimations(const AnimationArray& aAnimations)
 {
+  MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) SetAnimations", this));
+
   mAnimations = aAnimations;
   mAnimationData.Clear();
   for (uint32_t i = 0; i < mAnimations.Length(); i++) {
@@ -612,6 +621,7 @@ void
 Layer::ApplyPendingUpdatesForThisTransaction()
 {
   if (mPendingTransform && *mPendingTransform != mTransform) {
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) PendingUpdatesForThisTransaction", this));
     mTransform = *mPendingTransform;
     Mutated();
   }

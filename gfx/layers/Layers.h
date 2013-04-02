@@ -649,6 +649,7 @@ public:
                  (CONTENT_OPAQUE | CONTENT_COMPONENT_ALPHA),
                  "Can't be opaque and require component alpha");
     if (mContentFlags != aFlags) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) ContentFlags", this));
       mContentFlags = aFlags;
       Mutated();
     }
@@ -669,6 +670,8 @@ public:
   virtual void SetVisibleRegion(const nsIntRegion& aRegion)
   {
     if (!mVisibleRegion.IsEqual(aRegion)) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) VisibleRegion was %s is %s", this,
+        mVisibleRegion.ToString().get(), aRegion.ToString().get()));
       mVisibleRegion = aRegion;
       Mutated();
     }
@@ -682,6 +685,7 @@ public:
   void SetOpacity(float aOpacity)
   {
     if (mOpacity != aOpacity) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) Opacity", this));
       mOpacity = aOpacity;
       Mutated();
     }
@@ -701,44 +705,28 @@ public:
   {
     if (mUseClipRect) {
       if (!aRect) {
+        MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) ClipRect was %d,%d,%d,%d is <none>", this,
+                         mClipRect.x, mClipRect.y, mClipRect.width, mClipRect.height));
         mUseClipRect = false;
         Mutated();
       } else {
         if (!aRect->IsEqualEdges(mClipRect)) {
+          MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) ClipRect was %d,%d,%d,%d is %d,%d,%d,%d", this,
+                           mClipRect.x, mClipRect.y, mClipRect.width, mClipRect.height,
+                           aRect->x, aRect->y, aRect->width, aRect->height));
           mClipRect = *aRect;
           Mutated();
         }
       }
     } else {
       if (aRect) {
-        Mutated();
+        MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) ClipRect was <none> is %d,%d,%d,%d", this,
+                         aRect->x, aRect->y, aRect->width, aRect->height));
         mUseClipRect = true;
-        if (!aRect->IsEqualEdges(mClipRect)) {
-          mClipRect = *aRect;
-        }
+        mClipRect = *aRect;
+        Mutated();
       }
     }
-  }
-
-  /**
-   * CONSTRUCTION PHASE ONLY
-   * Set a clip rect which will be applied to this layer as it is
-   * composited to the destination. The coordinates are relative to
-   * the parent layer (i.e. the contents of this layer
-   * are transformed before this clip rect is applied).
-   * For the root layer, the coordinates are relative to the widget,
-   * in device pixels.
-   * The provided rect is intersected with any existing clip rect.
-   */
-  void IntersectClipRect(const nsIntRect& aRect)
-  {
-    if (mUseClipRect) {
-      mClipRect.IntersectRect(mClipRect, aRect);
-    } else {
-      mUseClipRect = true;
-      mClipRect = aRect;
-    }
-    Mutated();
   }
 
   /**
@@ -767,6 +755,7 @@ public:
 #endif
 
     if (mMaskLayer != aMaskLayer) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) MaskLayer", this));
       mMaskLayer = aMaskLayer;
       Mutated();
     }
@@ -787,6 +776,7 @@ public:
     if (mTransform == aMatrix) {
       return;
     }
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) BaseTransform", this));
     mTransform = aMatrix;
     Mutated();
   }
@@ -809,6 +799,7 @@ public:
     if (mPostXScale == aXScale && mPostYScale == aYScale) {
       return;
     }
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) PostScale", this));
     mPostXScale = aXScale;
     mPostYScale = aYScale;
     Mutated();
@@ -820,7 +811,14 @@ public:
    * (not chrome) document, the topmost content document has a root scrollframe
    * with a displayport, but the layer does not move when that displayport scrolls.
    */
-  void SetIsFixedPosition(bool aFixedPosition) { mIsFixedPosition = aFixedPosition; }
+  void SetIsFixedPosition(bool aFixedPosition)
+  {
+    if (mIsFixedPosition != aFixedPosition) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) IsFixedPosition", this));
+      mIsFixedPosition = aFixedPosition;
+      Mutated();
+    }
+  }
 
   // Call AddAnimation to add a new animation to this layer from layout code.
   // Caller must add segments to the returned animation.
@@ -841,7 +839,14 @@ public:
    * same position when compositing the layer tree with a transformation
    * (such as when asynchronously scrolling and zooming).
    */
-  void SetFixedPositionAnchor(const gfxPoint& aAnchor) { mAnchor = aAnchor; }
+  void SetFixedPositionAnchor(const gfxPoint& aAnchor)
+  {
+    if (mAnchor != aAnchor) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) FixedPositionAnchor", this));
+      mAnchor = aAnchor;
+      Mutated();
+    }
+  }
 
   /**
    * CONSTRUCTION PHASE ONLY
@@ -851,7 +856,14 @@ public:
    * margins by reconciling the difference between this value and a value that
    * is updated more frequently.
    */
-  void SetFixedPositionMargins(const gfx::Margin& aMargins) { mMargins = aMargins; }
+  void SetFixedPositionMargins(const gfx::Margin& aMargins)
+  {
+    if (mMargins != aMargins) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) FixedPositionMargins", this));
+      mMargins = aMargins;
+      Mutated();
+    }
+  }
 
   // These getters can be used anytime.
   float GetOpacity() { return mOpacity; }
@@ -1128,7 +1140,10 @@ public:
 protected:
   Layer(LayerManager* aManager, void* aImplData);
 
-  void Mutated() { mManager->Mutated(this); }
+  void Mutated()
+  {
+    mManager->Mutated(this);
+  }
 
   // Print interesting information about this into aTo.  Internally
   // used to implement Dump*() and Log*().  If subclasses have
@@ -1375,6 +1390,7 @@ public:
   void SetFrameMetrics(const FrameMetrics& aFrameMetrics)
   {
     if (mFrameMetrics != aFrameMetrics) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) FrameMetrics", this));
       mFrameMetrics = aFrameMetrics;
       Mutated();
     }
@@ -1386,6 +1402,7 @@ public:
       return;
     }
 
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) PreScale", this));
     mPreXScale = aXScale;
     mPreYScale = aYScale;
     Mutated();
@@ -1397,6 +1414,7 @@ public:
       return;
     }
 
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) InheritedScale", this));
     mInheritedXScale = aXScale;
     mInheritedYScale = aYScale;
     Mutated();
@@ -1520,7 +1538,11 @@ public:
    */
   virtual void SetColor(const gfxRGBA& aColor)
   {
-    mColor = aColor;
+    if (mColor != aColor) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) Color", this));
+      mColor = aColor;
+      Mutated();
+    }
   }
 
   // This getter can be used anytime.
@@ -1650,7 +1672,14 @@ public:
    * CONSTRUCTION PHASE ONLY
    * Set the filter used to resample this image (if necessary).
    */
-  void SetFilter(gfxPattern::GraphicsFilter aFilter) { mFilter = aFilter; }
+  void SetFilter(gfxPattern::GraphicsFilter aFilter)
+  {
+    if (mFilter != aFilter) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) Filter", this));
+      mFilter = aFilter;
+      Mutated();
+    }
+  }
   gfxPattern::GraphicsFilter GetFilter() const { return mFilter; }
 
   MOZ_LAYER_DECL_NAME("CanvasLayer", TYPE_CANVAS)
@@ -1746,6 +1775,7 @@ public:
   {
     MOZ_ASSERT(aId != 0);
     if (mId != aId) {
+      MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) ReferentId", this));
       mId = aId;
       Mutated();
     }
