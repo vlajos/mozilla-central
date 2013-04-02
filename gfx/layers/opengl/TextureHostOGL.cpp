@@ -500,7 +500,7 @@ void
 TiledTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
-  if (mGL && ! glCompositor) {
+  if (mGL && !glCompositor) {
     DeleteTextures();
   }
   mGL = glCompositor ? glCompositor->gl() : nullptr;  
@@ -594,6 +594,9 @@ SurfaceFormatForAndroidPixelFormat(android::PixelFormat aFormat)
 void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  if (mGL && !glCompositor) {
+    DeleteTextures();
+  }
   mGL = glCompositor ? glCompositor->gl() : nullptr;
 }
 
