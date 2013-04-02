@@ -849,7 +849,7 @@ LayerD3D10::LoadMaskTexture()
     return SHADER_MASK;
   }
 
-  return SHADER_NO_MASK; 
+  return SHADER_NO_MASK;
 }
 
 }

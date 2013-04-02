@@ -28,6 +28,9 @@ void
 ImageHostSingle::AddTextureHost(TextureHost* aHost, ISurfaceAllocator* aAllocator)
 {
   mTextureHost = aHost;
+  if (mCompositor) {
+    mTextureHost->SetCompositor(mCompositor);
+  }
 }
 
 void
@@ -137,6 +140,9 @@ ImageHostBuffered::AddTextureHost(TextureHost* aHost,
 {
   MOZ_ASSERT(aAllocator);
   mTextureHost = aHost;
+  if (mCompositor) {
+    mTextureHost->SetCompositor(mCompositor);
+  }
   mTextureHost->SetBuffer(new SurfaceDescriptor(null_t()),
                           aAllocator);
   mPictureRect = nsIntRect(0, 0, -1, -1);

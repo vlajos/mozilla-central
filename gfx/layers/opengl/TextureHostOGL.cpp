@@ -208,9 +208,26 @@ void
 SharedTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  if (mGL && !glCompositor) {
+    DeleteTextures();
+  }
   mGL = glCompositor ? glCompositor->gl() : nullptr;
 }
 
+void
+SharedTextureHostOGL::DeleteTextures()
+{
+  MOZ_ASSERT(mGL);
+  mGL->MakeCurrent();
+  if (mSharedHandle) {
+    mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
+    mSharedHandle = 0;
+  }
+  if (mTextureHandle) {
+    mGL->fDeleteTextures(1, &mTextureHandle);
+    mTextureHandle = 0;
+  }
+}
 
 void
 SharedTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
@@ -271,9 +288,23 @@ void
 SurfaceStreamHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  if (mGL && !glCompositor) {
+    DeleteTextures();
+  }
   mGL = glCompositor ? glCompositor->gl() : nullptr;
 }
 
+void
+SurfaceStreamHostOGL::DeleteTextures()
+{
+  if (mUploadTexture) {
+    MOZ_ASSERT(mGL);
+    mGL->MakeCurrent();
+    mGL->fDeleteTextures(1, &mUploadTexture);
+    mUploadTexture = 0;
+    mTextureHandle = 0;
+  }
+}
 
 void
 SurfaceStreamHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
@@ -448,13 +479,7 @@ YCbCrTextureHostOGL::Lock()
 
 TiledTextureHostOGL::~TiledTextureHostOGL()
 {
-  if (mTextureHandle) {
-    mGL->MakeCurrent();
-    mGL->fDeleteTextures(1, &mTextureHandle);
-
-    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mGLFormat,
-                                            GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
-  }
+  DeleteTextures();
 }
 
 static void
@@ -475,7 +500,23 @@ void
 TiledTextureHostOGL::SetCompositor(Compositor* aCompositor)
 {
   CompositorOGL* glCompositor = static_cast<CompositorOGL*>(aCompositor);
+  if (mGL && ! glCompositor) {
+    DeleteTextures();
+  }
   mGL = glCompositor ? glCompositor->gl() : nullptr;  
+}
+
+void
+TiledTextureHostOGL::DeleteTextures()
+{
+  if (mTextureHandle) {
+    mGL->MakeCurrent();
+    mGL->fDeleteTextures(1, &mTextureHandle);
+
+    gl::GLContext::UpdateTextureMemoryUsage(gl::GLContext::MemoryFreed, mGLFormat,
+                                            GetTileType(), TILEDLAYERBUFFER_TILE_SIZE);
+    mTextureHandle = 0;
+  }
 }
 
 void
@@ -557,6 +598,22 @@ void GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
 }
 
 void
+GrallocTextureHostOGL::DeleteTextures()
+{
+  if (mGLTexture || mEGLImage) {
+  mGL->MakeCurrent();
+    if (mGLTexture) {
+      mGL->fDeleteTextures(1, &mGLTexture);
+      mGLTexture= 0;
+    }
+    if (mEGLImage) {
+      mGL->DestroyEGLImage(mEGLImage);
+      mEGLImage = 0;
+    }
+  }
+}
+
+void
 GrallocTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
                                  nsIntRegion* aRegion)
 {
@@ -597,11 +654,7 @@ void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)
 
 GrallocTextureHostOGL::~GrallocTextureHostOGL()
 {
-  mGL->MakeCurrent();
-  mGL->fDeleteTextures(1, &mGLTexture);
-  if (mEGLImage) {
-    mGL->DestroyEGLImage(mEGLImage);
-  }
+  DeleteTextures();
 }
 
 bool

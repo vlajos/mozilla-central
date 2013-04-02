@@ -308,14 +308,8 @@ public:
 
   virtual ~SharedTextureHostOGL()
   {
-    mGL->MakeCurrent();
-    if (mSharedHandle) {
-      MOZ_ASSERT(mGL);
-      mGL->ReleaseSharedHandle(mShareType, mSharedHandle);
-    }
-    if (mTextureHandle) {
-      MOZ_ASSERT(mGL);
-      mGL->fDeleteTextures(1, &mTextureHandle);
+    if (mSharedHandle || mTextureHandle) {
+      DeleteTextures();
     }
   }
 
@@ -374,6 +368,8 @@ public:
 #endif
 
 protected:
+  void DeleteTextures();
+
   gfx::IntSize mSize;
   nsRefPtr<gl::GLContext> mGL;
   GLuint mTextureHandle;
@@ -394,11 +390,7 @@ public:
 
   virtual ~SurfaceStreamHostOGL()
   {
-    if (mUploadTexture) {
-      MOZ_ASSERT(mGL);
-      mGL->MakeCurrent();
-      mGL->fDeleteTextures(1, &mUploadTexture);
-    }
+    DeleteTextures();
     *mBuffer = SurfaceDescriptor();
   }
 
@@ -463,13 +455,13 @@ public:
     , mTextureHandle(0)
     , mUploadTexture(0)
     , mWrapMode(LOCAL_GL_CLAMP_TO_EDGE)
-  {
-  }
+  {}
 
 protected:
+  void DeleteTextures();
 
   gfx::IntSize mSize;
-  nsRefPtr<gl::GLContext> mGL;
+  nsRefPtr<GLContext> mGL;
   GLuint mTextureHandle;
   GLuint mUploadTexture;
   GLenum mWrapMode;
@@ -519,6 +511,8 @@ public:
 #endif
 
 protected:
+  void DeleteTextures();
+
   virtual uint64_t GetIdentifier() const MOZ_OVERRIDE {
     return static_cast<uint64_t>(mTextureHandle);
   }
