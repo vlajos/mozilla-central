@@ -601,6 +601,8 @@ public:
   }
 
 private:
+  void DeleteTextures();
+
   RefPtr<gl::GLContext> mGL;
   android::sp<android::GraphicBuffer> mGraphicBuffer;
   GLuint mGLTexture;
