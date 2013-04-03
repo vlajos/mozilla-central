@@ -363,12 +363,18 @@ ContentClientDoubleBuffered::UpdateDestinationFrom(const RotatedBuffer& aSource,
   nsRefPtr<gfxContext> destCtx =
     GetContextForQuadrantUpdate(aUpdateRegion.GetBounds());
   destCtx->SetOperator(gfxContext::OPERATOR_SOURCE);
-  if (IsClippingCheap(destCtx, aUpdateRegion)) {
+
+  bool isClippingCheap = IsClippingCheap(destCtx, aUpdateRegion);
+  if (isClippingCheap) {
     gfxUtils::ClipToRegion(destCtx, aUpdateRegion);
   }
 
   if (gfxPlatform::GetPlatform()->SupportsAzureContent()) {
     MOZ_ASSERT(!destCtx->IsCairo());
+
+    if (destCtx->GetDrawTarget()->GetFormat() == FORMAT_B8G8R8A8) {
+      destCtx->GetDrawTarget()->ClearRect(Rect(0, 0, mFrontBufferRect.width, mFrontBufferRect.height));
+    }
     aSource.DrawBufferWithRotation(destCtx->GetDrawTarget());
   } else {
     aSource.DrawBufferWithRotation(destCtx);

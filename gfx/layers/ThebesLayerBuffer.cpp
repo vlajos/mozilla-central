@@ -556,13 +556,22 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
 
   result.mContext = GetContextForQuadrantUpdate(drawBounds);
 
-  gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
   if (contentType == gfxASurface::CONTENT_COLOR_ALPHA && !isClear) {
-    // TODO[Bas] - this is potentially slow for D2D! In reality we can do this with
-    // a series of Azure ClearRects, I should make this so!
-    result.mContext->SetOperator(gfxContext::OPERATOR_CLEAR);
-    result.mContext->Paint();
-    result.mContext->SetOperator(gfxContext::OPERATOR_OVER);
+    if (result.mContext->IsCairo()) {
+      gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
+      result.mContext->SetOperator(gfxContext::OPERATOR_CLEAR);
+      result.mContext->Paint();
+      result.mContext->SetOperator(gfxContext::OPERATOR_OVER);
+    } else {
+      nsIntRegionRectIterator iter(result.mRegionToDraw);
+      const nsIntRect *iterRect;
+      while ((iterRect = iter.Next())) {
+        result.mContext->GetDrawTarget()->ClearRect(Rect(iterRect->x, iterRect->y, iterRect->width, iterRect->height));
+      }
+      // Clear will do something expensive with a complex clip pushed, so clip
+      // here.
+      gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
+    }
   }
   return result;
 }
