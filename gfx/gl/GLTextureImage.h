@@ -380,6 +380,14 @@ protected:
     TextureState mTextureState;
 };
 
+/**
+ * Creates a TextureImage of the basic implementation, can be useful in cases
+ * where we know we don't want to use platform-specific TextureImage.
+ * In doubt, use GLContext::CreateTextureImage instead.
+ *
+ * If this function is ever called on a WebGL GLContext, make sure to save
+ * and restore the previous texture binding.
+ */
 already_AddRefed<TextureImage>
 CreateBasicTextureImage(GLContext* aGL,
                         const nsIntSize& aSize,
