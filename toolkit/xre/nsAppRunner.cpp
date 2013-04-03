@@ -3399,8 +3399,9 @@ XREMain::XRE_mainStartup(bool* aExitFlag)
   // An environment variable is used instead of a pref on X11 platforms because we start having 
   // access to prefs long after the first call to XOpenDisplay which is hard to change due to 
   // interdependencies in the initialization.
-  XInitThreads();
-#endif
+  if (PR_GetEnv("MOZ_USE_OMTC")) {
+    XInitThreads();
+  }#endif
 #if defined(MOZ_WIDGET_GTK)
   mGdkDisplay = gdk_display_open(display_name);
   if (!mGdkDisplay) {
