@@ -3401,7 +3401,8 @@ XREMain::XRE_mainStartup(bool* aExitFlag)
   // interdependencies in the initialization.
   if (PR_GetEnv("MOZ_USE_OMTC")) {
     XInitThreads();
-  }#endif
+  }
+#endif
 #if defined(MOZ_WIDGET_GTK)
   mGdkDisplay = gdk_display_open(display_name);
   if (!mGdkDisplay) {
