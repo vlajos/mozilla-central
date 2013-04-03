@@ -572,7 +572,10 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       // here.
       gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
     }
+  } else {
+    gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
   }
+
   return result;
 }
 
