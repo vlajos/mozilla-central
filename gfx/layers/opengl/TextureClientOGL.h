@@ -49,7 +49,7 @@ public:
     : TextureClient(aForwarder, aCompositableType)
   {}
   ~TextureClientStreamOGL() { ReleaseResources(); }
-  
+
   virtual bool SupportsType(TextureClientType aType) MOZ_OVERRIDE { return aType == TEXTURE_STREAM_GL; }
   virtual void EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType) { }
   virtual void ReleaseResources() { mDescriptor = SurfaceDescriptor(); }

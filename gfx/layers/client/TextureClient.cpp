@@ -20,7 +20,7 @@
 #ifdef XP_WIN
 #include "mozilla/layers/TextureD3D11.h"
 #endif
- 
+
 using namespace mozilla::gl;
 
 namespace mozilla {

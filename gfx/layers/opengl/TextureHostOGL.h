@@ -2,10 +2,10 @@
 * This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
- 
+
 #ifndef MOZILLA_GFX_TEXTUREOGL_H
 #define MOZILLA_GFX_TEXTUREOGL_H
- 
+
 #include "ImageLayerOGL.h"
 #include "GLContextTypes.h"
 #include "gfx2DGlue.h"
@@ -25,14 +25,14 @@ namespace layers {
  *
  * Note that it is important to becareful about the ownership model with
  * the OpenGL backend, due to some widget limitation on Linux: before
- * the nsBaseWidget associated with our OpenGL context has been completely 
+ * the nsBaseWidget associated with our OpenGL context has been completely
  * deleted, every resource belonging to the OpenGL context MUST have been
- * released. At the moment the teardown sequence happens in the middle of 
+ * released. At the moment the teardown sequence happens in the middle of
  * the nsBaseWidget's destructor, meaning that at a given moment we must be
  * able to easily find and release all the GL resources.
- * The point is: be careful about the ownership model and limit the number 
- * of objects sharing references to GL resources to make the tear down 
- * sequence as simple as possible. 
+ * The point is: be careful about the ownership model and limit the number
+ * of objects sharing references to GL resources to make the tear down
+ * sequence as simple as possible.
  */
 
 /**
@@ -163,7 +163,7 @@ public:
   {
     return mTexture->GetTileRect();
   }
-  
+
   size_t GetTileCount() MOZ_OVERRIDE
   {
     return mTexture->GetTileCount();
@@ -192,7 +192,7 @@ protected:
  * the TextureSource interface, as it is required that a TextureHost
  * provides access to a TextureSource, but does not implement the
  * TextureHostOGL interface. Instead it contains 3 channels (one per
- * plane) that implement the TextureSourceOGL interface, and 
+ * plane) that implement the TextureSourceOGL interface, and
  * YCbCrTextureHostOGL's TextureSource implementation provide access
  * to these channels with the GetSubSource method.
  */
@@ -612,5 +612,5 @@ private:
 
 } // namespace
 } // namespace
- 
+
 #endif /* MOZILLA_GFX_TEXTUREOGL_H */

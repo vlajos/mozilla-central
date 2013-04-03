@@ -158,7 +158,7 @@ ImageContainer::CreateImage(const ImageFormat *aFormats,
   return mImageFactory->CreateImage(aFormats, aNumFormats, mScaleHint, mRecycleBin);
 }
 
-void 
+void
 ImageContainer::SetCurrentImageInternal(Image *aImage)
 {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
@@ -186,15 +186,15 @@ ImageContainer::SetCurrentImage(Image *aImage)
     if (aImage) {
       ImageBridgeChild::DispatchImageClientUpdate(mImageClient, this);
     } else {
-      // here we used to have a SetIdle90 call on the image bridge to tell
+      // here we used to have a SetIdle() call on the image bridge to tell
       // the compositor that the video element is not going to be seen for
       // moment and that it can release its shared memory. It was causing
       // crashes so it has been removed.
-      // Could be reimplemented if need be (but beware, the memory model is 
+      // Could be reimplemented if need be (but beware, the memory model is
       // tricky).
     }
   }
- 
+
   SetCurrentImageInternal(aImage);
 }
 
@@ -203,7 +203,7 @@ ImageContainer::SetCurrentImageInTransaction(Image *aImage)
 {
   NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
   NS_ASSERTION(!mImageClient, "Should use async image transfer with ImageBridge.");
-  
+
   SetCurrentImageInternal(aImage);
 }
 

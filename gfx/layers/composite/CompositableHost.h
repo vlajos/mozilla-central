@@ -84,7 +84,7 @@ public:
    */
   virtual bool Update(const SurfaceDescriptor& aImage,
                       SurfaceDescriptor* aResult = nullptr);
-  
+
   /**
    * Update the content host.
    * aTextureInfo identifies the texture host which should be updated.
@@ -140,7 +140,7 @@ public:
 #ifdef MOZ_LAYERS_HAVE_LOG
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix) { }
 #endif
-  
+
 protected:
   Compositor* mCompositor;
   Layer* mLayer;

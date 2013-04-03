@@ -296,7 +296,7 @@ union Edit {
   OpCreateRefLayer;
 
   OpSetLayerAttributes;
-  
+
   OpSetRoot;
   OpInsertAfter;
   OpAppendChild;
@@ -336,6 +336,6 @@ struct OpTextureReply {
   SurfaceDescriptor image;
 };
 
-    
+
 } // namespace
 } // namespace

@@ -71,9 +71,9 @@ public:
   }
 
   virtual bool SupportsType(TextureClientType aType) { return false; }
-  
+
   /**
-   * The Lock* methods lock the texture client for drawing into, providing some 
+   * The Lock* methods lock the texture client for drawing into, providing some
    * object that can be used for drawing to. Once the user is finished
    * with the object it should call Unlock.
    */
@@ -249,7 +249,7 @@ private:
  * The logic of converting input image data into a Surface descriptor should be
  * outside of TextureClient. For Image layers we implement them in the AutoLock*
  * idiom so that the states need for the purpose of convertion only exist within
- * the conversion operation, and to avoid adding special interfaces in 
+ * the conversion operation, and to avoid adding special interfaces in
  * TextureClient tht are only used in one place and not implemented everywhere.
  * We should do this for all the input data type.
  */

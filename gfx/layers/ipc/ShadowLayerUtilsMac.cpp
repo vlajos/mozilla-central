@@ -7,7 +7,7 @@
 
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/layers/ShadowLayers.h"
- 
+
 #include "gfxPlatform.h"
 
 #include "gfxSharedQuartzSurface.h"

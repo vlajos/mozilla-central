@@ -67,7 +67,7 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
       !aMsg->ReadBytes(aIter, &data, nbytes)) {
     return false;
   }
-  
+
   int fds[nfds];
 
   for (size_t n = 0; n < nfds; ++n) {

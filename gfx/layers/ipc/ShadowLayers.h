@@ -261,7 +261,7 @@ public:
 
   /**
    * Notify the compositor that a compositable will be updated asynchronously
-   * through ImageBridge, using an ID to connect the protocols on the 
+   * through ImageBridge, using an ID to connect the protocols on the
    * compositor side.
    */
   void AttachAsyncCompositable(PLayersChild* aLayer, uint64_t aID);

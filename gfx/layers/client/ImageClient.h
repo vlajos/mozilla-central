@@ -35,7 +35,7 @@ public:
                                                      CompositableType aImageHostType,
                                                      CompositableForwarder* aFwd,
                                                      TextureFlags aFlags);
-  
+
   virtual ~ImageClient() {}
 
   virtual CompositableType GetType() const MOZ_OVERRIDE

@@ -67,8 +67,8 @@ bool InImageBridgeChildThread();
  *
  * - During a Layer transaction:
  *   - (A) The ImageContainer uses ImageBridge. The image is already available to the
- *   compositor process because it has been sent with SetCurrentImage. Yet, the 
- *   CompositableHost on the compositor side will needs the ID referring to the 
+ *   compositor process because it has been sent with SetCurrentImage. Yet, the
+ *   CompositableHost on the compositor side will needs the ID referring to the
  *   ImageContainer to access the Image. So during the Swap operation that happens
  *   in the transaction, we swap the container ID rather than the image data.
  *   - (B) Since the ImageContainer does not use ImageBridge, the image data is swaped.
@@ -80,7 +80,7 @@ bool InImageBridgeChildThread();
  *   using ImageBridge), then it just composites the image data normally.
  *
  * This means that there might be a possibility for the ImageBridge to send the first
- * frame before the first layer transaction that will pass the container ID to the 
+ * frame before the first layer transaction that will pass the container ID to the
  * CompositableHost happens. In this (unlikely) case the layer is not composited
  * until the layer transaction happens. This means this scenario is not harmful.
  *
@@ -98,7 +98,7 @@ public:
    * Creates the image bridge with a dedicated thread for ImageBridgeChild.
    *
    * We may want to use a specifi thread in the future. In this case, use
-   * CreateWithThread instead. 
+   * CreateWithThread instead.
    */
   static void StartUp();
 
@@ -127,7 +127,7 @@ public:
    * thread will be paused until the destruction is done.
    */
   static void DestroyBridge();
-  
+
   /**
    * Returns true if the singleton has been created.
    *
@@ -157,7 +157,7 @@ public:
    * Can be called from any thread.
    */
   base::Thread * GetThread() const;
-  
+
   /**
    * Returns the ImageBridgeChild's message loop.
    *

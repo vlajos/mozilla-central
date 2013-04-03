@@ -38,7 +38,7 @@ using namespace mozilla::dom;
 namespace mozilla {
 namespace layers {
 
-typedef nsTArray<SurfaceDescriptor> BufferArray; 
+typedef nsTArray<SurfaceDescriptor> BufferArray;
 typedef std::vector<Edit> EditVector;
 typedef std::set<ShadowableLayer*> ShadowableLayerSet;
 
@@ -157,7 +157,7 @@ struct AutoTxnEnd {
   Transaction* mTxn;
 };
 
-void 
+void
 CompositableForwarder::IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier)
 {
   mMaxTextureSize = aIdentifier.mMaxTextureSize;

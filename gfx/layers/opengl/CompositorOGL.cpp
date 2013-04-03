@@ -111,12 +111,12 @@ FPSState::DrawFPS(TimeStamp aNow,
     { -1.0f + 80.f / viewport[2], 1.0f },
     { -1.0f + 102.f / viewport[2], 1.0f - 42.f / viewport[3] },
     { -1.0f + 102.f / viewport[2], 1.0f },
-    
+
     { -1.0f + 102.f / viewport[2], 1.0f - 42.f / viewport[3] },
     { -1.0f + 102.f / viewport[2], 1.0f },
     { -1.0f + 124.f / viewport[2], 1.0f - 42.f / viewport[3] },
     { -1.0f + 124.f / viewport[2], 1.0f },
-    
+
     { -1.0f + 124.f / viewport[2], 1.0f - 42.f / viewport[3] },
     { -1.0f + 124.f / viewport[2], 1.0f },
     { -1.0f + 146.f / viewport[2], 1.0f - 42.f / viewport[3] },
@@ -511,7 +511,7 @@ CompositorOGL::Initialize()
 //
 // |aTexSize| is the actual size of the texture, as it can be larger
 // than the rectangle given by |aTexCoordRect|.
-void 
+void
 CompositorOGL::BindAndDrawQuadWithTextureRect(ShaderProgramOGL *aProg,
                                               const Rect& aTexCoordRect,
                                               TextureSource *aTexture)
@@ -916,9 +916,9 @@ CompositorOGL::CreateFBOWithTexture(const IntRect& aRect, SurfaceInitMode aInit,
                              LOCAL_GL_LINEAR);
   mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_MAG_FILTER,
                              LOCAL_GL_LINEAR);
-  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_S, 
+  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_S,
                              LOCAL_GL_CLAMP_TO_EDGE);
-  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_T, 
+  mGLContext->fTexParameteri(mFBOTextureTarget, LOCAL_GL_TEXTURE_WRAP_T,
                              LOCAL_GL_CLAMP_TO_EDGE);
   mGLContext->fBindTexture(mFBOTextureTarget, 0);
 
@@ -1129,7 +1129,7 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
       ShaderProgramOGL *program = GetProgram(GetFBOLayerProgramType(), maskType);
 
       surface->BindTexture(LOCAL_GL_TEXTURE0, mFBOTextureTarget);
-    
+
       program->Activate();
       program->SetTextureUnit(0);
       program->SetLayerOpacity(aOpacity);
@@ -1177,7 +1177,7 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
 
         sourceOnBlack->BindTexture(LOCAL_GL_TEXTURE0);
         sourceOnWhite->BindTexture(LOCAL_GL_TEXTURE1);
-      
+
         program->Activate();
         program->SetBlackTextureUnit(0);
         program->SetWhiteTextureUnit(1);

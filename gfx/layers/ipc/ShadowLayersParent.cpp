@@ -19,7 +19,7 @@
 #include "ShadowLayers.h"
 #include "ShadowLayerUtils.h"
 #include "TiledLayerBuffer.h"
-#include "gfxPlatform.h" 
+#include "gfxPlatform.h"
 #include "mozilla/layers/TextureParent.h"
 #include "CompositableHost.h"
 
@@ -34,14 +34,14 @@ namespace layers {
 // Convenience accessors
 static ShadowLayerParent*
 cast(const PLayerParent* in)
-{ 
+{
   return const_cast<ShadowLayerParent*>(
     static_cast<const ShadowLayerParent*>(in));
 }
 
 static CompositableParent*
 cast(const PCompositableParent* in)
-{ 
+{
   return const_cast<CompositableParent*>(
     static_cast<const CompositableParent*>(in));
 }
@@ -227,7 +227,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     case Edit::TOpCreateCanvasLayer: {
       MOZ_LAYERS_LOG(("[ParentSide] CreateCanvasLayer"));
 
-      nsRefPtr<ShadowCanvasLayer> layer = 
+      nsRefPtr<ShadowCanvasLayer> layer =
         layer_manager()->CreateShadowCanvasLayer();
       AsShadowLayer(edit.get_OpCreateCanvasLayer())->Bind(layer);
       break;
@@ -392,7 +392,7 @@ ShadowLayersParent::RecvUpdate(const InfallibleTArray<Edit>& cset,
     case Edit::TOpAttachAsyncCompositable: {
       const OpAttachAsyncCompositable& op = edit.get_OpAttachAsyncCompositable();
       CompositableParent* compositableParent = CompositableMap::Get(op.containerID());
-      MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");  
+      MOZ_ASSERT(compositableParent, "CompositableParent not found in the map");
       Attach(cast(op.layerParent()), compositableParent);
       compositableParent->SetCompositorID(mLayerManager->GetCompositor()->GetCompositorID());
       break;

@@ -46,7 +46,7 @@ public:
 
   /**
    * This function is meant as a helper to know how much shared memory we need
-   * to allocate in a shmem in order to place a shared YCbCr image blob of 
+   * to allocate in a shmem in order to place a shared YCbCr image blob of
    * given dimensions.
    */
   static size_t ComputeMinBufferSize(const gfxIntSize& aYSize,

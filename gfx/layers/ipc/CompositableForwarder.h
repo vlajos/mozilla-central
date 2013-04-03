@@ -66,7 +66,7 @@ public:
    * Tell the compositor that a Compositable is killing its buffer(s),
    * that is TextureClient/Hosts.
    */
-  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) = 0;  
+  virtual void DestroyThebesBuffer(CompositableClient* aCompositable) = 0;
 
   /**
    * Communicate to the compositor that the texture identified by aLayer

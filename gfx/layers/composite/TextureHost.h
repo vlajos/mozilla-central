@@ -83,7 +83,7 @@ public:
   virtual TextureSourceD3D11* AsSourceD3D11() { return nullptr; }
   /**
    * In some rare cases we currently need to consider a group of textures as one
-   * TextureSource, that can be split in sub-TextureSources. 
+   * TextureSource, that can be split in sub-TextureSources.
    */
   virtual TextureSource* GetSubSource(int index) { return nullptr; }
   /**
@@ -172,9 +172,9 @@ public:
    */
   void Update(const SurfaceDescriptor& aImage,
               nsIntRegion *aRegion = nullptr);
-  
+
   /**
-   * Change the current surface of the texture host to aImage. aResult will return 
+   * Change the current surface of the texture host to aImage. aResult will return
    * the previous surface.
    */
   void SwapTextures(const SurfaceDescriptor& aImage,
@@ -272,9 +272,9 @@ public:
 
 protected:
   /**
-   * Should be implemented by the backend-specific TextureHost classes 
-   * 
-   * It should not take a reference to aImage, unless it knows the data 
+   * Should be implemented by the backend-specific TextureHost classes
+   *
+   * It should not take a reference to aImage, unless it knows the data
    * to be thread-safe.
    */
   virtual void UpdateImpl(const SurfaceDescriptor& aImage,
@@ -282,7 +282,7 @@ protected:
   {
     NS_RUNTIMEABORT("Should not be reached");
   }
- 
+
   /**
    * Should be implemented by the backend-specific TextureHost classes.
    *

@@ -195,10 +195,10 @@ public:
   virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
                                                        const nsIntRect& aRect,
                                                        uint32_t aFlags) MOZ_OVERRIDE;
-  
+
   virtual bool SupportsAzureContent() const MOZ_OVERRIDE
-  { 
-    return gfxPlatform::GetPlatform()->SupportsAzureContent(); 
+  {
+    return gfxPlatform::GetPlatform()->SupportsAzureContent();
   }
 
   void DestroyBuffers();

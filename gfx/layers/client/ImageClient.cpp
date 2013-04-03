@@ -134,7 +134,7 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer,
     }
   } else if (image->GetFormat() == SHARED_TEXTURE) {
     EnsureTextureClient(TEXTURE_SHARED_GL_EXTERNAL);
-    
+  
     SharedTextureImage* sharedImage = static_cast<SharedTextureImage*>(image);
     const SharedTextureImage::Data *data = sharedImage->GetData();
 
@@ -145,7 +145,7 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer,
     mTextureClient->SetDescriptor(SurfaceDescriptor(texture));
   } else if (image->GetFormat() == SHARED_RGB) {
     EnsureTextureClient(TEXTURE_SHMEM);
-    
+
     nsIntRect rect(0, 0,
                    image->GetSize().width,
                    image->GetSize().height);

@@ -66,7 +66,7 @@
  * TextureHosts provide access to TextureSources that are views on the
  * Texture data providing the necessary api for Compositor backend to composite
  * them.
- * 
+ *
  * Compositable and Texture clients and hosts are created using factory methods.
  * They should only be created by using their constructor in exceptional
  * circumstances. The factory methods are located:
@@ -162,7 +162,7 @@ enum SurfaceInitMode
  * by CreateRenderTarget or CreateRenderTargetFromSource.
  *
  * The target and viewport methods can be called before any DrawQuad call and
- * affect any subsequent DrawQuad calls. 
+ * affect any subsequent DrawQuad calls.
  */
 class Compositor : public RefCounted<Compositor>
 {
@@ -275,7 +275,7 @@ public:
    * Start a new frame.
    * aClipRectIn is the clip rect for the window in window space (optional).
    * aTransform is the transform from user space to window space.
-   * aRenderBounds bounding rect for rendering, in user space.  
+   * aRenderBounds bounding rect for rendering, in user space.
    * If aClipRectIn is null, this method sets *aClipRectOut to the clip rect
    * actually used for rendering (if aClipRectIn is non-null, we will use that
    * for the clip rect).

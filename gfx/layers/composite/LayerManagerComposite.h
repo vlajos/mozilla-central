@@ -66,7 +66,7 @@ public:
   bool Initialize();
 
   /**
-   * Sets the clipping region for this layer manager. This is important on 
+   * Sets the clipping region for this layer manager. This is important on
    * windows because using OGL we no longer have GDI's native clipping. Therefor
    * widget must tell us what part of the screen is being invalidated,
    * and we should clip to this.
@@ -216,7 +216,7 @@ private:
 
   /** Current root layer. */
   LayerComposite *RootLayer() const;
- 
+
   /**
    * Recursive helper method for use by ComputeRenderIntegrity. Subtracts
    * any incomplete rendering on aLayer from aScreenRegion. Any low-precision

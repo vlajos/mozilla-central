@@ -116,11 +116,11 @@ bool ImageBridgeParent::RecvStop()
 
 static  uint64_t GenImageContainerID() {
   static uint64_t sNextImageID = 1;
-  
+
   ++sNextImageID;
   return sNextImageID;
 }
-  
+
 PGrallocBufferParent*
 ImageBridgeParent::AllocPGrallocBuffer(const gfxIntSize& aSize,
                                        const uint32_t& aFormat,

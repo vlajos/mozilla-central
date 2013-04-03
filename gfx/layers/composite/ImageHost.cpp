@@ -62,10 +62,10 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
     MOZ_ASSERT(false, "failed to lock texture host");
     return;
   }
-  
+
   RefPtr<TexturedEffect> effect =
     CreateTexturedEffect(mTextureHost, aFilter);
-  
+
   aEffectChain.mPrimaryEffect = effect;
 
   TileIterator* it = mTextureHost->AsTileIterator();

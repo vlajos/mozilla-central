@@ -99,7 +99,7 @@ static void DeferredDeleteCompositorParent(CompositorParent* aNowReadyToDie)
 static void DeleteCompositorThread()
 {
   if (NS_IsMainThread()){
-    delete sCompositorThread;  
+    delete sCompositorThread;
     sCompositorThread = nullptr;
     sCompositorLoop = nullptr;
     sCompositorThreadID = 0;
@@ -193,10 +193,10 @@ CompositorParent::CompositorParent(nsIWidget* aWidget,
                     "The compositor thread must be Initialized before instanciating a COmpositorParent.");
   MOZ_COUNT_CTOR(CompositorParent);
   mCompositorID = 0;
-  // FIXME: This holds on the the fact that right now the only thing that 
-  // can destroy this instance is initialized on the compositor thread after 
+  // FIXME: This holds on the the fact that right now the only thing that
+  // can destroy this instance is initialized on the compositor thread after
   // this task has been processed.
-  CompositorLoop()->PostTask(FROM_HERE, NewRunnableFunction(&AddCompositor, 
+  CompositorLoop()->PostTask(FROM_HERE, NewRunnableFunction(&AddCompositor,
                                                           this, &mCompositorID));
 
   if (!sCurrentCompositor) {
@@ -248,12 +248,12 @@ CompositorParent::RecvStop()
 {
   Destroy();
   // There are chances that the ref count reaches zero on the main thread shortly
-  // after this function returns while some ipdl code still needs to run on 
+  // after this function returns while some ipdl code still needs to run on
   // this thread.
-  // We must keep the compositor parent alive untill the code handling message 
+  // We must keep the compositor parent alive untill the code handling message
   // reception is finished on this thread.
   this->AddRef(); // Corresponds to DeferredDeleteCompositorParent's Release
-  CompositorLoop()->PostTask(FROM_HERE, 
+  CompositorLoop()->PostTask(FROM_HERE,
                            NewRunnableFunction(&DeferredDeleteCompositorParent,
                                                this));
   return true;
@@ -516,7 +516,7 @@ private:
     bool isO2portrait = (o2 == eScreenOrientation_PortraitPrimary || o2 == eScreenOrientation_PortraitSecondary);
     return !(isO1portrait ^ isO2portrait);
   }
-  
+
   bool ContentMightReflowOnOrientationChange(nsIntRect& rect) {
     return rect.width != rect.height;
   }
@@ -888,7 +888,7 @@ CompositorParent::TransformScrollableLayer(Layer* aLayer, const gfx3DMatrix& aRo
   // We must apply the resolution scale before a pan/zoom transform, so we call
   // GetTransform here.
   const gfx3DMatrix& currentTransform = aLayer->GetTransform();
-    
+
   gfx3DMatrix treeTransform;
 
   // Translate fixed position layers so that they stay in the correct position
@@ -1049,7 +1049,7 @@ CompositorParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
     }
     mForceCompositionTask = NewRunnableMethod(this, &CompositorParent::ForceComposition);
     ScheduleTask(mForceCompositionTask, gfxPlatform::GetPlatform()->GetOrientationSyncMillis());
-  } 
+  }
 
   // Instruct the LayerManager to update its render bounds now. Since all the orientation
   // change, dimension change would be done at the stage, update the size here is free of
@@ -1142,8 +1142,8 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
                                                   mEGLSurfaceSize.height,
                                                   mRenderToEGLSurface));
     mWidget = nullptr;
-    mLayerManager->SetCompositorID(mCompositorID);  
-    
+    mLayerManager->SetCompositorID(mCompositorID);
+
     if (!mLayerManager->Initialize()) {
       NS_ERROR("Failed to init Compositor");
       return NULL;
@@ -1204,7 +1204,7 @@ void CompositorParent::CreateCompositorMap()
 void CompositorParent::DestroyCompositorMap()
 {
   if (sCompositorMap != nullptr) {
-    NS_ASSERTION(sCompositorMap->empty(), 
+    NS_ASSERTION(sCompositorMap->empty(),
                  "The Compositor map should be empty when destroyed>");
     delete sCompositorMap;
     sCompositorMap = nullptr;
@@ -1220,7 +1220,7 @@ CompositorParent* CompositorParent::GetCompositor(uint64_t id)
 void CompositorParent::AddCompositor(CompositorParent* compositor, uint64_t* outID)
 {
   static uint64_t sNextID = 1;
-  
+
   ++sNextID;
   (*sCompositorMap)[sNextID] = compositor;
   *outID = sNextID;
@@ -1421,7 +1421,7 @@ CrossProcessCompositorParent::AllocPLayers(const LayersBackend& aBackendType,
   *aTextureFactoryIdentifier = lm->GetTextureFactoryIdentifier();
   return new ShadowLayersParent(lm->AsShadowManager(), this, aId);
 }
- 
+
 bool
 CrossProcessCompositorParent::DeallocPLayers(PLayersParent* aLayers)
 {

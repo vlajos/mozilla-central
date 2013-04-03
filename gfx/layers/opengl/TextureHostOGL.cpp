@@ -2,7 +2,7 @@
 * This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
- 
+
 #include "TextureHostOGL.h"
 #include "ipc/AutoOpenSurface.h"
 #include "gfx2DGlue.h"
@@ -66,7 +66,7 @@ MakeTextureIfNeeded(gl::GLContext* gl, GLenum aTarget, GLuint& aTexture)
   gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_WRAP_S, LOCAL_GL_CLAMP_TO_EDGE);
   gl->fTexParameteri(aTarget, LOCAL_GL_TEXTURE_WRAP_T, LOCAL_GL_CLAMP_TO_EDGE);
 }
- 
+
 static gl::TextureImage::Flags
 FlagsToGLFlags(TextureFlags aFlags)
 {
@@ -78,7 +78,7 @@ FlagsToGLFlags(TextureFlags aFlags)
     result |= TextureImage::NeedsYFlip;
   if (aFlags & ForceSingleTile)
     result |= TextureImage::ForceSingleTile;
- 
+
   return static_cast<gl::TextureImage::Flags>(result);
 }
 
@@ -198,7 +198,7 @@ TextureImageTextureHostOGL::Lock()
 
   NS_ASSERTION(mTexture->GetContentType() != gfxASurface::CONTENT_ALPHA,
                 "Image layer has alpha image");
-  
+
   mFormat = FormatFromShaderType(mTexture->GetShaderProgramType());
 
   return true;
@@ -261,7 +261,7 @@ SharedTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
     mFormat = FormatFromShaderType(mShaderProgram);
   }
 }
- 
+
 bool
 SharedTextureHostOGL::Lock()
 {
@@ -387,7 +387,7 @@ SurfaceStreamHostOGL::Lock()
                                                  true);
     mTextureHandle = mUploadTexture;
   }
-    
+
   mFormat = FormatFromShaderType(mShaderProgram);
 
   MOZ_ASSERT(mTextureHandle);
@@ -396,7 +396,7 @@ SurfaceStreamHostOGL::Lock()
                       LOCAL_GL_TEXTURE_WRAP_S,
                       LOCAL_GL_CLAMP_TO_EDGE);
   mGL->fTexParameteri(LOCAL_GL_TEXTURE_2D,
-                      LOCAL_GL_TEXTURE_WRAP_T, 
+                      LOCAL_GL_TEXTURE_WRAP_T,
                       LOCAL_GL_CLAMP_TO_EDGE);
   return true;
 }
@@ -465,7 +465,7 @@ YCbCrTextureHostOGL::UpdateImpl(const SurfaceDescriptor& aImage,
 
   nsIntRegion yRegion(nsIntRect(0, 0, gfxSize.width, gfxSize.height));
   nsIntRegion cbCrRegion(nsIntRect(0, 0, gfxCbCrSize.width, gfxCbCrSize.height));
-  
+
   mYTexture->mTexImage->DirectUpdate(tempY, yRegion);
   mCbTexture->mTexImage->DirectUpdate(tempCb, cbCrRegion);
   mCrTexture->mTexImage->DirectUpdate(tempCr, cbCrRegion);
@@ -503,7 +503,7 @@ TiledTextureHostOGL::SetCompositor(Compositor* aCompositor)
   if (mGL && !glCompositor) {
     DeleteTextures();
   }
-  mGL = glCompositor ? glCompositor->gl() : nullptr;  
+  mGL = glCompositor ? glCompositor->gl() : nullptr;
 }
 
 void

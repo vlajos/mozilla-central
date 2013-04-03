@@ -94,7 +94,7 @@ ImageBridgeChild::UpdatePictureRect(CompositableClient* aCompositable,
   mTxn->AddNoSwapEdit(OpUpdatePictureRect(nullptr, aCompositable->GetIPDLActor(), aRect));
 }
 
-// Singleton 
+// Singleton
 static ImageBridgeChild *sImageBridgeChildSingleton = nullptr;
 static Thread *sImageBridgeChildThread = nullptr;
 
@@ -264,7 +264,7 @@ static void ReleaseImageClientNow(ImageClient* aClient)
   MOZ_ASSERT(InImageBridgeChildThread());
   aClient->Release();
 }
- 
+
 // static
 void ImageBridgeChild::DispatchReleaseImageClient(ImageClient* aClient)
 {
@@ -406,7 +406,7 @@ void ImageBridgeChild::DestroyBridge()
 {
   NS_ABORT_IF_FALSE(!InImageBridgeChildThread(),
                     "This method must not be called in this thread.");
-  // ...because we are about to dispatch synchronous messages to the 
+  // ...because we are about to dispatch synchronous messages to the
   // ImageBridgeChild thread.
 
   if (!IsCreated()) {
@@ -417,14 +417,14 @@ void ImageBridgeChild::DestroyBridge()
   ReentrantMonitorAutoEnter autoMon(barrier);
 
   bool done = false;
-  sImageBridgeChildSingleton->GetMessageLoop()->PostTask(FROM_HERE, 
+  sImageBridgeChildSingleton->GetMessageLoop()->PostTask(FROM_HERE,
                   NewRunnableFunction(&StopImageBridgeSync, &barrier, &done));
   while (!done) {
     barrier.Wait();
   }
 
   done = false;
-  sImageBridgeChildSingleton->GetMessageLoop()->PostTask(FROM_HERE, 
+  sImageBridgeChildSingleton->GetMessageLoop()->PostTask(FROM_HERE,
                   NewRunnableFunction(&DeleteImageBridgeSync, &barrier, &done));
   while (!done) {
     barrier.Wait();
@@ -444,7 +444,7 @@ MessageLoop * ImageBridgeChild::GetMessageLoop() const
 
 void ImageBridgeChild::ConnectAsync(ImageBridgeParent* aParent)
 {
-  GetMessageLoop()->PostTask(FROM_HERE, NewRunnableFunction(&ConnectImageBridge, 
+  GetMessageLoop()->PostTask(FROM_HERE, NewRunnableFunction(&ConnectImageBridge,
                                                             this, aParent));
 }
 
@@ -610,7 +610,7 @@ ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
   }
 }
 
-bool 
+bool
 ImageBridgeChild::AllocShmem(size_t aSize,
                              ipc::SharedMemory::SharedMemoryType aType,
                              ipc::Shmem* aShmem)
@@ -670,7 +670,7 @@ ImageBridgeChild::DispatchAllocShmemInternal(size_t aSize,
   };
   bool done = false;
 
-  GetMessageLoop()->PostTask(FROM_HERE, 
+  GetMessageLoop()->PostTask(FROM_HERE,
                              NewRunnableFunction(&ProxyAllocShmemNow,
                                                  &params,
                                                  &barrier,
@@ -707,7 +707,7 @@ ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
     ReentrantMonitorAutoEnter autoMon(barrier);
 
     bool done = false;
-    GetMessageLoop()->PostTask(FROM_HERE, 
+    GetMessageLoop()->PostTask(FROM_HERE,
                                NewRunnableFunction(&ProxyDeallocShmemNow,
                                                    this,
                                                    &aShmem,

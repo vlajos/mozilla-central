@@ -31,7 +31,7 @@ TemporaryRef<TextureHost> CreateTextureHostD3D11(SurfaceDescriptorType aDescript
                                                  uint32_t aTextureFlags);
 #endif // MOZ_ENABLE_D3D10_LAYER
 
-/* static */ TemporaryRef<TextureHost> 
+/* static */ TemporaryRef<TextureHost>
 TextureHost::CreateTextureHost(SurfaceDescriptorType aDescriptorType,
                                uint32_t aTextureHostFlags,
                                uint32_t aTextureFlags)

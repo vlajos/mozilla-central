@@ -105,7 +105,7 @@ public:
   void NotifyShadowTreeTransaction();
 
   /**
-   * Returns a pointer to the compositor corresponding to the given ID. 
+   * Returns a pointer to the compositor corresponding to the given ID.
    */
   static CompositorParent* GetCompositor(uint64_t id);
 
@@ -206,7 +206,7 @@ private:
    * Creates a global map referencing each compositor by ID.
    *
    * This map is used by the ImageBridge protocol to trigger
-   * compositions without having to keep references to the 
+   * compositions without having to keep references to the
    * compositor
    */
   static void CreateCompositorMap();
@@ -216,9 +216,9 @@ private:
    * Creates the compositor thread.
    *
    * All compositors live on the same thread.
-   * The thread is not lazily created on first access to avoid dealing with 
+   * The thread is not lazily created on first access to avoid dealing with
    * thread safety. Therefore it's best to create and destroy the thread when
-   * we know we areb't using it (So creating/destroying along with gfxPlatform 
+   * we know we areb't using it (So creating/destroying along with gfxPlatform
    * looks like a good place).
    */
   static bool CreateThread();
