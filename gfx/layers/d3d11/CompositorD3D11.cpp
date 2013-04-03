@@ -519,8 +519,11 @@ CompositorD3D11::DrawQuad(const gfx::Rect &aRect, const gfx::Rect &aClipRect,
 }
 
 void
-CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                            const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut)
+CompositorD3D11::BeginFrame(const Rect *aClipRectIn,
+                            const gfxMatrix& aTransform,
+                            const Rect& aRenderBounds,
+                            Rect *aClipRectOut,
+                            Rect *aRenderBoundsOut)
 {
   VerifyBufferSize();
   UpdateRenderTarget();
@@ -538,9 +541,10 @@ CompositorD3D11::BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTran
   SetRenderTarget(mDefaultRT);
 
   if (aClipRectOut) {
-    nsIntRect rect;
-    mWidget->GetClientBounds(rect);
     *aClipRectOut = Rect(0, 0, rect.width, rect.height);
+  }
+  if (aRenderBoundsOut) {
+    *aRenderBoundsOut = Rect(0, 0, rect.width, rect.height);
   }
 
   FLOAT black[] = { 0, 0, 0, 0 };

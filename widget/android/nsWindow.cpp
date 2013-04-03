@@ -2248,7 +2248,7 @@ nsWindow::GetIMEUpdatePreference()
 }
 
 void
-nsWindow::DrawWindowUnderlay()
+nsWindow::DrawWindowUnderlay(LayerManager* aManager, nsIntRect aRect)
 {
     JNIEnv *env = GetJNIForThread();
     NS_ABORT_IF_FALSE(env, "No JNI environment at DrawWindowUnderlay()!");
@@ -2270,7 +2270,7 @@ nsWindow::DrawWindowUnderlay()
 }
 
 void
-nsWindow::DrawWindowOverlay()
+nsWindow::DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect)
 {
     JNIEnv *env = GetJNIForThread();
     NS_ABORT_IF_FALSE(env, "No JNI environment at DrawWindowOverlay()!");

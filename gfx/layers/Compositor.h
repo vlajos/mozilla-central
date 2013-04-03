@@ -279,11 +279,14 @@ public:
    * If aClipRectIn is null, this method sets *aClipRectOut to the clip rect
    * actually used for rendering (if aClipRectIn is non-null, we will use that
    * for the clip rect).
+   * If aRenderBoundsOut is non-null, it will be set to the render bounds
+   * actually used by the compositor in window space.
    */
   virtual void BeginFrame(const gfx::Rect *aClipRectIn,
                           const gfxMatrix& aTransform,
                           const gfx::Rect& aRenderBounds,
-                          gfx::Rect *aClipRectOut = nullptr) = 0;
+                          gfx::Rect *aClipRectOut = nullptr,
+                          gfx::Rect *aRenderBoundsOut = nullptr) = 0;
 
   /**
    * Flush the current frame to the screen and tidy up.

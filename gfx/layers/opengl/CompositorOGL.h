@@ -182,8 +182,11 @@ private:
   /* Start a new frame. If aClipRectIn is null and aClipRectOut is non-null,
    * sets *aClipRectOut to the screen dimensions.
    */
-  virtual void BeginFrame(const gfx::Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          const gfx::Rect& aRenderBounds, gfx::Rect *aClipRectOut = nullptr) MOZ_OVERRIDE;
+  virtual void BeginFrame(const gfx::Rect *aClipRectIn,
+                          const gfxMatrix& aTransform,
+                          const gfx::Rect& aRenderBounds, 
+                          gfx::Rect *aClipRectOut = nullptr,
+                          gfx::Rect *aRenderBoundsOut = nullptr) MOZ_OVERRIDE;
 
   gl::ShaderProgramType GetProgramTypeForEffect(Effect* aEffect) const;
 

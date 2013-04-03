@@ -853,7 +853,7 @@ LayerManagerOGL::Render()
 #endif
 
   // Allow widget to render a custom background.
-  mWidget->DrawWindowUnderlay();
+  mWidget->DrawWindowUnderlay(this, rect);
 
   // Reset some state that might of been clobbered by the underlay.
   mGLContext->fBlendFuncSeparate(LOCAL_GL_ONE, LOCAL_GL_ONE_MINUS_SRC_ALPHA,
@@ -864,7 +864,7 @@ LayerManagerOGL::Render()
                            nsIntPoint(0, 0));
 
   // Allow widget to render a custom foreground too.
-  mWidget->DrawWindowOverlay();
+  mWidget->DrawWindowOverlay(this, rect);
 
 #ifdef MOZ_DUMP_PAINTING
   if (gfxUtils::sDumpPainting) {

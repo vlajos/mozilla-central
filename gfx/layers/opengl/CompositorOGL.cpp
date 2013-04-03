@@ -760,7 +760,8 @@ CalculatePOTSize(const IntSize& aSize, GLContext* gl)
 
 void
 CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
-                          const Rect& aRenderBounds, Rect *aClipRectOut)
+                          const Rect& aRenderBounds, Rect *aClipRectOut,
+                          Rect *aRenderBoundsOut)
 {
   MOZ_ASSERT(!mFrameInProgress, "frame still in progress (should have called EndFrame or AbortFrame");
 
@@ -777,11 +778,14 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
       // sent atomically with rotation changes
       nsIntRect intRect;
       mWidget->GetClientBounds(intRect);
-      rect = gfxRect(intRect);
+      rect = gfxRect(intRect.x, intRect.y, intRect.width, intRect.height);
     }
   }
 
   rect = aTransform.TransformBounds(rect);
+  if (aRenderBoundsOut) {
+    *aRenderBoundsOut = Rect(rect.x, rect.y, rect.width, rect.height);
+  }
 
   GLint width = rect.width;
   GLint height = rect.height;
@@ -839,9 +843,6 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
   mGLContext->fClearColor(0.0, 0.0, 0.0, 0.0);
   mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT | LOCAL_GL_DEPTH_BUFFER_BIT);
 #endif
-
-  // Allow widget to render a custom background.
-  mWidget->DrawWindowUnderlay();
 }
 
 void
@@ -1210,9 +1211,6 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
 void
 CompositorOGL::EndFrame()
 {
-  // Allow widget to render a custom foreground.
-  mWidget->DrawWindowOverlay();
-
   MOZ_ASSERT(mCurrentRenderTarget == mWindowRenderTarget, "Rendering target not properly restored");
 
 #ifdef MOZ_DUMP_PAINTING

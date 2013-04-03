@@ -234,19 +234,32 @@ LayerManagerComposite::Render()
 
   nsIntRect clipRect;
   Rect bounds(mRenderBounds.x, mRenderBounds.y, mRenderBounds.width, mRenderBounds.height);
+  Rect actualBounds;
   if (mRoot->GetClipRect()) {
     clipRect = *mRoot->GetClipRect();
     WorldTransformRect(clipRect);
     Rect rect(clipRect.x, clipRect.y, clipRect.width, clipRect.height);
-    mCompositor->BeginFrame(&rect, mWorldMatrix, bounds);
+    mCompositor->BeginFrame(&rect, mWorldMatrix, bounds, nullptr, &actualBounds);
   } else {
     gfx::Rect rect;
-    mCompositor->BeginFrame(nullptr, mWorldMatrix, bounds, &rect);
+    mCompositor->BeginFrame(nullptr, mWorldMatrix, bounds, &rect, &actualBounds);
     clipRect = nsIntRect(rect.x, rect.y, rect.width, rect.height);
   }
 
+  // Allow widget to render a custom background.
+  mCompositor->GetWidget()->DrawWindowUnderlay(this, nsIntRect(actualBounds.x,
+                                                               actualBounds.y,
+                                                               actualBounds.width,
+                                                               actualBounds.height));
+
   // Render our layers.
   RootLayer()->RenderLayer(nsIntPoint(0, 0), clipRect);
+
+  // Allow widget to render a custom foreground.
+  mCompositor->GetWidget()->DrawWindowOverlay(this, nsIntRect(actualBounds.x,
+                                                              actualBounds.y,
+                                                              actualBounds.width,
+                                                              actualBounds.height));
 
   mCompositor->EndFrame();
 }
@@ -476,8 +489,7 @@ LayerManagerComposite::ComputeRenderIntegrity()
 
   nsIntRegion screenRegion(screenRect);
   nsIntRegion lowPrecisionScreenRegion(screenRect);
-gfx3DMatrix transform;
-  //nsIntRect screenRect(0, 0, mCompositor->mWidgetSize.width, mCompositor->mWidgetSize.height);
+  gfx3DMatrix transform;
   ComputeRenderIntegrityInternal(root, screenRegion,
                                  lowPrecisionScreenRegion, transform);
 
