@@ -193,27 +193,16 @@ static void ConnectImageBridge(ImageBridgeChild * child, ImageBridgeParent * par
 
 ImageBridgeChild::ImageBridgeChild()
 {
-#ifdef MOZ_LAYERS_HAVE_LOG
-  mDebugAllocCount = 0;
-#endif
   mTxn = new CompositableTransaction();
 }
 ImageBridgeChild::~ImageBridgeChild()
 {
   delete mTxn;
-#ifdef MOZ_LAYERS_HAVE_LOG
-  if (mDebugAllocCount != 0) {
-    printf("ImageBridgeChild deleted [alloc - dealloc = %i]\n", mDebugAllocCount);
-  }
-#endif
 }
 
 void
 ImageBridgeChild::Connect(CompositableClient* aCompositable)
 {
-#ifdef GFX_COMPOSITOR_LOGGING
-  printf("ImageBridgeChild::Connect\n");
-#endif
   MOZ_ASSERT(aCompositable);
   uint64_t id = 0;
   CompositableChild* child = static_cast<CompositableChild*>(
@@ -615,9 +604,6 @@ ImageBridgeChild::AllocUnsafeShmem(size_t aSize,
                                    ipc::Shmem* aShmem)
 {
   if (InImageBridgeChildThread()) {
-#ifdef MOZ_LAYERS_HAVE_LOG
-    printf_stderr(" ++ [%i] ImageBridge AllocShmem (unsafe)\n", ++mDebugAllocCount);
-#endif
     return PImageBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
   } else {
     return DispatchAllocShmemInternal(aSize, aType, aShmem, true); // true: unsafe
@@ -630,9 +616,6 @@ ImageBridgeChild::AllocShmem(size_t aSize,
                              ipc::Shmem* aShmem)
 {
   if (InImageBridgeChildThread()) {
-#ifdef MOZ_LAYERS_HAVE_LOG
-    printf(" ++ [%i] ImageBridge AllocShmem\n", ++mDebugAllocCount);
-#endif
     return PImageBridgeChild::AllocShmem(aSize, aType, aShmem);
   } else {
     return DispatchAllocShmemInternal(aSize, aType, aShmem, false); // false: unsafe
@@ -718,9 +701,6 @@ void
 ImageBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
 {
   if (InImageBridgeChildThread()) {
-#ifdef MOZ_LAYERS_HAVE_LOG
-    printf_stderr(" -- [%i] ImageBridge DeallocShmem\n", --mDebugAllocCount);
-#endif
     PImageBridgeChild::DeallocShmem(aShmem);
   } else {
     ReentrantMonitor barrier("AllocatorProxy Dealloc");

@@ -56,15 +56,15 @@ bool InImageBridgeChildThread();
  * or (B) it does not use ImageBridge:
  *
  * - When an ImageContainer calls its method SetCurrentImage:
- *   - (A) The image is sent directly to the compositor process through the 
+ *   - (A) The image is sent directly to the compositor process through the
  *   ImageBridge IPDL protocol.
- *   On the compositor side the image is stored in a global table that associates 
- *   the image with an ID corresponding to the ImageContainer, and a composition is 
+ *   On the compositor side the image is stored in a global table that associates
+ *   the image with an ID corresponding to the ImageContainer, and a composition is
  *   triggered.
- *   - (B) Since it does not have an ImageBridge, the image is not sent yet. 
- *   instead the will be sent to the compositor during the next layer transaction 
+ *   - (B) Since it does not have an ImageBridge, the image is not sent yet.
+ *   instead the will be sent to the compositor during the next layer transaction
  *   (on the main thread).
- *  
+ *
  * - During a Layer transaction:
  *   - (A) The ImageContainer uses ImageBridge. The image is already available to the
  *   compositor process because it has been sent with SetCurrentImage. Yet, the 
@@ -72,20 +72,20 @@ bool InImageBridgeChildThread();
  *   ImageContainer to access the Image. So during the Swap operation that happens
  *   in the transaction, we swap the container ID rather than the image data.
  *   - (B) Since the ImageContainer does not use ImageBridge, the image data is swaped.
- *  
+ *
  * - During composition:
  *   - (A) The CompositableHost has an AsyncID, it looks up the ID in the 
  *   global table to see if there is an image. If there is no image, nothing is rendered.
  *   - (B) The CompositableHost has image data rather than an ID (meaning it is not
  *   using ImageBridge), then it just composites the image data normally.
  *
- * This means that there might be a possibility for the ImageBridge to send the first 
+ * This means that there might be a possibility for the ImageBridge to send the first
  * frame before the first layer transaction that will pass the container ID to the 
- * CompositableHost happens. In this (unlikely) case the layer is not composited 
+ * CompositableHost happens. In this (unlikely) case the layer is not composited
  * until the layer transaction happens. This means this scenario is not harmful.
  *
  * Since sending an image through imageBridge triggers compositing, the main thread is
- * not used at all (except for the very first transaction that provides the 
+ * not used at all (except for the very first transaction that provides the
  * CompositableHost with an AsyncID).
  */
 class ImageBridgeChild : public PImageBridgeChild
@@ -106,10 +106,10 @@ public:
   StartUpInChildProcess(Transport* aTransport, ProcessId aOtherProcess);
 
   /**
-   * Destroys the image bridge by calling DestroyBridge, and destroys the 
+   * Destroys the image bridge by calling DestroyBridge, and destroys the
    * ImageBridge's thread.
    *
-   * If you don't want to destroy the thread, call DestroyBridge directly 
+   * If you don't want to destroy the thread, call DestroyBridge directly
    * instead.
    */
   static void ShutDown();
@@ -123,7 +123,7 @@ public:
    * Destroys The ImageBridge protcol.
    *
    * The actual destruction happens synchronously on the ImageBridgeChild thread
-   * which means that if this function is called from another thread, the current 
+   * which means that if this function is called from another thread, the current
    * thread will be paused until the destruction is done.
    */
   static void DestroyBridge();
@@ -304,9 +304,6 @@ protected:
                                   Shmem* aShmem,
                                   bool aUnsafe);
 
-#ifdef MOZ_LAYERS_HAVE_LOG
-  int mDebugAllocCount;
-#endif
   CompositableTransaction* mTxn;
 
   virtual PGrallocBufferChild* AllocGrallocBuffer(const gfxIntSize& aSize,
