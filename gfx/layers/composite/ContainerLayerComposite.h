@@ -38,21 +38,21 @@ public:
   void RepositionChild(Layer* aChild, Layer* aAfter);
 
   // LayerComposite Implementation
-  virtual Layer* GetLayer() { return this; }
+  virtual Layer* GetLayer() MOZ_OVERRIDE { return this; }
 
-  virtual void Destroy();
+  virtual void Destroy() MOZ_OVERRIDE;
 
   LayerComposite* GetFirstChildComposite();
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect);
+                           const nsIntRect& aClipRect) MOZ_OVERRIDE;
 
-  virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
+  virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface) MOZ_OVERRIDE
   {
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
 
-  virtual void CleanupResources();
+  virtual void CleanupResources() MOZ_OVERRIDE;
 
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
@@ -60,7 +60,7 @@ public:
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "ContainerLayerComposite"; }
+  virtual const char* Name() const MOZ_OVERRIDE { return "ContainerLayerComposite"; }
 #endif
 };
 
@@ -77,16 +77,16 @@ public:
   ~RefLayerComposite();
 
   /** LayerOGL implementation */
-  Layer* GetLayer() { return this; }
+  Layer* GetLayer() MOZ_OVERRIDE { return this; }
 
-  void Destroy();
+  void Destroy() MOZ_OVERRIDE;
 
   LayerComposite* GetFirstChildComposite();
 
   virtual void RenderLayer(const nsIntPoint& aOffset,
-                           const nsIntRect& aClipRect);
+                           const nsIntRect& aClipRect) MOZ_OVERRIDE;
 
-  virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
+  virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface) MOZ_OVERRIDE
   {
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
@@ -97,7 +97,7 @@ public:
   CompositableHost* GetCompositableHost() MOZ_OVERRIDE { return nullptr; }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "RefLayerComposite"; }
+  virtual const char* Name() const MOZ_OVERRIDE { return "RefLayerComposite"; }
 #endif
 };
 

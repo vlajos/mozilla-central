@@ -46,7 +46,7 @@ public:
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "ColorLayerComposite"; }
+  virtual const char* Name() const MOZ_OVERRIDE { return "ColorLayerComposite"; }
 #endif
 };
 

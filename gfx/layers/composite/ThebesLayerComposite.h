@@ -61,10 +61,10 @@ public:
   virtual void EnsureBuffer(CompositableType aHostType) MOZ_OVERRIDE;
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "ThebesLayerComposite"; }
+  virtual const char* Name() const MOZ_OVERRIDE { return "ThebesLayerComposite"; }
 
 protected:
-  virtual nsACString& PrintInfo(nsACString& aTo, const char* aPrefix);
+  virtual nsACString& PrintInfo(nsACString& aTo, const char* aPrefix) MOZ_OVERRIDE;
 #endif
 
 private:

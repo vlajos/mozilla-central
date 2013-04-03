@@ -169,8 +169,8 @@ ContainerLayerComposite::~ContainerLayerComposite()
   // are automatically cleaned up by IPDL-generated code.
   //
   // In the common case of normal shutdown, either
-  // LayerManagerOGL::Destroy(), a parent
-  // *ContainerLayerOGL::Destroy(), or Disconnect() will trigger
+  // LayerManagerComposite::Destroy(), a parent
+  // *ContainerLayerComposite::Destroy(), or Disconnect() will trigger
   // cleanup of our resources.
   while (mFirstChild) {
     RemoveChild(mFirstChild);

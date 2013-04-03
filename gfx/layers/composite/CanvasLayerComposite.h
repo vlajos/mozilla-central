@@ -36,15 +36,12 @@ public:
     NS_RUNTIMEABORT("Incompatibe surface type");
   }
 
-  // This isn't meaningful for shadow canvas.
-  virtual void Updated(const nsIntRect&) {}
-
   virtual LayerRenderState GetRenderState() MOZ_OVERRIDE;
 
   // ShadowCanvasLayer impl
   virtual void Swap(const SurfaceDescriptor& aNewFront,
                     bool needYFlip,
-                    SurfaceDescriptor* aNewBack)
+                    SurfaceDescriptor* aNewBack) MOZ_OVERRIDE
   {
     NS_ERROR("Should never be called");
   }
@@ -68,10 +65,10 @@ public:
   virtual LayerComposite* AsLayerComposite() MOZ_OVERRIDE { return this; }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return "CanvasLayerComposite"; }
+  virtual const char* Name() const MOZ_OVERRIDE { return "CanvasLayerComposite"; }
 
 protected:
-  virtual nsACString& PrintInfo(nsACString& aTo, const char* aPrefix);
+  virtual nsACString& PrintInfo(nsACString& aTo, const char* aPrefix) MOZ_OVERRIDE;
 #endif
 
 private:

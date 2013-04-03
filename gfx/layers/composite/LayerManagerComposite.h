@@ -82,69 +82,68 @@ public:
   /**
    * LayerManager implementation.
    */
-  virtual ShadowLayerManager* AsShadowManager()
+  virtual ShadowLayerManager* AsShadowManager() MOZ_OVERRIDE
   {
     return this;
   }
 
   void UpdateRenderBounds(const nsIntRect& aRect);
 
-  void BeginTransaction();
-  void BeginTransactionWithTarget(gfxContext* aTarget);
+  void BeginTransaction() MOZ_OVERRIDE;
+  void BeginTransactionWithTarget(gfxContext* aTarget) MOZ_OVERRIDE;
 
-  void EndConstruction();
-  virtual void NotifyShadowTreeTransaction()
+  virtual void NotifyShadowTreeTransaction() MOZ_OVERRIDE
   {
     mCompositor->NotifyLayersTransaction();
   }
 
-  virtual bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT);
+  virtual bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT) MOZ_OVERRIDE;
   virtual void EndTransaction(DrawThebesLayerCallback aCallback,
                               void* aCallbackData,
-                              EndTransactionFlags aFlags = END_DEFAULT);
+                              EndTransactionFlags aFlags = END_DEFAULT) MOZ_OVERRIDE;
 
-  virtual void SetRoot(Layer* aLayer) { mRoot = aLayer; }
+  virtual void SetRoot(Layer* aLayer) MOZ_OVERRIDE { mRoot = aLayer; }
 
-  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize)
+  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) MOZ_OVERRIDE
   {
     return mCompositor->CanUseCanvasLayerForSize(aSize);
   }
 
-  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier()
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {
     return mCompositor->GetTextureFactoryIdentifier();
   }
 
-  virtual int32_t GetMaxTextureSize() const
+  virtual int32_t GetMaxTextureSize() const MOZ_OVERRIDE
   {
     return mCompositor->GetMaxTextureSize();
   }
 
-  virtual already_AddRefed<ThebesLayer> CreateThebesLayer();
-  virtual already_AddRefed<ContainerLayer> CreateContainerLayer();
-  virtual already_AddRefed<ImageLayer> CreateImageLayer();
-  virtual already_AddRefed<ColorLayer> CreateColorLayer();
-  virtual already_AddRefed<CanvasLayer> CreateCanvasLayer();
-  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer();
-  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer();
-  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer();
-  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer();
-  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer();
-  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer();
+  virtual already_AddRefed<ThebesLayer> CreateThebesLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ContainerLayer> CreateContainerLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ImageLayer> CreateImageLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ColorLayer> CreateColorLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<CanvasLayer> CreateCanvasLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ShadowThebesLayer> CreateShadowThebesLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ShadowContainerLayer> CreateShadowContainerLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ShadowImageLayer> CreateShadowImageLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer() MOZ_OVERRIDE;
+  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer() MOZ_OVERRIDE;
 
-  virtual LayersBackend GetBackendType()
+  virtual LayersBackend GetBackendType() MOZ_OVERRIDE
   {
     MOZ_ASSERT(false, "Shouldn't be called for composited layer manager");
     return LAYERS_NONE;
   }
-  virtual void GetBackendName(nsAString& name)
+  virtual void GetBackendName(nsAString& name) MOZ_OVERRIDE
   {
     MOZ_ASSERT(false, "Shouldn't be called for composited layer manager");
     name.AssignLiteral("Composite");
   }
 
   virtual already_AddRefed<gfxASurface>
-    CreateOptimalMaskSurface(const gfxIntSize &aSize);
+    CreateOptimalMaskSurface(const gfxIntSize &aSize) MOZ_OVERRIDE;
 
 
   DrawThebesLayerCallback GetThebesLayerCallback() const
@@ -168,7 +167,7 @@ public:
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() const { return ""; }
+  virtual const char* Name() const MOZ_OVERRIDE { return ""; }
 #endif // MOZ_LAYERS_HAVE_LOG
 
   enum WorldTransforPolicy {
@@ -194,7 +193,7 @@ public:
    */
   virtual TemporaryRef<mozilla::gfx::DrawTarget>
     CreateDrawTarget(const mozilla::gfx::IntSize &aSize,
-                     mozilla::gfx::SurfaceFormat aFormat);
+                     mozilla::gfx::SurfaceFormat aFormat) MOZ_OVERRIDE;
 
   nsIntSize* GetWidgetSize()
   {

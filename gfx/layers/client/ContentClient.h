@@ -179,10 +179,7 @@ public:
 
   virtual void SwapBuffers(const nsIntRegion& aFrontUpdatedRegion) MOZ_OVERRIDE;
 
-  // TODO: Why do we overload BufferRect and BufferRotation?
-  // This could cause problem if base class override this, since
-  // it's still ThebesLayerBuffer's implementation that would get called on 
-  // const objects.
+  // Expose these protected methods from the superclass.
   virtual const nsIntRect& BufferRect() const
   {
     return ThebesLayerBuffer::BufferRect();
