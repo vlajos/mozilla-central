@@ -951,7 +951,7 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
          * deal with it though!
          */
 
-        if (layerManager->Initialize(nullptr, mForceLayersAcceleration)) {
+        if (layerManager->Initialize(mForceLayersAcceleration)) {
           mLayerManager = layerManager;
         }
       }

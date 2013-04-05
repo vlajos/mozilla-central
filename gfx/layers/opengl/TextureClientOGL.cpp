@@ -21,10 +21,10 @@ TextureClientSharedOGL::TextureClientSharedOGL(CompositableForwarder* aForwarder
 void
 TextureClientSharedOGL::ReleaseResources()
 {
-  if (!IsSurfaceDescriptorValid(mDescriptor) ||
-      mDescriptor.type() != SurfaceDescriptor::TSharedTextureDescriptor) {
+  if (!IsSurfaceDescriptorValid(mDescriptor)) {
     return;
   }
+  MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::TSharedTextureDescriptor);
   SharedTextureDescriptor handle = mDescriptor.get_SharedTextureDescriptor();
   if (mGL && handle.handle()) {
     mGL->ReleaseSharedHandle(handle.shareType(), handle.handle());

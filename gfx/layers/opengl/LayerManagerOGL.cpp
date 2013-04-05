@@ -51,12 +51,6 @@ namespace layers {
 using namespace mozilla::gfx;
 using namespace mozilla::gl;
 
-bool
-LayerManagerOGL::Initialize(bool force)
-{
-  return Initialize(CreateContext(), force);
-}
-
 int32_t
 LayerManagerOGL::GetMaxTextureSize() const
 {
@@ -248,26 +242,26 @@ LayerManagerOGL::AddPrograms(ShaderProgramType aType)
 }
 
 bool
-LayerManagerOGL::Initialize(nsRefPtr<GLContext> aContext, bool force)
+LayerManagerOGL::Initialize(bool force)
 {
   ScopedGfxFeatureReporter reporter("GL Layers", force);
 
   // Do not allow double initialization
   NS_ABORT_IF_FALSE(mGLContext == nullptr, "Don't reinitialize layer managers");
 
-  if (!aContext) {
-    aContext = CreateContext();
-  }
+  nsRefPtr<GLContext> ctx = CreateContext();
 
 #ifdef MOZ_WIDGET_ANDROID
-  if (!aContext)
+  if (!ctx) {
     NS_RUNTIMEABORT("We need a context on Android");
+  }
 #endif
 
-  if (!aContext)
+  if (!ctx) {
     return false;
+  }
 
-  mGLContext = aContext;
+  mGLContext = ctx;
   mGLContext->SetFlipped(true);
 
   MakeCurrent();

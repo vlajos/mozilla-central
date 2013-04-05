@@ -310,8 +310,8 @@ void
 SurfaceStreamHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
                                        nsIntRegion* aRegion)
 {
-  NS_ASSERTION(aImage.type() == SurfaceDescriptor::TSurfaceStreamDescriptor,
-              "Invalid descriptor");
+  MOZ_ASSERT(aImage.type() == SurfaceDescriptor::TSurfaceStreamDescriptor,
+             "Invalid descriptor");
 }
 
 void

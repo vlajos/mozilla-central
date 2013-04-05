@@ -59,13 +59,9 @@ public:
    * Initializes the layer manager with a given GLContext. If aContext is null
    * then the layer manager will try to create one for the associated widget.
    *
-   * \param aContext an existing GL context to use. Can be created with CreateContext()
-   *
    * \return True is initialization was succesful, false when it was not.
    */
   bool Initialize(bool force = false);
-
-  bool Initialize(nsRefPtr<GLContext> aContext, bool force = false);
 
   /**
    * Sets the clipping region for this layer manager. This is important on 
