@@ -169,10 +169,10 @@ public:
 
     bool MakeCurrent(bool aForce = false) {
 #ifdef DEBUG
-        PR_SetThreadPrivate(sCurrentGLContextTLS, this);
+    PR_SetThreadPrivate(sCurrentGLContextTLS, this);
 
-  // XXX this assertion is disabled because it's triggering on Mac;
-  // we need to figure out why and reenable it.
+    // XXX this assertion is disabled because it's triggering on Mac;
+    // we need to figure out why and reenable it.
 #if 0
         // IsOwningThreadCurrent is a bit of a misnomer;
         // the "owning thread" is the creation thread,

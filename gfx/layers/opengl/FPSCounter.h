@@ -12,16 +12,18 @@ class GLContext;
 }
 namespace layers {
 
-static const double kFpsWindowMs = 250.0;
-static const size_t kNumFrameTimeStamps = 16;
+const double kFpsWindowMs = 250.0;
+const size_t kNumFrameTimeStamps = 16;
 struct FPSCounter {
-  FPSCounter() : mCurrentFrameIndex(0) {}
+  FPSCounter() : mCurrentFrameIndex(0) {
+      mFrames.SetLength(kNumFrameTimeStamps);
+  }
 
   // We keep a circular buffer of the time points at which the last K
   // frames were drawn.  To estimate FPS, we count the number of
   // frames we've drawn within the last kFPSWindowMs milliseconds and
   // divide by the amount time since the first of those frames.
-  TimeStamp mFrames[kNumFrameTimeStamps];
+  nsAutoTArray<TimeStamp, kNumFrameTimeStamps> mFrames;
   size_t mCurrentFrameIndex;
 
   void AddFrame(TimeStamp aNewFrame) {

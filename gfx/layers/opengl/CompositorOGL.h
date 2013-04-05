@@ -78,6 +78,7 @@ public:
 
   virtual int32_t GetMaxTextureSize() const MOZ_OVERRIDE
   {
+    MOZ_ASSERT(mGLContext);
     GLint texSize = 0;
     mGLContext->fGetIntegerv(LOCAL_GL_MAX_TEXTURE_SIZE,
                              &texSize);
@@ -96,7 +97,7 @@ public:
       NS_WARNING("Call on destroyed layer manager");
       return;
     }
-    mGLContext->MakeCurrent(aFlags == ForceMakeCurrent);
+    mGLContext->MakeCurrent(aFlags & ForceMakeCurrent);
   }
 
   virtual void SetTargetContext(gfxContext* aTarget) MOZ_OVERRIDE
@@ -124,9 +125,8 @@ public:
 
   GLContext* gl() const { return mGLContext; }
   gl::ShaderProgramType GetFBOLayerProgramType() const {
-    if (mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB)
-      return gl::RGBARectLayerProgramType;
-    return gl::RGBALayerProgramType;
+    return mFBOTextureTarget == LOCAL_GL_TEXTURE_RECTANGLE_ARB ?
+           gl::RGBARectLayerProgramType : gl::RGBALayerProgramType;
   }
 
 private:
@@ -147,7 +147,14 @@ private:
 
   /** Shader Programs */
   struct ShaderProgramVariations {
-    ShaderProgramOGL* mVariations[NumMaskTypes];
+    nsAutoTArray<nsAutoPtr<ShaderProgramOGL>, NumMaskTypes> mVariations;
+    ShaderProgramVariations() {
+      MOZ_COUNT_CTOR(ShaderProgramVariations);
+      mVariations.SetLength(NumMaskTypes);
+    }
+    ~ShaderProgramVariations() {
+      MOZ_COUNT_DTOR(ShaderProgramVariations);
+    }
   };
   nsTArray<ShaderProgramVariations> mPrograms;
 
@@ -203,8 +210,8 @@ private:
 
   ShaderProgramOGL* GetProgram(gl::ShaderProgramType aType,
                                MaskType aMask = MaskNone) {
-    NS_ASSERTION(ProgramProfileOGL::ProgramExists(aType, aMask),
-                 "Invalid program type.");
+    MOZ_ASSERT(ProgramProfileOGL::ProgramExists(aType, aMask),
+               "Invalid program type.");
     return mPrograms[aType].mVariations[aMask];
   }
 

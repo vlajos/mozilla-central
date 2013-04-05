@@ -775,7 +775,7 @@ BasicBufferOGL::BeginPaint(ContentType aContentType,
   // If we do partial updates, we have to clip drawing to the regionToDraw.
   // If we don't clip, background images will be fillrect'd to the region correctly,
   // while text or lines will paint outside of the regionToDraw. This becomes apparent
-  // with concave regions. Right now the scrollbars invalidate a narrow strip of the TextureImageAsbar
+  // with concave regions. Right now the scrollbars invalidate a narrow strip of the bar
   // although they never cover it. This leads to two draw rects, the narow strip and the actually
   // newly exposed area. It would be wise to fix this glitch in any way to have simpler
   // clip and draw regions.

@@ -62,7 +62,7 @@ FPSState::DrawFPS(TimeStamp aNow,
     context->fTexParameteri(LOCAL_GL_TEXTURE_2D,LOCAL_GL_TEXTURE_MIN_FILTER,LOCAL_GL_NEAREST);
     context->fTexParameteri(LOCAL_GL_TEXTURE_2D,LOCAL_GL_TEXTURE_MAG_FILTER,LOCAL_GL_NEAREST);
 
-    unsigned char text[] = {
+    uint32_t text[] = {
       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
       0, 255, 255, 255,   0, 255, 255,   0,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255,   0, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0,
       0, 255,   0, 255,   0,   0, 255,   0,   0,   0,   0, 255,   0,   0,   0, 255,   0, 255,   0, 255,   0, 255,   0,   0,   0, 255,   0,   0,   0,   0,   0, 255,   0, 255,   0, 255,   0, 255,   0, 255,   0,
@@ -89,38 +89,40 @@ FPSState::DrawFPS(TimeStamp aNow,
   struct Vertex2D {
     float x,y;
   };
+  float oneOverVP2 = 1.0 / viewport[2];
+  float oneOverVP3 = 1.0 / viewport[3];
   const Vertex2D vertices[] = {
-    { -1.0f, 1.0f - 42.f / viewport[3] },
+    { -1.0f, 1.0f - 42.f * oneOverVP3 },
     { -1.0f, 1.0f},
-    { -1.0f + 22.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 22.f / viewport[2], 1.0f },
+    { -1.0f + 22.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 22.f * oneOverVP2, 1.0f },
 
-    {  -1.0f + 22.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    {  -1.0f + 22.f / viewport[2], 1.0f },
-    {  -1.0f + 44.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    {  -1.0f + 44.f / viewport[2], 1.0f },
+    {  -1.0f + 22.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    {  -1.0f + 22.f * oneOverVP2, 1.0f },
+    {  -1.0f + 44.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    {  -1.0f + 44.f * oneOverVP2, 1.0f },
 
-    { -1.0f + 44.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 44.f / viewport[2], 1.0f },
-    { -1.0f + 66.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 66.f / viewport[2], 1.0f }
+    { -1.0f + 44.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 44.f * oneOverVP2, 1.0f },
+    { -1.0f + 66.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 66.f * oneOverVP2, 1.0f }
   };
 
   const Vertex2D vertices2[] = {
-    { -1.0f + 80.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 80.f / viewport[2], 1.0f },
-    { -1.0f + 102.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 102.f / viewport[2], 1.0f },
+    { -1.0f + 80.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 80.f * oneOverVP2, 1.0f },
+    { -1.0f + 102.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 102.f * oneOverVP2, 1.0f },
 
-    { -1.0f + 102.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 102.f / viewport[2], 1.0f },
-    { -1.0f + 124.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 124.f / viewport[2], 1.0f },
+    { -1.0f + 102.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 102.f * oneOverVP2, 1.0f },
+    { -1.0f + 124.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 124.f * oneOverVP2, 1.0f },
 
-    { -1.0f + 124.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 124.f / viewport[2], 1.0f },
-    { -1.0f + 146.f / viewport[2], 1.0f - 42.f / viewport[3] },
-    { -1.0f + 146.f / viewport[2], 1.0f },
+    { -1.0f + 124.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 124.f * oneOverVP2, 1.0f },
+    { -1.0f + 146.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + 146.f * oneOverVP2, 1.0f },
   };
 
   int v1   = fps % 10;
@@ -295,14 +297,9 @@ CompositorOGL::CleanupResources()
     ctx = mGLContext;
   }
 
-  ctx->MakeCurrent();
-
-  for (PRUint32 i = 0; i < mPrograms.Length(); ++i) {
-    for (PRUint32 type = MaskNone; type < NumMaskTypes; ++type) {
-      delete mPrograms[i].mVariations[type];
-    }
-  }
   mPrograms.Clear();
+
+  ctx->MakeCurrent();
 
   ctx->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
 
@@ -741,6 +738,8 @@ FPSState::DrawFrameCounter(GLContext* context)
   }
   // We intentionally overflow at 2^16.
   sFrameCount++;
+
+  context->fDisable(LOCAL_GL_SCISSOR_TEST);
 }
 
 /*
@@ -1345,11 +1344,6 @@ CompositorOGL::AddFrameAndGetFps(const TimeStamp& timestamp)
       mFPS = new FPSState();
     }
     double fps = mFPS->mCompositionFps.AddFrameAndGetFps(timestamp);
-
-    // XXX[bjacob] copied this from existing code (landed in Bug 804852)
-    // having a printf_stderr in a performance counter that will trigger a android log call
-    // looks fishy.
-    printf_stderr("HWComposer: FPS is %g\n", fps);
 
     return fps;
   }

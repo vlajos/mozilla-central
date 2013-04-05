@@ -49,7 +49,7 @@ public:
     MOZ_NOT_REACHED("unhandled shader type");
   }
   virtual GLenum GetTextureTarget() const { return LOCAL_GL_TEXTURE_2D; }
-  virtual GLenum GetWrapMode() const { return LOCAL_GL_REPEAT; }
+  virtual GLenum GetWrapMode() const = 0;// { return LOCAL_GL_CLAMP_TO_EDGE; } // default
 };
 
 inline gl::ShaderProgramType
@@ -487,6 +487,7 @@ public:
 
   virtual TextureSourceOGL* AsSourceOGL() MOZ_OVERRIDE { return this; }
   virtual bool IsValid() const MOZ_OVERRIDE { return true; }
+  virtual GLenum GetWrapMode() const MOZ_OVERRIDE { return LOCAL_GL_CLAMP_TO_EDGE; }
   virtual void BindTexture(GLenum aTextureUnit) MOZ_OVERRIDE
   {
     mGL->fActiveTexture(aTextureUnit);
