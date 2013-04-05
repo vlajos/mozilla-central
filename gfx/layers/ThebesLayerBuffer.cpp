@@ -151,7 +151,7 @@ RotatedBuffer::DrawBufferQuadrant(gfx::DrawTarget* aTarget,
 
   // Transform from user -> buffer space.
   Matrix transform;
-  transform.Translate(-quadrantTranslation.x, -quadrantTranslation.y);
+  transform.Translate(quadrantTranslation.x, quadrantTranslation.y);
 
 #ifdef MOZ_GFX_OPTIMIZE_MOBILE
   SurfacePattern source(snapshot, EXTEND_CLAMP, transform, FILTER_POINT);
