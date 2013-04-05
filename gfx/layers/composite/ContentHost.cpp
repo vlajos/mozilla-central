@@ -29,10 +29,9 @@ ContentHostBase::GetTextureHost()
 void
 ContentHostBase::DestroyFrontHost()
 {
-  if (mTextureHost) {
-    MOZ_ASSERT(mTextureHost->GetDeAllocator(), "We won't be able to destroy our SurfaceDescriptor");
-    mTextureHost = nullptr;
-  }
+  MOZ_ASSERT(!mTextureHost || mTextureHost->GetDeAllocator(),
+             "We won't be able to destroy our SurfaceDescriptor");
+  mTextureHost = nullptr;
 }
 
 void
@@ -216,11 +215,9 @@ ContentHostSingleBuffered::SetTextureHosts(TextureHost* aNewFront,
 void
 ContentHostSingleBuffered::DestroyTextures()
 {
-  if (mNewFrontHost) {
-    MOZ_ASSERT(mNewFrontHost->GetDeAllocator(),
-               "We won't be able to destroy our SurfaceDescriptor");
-    mNewFrontHost = nullptr;
-  }
+  MOZ_ASSERT(!mNewFrontHost || mNewFrontHost->GetDeAllocator(),
+             "We won't be able to destroy our SurfaceDescriptor");
+  mNewFrontHost = nullptr;
 
   // don't touch mTextureHost, we might need it for compositing
 }

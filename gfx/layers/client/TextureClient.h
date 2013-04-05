@@ -120,11 +120,13 @@ public:
   virtual void Destroyed();
 
   void SetIPDLActor(PTextureChild* aTextureChild);
-  PTextureChild* GetIPDLActor() const {
+  PTextureChild* GetIPDLActor() const
+  {
     return mTextureChild;
   }
 
-  CompositableForwarder* GetForwarder() const {
+  CompositableForwarder* GetForwarder() const
+  {
     return mForwarder;
   }
 

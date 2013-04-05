@@ -246,9 +246,10 @@ ContentClientDoubleBuffered::CreateFrontBufferAndNotify(const nsIntRect& aBuffer
                                                         uint32_t aFlags)
 {
   mFrontClient = CreateTextureClient(TEXTURE_CONTENT, aFlags);
+  mFrontClient->EnsureAllocated(mSize, mContentType);
+
   mFrontBufferRect = aBufferRect;
   mFrontBufferRotation = nsIntPoint();
-  mFrontClient->EnsureAllocated(mSize, mContentType);
 
   mForwarder->CreatedDoubleBuffer(this, mFrontClient, mTextureClient);
 }
@@ -337,18 +338,14 @@ ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
 
   nsIntRegion updateRegion = mFrontUpdatedRegion;
 
-  bool needFullCopy = false;
   int32_t xBoundary = mBufferRect.XMost() - mBufferRotation.x;
   int32_t yBoundary = mBufferRect.YMost() - mBufferRotation.y;
 
   // Figure out whether the area we want to copy wraps the edges of our buffer.
-  if (xBoundary < updateRegion.GetBounds().XMost() &&
-      xBoundary > updateRegion.GetBounds().x) {
-    needFullCopy = true;
-  } else if (yBoundary < updateRegion.GetBounds().YMost() &&
-             yBoundary > updateRegion.GetBounds().y) {
-    needFullCopy = true;
-  }
+  bool needFullCopy = (xBoundary < updateRegion.GetBounds().XMost() &&
+                       xBoundary > updateRegion.GetBounds().x) ||
+                      (yBoundary < updateRegion.GetBounds().YMost() &&
+                       yBoundary > updateRegion.GetBounds().y);
   
   // This is a tricky trade off, we're going to get stuff out of our
   // frontbuffer now, but the next PaintThebes might throw it all (or mostly)
@@ -373,14 +370,12 @@ ContentClientDoubleBuffered::SyncFrontBufferToBackBuffer()
     RotatedBuffer frontBuffer(autoTextureFront.GetDrawTarget(mFrontClient),
                               mFrontBufferRect,
                               mFrontBufferRotation);
-    UpdateDestinationFrom(frontBuffer,
-                          updateRegion);
+    UpdateDestinationFrom(frontBuffer, updateRegion);
   } else {
     RotatedBuffer frontBuffer(autoTextureFront.GetSurface(mFrontClient),
                               mFrontBufferRect,
                               mFrontBufferRotation);
-    UpdateDestinationFrom(frontBuffer,
-                          updateRegion);
+    UpdateDestinationFrom(frontBuffer, updateRegion);
   }
 
   mIsNewBuffer = false;

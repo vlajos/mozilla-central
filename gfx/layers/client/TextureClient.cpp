@@ -40,6 +40,12 @@ TextureClient::~TextureClient()
 {
   MOZ_COUNT_DTOR(TextureClient);
   MOZ_ASSERT(mDescriptor.type() == SurfaceDescriptor::T__None, "Need to release surface!");
+
+  if (mTextureChild) {
+    static_cast<TextureChild*>(mTextureChild)->SetClient(nullptr);
+    static_cast<TextureChild*>(mTextureChild)->Destroy();
+    mTextureChild = nullptr;
+  }
 }
 
 void
@@ -79,16 +85,16 @@ TextureClientShmem::TextureClientShmem(CompositableForwarder* aForwarder,
 void
 TextureClientShmem::ReleaseResources()
 {
-  if (mTextureInfo.mTextureFlags & HostRelease) {
-    mSurface = nullptr;
-    mDescriptor = SurfaceDescriptor();
-    return;
-  }
-
   if (mSurface) {
     mSurface = nullptr;
     ShadowLayerForwarder::CloseDescriptor(mDescriptor);
   }
+
+  if (mTextureInfo.mTextureFlags & HostRelease) {
+    mDescriptor = SurfaceDescriptor();
+    return;
+  }
+
   if (IsSurfaceDescriptorValid(mDescriptor)) {
     mForwarder->DestroySharedSurface(&mDescriptor);
   }
