@@ -49,7 +49,7 @@ bool InImageBridgeChildThread();
  * ImageBridgeChild is also a ISurfaceAllocator. It can be used to allocate or
  * deallocate data that is shared with the compositor. The main differerence
  * with other ISurfaceAllocators is that some of its overriden methods can be
- * invoked from ant thread.
+ * invoked from any thread.
  *
  * There are three important phases in the ImageBridge protocol. These three steps
  * can do different things depending if (A) the ImageContainer uses ImageBridge

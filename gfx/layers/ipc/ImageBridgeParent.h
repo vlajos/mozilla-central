@@ -64,8 +64,8 @@ public:
   }
 
   bool AllocUnsafeShmem(size_t aSize,
-                           ipc::SharedMemory::SharedMemoryType aType,
-                           ipc::Shmem* aShmem) MOZ_OVERRIDE
+                        ipc::SharedMemory::SharedMemoryType aType,
+                        ipc::Shmem* aShmem) MOZ_OVERRIDE
   {
     return AllocUnsafeShmem(aSize, aType, aShmem);
   }

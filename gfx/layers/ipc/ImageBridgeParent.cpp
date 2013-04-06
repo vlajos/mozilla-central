@@ -103,14 +103,6 @@ ImageBridgeParent::Create(Transport* aTransport, ProcessId aOtherProcess)
 
 bool ImageBridgeParent::RecvStop()
 {
-/*
-  unsigned int numChildren = ManagedPImageContainerParent().Length();
-  for (unsigned int i = 0; i < numChildren; ++i) {
-    static_cast<ImageContainerParent*>(
-      ManagedPImageContainerParent()[i]
-    )->DoStop();
-  }
-*/
   return true;
 }
 
@@ -146,20 +138,7 @@ ImageBridgeParent::DeallocPGrallocBuffer(PGrallocBufferParent* actor)
   return false;
 #endif
 }
-/*
-PImageContainerParent* ImageBridgeParent::AllocPImageContainer(uint64_t* aID)
-{
-  uint64_t id = GenImageContainerID();
-  *aID = id;
-  return new ImageContainerParent(id);
-}
 
-bool ImageBridgeParent::DeallocPImageContainer(PImageContainerParent* toDealloc)
-{
-  delete toDealloc;
-  return true;
-}
-*/
 PCompositableParent*
 ImageBridgeParent::AllocPCompositable(const CompositableType& aType,
                                                          uint64_t* aID)

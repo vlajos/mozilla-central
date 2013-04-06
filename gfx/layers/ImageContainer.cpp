@@ -190,8 +190,7 @@ ImageContainer::SetCurrentImage(Image *aImage)
       // the compositor that the video element is not going to be seen for
       // moment and that it can release its shared memory. It was causing
       // crashes so it has been removed.
-      // Could be reimplemented if need be (but beware, the memory model is
-      // tricky).
+      // This may be reimplemented after 858914 lands.
     }
   }
 

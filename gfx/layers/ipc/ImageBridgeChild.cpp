@@ -101,7 +101,7 @@ static Thread *sImageBridgeChildThread = nullptr;
 // dispatched function
 static void StopImageBridgeSync(ReentrantMonitor *aBarrier, bool *aDone)
 {
-ReentrantMonitorAutoEnter autoMon(*aBarrier);
+  ReentrantMonitorAutoEnter autoMon(*aBarrier);
 
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");

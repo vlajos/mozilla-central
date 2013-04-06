@@ -36,7 +36,7 @@ class CrossProcessMutex;
 namespace ipc {
 class Shmem;
 }
-    
+
 namespace layers {
 
 class ImageClient;
@@ -302,7 +302,7 @@ public:
    * Implementations must call CurrentImageChanged() while holding
    * mReentrantMonitor.
    *
-   * If this ImageContainer has uses async video: 
+   * If this ImageContainer has an ImageClient fo async video:
    * Schelude a task to send the image to the compositor using the 
    * PImageBridge protcol without using the main thread.
    */
@@ -311,7 +311,7 @@ public:
   /**
    * Set an Image as the current image to display. The Image must have
    * been created by this ImageContainer.
-   * Must be called on the main thread, within a layers transaction. 
+   * Must be called on the main thread, within a layers transaction.
    * 
    * This method takes mReentrantMonitor
    * when accessing thread-shared state.
@@ -336,7 +336,7 @@ public:
    * If this ImageContainer uses ImageBridge, returns the ID associated to
    * this container, for use in the ImageBridge protocol.
    * Returns 0 if this ImageContainer does not use ImageBridge. Note that
-   * 0 is always an invalid ID for asynchronous image containers. 
+   * 0 is always an invalid ID for asynchronous image containers.
    *
    * Can be called from any thread.
    */
