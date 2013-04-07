@@ -1493,7 +1493,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsGlobalWindow)
   NS_INTERFACE_MAP_ENTRY(nsIDOMWindowB2G)
 #endif // MOZ_B2G
 #ifdef MOZ_WEBSPEECH
-  NS_INTERFACE_MAP_ENTRY(nsIDOMSpeechSynthesisGetter)
+  NS_INTERFACE_MAP_ENTRY(nsISpeechSynthesisGetter)
 #endif // MOZ_B2G
   NS_INTERFACE_MAP_ENTRY(nsIDOMJSWindow)
   if (aIID.Equals(NS_GET_IID(nsIDOMWindowInternal))) {
@@ -2590,7 +2590,7 @@ nsGlobalWindow::SetDocShell(nsIDocShell* aDocShell)
       mChromeEventHandler = piWindow->GetChromeEventHandler();
     }
     else {
-      NS_NewWindowRoot(this, getter_AddRefs(mChromeEventHandler));
+      mChromeEventHandler = NS_NewWindowRoot(this);
     }
   }
 
@@ -2711,7 +2711,7 @@ nsGlobalWindow::SetOpenerWindow(nsIDOMWindow* aOpener,
 }
 
 static
-already_AddRefed<nsIDOMEventTarget>
+already_AddRefed<EventTarget>
 TryGetTabChildGlobalAsEventTarget(nsISupports *aFrom)
 {
   nsCOMPtr<nsIFrameLoaderOwner> frameLoaderOwner = do_QueryInterface(aFrom);
@@ -2724,9 +2724,8 @@ TryGetTabChildGlobalAsEventTarget(nsISupports *aFrom)
     return NULL;
   }
 
-  nsCOMPtr<nsIDOMEventTarget> eventTarget =
-    frameLoader->GetTabChildGlobalAsEventTarget();
-  return eventTarget.forget();
+  nsCOMPtr<EventTarget> target = frameLoader->GetTabChildGlobalAsEventTarget();
+  return target.forget();
 }
 
 void
@@ -2738,7 +2737,7 @@ nsGlobalWindow::UpdateParentTarget()
   // handler itself.
 
   nsCOMPtr<nsIDOMElement> frameElement = GetFrameElementInternal();
-  nsCOMPtr<nsIDOMEventTarget> eventTarget =
+  nsCOMPtr<EventTarget> eventTarget =
     TryGetTabChildGlobalAsEventTarget(frameElement);
 
   if (!eventTarget) {
@@ -3307,7 +3306,7 @@ nsPIDOMWindow::CreatePerformanceObjectIfNeeded()
   }
 }
 
-// nsIDOMSpeechSynthesisGetter
+// nsISpeechSynthesisGetter
 
 #ifdef MOZ_WEBSPEECH
 NS_IMETHODIMP
@@ -8254,7 +8253,7 @@ nsGlobalWindow::DisableGamepadUpdates()
 }
 
 void
-nsGlobalWindow::SetChromeEventHandler(nsIDOMEventTarget* aChromeEventHandler)
+nsGlobalWindow::SetChromeEventHandler(EventTarget* aChromeEventHandler)
 {
   SetChromeEventHandlerInternal(aChromeEventHandler);
   if (IsOuterWindow()) {

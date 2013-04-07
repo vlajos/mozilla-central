@@ -519,7 +519,7 @@ function executeWithCallback(msg, useFinish) {
 
   originalOnError = curWindow.onerror;
   curWindow.onerror = function errHandler(errMsg, url, line) {
-    sandbox.asyncComplete(errMsg, 17, null, asyncTestCommandId);
+    sandbox.asyncComplete(errMsg, 17, "@" + url + ", line " + line, asyncTestCommandId);
     curWindow.onerror = originalOnError;
   };
 
@@ -1603,6 +1603,7 @@ function switchToFrame(msg) {
     if(msg.json.focus == true) {
       curWindow.focus();
     }
+    sandbox = null;
     checkTimer.initWithCallback(checkLoad, 100, Ci.nsITimer.TYPE_ONE_SHOT);
     return;
   }

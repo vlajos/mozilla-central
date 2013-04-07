@@ -1077,6 +1077,12 @@ pref("devtools.debugger.ui.variables-searchbox-visible", false);
 // Enable the Profiler
 pref("devtools.profiler.enabled", true);
 
+// Enable the Network Monitor
+pref("devtools.netmonitor.enabled", true);
+
+// The default Network Monitor UI settings
+pref("devtools.netmonitor.panes-network-details-width", 450);
+
 // Enable the Tilt inspector
 pref("devtools.tilt.enabled", true);
 pref("devtools.tilt.intro_transition", true);
@@ -1207,7 +1213,7 @@ pref("social.manifest.facebook", "{\"origin\":\"https://www.facebook.com\",\"nam
 // comma separated list of domain origins (e.g. https://domain.com) for
 // providers that can install from their own website without user warnings.
 // entries are
-pref("social.whitelist", "");
+pref("social.whitelist", "https://mozsocial.cliqz.com,https://now.msn.com,https://mixi.jp");
 // omma separated list of domain origins (e.g. https://domain.com) for directory
 // websites (e.g. AMO) that can install providers for other sites
 pref("social.directories", "https://addons.mozilla.org");
@@ -1221,6 +1227,10 @@ pref("social.sidebar.unload_timeout_ms", 10000);
 pref("social.toast-notifications.enabled", true);
 
 pref("dom.identity.enabled", false);
+
+// Block insecure active content on https pages
+pref("security.mixed_content.block_active_content", true);
+
 
 // Override the Gecko-default value of false for Firefox.
 pref("plain_text.wrap_long_lines", true);

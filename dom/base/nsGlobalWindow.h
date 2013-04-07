@@ -73,7 +73,7 @@
 #endif // MOZ_B2G
 
 #ifdef MOZ_WEBSPEECH
-#include "nsIDOMSpeechSynthesisGetter.h"
+#include "nsISpeechSynthesisGetter.h"
 #endif // MOZ_WEBSPEECH
 
 #define DEFAULT_HOME_PAGE "www.mozilla.org"
@@ -271,7 +271,7 @@ class nsGlobalWindow : public mozilla::dom::EventTarget,
                      , public nsIDOMWindowB2G
 #endif // MOZ_B2G
 #ifdef MOZ_WEBSPEECH
-                     , public nsIDOMSpeechSynthesisGetter
+                     , public nsISpeechSynthesisGetter
 #endif // MOZ_WEBSPEECH
 {
 public:
@@ -328,8 +328,8 @@ public:
 #endif // MOZ_B2G
 
 #ifdef MOZ_WEBSPEECH
-  // nsIDOMSpeechSynthesisGetter
-  NS_DECL_NSIDOMSPEECHSYNTHESISGETTER
+  // nsISpeechSynthesisGetter
+  NS_DECL_NSISPEECHSYNTHESISGETTER
 #endif // MOZ_WEBSPEECH
 
   // nsIDOMWindowPerformance
@@ -352,7 +352,7 @@ public:
   virtual NS_HIDDEN_(void) ActivateOrDeactivate(bool aActivate);
   virtual NS_HIDDEN_(void) SetActive(bool aActive);
   virtual NS_HIDDEN_(void) SetIsBackground(bool aIsBackground);
-  virtual NS_HIDDEN_(void) SetChromeEventHandler(nsIDOMEventTarget* aChromeEventHandler);
+  virtual NS_HIDDEN_(void) SetChromeEventHandler(mozilla::dom::EventTarget* aChromeEventHandler);
 
   virtual NS_HIDDEN_(void) SetInitialPrincipalToSubject();
 
@@ -414,12 +414,12 @@ public:
   static nsGlobalWindow *FromSupports(nsISupports *supports)
   {
     // Make sure this matches the casts we do in QueryInterface().
-    return (nsGlobalWindow *)(nsIDOMEventTarget *)supports;
+    return (nsGlobalWindow *)(mozilla::dom::EventTarget *)supports;
   }
   static nsISupports *ToSupports(nsGlobalWindow *win)
   {
     // Make sure this matches the casts we do in QueryInterface().
-    return (nsISupports *)(nsIDOMEventTarget *)win;
+    return (nsISupports *)(mozilla::dom::EventTarget *)win;
   }
   static nsGlobalWindow *FromWrapper(nsIXPConnectWrappedNative *wrapper)
   {
