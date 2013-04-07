@@ -51,6 +51,7 @@ public:
    */
   static size_t ComputeMinBufferSize(const gfxIntSize& aYSize,
                                      const gfxIntSize& aCbCrSize);
+  static size_t ComputeMinBufferSize(uint32_t aSize);
   /**
    * Write the image informations in a buffer for given dimensions.
    * The provided pointer should point to the beginning of the (chunk of)
@@ -96,6 +97,11 @@ public:
    * Returns the dimensions of the Cb and Cr Channel.
    */
   gfxIntSize GetCbCrSize();
+
+  /**
+   * Return a pointer to the begining of the data buffer.
+   */
+  uint8_t* GetData();
 
   /**
    * Copies the data passed in parameter into the shmem.

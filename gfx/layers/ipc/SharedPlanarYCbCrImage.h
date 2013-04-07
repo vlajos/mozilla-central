@@ -43,8 +43,13 @@ public:
   }
 
   virtual void SetData(const PlanarYCbCrImage::Data& aData) MOZ_OVERRIDE;
+  virtual void SetDataNoCopy(const Data &aData) MOZ_OVERRIDE;
 
   virtual bool Allocate(PlanarYCbCrImage::Data& aData);
+  virtual uint8_t* AllocateBuffer(uint32_t aSize) MOZ_OVERRIDE;
+  // needs to be overriden because the parent class sets mBuffer which we
+  // do not want to happen.
+  uint8_t* AllocateAndGetNewBuffer(uint32_t aSize) MOZ_OVERRIDE;
 
   virtual bool IsValid() MOZ_OVERRIDE {
     return mAllocated;

@@ -57,6 +57,47 @@ SharedPlanarYCbCrImage::SetData(const PlanarYCbCrImage::Data& aData)
   mData.mCrChannel = shmImg.GetCrData();
 }
 
+// needs to be overriden because the parent class sets mBuffer which we
+// do not want to happen.
+uint8_t*
+SharedPlanarYCbCrImage::AllocateAndGetNewBuffer(uint32_t aSize)
+{
+  NS_ABORT_IF_FALSE(!mAllocated, "This image already has allocated data");
+  size_t size = ShmemYCbCrImage::ComputeMinBufferSize(aSize);
+  // update buffer size
+  mBufferSize = size;
+
+  // get new buffer _without_ setting mBuffer.
+  AllocateBuffer(mBufferSize);
+  ShmemYCbCrImage shmImg(mShmem);
+
+  return shmImg.GetData();
+}
+
+
+void
+SharedPlanarYCbCrImage::SetDataNoCopy(const Data &aData)
+{
+  mData = aData;
+  mSize = aData.mPicSize;
+  ShmemYCbCrImage::InitializeBufferInfo(mShmem.get<uint8_t>(),
+                                        aData.mYSize,
+                                        aData.mCbCrSize);
+}
+
+uint8_t* 
+SharedPlanarYCbCrImage::AllocateBuffer(uint32_t aSize)
+{
+  NS_ABORT_IF_FALSE(!mAllocated, "This image already has allocated data");
+  SharedMemory::SharedMemoryType shmType = OptimalShmemType();
+  if (!mSurfaceAllocator->AllocUnsafeShmem(aSize, shmType, &mShmem)) {
+    return nullptr;
+  }
+  mAllocated = true;
+  return mShmem.get<uint8_t>();
+}
+
+
 bool
 SharedPlanarYCbCrImage::Allocate(PlanarYCbCrImage::Data& aData)
 {
@@ -66,7 +107,7 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrImage::Data& aData)
   size_t size = ShmemYCbCrImage::ComputeMinBufferSize(aData.mYSize,
                                                       aData.mCbCrSize);
 
-  if (!mSurfaceAllocator->AllocUnsafeShmem(size, shmType, &mShmem)) {
+  if (AllocateBuffer(static_cast<uint32_t>(size)) == nullptr) {
     return false;
   }
 
