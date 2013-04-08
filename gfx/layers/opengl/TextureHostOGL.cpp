@@ -604,7 +604,7 @@ void
 GrallocTextureHostOGL::DeleteTextures()
 {
   if (mGLTexture || mEGLImage) {
-  mGL->MakeCurrent();
+    mGL->MakeCurrent();
     if (mGLTexture) {
       mGL->fDeleteTextures(1, &mGLTexture);
       mGLTexture= 0;
@@ -634,15 +634,7 @@ GrallocTextureHostOGL::SwapTexturesImpl(const SurfaceDescriptor& aImage,
   mGraphicBuffer = GrallocBufferActor::GetFrom(desc);
   mFormat = SurfaceFormatForAndroidPixelFormat(mGraphicBuffer->getPixelFormat());
 
-  if (mEGLImage) {
-    mGL->DestroyEGLImage(mEGLImage);
-    mEGLImage = 0;
-  }
-
-  if (mGLTexture) {
-    mGL->fDeleteTextures(1, &mGLTexture);
-    mGLTexture = 0;
-  }
+  DeleteTextures();
 }
 
 void GrallocTextureHostOGL::BindTexture(GLenum aTextureUnit)
@@ -666,8 +658,8 @@ GrallocTextureHostOGL::Lock()
   MOZ_ASSERT(mGraphicBuffer.get());
 
   mGL->MakeCurrent();
+
   if (!mGLTexture) {
-    mGL->MakeCurrent();
     mGL->fGenTextures(1, &mGLTexture);
   }
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
