@@ -599,7 +599,7 @@ CreateBasicTextureImage(GLContext* aGL,
     GLuint texture = 0;
     aGL->fGenTextures(1, &texture);
 
-    aGL->fBindTexture(LOCAL_GL_TEXTURE_2D, texture);
+    ScopedBindTexture bind(aGL, texture);
 
     GLint texfilter = useNearestFilter ? LOCAL_GL_NEAREST : LOCAL_GL_LINEAR;
     aGL->fTexParameteri(LOCAL_GL_TEXTURE_2D, LOCAL_GL_TEXTURE_MIN_FILTER, texfilter);
