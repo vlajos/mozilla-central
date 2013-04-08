@@ -655,6 +655,17 @@ GrallocTextureHostOGL::~GrallocTextureHostOGL()
 bool
 GrallocTextureHostOGL::Lock()
 {
+  /*
+   * The job of this function is to ensure that the texture is tied to the
+   * android::GraphicBuffer, so that texturing will source the GraphicBuffer.
+   *
+   * To this effect we create an EGLImage wrapping this GraphicBuffer,
+   * using CreateEGLImageForNativeBuffer, and then we tie this EGLImage to our
+   * texture using fEGLImageTargetTexture2D.
+   *
+   * We try to avoid re-creating the EGLImage everytime, by keeping it around
+   * as the mEGLImage member of this class.
+   */
   MOZ_ASSERT(mGraphicBuffer.get());
 
   mGL->MakeCurrent();
@@ -674,6 +685,20 @@ GrallocTextureHostOGL::Lock()
 void
 GrallocTextureHostOGL::Unlock()
 {
+  /*
+   * The job of this function is to ensure that we release any read lock placed on
+   * our android::GraphicBuffer by any drawing code that sourced it via this TextureHost.
+   *
+   * Indeed, as soon as we draw with a texture that's tied to a android::GraphicBuffer,
+   * the GL may place read locks on it. We must ensure that we release them early enough,
+   * i.e. before the next time that we will try to acquire a write lock on the same buffer,
+   * because read and write locks on gralloc buffers are mutually exclusive.
+   *
+   * Unfortunately there does not seem to exist an EGL function to dissociate a gralloc
+   * buffer from a texture that it was tied to. Failing that, we achieve the same result
+   * by uploading a 1x1 dummy texture image to the same texture, replacing the existing
+   * gralloc buffer attachment.
+   */
   mGL->MakeCurrent();
   mGL->fActiveTexture(LOCAL_GL_TEXTURE0);
   mGL->fBindTexture(LOCAL_GL_TEXTURE_2D, mGLTexture);
