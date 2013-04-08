@@ -687,7 +687,6 @@ GrallocTextureHostOGL::Unlock()
 gfx::SurfaceFormat
 GrallocTextureHostOGL::GetFormat() const
 {
-  MOZ_ASSERT(mGraphicBuffer.get());
   return mFormat;
 }
 

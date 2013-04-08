@@ -567,7 +567,7 @@ public:
 
   virtual gfx::IntSize GetSize() const MOZ_OVERRIDE
   {
-    return gfx::IntSize(mGraphicBuffer->getWidth(), mGraphicBuffer->getHeight());;
+    return mGraphicBuffer.get() ? gfx::IntSize(mGraphicBuffer->getWidth(), mGraphicBuffer->getHeight()) : gfx::IntSize(0, 0);
   }
 
   gl::ShaderProgramType GetShaderProgram() const MOZ_OVERRIDE
