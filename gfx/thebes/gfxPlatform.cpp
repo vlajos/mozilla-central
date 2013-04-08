@@ -279,6 +279,9 @@ gfxPlatform::Init()
     bool useOffMainThreadCompositing = false;
     useOffMainThreadCompositing = GetPrefLayersOffMainThreadCompositionEnabled() ||
         Preferences::GetBool("browser.tabs.remote", false);
+#ifdef MOZ_X11
+    useOffMainThreadCompositing &= (PR_GetEnv("MOZ_USE_OMTC") != NULL);
+#endif
 
     if (useOffMainThreadCompositing && (XRE_GetProcessType() ==
                                         GeckoProcessType_Default)) {
