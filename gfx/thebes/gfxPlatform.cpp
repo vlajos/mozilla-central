@@ -280,7 +280,8 @@ gfxPlatform::Init()
     useOffMainThreadCompositing = GetPrefLayersOffMainThreadCompositionEnabled() ||
         Preferences::GetBool("browser.tabs.remote", false);
 #ifdef MOZ_X11
-    useOffMainThreadCompositing &= (PR_GetEnv("MOZ_USE_OMTC") != NULL);
+    useOffMainThreadCompositing &= (PR_GetEnv("MOZ_USE_OMTC") != NULL) ||
+                                   (PR_GetEnv("MOZ_OMTC_ENABLED") != NULL);
 #endif
 
     if (useOffMainThreadCompositing && (XRE_GetProcessType() ==
@@ -1758,6 +1759,7 @@ gfxPlatform::GetOrientationSyncMillis() const
  * not have any effect until we restart.
  */
 static bool sPrefLayersOffMainThreadCompositionEnabled = false;
+static bool sPrefLayersOffMainThreadCompositionTestingEnabled = false;
 static bool sPrefLayersAccelerationForceEnabled = false;
 static bool sPrefLayersAccelerationDisabled = false;
 static bool sPrefLayersPreferOpenGL = false;
@@ -1769,6 +1771,7 @@ void InitLayersAccelerationPrefs()
   if (!sLayersAccelerationPrefsInitialized)
   {
     sPrefLayersOffMainThreadCompositionEnabled = Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
+    sPrefLayersOffMainThreadCompositionTestingEnabled = Preferences::GetBool("layers.offmainthreadcomposition.testing.enabled", false);
     sPrefLayersAccelerationForceEnabled = Preferences::GetBool("layers.acceleration.force-enabled", false) ||
                                           Preferences::GetBool("browser.tabs.remote", false);
     sPrefLayersAccelerationDisabled = Preferences::GetBool("layers.acceleration.disabled", false);
@@ -1782,7 +1785,8 @@ void InitLayersAccelerationPrefs()
 bool gfxPlatform::GetPrefLayersOffMainThreadCompositionEnabled()
 {
   InitLayersAccelerationPrefs();
-  return sPrefLayersOffMainThreadCompositionEnabled;
+  return sPrefLayersOffMainThreadCompositionEnabled ||
+         sPrefLayersOffMainThreadCompositionTestingEnabled;
 }
 
 bool gfxPlatform::GetPrefLayersAccelerationForceEnabled()
