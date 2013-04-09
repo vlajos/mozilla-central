@@ -6,6 +6,8 @@
 #ifndef MOZILLA_LAYERS_COMPOSITORTYPES_H
 #define MOZILLA_LAYERS_COMPOSITORTYPES_H
 
+#include "LayersTypes.h"
+
 namespace mozilla {
 namespace layers {
 
@@ -85,6 +87,12 @@ struct TextureFactoryIdentifier
 {
   LayersBackend mParentBackend;
   int32_t mMaxTextureSize;
+
+  TextureFactoryIdentifier(LayersBackend aLayersBackend = LAYERS_NONE,
+                           int32_t aMaxTextureSize = 0)
+    : mParentBackend(aLayersBackend)
+    , mMaxTextureSize(aMaxTextureSize)
+  {}
 };
 
 /**

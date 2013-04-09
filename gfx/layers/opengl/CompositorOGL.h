@@ -36,10 +36,7 @@ public:
 
   virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() MOZ_OVERRIDE
   {
-    TextureFactoryIdentifier result;
-    result.mParentBackend = LAYERS_OPENGL;
-    result.mMaxTextureSize = GetMaxTextureSize();
-    return result;
+    return TextureFactoryIdentifier(LAYERS_OPENGL, GetMaxTextureSize());
   }
 
   virtual void FallbackTextureInfo(TextureInfo& aId) MOZ_OVERRIDE;
