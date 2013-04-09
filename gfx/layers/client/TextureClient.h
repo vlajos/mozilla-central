@@ -9,13 +9,14 @@
 #include "mozilla/layers/LayersSurfaces.h"
 #include "gfxASurface.h"
 #include "mozilla/layers/CompositorTypes.h" // for TextureInfo
+#include "mozilla/RefPtr.h"
 
 class gfxReusableSurfaceWrapper;
 
 namespace mozilla {
 
 namespace gl {
-  class GLContext;
+class GLContext;
 }
 
 namespace layers {
@@ -177,13 +178,12 @@ public:
   {
     return aType == TEXTURE_SHMEM || aType == TEXTURE_CONTENT;
   }
-  virtual already_AddRefed<gfxContext> LockContext();
-  virtual gfxImageSurface* LockImageSurface();
-  virtual gfxASurface* LockSurface() { return GetSurface(); }
-  virtual void Unlock();
-  virtual void EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType);
+  virtual gfxImageSurface* LockImageSurface() MOZ_OVERRIDE;
+  virtual gfxASurface* LockSurface() MOZ_OVERRIDE { return GetSurface(); }
+  virtual void Unlock() MOZ_OVERRIDE;
+  virtual void EnsureAllocated(gfx::IntSize aSize, gfxASurface::gfxContentType aType) MOZ_OVERRIDE;
 
-  virtual void ReleaseResources();
+  virtual void ReleaseResources() MOZ_OVERRIDE;
   virtual void SetDescriptor(const SurfaceDescriptor& aDescriptor) MOZ_OVERRIDE;
   virtual gfxASurface::gfxContentType GetContentType() MOZ_OVERRIDE { return mContentType; }
 private:
@@ -263,16 +263,19 @@ private:
 class AutoLockTextureClient
 {
 public:
-  AutoLockTextureClient(TextureClient* aTexture) {
+  AutoLockTextureClient(TextureClient* aTexture)
+  {
     mTextureClient = aTexture;
     mDescriptor = aTexture->LockSurfaceDescriptor();
   }
 
-  SurfaceDescriptor* GetSurfaceDescriptor() {
+  SurfaceDescriptor* GetSurfaceDescriptor()
+  {
     return mDescriptor;
   }
 
-  virtual ~AutoLockTextureClient() {
+  virtual ~AutoLockTextureClient()
+  {
     mTextureClient->Unlock();
   }
 protected:

@@ -8,6 +8,7 @@
 
 #include "mozilla/layers/PCompositableChild.h"
 #include "mozilla/layers/LayersTypes.h"
+#include "mozilla/RefPtr.h"
 
 namespace mozilla {
 namespace layers {
@@ -78,8 +79,9 @@ public:
 
   LayersBackend GetCompositorBackendType() const;
 
-  TemporaryRef<TextureClient> CreateTextureClient(TextureClientType aTextureClientType,
-                                                  TextureFlags aFlags);
+  TemporaryRef<TextureClient>
+  CreateTextureClient(TextureClientType aTextureClientType,
+                      TextureFlags aFlags);
 
   /**
    * Establishes the connection with compositor side through IPDL

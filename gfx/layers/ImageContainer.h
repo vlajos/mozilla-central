@@ -302,7 +302,7 @@ public:
    * Implementations must call CurrentImageChanged() while holding
    * mReentrantMonitor.
    *
-   * If this ImageContainer has an ImageClient fo async video:
+   * If this ImageContainer has an ImageClient for async video:
    * Schelude a task to send the image to the compositor using the 
    * PImageBridge protcol without using the main thread.
    */

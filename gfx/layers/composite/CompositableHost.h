@@ -11,6 +11,7 @@
 #include "mozilla/layers/ISurfaceAllocator.h"
 #include "ThebesLayerBuffer.h"
 #include "BasicTiledThebesLayer.h" // for BasicTiledLayerBuffer
+#include "mozilla/RefPtr.h"
 
 namespace mozilla {
 namespace layers {
@@ -99,7 +100,7 @@ public:
                             const nsIntRegion& aOldValidRegionBack,
                             nsIntRegion* aUpdatedRegionBack)
   {
-    NS_RUNTIMEABORT("should be implemented or not used");
+    MOZ_ASSERT(false, "should be implemented or not used");
   }
 
   virtual void AddTextureHost(TextureHost* aTextureHost,
@@ -108,13 +109,14 @@ public:
 
   virtual LayerRenderState GetRenderState() = 0;
 
-  virtual void SetPictureRect(const nsIntRect& aPictureRect) {
-    NS_RUNTIMEABORT("Should have been overridden");
+  virtual void SetPictureRect(const nsIntRect& aPictureRect)
+  {
+    MOZ_ASSERT(false, "Should have been overridden");
   }
 
   /**
    * Adds a mask effect using this texture as the mask, if possible.
-   * \return true if the effect was added, false otherwise.
+   * @return true if the effect was added, false otherwise.
    */
   bool AddMaskEffect(EffectChain& aEffects,
                      const gfx::Matrix4x4& aTransform,
@@ -128,7 +130,8 @@ public:
   Layer* GetLayer() const { return mLayer; }
   void SetLayer(Layer* aLayer) { mLayer = aLayer; }
 
-  void Attach(Layer* aLayer, Compositor* aCompositor) {
+  void Attach(Layer* aLayer, Compositor* aCompositor)
+  {
     SetCompositor(aCompositor);
     SetLayer(aLayer);
   }
@@ -151,15 +154,19 @@ class CompositableParentManager;
 class CompositableParent : public PCompositableParent
 {
 public:
-  CompositableParent(CompositableParentManager* aMgr, CompositableType aType, uint64_t aID = 0);
+  CompositableParent(CompositableParentManager* aMgr,
+                     CompositableType aType, uint64_t aID = 0);
   ~CompositableParent();
   PTextureParent* AllocPTexture(const TextureInfo& aInfo) MOZ_OVERRIDE;
   bool DeallocPTexture(PTextureParent* aActor) MOZ_OVERRIDE;
 
-  CompositableHost* GetCompositableHost() const {
+  CompositableHost* GetCompositableHost() const
+  {
     return mHost;
   }
-  void SetCompositableHost(CompositableHost* aHost) {
+
+  void SetCompositableHost(CompositableHost* aHost)
+  {
     mHost = aHost;
   }
 
@@ -182,6 +189,7 @@ public:
   {
     return mCompositorID;
   }
+
 private:
   RefPtr<CompositableHost> mHost;
   CompositableParentManager* mManager;
@@ -209,8 +217,8 @@ private:
  * CompositableMap must be global because the image bridge doesn't have any
  * reference to whatever we have created with PLayers. So, the only way to
  * actually connect these two worlds is to have something global that they can
- * both query (in the same  thread). I didn't allocate the map on the stack to
- * avoid the badness of static initialization.
+ * both query (in the same  thread). The map is not allocated the map on the 
+ * stack to avoid the badness of static initialization.
  *
  * Also, we have a compositor/PLayers protocol/etc. per layer manager, and the
  * ImageBridge is used by all the existing compositors that have a video, so

@@ -40,7 +40,8 @@ public:
 
 protected:
   ContentHost(Compositor* aCompositor)
-  : CompositableHost(aCompositor) {}
+  : CompositableHost(aCompositor)
+  {}
 };
 
 /**
@@ -113,7 +114,8 @@ public:
   virtual void DestroyTextures() = 0;
 
 protected:
-  virtual nsIntPoint GetOriginOffset() {
+  virtual nsIntPoint GetOriginOffset()
+  {
     return mBufferRect.TopLeft() - mBufferRotation;
   }
 

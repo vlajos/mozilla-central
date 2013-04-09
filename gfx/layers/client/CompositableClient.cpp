@@ -1,7 +1,7 @@
-/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/TextureClient.h"
@@ -16,13 +16,15 @@
 namespace mozilla {
 namespace layers {
 
-CompositableClient::~CompositableClient() {
+CompositableClient::~CompositableClient()
+{
   MOZ_COUNT_DTOR(CompositableClient);
   Destroy();
 }
 
 LayersBackend
-CompositableClient::GetCompositorBackendType() const{
+CompositableClient::GetCompositorBackendType() const
+{
   return mForwarder->GetCompositorBackendType();
 }
 
@@ -33,7 +35,8 @@ CompositableClient::SetIPDLActor(CompositableChild* aChild)
 }
 
 CompositableChild*
-CompositableClient::GetIPDLActor() const {
+CompositableClient::GetIPDLActor() const
+{
   return mCompositableChild;
 }
 
@@ -89,8 +92,8 @@ CompositableChild::AllocPTexture(const TextureInfo& aInfo)
 bool
 CompositableChild::DeallocPTexture(PTextureChild* aActor)
 {
-    delete aActor;
-    return true;
+  delete aActor;
+  return true;
 }
 
 TemporaryRef<TextureClient>
@@ -99,54 +102,56 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
 {
   MOZ_ASSERT(GetForwarder(), "Can't create a texture client if the compositable is not connected to the compositor.");
   LayersBackend parentBackend = GetForwarder()->GetCompositorBackendType();
-  RefPtr<TextureClient> result = nullptr;
+  RefPtr<TextureClient> result;
 
   switch (aTextureClientType) {
   case TEXTURE_SHARED_GL:
-     if (parentBackend == LAYERS_OPENGL) {
-       result = new TextureClientSharedOGL(GetForwarder(), GetType());
-     }
+    if (parentBackend == LAYERS_OPENGL) {
+      result = new TextureClientSharedOGL(GetForwarder(), GetType());
+    }
      break;
   case TEXTURE_SHARED_GL_EXTERNAL:
-     if (parentBackend == LAYERS_OPENGL) {
-       result = new TextureClientSharedOGLExternal(GetForwarder(), GetType());
-     }
-     break;
+    if (parentBackend == LAYERS_OPENGL) {
+      result = new TextureClientSharedOGLExternal(GetForwarder(), GetType());
+    }
+    break;
   case TEXTURE_STREAM_GL:
-     if (parentBackend == LAYERS_OPENGL) {
-       result = new TextureClientStreamOGL(GetForwarder(), GetType());
-     }
-     break;
+    if (parentBackend == LAYERS_OPENGL) {
+      result = new TextureClientStreamOGL(GetForwarder(), GetType());
+    }
+    break;
   case TEXTURE_YCBCR:
-     result = new TextureClientShmemYCbCr(GetForwarder(), GetType());
-     break;
+    result = new TextureClientShmemYCbCr(GetForwarder(), GetType());
+    break;
   case TEXTURE_CONTENT:
- #ifdef XP_WIN
-     if (GetForwarder()->GetCompositorBackendType() == LAYERS_D3D11) {
-       result = new TextureClientD3D11(GetForwarder(), GetType());
-       break;
-     }
- #endif
+#ifdef XP_WIN
+    if (parentBackend == LAYERS_D3D11) {
+      result = new TextureClientD3D11(GetForwarder(), GetType());
+      break;
+    }
+#endif
      // fall through to TEXTURE_SHMEM
-   case TEXTURE_SHMEM:
-     if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
-       result = new TextureClientShmem(GetForwarder(), GetType());
-     }
-     break;
-   default:
+  case TEXTURE_SHMEM:
+    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
+      result = new TextureClientShmem(GetForwarder(), GetType());
+    }
+    break;
+  default:
     MOZ_ASSERT(false, "Unhandled texture client type");
-   }
+  }
 
   MOZ_ASSERT(result, "Failed to create TextureClient");
-  MOZ_ASSERT(result->SupportsType(aTextureClientType), "Created the wrong texture client?");
+  MOZ_ASSERT(result->SupportsType(aTextureClientType),
+             "Created the wrong texture client?");
   result->SetFlags(aFlags);
-  TextureChild* textureChild
-    = static_cast<TextureChild*>(GetIPDLActor()->SendPTextureConstructor(result->GetTextureInfo()));
+  TextureChild* textureChild = static_cast<TextureChild*>(
+    GetIPDLActor()->SendPTextureConstructor(result->GetTextureInfo()));
+
   result->SetIPDLActor(textureChild);
   textureChild->SetClient(result);
 
   return result.forget();
 }
 
-} // namespace
-} // namespace
+} // namespace layers
+} // namespace mozilla

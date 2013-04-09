@@ -95,8 +95,7 @@ protected:
 
 // Double buffered ImageHost. We have a single TextureHost and double buffering
 // is done at the TextureHost/Client level. This is in contrast with buffered
-// ContentHosts which do their own double buffering (XXX that is better,
-// ImageHosts should be changed to follow that model).
+// ContentHosts which do their own double buffering 
 class ImageHostBuffered : public ImageHostSingle
 {
 public:

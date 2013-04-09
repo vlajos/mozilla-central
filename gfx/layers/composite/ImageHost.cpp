@@ -59,7 +59,7 @@ ImageHostSingle::Composite(EffectChain& aEffectChain,
   }
 
   if (!mTextureHost->Lock()) {
-    MOZ_ASSERT(false, "failed to lock texture host");
+    NS_ASSERTION(false, "failed to lock texture host");
     return;
   }
 

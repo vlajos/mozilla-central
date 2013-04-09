@@ -25,7 +25,6 @@ TextureParent::TextureParent(const TextureInfo& aInfo,
 TextureParent::~TextureParent()
 {
   MOZ_COUNT_DTOR(TextureParent);
-  mTextureHost = nullptr;
 }
 
 bool
@@ -44,7 +43,8 @@ TextureParent::EnsureTextureHost(SurfaceDescriptor::Type aSurfaceType)
                                                 mTextureInfo.mTextureHostFlags,
                                                 mTextureInfo.mTextureFlags);
   mTextureHost->SetTextureParent(this);
-  compositable->AddTextureHost(mTextureHost, compParent->GetCompositableManager());
+  compositable->AddTextureHost(mTextureHost,
+                               compParent->GetCompositableManager());
 
   mLastSurfaceType = aSurfaceType;
 
@@ -63,8 +63,7 @@ void TextureParent::SetTextureHost(TextureHost* aHost)
 
 CompositableHost* TextureParent::GetCompositableHost() const
 {
-  CompositableParent* actor
-    = static_cast<CompositableParent*>(Manager());
+  CompositableParent* actor = static_cast<CompositableParent*>(Manager());
   return actor->GetCompositableHost();
 }
 

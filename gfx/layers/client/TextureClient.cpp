@@ -114,7 +114,7 @@ TextureClientShmem::EnsureAllocated(gfx::IntSize aSize,
 
     if (!mForwarder->AllocSurfaceDescriptor(gfxIntSize(mSize.width, mSize.height),
                                             mContentType, &mDescriptor)) {
-      NS_ERROR("creating SurfaceDescriptor failed!");
+      NS_WARNING("creating SurfaceDescriptor failed!");
     }
   }
 }
@@ -135,13 +135,6 @@ TextureClientShmem::SetDescriptor(const SurfaceDescriptor& aDescriptor)
                mDescriptor.type() == SurfaceDescriptor::TShmem ||
                mDescriptor.type() == SurfaceDescriptor::TRGBImage,
                "Invalid surface descriptor");
-}
-
-already_AddRefed<gfxContext>
-TextureClientShmem::LockContext()
-{
-  nsRefPtr<gfxContext> result = new gfxContext(GetSurface());
-  return result.forget();
 }
 
 gfxASurface*
@@ -211,7 +204,6 @@ TextureClientShmemYCbCr::SetDescriptorFromReply(const SurfaceDescriptor& aDescri
   }
 }
 
-
 void
 TextureClientShmemYCbCr::EnsureAllocated(gfx::IntSize aSize,
                                          gfxASurface::gfxContentType aType)
@@ -221,8 +213,7 @@ TextureClientShmemYCbCr::EnsureAllocated(gfx::IntSize aSize,
 
 
 TextureClientTile::TextureClientTile(const TextureClientTile& aOther)
-: TextureClient(mForwarder
-, mTextureInfo.mCompositableType)
+: TextureClient(aOther.mForwarder, aOther.mTextureInfo.mCompositableType)
 , mSurface(aOther.mSurface)
 {}
 
@@ -269,8 +260,7 @@ bool AutoLockShmemClient::Update(Image* aImage,
     return false;
   }
 
-  nsRefPtr<gfxPattern> pattern;
-  pattern =  pat ? pat : new gfxPattern(surface);
+  nsRefPtr<gfxPattern> pattern = pat ? pat : new gfxPattern(surface);
 
   gfxIntSize size = aImage->GetSize();
 
@@ -332,7 +322,8 @@ AutoLockYCbCrClient::Update(PlanarYCbCrImage* aImage)
   return true;
 }
 
-bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage) {
+bool AutoLockYCbCrClient::EnsureTextureClient(PlanarYCbCrImage* aImage)
+{
   MOZ_ASSERT(aImage);
   if (!aImage) {
     return false;

@@ -12,7 +12,7 @@ namespace mozilla {
 namespace layers {
 
 typedef int32_t SurfaceDescriptorType;
-static const int32_t SURFACEDESCRIPTOR_UNKNOWN = 0;
+const SurfaceDescriptorType SURFACEDESCRIPTOR_UNKNOWN = 0;
 
 /**
  * Flags used by texture clients and texture hosts. These are passed from client
@@ -113,7 +113,7 @@ struct TextureInfo
 };
 
 
-} // namespace
-} // namespace
+} // namespace layers
+} // namespace mozilla
 
 #endif

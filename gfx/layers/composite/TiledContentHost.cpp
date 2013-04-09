@@ -84,16 +84,17 @@ TiledContentHost::PaintedTiledLayerBuffer(const BasicTiledLayerBuffer* mTiledBuf
 void
 TiledContentHost::ProcessLowPrecisionUploadQueue()
 {
-  if (!mPendingLowPrecisionUpload)
+  if (!mPendingLowPrecisionUpload) {
     return;
+  }
 
   mLowPrecisionRegionToUpload.And(mLowPrecisionRegionToUpload,
                                   mLowPrecisionMainMemoryTiledBuffer.GetValidRegion());
   mLowPrecisionVideoMemoryTiledBuffer.SetResolution(
     mLowPrecisionMainMemoryTiledBuffer.GetResolution());
-  // XXX It's assumed that the video memory tiled buffer has an up-to-date
-  //     frame resolution. As it's always updated first when zooming, this
-  //     should always be true.
+  // It's assumed that the video memory tiled buffer has an up-to-date
+  // frame resolution. As it's always updated first when zooming, this
+  // should always be true.
   mLowPrecisionVideoMemoryTiledBuffer.Upload(&mLowPrecisionMainMemoryTiledBuffer,
                                  mLowPrecisionMainMemoryTiledBuffer.GetValidRegion(),
                                  mLowPrecisionRegionToUpload,
@@ -233,14 +234,16 @@ TiledContentHost::RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
     rowCount++;
     int32_t tileStartX = aLayerBuffer.GetTileStart(x);
     int32_t w = aLayerBuffer.GetScaledTileLength() - tileStartX;
-    if (x + w > aVisibleRect.x + aVisibleRect.width)
+    if (x + w > aVisibleRect.x + aVisibleRect.width) {
       w = aVisibleRect.x + aVisibleRect.width - x;
+    }
     int tileY = 0;
     for (int32_t y = aVisibleRect.y; y < aVisibleRect.y + aVisibleRect.height;) {
       int32_t tileStartY = aLayerBuffer.GetTileStart(y);
       int32_t h = aLayerBuffer.GetScaledTileLength() - tileStartY;
-      if (y + h > aVisibleRect.y + aVisibleRect.height)
+      if (y + h > aVisibleRect.y + aVisibleRect.height) {
         h = aVisibleRect.y + aVisibleRect.height - y;
+      }
 
       TiledTexture tileTexture = aLayerBuffer.
         GetTile(nsIntPoint(aLayerBuffer.RoundDownToTileEdge(x),
@@ -274,7 +277,8 @@ TiledContentHost::RenderLayerBuffer(TiledLayerBufferComposite& aLayerBuffer,
 }
 
 void
-TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* aCompositor, uint16_t aSize) {
+TiledTexture::Validate(gfxReusableSurfaceWrapper* aReusableSurface, Compositor* aCompositor, uint16_t aSize)
+{
   TextureFlags flags = 0;
   if (!mTextureHost) {
     // convert placeholder tile to a real tile

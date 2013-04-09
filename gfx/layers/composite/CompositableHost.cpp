@@ -14,8 +14,10 @@
 namespace mozilla {
 namespace layers {
 
-bool CompositableHost::Update(const SurfaceDescriptor& aImage,
-                              SurfaceDescriptor* aResult) {
+bool
+CompositableHost::Update(const SurfaceDescriptor& aImage,
+                         SurfaceDescriptor* aResult)
+{
   if (!GetTextureHost()) {
     *aResult = aImage;
     return false;
@@ -27,9 +29,10 @@ bool CompositableHost::Update(const SurfaceDescriptor& aImage,
   return GetTextureHost()->IsValid();
 }
 
-bool CompositableHost::AddMaskEffect(EffectChain& aEffects,
-                               const gfx::Matrix4x4& aTransform,
-                               bool aIs3D)
+bool
+CompositableHost::AddMaskEffect(EffectChain& aEffects,
+                                const gfx::Matrix4x4& aTransform,
+                                bool aIs3D)
 {
   RefPtr<TextureSource> source = GetTextureHost();
   RefPtr<EffectMask> effect = new EffectMask(source,
@@ -61,7 +64,7 @@ CompositableHost::Create(CompositableType aType, Compositor* aCompositor)
     result = new ContentHostDoubleBuffered(aCompositor);
     return result;
   default:
-    NS_ERROR("Unknown CompositableType");
+    MOZ_NOT_REACHED("Unknown CompositableType");
     return nullptr;
   }
 }
@@ -102,61 +105,61 @@ CompositableParent::~CompositableParent()
 }
 
 namespace CompositableMap {
-  typedef std::map<uint64_t, CompositableParent*> CompositableMap_t;
-  static CompositableMap_t* sCompositableMap = nullptr;
-  bool IsCreated() {
-    return sCompositableMap != nullptr;
-  }
-  CompositableParent* Get(uint64_t aID)
-  {
-    if (!IsCreated() || (aID == 0)) {
-      return nullptr;
-    }
-    CompositableMap_t::iterator it = sCompositableMap->find(aID);
-    if (it == sCompositableMap->end()) {
-      return nullptr;
-    }
-    return it->second;
-  }
-  void Set(uint64_t aID, CompositableParent* aParent)
-  {
-    if (!IsCreated() || (aID == 0)) {
-      return;
-    }
-    (*sCompositableMap)[aID] = aParent;
-  }
-  void Erase(uint64_t aID)
-  {
-    if (!IsCreated() || (aID == 0)) {
-      return;
-    }
-    CompositableMap_t::iterator it = sCompositableMap->find(aID);
-    if (it != sCompositableMap->end()) {
-      sCompositableMap->erase(it);
-    }
-  }
-  void Clear()
-  {
-    if (!IsCreated()) {
-      return;
-    }
-    sCompositableMap->clear();
-  }
-  void Create()
-  {
-    if (sCompositableMap == nullptr) {
-      sCompositableMap = new CompositableMap_t;
-    }
-  }
-  void Destroy()
-  {
-    Clear();
-    delete sCompositableMap;
-    sCompositableMap = nullptr;
-  }
-} // CompositableMap
 
+typedef std::map<uint64_t, CompositableParent*> CompositableMap_t;
+static CompositableMap_t* sCompositableMap = nullptr;
+bool IsCreated() {
+  return sCompositableMap != nullptr;
+}
+CompositableParent* Get(uint64_t aID)
+{
+  if (!IsCreated() || aID == 0) {
+    return nullptr;
+  }
+  CompositableMap_t::iterator it = sCompositableMap->find(aID);
+  if (it == sCompositableMap->end()) {
+    return nullptr;
+  }
+  return it->second;
+}
+void Set(uint64_t aID, CompositableParent* aParent)
+{
+  if (!IsCreated() || aID == 0) {
+    return;
+  }
+  (*sCompositableMap)[aID] = aParent;
+}
+void Erase(uint64_t aID)
+{
+  if (!IsCreated() || aID == 0) {
+    return;
+  }
+  CompositableMap_t::iterator it = sCompositableMap->find(aID);
+  if (it != sCompositableMap->end()) {
+    sCompositableMap->erase(it);
+  }
+}
+void Clear()
+{
+  if (!IsCreated()) {
+    return;
+  }
+  sCompositableMap->clear();
+}
+void Create()
+{
+  if (sCompositableMap == nullptr) {
+    sCompositableMap = new CompositableMap_t;
+  }
+}
+void Destroy()
+{
+  Clear();
+  delete sCompositableMap;
+  sCompositableMap = nullptr;
+}
 
+} // namespace CompositableMap
 
-} // namespace
-} // namespace
+} // namespace layers
+} // namespace mozilla

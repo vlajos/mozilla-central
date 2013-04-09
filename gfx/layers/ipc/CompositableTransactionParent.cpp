@@ -23,13 +23,6 @@ namespace layers {
 //--------------------------------------------------
 // Convenience accessors
 template<class OpPaintT>
-static TextureHost*
-AsTextureHost(const OpPaintT& op)
-{
-  return static_cast<TextureParent*>(op.textureParent())->GetTextureHost();
-}
-
-template<class OpPaintT>
 Layer* GetLayerFromOpPaint(const OpPaintT& op)
 {
   PTextureParent* textureParent = op.textureParent();
@@ -48,7 +41,6 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
       const OpCreatedSingleBuffer& op = aEdit.get_OpCreatedSingleBuffer();
       CompositableParent* compositableParent = static_cast<CompositableParent*>(op.compositableParent());
       TextureParent* textureParent = static_cast<TextureParent*>(op.bufferParent());
-
 
       textureParent->EnsureTextureHost(op.descriptor().type());
       textureParent->GetTextureHost()->SetBuffer(new SurfaceDescriptor(op.descriptor()),
@@ -105,7 +97,7 @@ CompositableParentManager::ReceiveCompositableUpdate(const CompositableOperation
         // if we reach this branch, it most likely means that async textures
         // are coming in before we had time to attach the conmpositable to a
         // layer. Don't panic, it is okay in this case. it should not be
-        // happenning continuously, though.
+        // happening continuously, though.
       }
 
       if (layer) {

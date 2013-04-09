@@ -28,13 +28,15 @@ public:
   TextureHost* GetTextureHost() const;
   CompositableHost* GetCompositableHost() const;
 
-  const TextureInfo& GetTextureInfo() const {
+  const TextureInfo& GetTextureInfo() const
+  {
     return mTextureInfo;
   }
 
   bool SurfaceTypeChanged(SurfaceDescriptor::Type aNewSurfaceType);
   void SetCurrentSurfaceType(SurfaceDescriptor::Type aNewSurfaceType);
-  SurfaceDescriptor::Type GetSurfaceType() const {
+  SurfaceDescriptor::Type GetSurfaceType() const
+  {
     return mLastSurfaceType;
   }
 

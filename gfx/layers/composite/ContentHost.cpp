@@ -107,8 +107,8 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
 
   if (mTextureHostOnWhite) {
     iterOnWhite = mTextureHostOnWhite->AsTileIterator();
-    NS_ASSERTION((!tileIter) || tileIter->GetTileCount() == iterOnWhite->GetTileCount(),
-                 "Tile count mismatch on component alpha texture");
+    MOZ_ASSERT(!tileIter || tileIter->GetTileCount() == iterOnWhite->GetTileCount(),
+               "Tile count mismatch on component alpha texture");
     if (iterOnWhite) {
       iterOnWhite->BeginTileIteration();
     }
@@ -117,8 +117,8 @@ ContentHostBase::Composite(EffectChain& aEffectChain,
   bool usingTiles = (tileIter && tileIter->GetTileCount() > 1);
   do {
     if (iterOnWhite) {
-      NS_ASSERTION(iterOnWhite->GetTileRect() == tileIter->GetTileRect(),
-                   "component alpha textures should be the same size.");
+      MOZ_ASSERT(iterOnWhite->GetTileRect() == tileIter->GetTileRect(),
+                 "component alpha textures should be the same size.");
     }
 
     nsIntRect texRect = tileIter ? tileIter->GetTileRect()
@@ -257,8 +257,9 @@ ContentHostSingleBuffered::UpdateThebes(const ThebesBufferData& aData,
 
   // There's code to make sure that updated regions don't cross rotation
   // boundaries, so assert here that this is the case
-  NS_ASSERTION(((destBounds.x % size.width) + destBounds.width <= size.width) &&
-               ((destBounds.y % size.height) + destBounds.height <= size.height),
+  MOZ_ASSERT((destBounds.x % size.width) + destBounds.width <= size.width,
+               "updated region lies across rotation boundaries!");
+  MOZ_ASSERT((destBounds.y % size.height) + destBounds.height <= size.height,
                "updated region lies across rotation boundaries!");
 
   mTextureHost->Update(*mTextureHost->GetBuffer(), &destRegion);
@@ -383,17 +384,17 @@ ContentHostDoubleBuffered::PrintInfo(nsACString& aTo, const char* aPrefix)
     aTo += " [paint-will-resample]";
   }
 
-  nsAutoCString pfx(aPrefix);
-  pfx += "  ";
+  nsAutoCString prefix(aPrefix);
+  prefix += "  ";
 
   if (mTextureHost) {
     aTo += "\n";
-    mTextureHost->PrintInfo(aTo, pfx.get());
+    mTextureHost->PrintInfo(aTo, prefix.get());
   }
 
   if (mBackHost) {
     aTo += "\n";
-    mBackHost->PrintInfo(aTo, pfx.get());
+    mBackHost->PrintInfo(aTo, prefix.get());
   }
 }
 #endif

@@ -35,8 +35,9 @@ public:
     mTextureHost = o.mTextureHost;
   }
   TiledTexture& operator=(const TiledTexture& o) {
-    if (this == &o)
+    if (this == &o) {
       return *this;
+    }
     mTextureHost = o.mTextureHost;
     return *this;
   }

@@ -11,6 +11,7 @@
 #include "gfxMatrix.h"
 #include "Layers.h"
 #include "mozilla/layers/TextureHost.h"
+#include "mozilla/RefPtr.h"
 
 
 /**
@@ -135,7 +136,7 @@ enum SurfaceInitMode
  *
  * For an example of a user of Compositor, see LayerManagerComposite.
  *
- * Initialisation: create a Compositor object, call Initialize().
+ * Initialization: create a Compositor object, call Initialize().
  *
  * Destruction: destroy any resources associated with the compositor, call
  * Destroy(), delete the Compositor object.
@@ -172,7 +173,8 @@ public:
   {
     MOZ_COUNT_CTOR(Compositor);
   }
-  virtual ~Compositor() {
+  virtual ~Compositor()
+  {
     MOZ_COUNT_DTOR(Compositor);
   }
 
@@ -184,13 +186,12 @@ public:
    * across process or thread boundaries that are compatible with this
    * compositor.
    */
-  virtual TextureFactoryIdentifier
-    GetTextureFactoryIdentifier() = 0;
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() = 0;
 
   /**
    * Properties of the compositor.
    */
-  virtual bool CanUseCanvasLayerForSize(const gfxIntSize &aSize) = 0;
+  virtual bool CanUseCanvasLayerForSize(const gfxIntSize& aSize) = 0;
   virtual int32_t GetMaxTextureSize() const = 0;
 
   /**
@@ -200,7 +201,7 @@ public:
    * If this method is not used, or we pass in nullptr, we target the compositor's
    * usual swap chain and render to the screen.
    */
-  virtual void SetTargetContext(gfxContext *aTarget) = 0;
+  virtual void SetTargetContext(gfxContext* aTarget) = 0;
 
   typedef uint32_t MakeCurrentFlags;
   static const MakeCurrentFlags ForceMakeCurrent = 0x1;
@@ -226,11 +227,11 @@ public:
   virtual void FallbackTextureInfo(TextureInfo& aInfo) {}
 
   /**
-   * This creates a Surface that can be used as a rendering target by this
+   * Creates a Surface that can be used as a rendering target by this
    * compositor.
    */
   virtual TemporaryRef<CompositingRenderTarget>
-  CreateRenderTarget(const gfx::IntRect &aRect, SurfaceInitMode aInit) = 0;
+  CreateRenderTarget(const gfx::IntRect& aRect, SurfaceInitMode aInit) = 0;
 
   /**
    * Creates a Surface that can be used as a rendering target by this
@@ -238,14 +239,14 @@ public:
    * If aSource is null, then the current screen buffer is used as source.
    */
   virtual TemporaryRef<CompositingRenderTarget>
-  CreateRenderTargetFromSource(const gfx::IntRect &aRect,
+  CreateRenderTargetFromSource(const gfx::IntRect& aRect,
                                const CompositingRenderTarget* aSource) = 0;
 
   /**
    * Sets the given surface as the target for subsequent calls to DrawQuad.
-   * Passing nullptr as aSurface sets the screen as the target.
+   * Passing null as aSurface sets the screen as the target.
    */
-  virtual void SetRenderTarget(CompositingRenderTarget *aSurface) = 0;
+  virtual void SetRenderTarget(CompositingRenderTarget* aSurface) = 0;
 
   /**
    * Returns the current target for rendering. Will return null if we are
@@ -267,7 +268,7 @@ public:
    * required, these will be in the primary effect in the effect chain.
    */
   virtual void DrawQuad(const gfx::Rect& aRect, const gfx::Rect& aClipRect,
-                        const EffectChain &aEffectChain,
+                        const EffectChain& aEffectChain,
                         gfx::Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const gfx::Point& aOffset) = 0;
 
@@ -282,11 +283,11 @@ public:
    * If aRenderBoundsOut is non-null, it will be set to the render bounds
    * actually used by the compositor in window space.
    */
-  virtual void BeginFrame(const gfx::Rect *aClipRectIn,
+  virtual void BeginFrame(const gfx::Rect* aClipRectIn,
                           const gfxMatrix& aTransform,
                           const gfx::Rect& aRenderBounds,
-                          gfx::Rect *aClipRectOut = nullptr,
-                          gfx::Rect *aRenderBoundsOut = nullptr) = 0;
+                          gfx::Rect* aClipRectOut = nullptr,
+                          gfx::Rect* aRenderBoundsOut = nullptr) = 0;
 
   /**
    * Flush the current frame to the screen and tidy up.
@@ -341,7 +342,7 @@ public:
   }
   void SetCompositorID(uint32_t aID)
   {
-    NS_ASSERTION(mCompositorID==0, "The compositor ID must be set only once.");
+    MOZ_ASSERT(mCompositorID == 0, "The compositor ID must be set only once.");
     mCompositorID = aID;
   }
 
@@ -377,13 +378,13 @@ public:
    * don't have a reference to a Compositor.
    */
   static LayersBackend GetBackend();
+
 protected:
   uint32_t mCompositorID;
   static LayersBackend sBackend;
 };
 
-
-}
-}
+} // namespace layers
+} // namespace mozilla
 
 #endif /* MOZILLA_GFX_COMPOSITOR_H */

@@ -61,11 +61,11 @@ public:
   TextureSource()
   {
     MOZ_COUNT_CTOR(TextureSource);
-  };
+  }
   virtual ~TextureSource()
   {
     MOZ_COUNT_DTOR(TextureSource);
-  };
+  }
 
   /**
    * Returns the size of the texture in texels.
@@ -157,8 +157,8 @@ public:
    * @param aTextureFlags Flags to pass to the new TextureHost
    */
   static TemporaryRef<TextureHost> CreateTextureHost(SurfaceDescriptorType aDescriptorType,
-    		                                             uint32_t aTextureHostFlags,
-    		                                             uint32_t aTextureFlags);
+                                                     uint32_t aTextureHostFlags,
+                                                     uint32_t aTextureFlags);
 
   TextureHost();
   virtual ~TextureHost();
@@ -251,7 +251,7 @@ public:
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char *Name() =0;
+  virtual const char *Name() = 0;
   virtual void PrintInfo(nsACString& aTo, const char* aPrefix);
 #endif
 
@@ -301,7 +301,8 @@ protected:
   // An internal identifier for this texture host. Two texture hosts
   // should be considered equal iff their identifiers match. Should
   // not be exposed publicly.
-  virtual uint64_t GetIdentifier() const {
+  virtual uint64_t GetIdentifier() const
+  {
     return reinterpret_cast<uint64_t>(this);
   }
 

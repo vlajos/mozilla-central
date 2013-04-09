@@ -25,7 +25,7 @@ class ImageBridgeParent : public PImageBridgeParent,
 public:
   typedef InfallibleTArray<CompositableOperation> EditArray;
   typedef InfallibleTArray<EditReply> EditReplyArray;
-  
+
   ImageBridgeParent(MessageLoop* aLoop, Transport* aTransport);
   ~ImageBridgeParent();
 

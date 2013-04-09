@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * vim: sw=2 ts=8 et :
- */
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,7 +7,7 @@
 #ifndef MOZILLA_LAYERS_COMPOSITABLEFORWARDER
 #define MOZILLA_LAYERS_COMPOSITABLEFORWARDER
 
-#include <stdint.h>
+#include "mozilla/StandardInteger.h"
 #include "gfxASurface.h"
 #include "GLDefs.h"
 #include "mozilla/layers/ISurfaceAllocator.h"
@@ -38,7 +37,7 @@ class CompositableForwarder : public ISurfaceAllocator
   friend class TextureClientShmem;
 public:
   CompositableForwarder()
-  : mMaxTextureSize(0), mCompositorBackend(mozilla::layers::LAYERS_NONE)
+  : mMaxTextureSize(0), mCompositorBackend(layers::LAYERS_NONE)
   {}
 
   /**
@@ -113,7 +112,8 @@ public:
    * We only don't allow changing the backend type at runtime so this value can
    * be queried once and will not change until Gecko is restarted.
    */
-  LayersBackend GetCompositorBackendType() {
+  LayersBackend GetCompositorBackendType() const
+  {
     return mCompositorBackend;
   }
 
