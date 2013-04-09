@@ -114,7 +114,7 @@ public:
   virtual void NotifyLayersTransaction() { }
 
   virtual nsIWidget* GetWidget() const { return mWidget; }
-  virtual nsIntSize* GetWidgetSize();
+  virtual const nsIntSize& GetWidgetSize();
 
   virtual ID3D11Device *GetDevice() { return mDevice; }
 

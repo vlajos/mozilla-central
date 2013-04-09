@@ -221,9 +221,9 @@ ThebesLayerComposite::GetDisplayPort()
   // If no display port was found, use the widget size from the layer manager.
   if (displayPort.IsEmpty()) {
     LayerManagerComposite* manager = static_cast<LayerManagerComposite*>(Manager());
-    nsIntSize* widgetSize = manager->GetWidgetSize();
-    displayPort.width = widgetSize->width;
-    displayPort.height = widgetSize->height;
+    const nsIntSize& widgetSize = manager->GetWidgetSize();
+    displayPort.width = widgetSize.width;
+    displayPort.height = widgetSize.height;
   }
 
   // Transform the display port into layer space.

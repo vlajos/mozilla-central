@@ -368,7 +368,7 @@ public:
   // XXX I expect we will want to move mWidget into this class and implement
   // these methods properly.
   virtual nsIWidget* GetWidget() const { return nullptr; }
-  virtual nsIntSize* GetWidgetSize() { return nullptr; }
+  virtual const nsIntSize& GetWidgetSize() = 0;
 
   /**
    * We enforce that there can only be one Compositor backend type off the main

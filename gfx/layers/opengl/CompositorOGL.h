@@ -116,8 +116,8 @@ public:
   virtual bool Resume() MOZ_OVERRIDE;
 
   virtual nsIWidget* GetWidget() const MOZ_OVERRIDE { return mWidget; }
-  virtual nsIntSize* GetWidgetSize() MOZ_OVERRIDE {
-    return &mWidgetSize;
+  virtual const nsIntSize& GetWidgetSize() MOZ_OVERRIDE {
+    return mWidgetSize;
   }
 
   GLContext* gl() const { return mGLContext; }

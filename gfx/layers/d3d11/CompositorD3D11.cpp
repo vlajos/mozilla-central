@@ -593,7 +593,7 @@ CompositorD3D11::PrepareViewport(const gfx::IntSize& aSize,
   memcpy(&mVSConstants.projection, &projection, 64);
 }
 
-nsIntSize*
+const nsIntSize&
 CompositorD3D11::GetWidgetSize()
 {
   nsIntRect rect;
@@ -601,7 +601,7 @@ CompositorD3D11::GetWidgetSize()
 
   mSize = rect.Size();
 
-  return &mSize;
+  return mSize;
 }
 
 void

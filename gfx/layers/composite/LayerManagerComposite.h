@@ -195,7 +195,7 @@ public:
     CreateDrawTarget(const mozilla::gfx::IntSize &aSize,
                      mozilla::gfx::SurfaceFormat aFormat) MOZ_OVERRIDE;
 
-  nsIntSize* GetWidgetSize()
+  const nsIntSize& GetWidgetSize()
   {
     return mCompositor->GetWidgetSize();
   }
