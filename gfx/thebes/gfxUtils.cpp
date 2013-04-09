@@ -528,7 +528,7 @@ PathFromRegionInternal(gfx::DrawTarget* aTarget, const nsIntRegion& aRegion,
   Matrix mat = aTarget->GetTransform();
   const gfxFloat epsilon = 0.000001;
 #define WITHIN_E(a,b) (fabs((a)-(b)) < epsilon)
-  // TODO: This snapping critera should have some kind of justification.
+  // We're essentially duplicating the logic in UserToDevicePixelSnapped here.
   bool shouldNotSnap = !aSnap || (WITHIN_E(mat._11,1.0) &&
                                   WITHIN_E(mat._22,1.0) &&
                                   WITHIN_E(mat._12,0.0) &&
