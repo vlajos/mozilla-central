@@ -195,9 +195,6 @@ struct EffectRGBAExternal : public TexturedEffect
 
 struct EffectYCbCr : public TexturedEffect
 {
-  // TODO (bug 859853) - mFlipped should be removed and texture coords should
-  // be used that way we'd prevent TexturedEffect pushing this bogus bool onto
-  // this effect.
   EffectYCbCr(TextureSource *aSource, gfx::Filter aFilter)
     : TexturedEffect(EFFECT_YCBCR, aSource, false, aFilter)
   {}
