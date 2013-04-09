@@ -1416,13 +1416,13 @@ GLContextProviderGLX::CreateOffscreen(const gfxIntSize& size,
 }
 
 static nsRefPtr<GLContext> gGlobalContext[GLXLibrary::LIBS_MAX];
+static bool gUseContextSharing = getenv("MOZ_DISABLE_CONTEXT_SHARING_GLX") == 0;
 
 GLContext*
 GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
 {
-    // disable context sharing if using OMTC
     // TODO: get GLX context sharing to work well with multiple threads
-    if (gfxPlatform::OffMainThreadCompositingEnabled()) {
+    if (!gUseContextSharing) {
         return nullptr;
     }
 
