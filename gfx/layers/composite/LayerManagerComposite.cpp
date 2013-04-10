@@ -47,6 +47,37 @@ namespace layers {
 
 using namespace mozilla::gfx;
 
+static LayerComposite*
+ToLayerComposite(Layer* aLayer)
+{
+  return static_cast<LayerComposite*>(aLayer->ImplData());
+}
+
+static void ClearSubtree(Layer* aLayer)
+{
+  ToLayerComposite(aLayer)->CleanupResources();
+  for (Layer* child = aLayer->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    ClearSubtree(child);
+  }
+}
+
+void
+LayerManagerComposite::ClearCachedResources(Layer* aSubtree)
+{
+  MOZ_ASSERT(!aSubtree || aSubtree->Manager() == this);
+  Layer* subtree = aSubtree ? aSubtree : mRoot.get();
+  if (!subtree) {
+    return;
+  }
+
+  ClearSubtree(subtree);
+  // FIXME [bjacob]
+  // XXX the old LayerManagerOGL code had a mMaybeInvalidTree that it set to true here.
+  // Do we need that?
+}
+
+
 
 /**
  * LayerManagerComposite

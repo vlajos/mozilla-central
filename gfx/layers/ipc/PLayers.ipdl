@@ -33,9 +33,9 @@ namespace layers {
 
 sync protocol PLayers {
   manager PRenderFrame or PCompositor;
-  manages PGrallocBuffer;
   manages PLayer;
   manages PCompositable;
+  manages PGrallocBuffer;
 
 parent:
   /**

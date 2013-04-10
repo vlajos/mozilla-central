@@ -27,7 +27,6 @@ namespace layers {
 // for Bug 716631.
 rpc protocol PCompositor
 {
-  manages PGrallocBuffer;
   // A Compositor manages a single Layer Manager (PLayers)
   manages PLayers;
 
@@ -56,10 +55,6 @@ parent:
 
   sync PLayers(LayersBackend layersBackendHint, uint64_t id)
     returns (TextureFactoryIdentifier textureFactoryIdentifier);
-
-  // FIXME/bug 783451
-  sync PGrallocBuffer(gfxIntSize size, uint32_t format, uint32_t usage)
-    returns (MaybeMagicGrallocBufferHandle handle);
 };
 
 } // layers

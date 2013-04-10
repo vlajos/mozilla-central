@@ -119,6 +119,8 @@ public:
     return mCompositor->GetMaxTextureSize();
   }
 
+  virtual void ClearCachedResources(Layer* aSubtree = nullptr) MOZ_OVERRIDE;
+
   virtual already_AddRefed<ThebesLayer> CreateThebesLayer() MOZ_OVERRIDE;
   virtual already_AddRefed<ContainerLayer> CreateContainerLayer() MOZ_OVERRIDE;
   virtual already_AddRefed<ImageLayer> CreateImageLayer() MOZ_OVERRIDE;
