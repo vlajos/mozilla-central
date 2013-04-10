@@ -1068,7 +1068,7 @@ private:
         }
     }
 
-    GLContext* mGLContext;
+    nsRefPtr<GLContext> mGLContext;
     nsRefPtr<gfxASurface> mUpdateSurface;
     GLXPixmap mPixmap;
     bool mInUpdate;
