@@ -287,6 +287,7 @@ gfxPlatform::Init()
     printf("MOZ_USE_OMTC set to: %s\n", getenv("MOZ_USE_OMTC"));
     printf("MOZ_OMTC_ENABLED set to: %s\n", getenv("MOZ_OMTC_ENABLED"));
     printf("useOffMainThreadCompositing set to: %d\n", useOffMainThreadCompositing);
+    useOffMainThreadCompositing = true;
 
     if (useOffMainThreadCompositing && (XRE_GetProcessType() ==
                                         GeckoProcessType_Default)) {
