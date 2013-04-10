@@ -9,9 +9,6 @@
 #include "mozilla/layers/TextureChild.h"
 #include "mozilla/layers/ShadowLayersChild.h"
 #include "mozilla/layers/CompositableForwarder.h"
-#ifdef XP_WIN
-#include "mozilla/layers/TextureD3D11.h"
-#endif
 
 namespace mozilla {
 namespace layers {
@@ -124,15 +121,9 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
     result = new TextureClientShmemYCbCr(GetForwarder(), GetType());
     break;
   case TEXTURE_CONTENT:
-#ifdef XP_WIN
-    if (parentBackend == LAYERS_D3D11) {
-      result = new TextureClientD3D11(GetForwarder(), GetType());
-      break;
-    }
-#endif
      // fall through to TEXTURE_SHMEM
   case TEXTURE_SHMEM:
-    if (parentBackend == LAYERS_OPENGL || parentBackend == LAYERS_D3D11) {
+    if (parentBackend == LAYERS_OPENGL) {
       result = new TextureClientShmem(GetForwarder(), GetType());
     }
     break;

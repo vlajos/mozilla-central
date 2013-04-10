@@ -21,7 +21,6 @@
 #endif
 #include "gfxPlatform.h"
 #include "gfxContext.h"
-#include <d3d11.h>
 
 #include "nsTArray.h"
 #include "nsDataHashtable.h"
@@ -255,7 +254,6 @@ public:
 #ifdef CAIRO_HAS_D2D_SURFACE
     cairo_device_t *GetD2DDevice() { return mD2DDevice; }
     ID3D10Device1 *GetD3D10Device() { return mD2DDevice ? cairo_d2d_device_get_device(mD2DDevice) : nullptr; }
-    ID3D11Device *GetD3D11Device() { return mD3D11Device; }
 #endif
 
     static bool IsOptimus();
@@ -282,7 +280,6 @@ private:
 #ifdef CAIRO_HAS_D2D_SURFACE
     cairo_device_t *mD2DDevice;
 #endif
-    mozilla::RefPtr<ID3D11Device> mD3D11Device;
 
     virtual qcms_profile* GetPlatformCMSOutputProfile();
 

@@ -20,7 +20,7 @@ namespace layers {
 ContentClient::CreateContentClient(LayersBackend aParentBackend,
                                    CompositableForwarder* aForwarder)
 {
-  if (aParentBackend != LAYERS_OPENGL && aParentBackend != LAYERS_D3D11) {
+  if (aParentBackend != LAYERS_OPENGL) {
     return nullptr;
   }
   if (ShadowLayerManager::SupportsDirectTexturing() ||

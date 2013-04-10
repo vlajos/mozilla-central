@@ -17,9 +17,6 @@
 #include "ShmemYCbCrImage.h"
 #include "gfxReusableSurfaceWrapper.h"
 #include "gfxPlatform.h"
-#ifdef XP_WIN
-#include "mozilla/layers/TextureD3D11.h"
-#endif
 
 using namespace mozilla::gl;
 

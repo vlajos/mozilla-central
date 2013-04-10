@@ -472,12 +472,8 @@ ImageBridgeChild::CreateImageClient(CompositableType aType)
 TemporaryRef<ImageClient>
 ImageBridgeChild::CreateImageClientNow(CompositableType aType)
 {
-#ifdef MOZ_ENABLE_D3D10_LAYER
-  // at the moment, only D3D11 has OMTC on windows.
-  mCompositorBackend = LAYERS_D3D11;
-#else
   mCompositorBackend = LAYERS_OPENGL;
-#endif
+
   RefPtr<ImageClient> client
     = ImageClient::CreateImageClient(mCompositorBackend,
                                      aType, this, 0);

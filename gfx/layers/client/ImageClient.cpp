@@ -29,12 +29,12 @@ ImageClient::CreateImageClient(LayersBackend aParentBackend,
   RefPtr<ImageClient> result = nullptr;
   switch (aCompositableHostType) {
   case BUFFER_IMAGE_SINGLE:
-    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
+    if (aParentBackend == LAYERS_OPENGL) {
       result = new ImageClientSingle(aForwarder, aFlags, BUFFER_IMAGE_SINGLE);
     }
     break;
   case BUFFER_IMAGE_BUFFERED:
-    if (aParentBackend == LAYERS_OPENGL || aParentBackend == LAYERS_D3D11) {
+    if (aParentBackend == LAYERS_OPENGL) {
       result = new ImageClientSingle(aForwarder, aFlags, BUFFER_IMAGE_BUFFERED);
     }
     break;

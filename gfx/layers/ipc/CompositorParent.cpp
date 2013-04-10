@@ -37,11 +37,6 @@
 #include "mozilla/dom/ScreenOrientation.h"
 #include "mozilla/AutoRestore.h"
 
-
-#ifdef MOZ_ENABLE_D3D10_LAYER
-#include "mozilla/layers/CompositorD3D11.h"
-#endif
-
 using namespace base;
 using namespace mozilla;
 using namespace mozilla::ipc;
@@ -1162,21 +1157,6 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendHint,
     }
     *aTextureFactoryIdentifier = layerManager->GetTextureFactoryIdentifier();
     return new ShadowLayersParent(slm, this, 0); */
-#ifdef MOZ_ENABLE_D3D10_LAYER
-  } else if (aBackendHint == mozilla::layers::LAYERS_D3D11) {
-    mLayerManager =
-      new LayerManagerComposite(new CompositorD3D11(mWidget));
-    mWidget = nullptr;
-    mLayerManager->SetCompositorID(mCompositorID);
-
-    if (!mLayerManager->Initialize()) {
-      NS_ERROR("Failed to init Compositor");
-      return NULL;
-    }
-
-    *aTextureFactoryIdentifier = mLayerManager->GetTextureFactoryIdentifier();
-    return new ShadowLayersParent(mLayerManager, this, 0);
-#endif
   } else {
     NS_ERROR("Unsupported backend selected for Async Compositor");
     return NULL;
