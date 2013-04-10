@@ -1422,7 +1422,6 @@ static bool gUseContextSharing = getenv("MOZ_DISABLE_CONTEXT_SHARING_GLX") == 0;
 GLContext*
 GLContextProviderGLX::GetGlobalContext(const ContextFlags aFlag)
 {
-    printf("MOZ_DISABLE_CONTEXT_SHARING_GLX SET TO: %d\n", gUseContextSharing);
     // TODO: get GLX context sharing to work well with multiple threads
     if (!gUseContextSharing) {
         return nullptr;

@@ -104,8 +104,6 @@ CompositableClient::CreateTextureClient(TextureClientType aTextureClientType,
   LayersBackend parentBackend = GetForwarder()->GetCompositorBackendType();
   RefPtr<TextureClient> result;
 
-  printf("Reported parentBackend: %d\n", parentBackend);
-
   switch (aTextureClientType) {
   case TEXTURE_SHARED_GL:
     if (parentBackend == LAYERS_OPENGL) {
