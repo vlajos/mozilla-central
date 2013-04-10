@@ -1328,13 +1328,6 @@ public:
                                    const TargetConfig& aTargetConfig,
                                    bool isFirstPaint) MOZ_OVERRIDE;
 
-  virtual PGrallocBufferParent* AllocPGrallocBuffer(
-    const gfxIntSize&, const uint32_t&, const uint32_t&,
-    MaybeMagicGrallocBufferHandle*) MOZ_OVERRIDE
-  { return nullptr; }
-  virtual bool DeallocPGrallocBuffer(PGrallocBufferParent*)
-  { return false; }
-
 private:
   void DeferredDestroy();
 
