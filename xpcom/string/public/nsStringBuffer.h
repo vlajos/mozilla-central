@@ -47,7 +47,7 @@ class nsStringBuffer
       /**
        * Resizes the given string buffer to the specified storage size.  This
        * method must not be called on a readonly string buffer.  Use this API
-       * carefully!!
+       * carefuly!!
        *
        * This method behaves like the ANSI-C realloc function.  (i.e., If the
        * allocation fails, null will be returned and the given string buffer

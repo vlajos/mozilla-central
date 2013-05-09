@@ -236,7 +236,7 @@ NS_IMETHODIMP
 nsThreadPool::IsOnCurrentThread(bool *result)
 {
   // No one should be calling this method.  If this assertion gets hit, then we
-  // need to think carefully about what this method should be returning.
+  // need to think carefuly about what this method should be returning.
   NS_NOTREACHED("implement me");
 
   *result = false;
