@@ -279,7 +279,7 @@ int vorbis_book_encode(codebook *book, int a, oggpack_buffer *b){
 
 /* the 'eliminate the decode tree' optimization actually requires the
    codewords to be MSb first, not LSb.  This is an annoying inelegancy
-   (and one of the first places where carefully thought out design
+   (and one of the first places where carefuly thought out design
    turned out to be wrong; Vorbis II and future Ogg codecs should go
    to an MSb bitpacker), but not actually the huge hit it appears to
    be.  The first-stage decode table catches most words so that

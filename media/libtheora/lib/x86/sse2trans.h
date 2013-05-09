@@ -101,7 +101,7 @@
 
 # else
 /*Otherwise, we need to spill some values to %[buf] temporarily.
-  Again, the butterflies are carefully arranged to get the columns to come out
+  Again, the butterflies are carefuly arranged to get the columns to come out
    in order, minimizing register spills and maximizing the delay between a load
    and when the value loaded is actually used.*/
 #  define OC_TRANSPOSE_8x8 \

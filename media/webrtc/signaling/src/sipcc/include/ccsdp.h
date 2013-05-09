@@ -596,7 +596,7 @@ sdp_result_e ccsdpAttrSetFmtpSqcif  (void *sdp_handle, uint16_t level,
  * created bw_line of type bw_modifier. After this addition, you can set the
  * properties of the added bw line by using sdp_set_bw().
  *
- * Note carefully though, that since there can be multiple instances of bw
+ * Note carefuly though, that since there can be multiple instances of bw
  * lines at any level, you must specify the instance number when setting
  * or getting the properties of a bw line at any level.
  *
