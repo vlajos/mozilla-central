@@ -1277,7 +1277,7 @@ var WifiManager = (function() {
               ++errors;
             if (++done == lines.length - 1) {
               if (errors) {
-                // If an error occured, delete the new netId
+                // If an error occurred, delete the new netId
                 removeNetworkCommand(netId, function() {
                   callback(null);
                 });
@@ -2908,7 +2908,7 @@ WifiWorker.prototype = {
   // nsIObserver implementation
   observe: function observe(subject, topic, data) {
     // Note that this function gets called for any and all settings changes,
-    // so we need to carefully check if we have the one we're interested in.
+    // so we need to carefuly check if we have the one we're interested in.
     // The string we're interested in will be a JSON string that looks like:
     // {"key":"wifi.enabled","value":"true"}.
     if (topic !== kMozSettingsChangedObserverTopic) {
