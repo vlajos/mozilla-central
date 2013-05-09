@@ -632,7 +632,7 @@ U_CAPI decNumber * U_EXPORT2 uprv_decNumberFromString(decNumber *dn, const char 
 
       /* (this next test must be after the syntax checks)  */
       /* if it was too long the exponent may have wrapped, so check  */
-      /* carefully and set it to a certain overflow if wrap possible  */
+      /* carefuly and set it to a certain overflow if wrap possible  */
       if (c>=firstexp+9+1) {
         if (c>firstexp+9+1 || *firstexp>'1') exponent=DECNUMMAXE*2;
         /* [up to 1999999999 is OK, for example 1E-1000000998]  */
@@ -7875,7 +7875,7 @@ void uprv_decNumberShow(const decNumber *dn) {
     printf(" ");
     }
 
-  /* now carefully display the coefficient  */
+  /* now carefuly display the coefficient  */
   up=dn->lsu+D2U(dn->digits)-1;         /* msu  */
   printf("%ld", (LI)*up);
   for (up=up-1; up>=dn->lsu; up--) {
