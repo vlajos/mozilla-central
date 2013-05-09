@@ -13,7 +13,7 @@
 
 
   <!-- The difference between respective numbers in the effective 'from' and
-       'to' lists below is carefully designed to be a factor of 3. That way
+       'to' lists below is carefuly designed to be a factor of 3. That way
        our reference file (which checks against a one third complete animation)
        can contain whole numbers, which is necessary to avoid failure due to
        hard coded rounded numbers in the reference not matching platform

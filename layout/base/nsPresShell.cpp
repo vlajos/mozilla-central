@@ -5105,7 +5105,7 @@ void PresShell::SynthesizeMouseMove(bool aFromScroll)
  * 
  * We cannot exit early when aPt is outside the view bounds, because floating
  * views aren't necessarily included in their parent's bounds, so this could
- * traverse the entire view hierarchy --- use carefully.
+ * traverse the entire view hierarchy --- use carefuly.
  */
 static nsView* FindFloatingViewContaining(nsView* aView, nsPoint aPt)
 {

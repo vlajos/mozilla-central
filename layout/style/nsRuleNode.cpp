@@ -4973,7 +4973,7 @@ nsRuleNode::ComputeDisplayData(void* aStartStruct,
       // because it's fine as-is for any style context that points to
       // it directly, and any use of it as aStartStruct (e.g. if a
       // more specific rule sets "position: static") will use
-      // mOriginalDisplay and mOriginalFloats, which we have carefully
+      // mOriginalDisplay and mOriginalFloats, which we have carefuly
       // not changed.
     } else if (display->mFloats != NS_STYLE_FLOAT_NONE) {
       // 2) if float is not none, and display is not none, then we must
@@ -4984,7 +4984,7 @@ nsRuleNode::ComputeDisplayData(void* aStartStruct,
       // because it's fine as-is for any style context that points to
       // it directly, and any use of it as aStartStruct (e.g. if a
       // more specific rule sets "float: none") will use
-      // mOriginalDisplay, which we have carefully not changed.
+      // mOriginalDisplay, which we have carefuly not changed.
     }
 
   }

@@ -14,7 +14,7 @@
     where vh/vw are the image viewport width/height.  Because this image has no
     intrinsic dimensions or ratio, it expands to fill the entire background
     positioning area, so its width is 100px and its height is 700px.  For those
-    carefully-chosen dimensions, d = 500px, so 10% of that creates a 50px-wide
+    carefuly-chosen dimensions, d = 500px, so 10% of that creates a 50px-wide
     rectangle, vertically centered and horizontally left-aligned in the image.
   -->
   <line x1="25%" y1="25%" x2="25%" y2="75%" stroke="fuchsia" stroke-width="10%"/>

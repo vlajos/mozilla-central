@@ -232,7 +232,7 @@ public:
    * @param aEnableUnsafeRules whether unsafe rules are enabled for this
    * sheet load
    * Unsafe rules are rules that can violate key Gecko invariants if misused.
-   * In particular, most anonymous box pseudoelements must be very carefully
+   * In particular, most anonymous box pseudoelements must be very carefuly
    * styled or we will have severe problems. Therefore unsafe rules should
    * never be enabled for stylesheets controlled by untrusted sites; preferably
    * unsafe rules should only be enabled for agent sheets.
