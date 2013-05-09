@@ -375,7 +375,7 @@ bool MessagePumpForUI::ProcessPumpReplacementMessage() {
   // When we encounter a kMsgHaveWork message, this method is called to peek
   // and process a replacement message, such as a WM_PAINT or WM_TIMER.  The
   // goal is to make the kMsgHaveWork as non-intrusive as possible, even though
-  // a continuous stream of such messages are posted.  This method carefully
+  // a continuous stream of such messages are posted.  This method carefuly
   // peeks a message while there is no chance for a kMsgHaveWork to be pending,
   // then resets the have_work_ flag (allowing a replacement kMsgHaveWork to
   // possibly be posted), and finally dispatches that peeked replacement.  Note

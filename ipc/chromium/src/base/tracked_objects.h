@@ -105,7 +105,7 @@ class DeathData {
 
 //------------------------------------------------------------------------------
 // A temporary collection of data that can be sorted and summarized.  It is
-// gathered (carefully) from many threads.  Instances are held in arrays and
+// gathered (carefuly) from many threads.  Instances are held in arrays and
 // processed, filtered, and rendered.
 // The source of this data was collected on many threads, and is asynchronously
 // changing.  The data in this instance is not asynchronously changing.
