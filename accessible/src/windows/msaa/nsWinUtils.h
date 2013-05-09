@@ -31,7 +31,7 @@ public:
   /**
    * Return computed styles declaration for the given node.
    *
-   * @note Please use it carefully since it can shutdown the accessible tree
+   * @note Please use it carefuly since it can shutdown the accessible tree
    *       you operate on.
    */
   static already_AddRefed<nsIDOMCSSStyleDeclaration>
