@@ -264,7 +264,7 @@ MOZ_ReportAssertionFailure(const char* s, const char* file, int ln)
      } while (0)
    /* And now, helper macrology up the wazoo. */
    /*
-    * Count the number of arguments passed to MOZ_ASSERT, very carefully
+    * Count the number of arguments passed to MOZ_ASSERT, very carefuly
     * tiptoeing around an MSVC bug where it improperly expands __VA_ARGS__ as a
     * single token in argument lists.  See these URLs for details:
     *
