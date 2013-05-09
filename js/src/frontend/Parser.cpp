@@ -3030,7 +3030,7 @@ Parser<SyntaxParseHandler>::pushLetScope(HandleStaticBlockObject blockObj, StmtI
 /*
  * Parse a let block statement or let expression (determined by 'letContext').
  * In both cases, bindings are not hoisted to the top of the enclosing block
- * and thus must be carefully injected between variables() and the let body.
+ * and thus must be carefuly injected between variables() and the let body.
  */
 template <typename ParseHandler>
 typename ParseHandler::Node

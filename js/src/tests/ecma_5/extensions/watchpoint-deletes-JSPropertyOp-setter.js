@@ -20,7 +20,7 @@ function f(flag) {
 
         /*
          * Previously, the watchpoint implementation actually substituted its magic setter
-         * functions for the setters of shared shapes, and then 1) carefully ignored calls
+         * functions for the setters of shared shapes, and then 1) carefuly ignored calls
          * to its magic setter from unrelated objects, and 2) avoided restoring the
          * original setter until all watchpoints on that shape had been removed.
          * 

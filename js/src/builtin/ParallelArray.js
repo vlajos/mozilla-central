@@ -465,7 +465,7 @@ function ParallelArrayReduce(func, mode) {
     var chunkPos = info[SLICE_POS(sliceId)];
     var chunkEnd = info[SLICE_END(sliceId)];
 
-    // (*) This function is carefully designed so that the warmup
+    // (*) This function is carefuly designed so that the warmup
     // (which executes with chunkStart === chunkPos) will execute all
     // potential loads and stores. In particular, the warmup run
     // processes two chunks rather than one. Moreover, it stores

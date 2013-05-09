@@ -55,7 +55,7 @@
  *
  * = Profile Strings
  *
- * The profile strings' allocations and deallocation must be carefully
+ * The profile strings' allocations and deallocation must be carefuly
  * maintained, and ideally at a very low overhead cost. For this reason, the JS
  * engine maintains a mapping of all known profile strings. These strings are
  * keyed in lookup by a JSScript*, but are serialized with a JSFunction*,
