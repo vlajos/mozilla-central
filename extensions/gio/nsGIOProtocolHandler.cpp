@@ -783,7 +783,7 @@ mount_operation_ask_password (GMountOperation   *mount_op,
     return;
   }
   // Construct the single signon key.  Altering the value of this key will
-  // cause people's remembered passwords to be forgotten.  Think carefully
+  // cause people's remembered passwords to be forgotten.  Think carefuly
   // before changing the way this key is constructed.
   nsAutoString key, realm;
 
