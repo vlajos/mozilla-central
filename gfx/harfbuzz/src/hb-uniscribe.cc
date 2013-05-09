@@ -413,7 +413,7 @@ retry:
   glyphs_len = glyphs_offset;
 
   /* Ok, we've got everything we need, now compose output buffer,
-   * very, *very*, carefully! */
+   * very, *very*, carefuly! */
 
   /* Calculate visual-clusters.  That's what we ship. */
   for (unsigned int i = 0; i < glyphs_len; i++)

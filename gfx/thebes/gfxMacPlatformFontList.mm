@@ -832,7 +832,7 @@ void
 gfxMacPlatformFontList::ATSNotification(ATSFontNotificationInfoRef aInfo,
                                         void* aUserArg)
 {
-    // xxx - should be carefully pruning the list of fonts, not rebuilding it from scratch
+    // xxx - should be carefuly pruning the list of fonts, not rebuilding it from scratch
     static_cast<gfxMacPlatformFontList*>(aUserArg)->UpdateFontList();
 
     // modify a preference that will trigger reflow everywhere

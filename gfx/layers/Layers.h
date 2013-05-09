@@ -104,7 +104,7 @@ public:
  * rendered data between paints (i.e. uses cairo in just the way that
  * Gecko used it before layers were introduced). But we also don't want
  * to have bifurcated "layers"/"non-layers" rendering paths in Gecko.
- * Therefore the layers API is carefully designed to permit maximally
+ * Therefore the layers API is carefuly designed to permit maximally
  * efficient implementation in an "immediate mode" style. See the
  * BasicLayerManager for such an implementation.
  */

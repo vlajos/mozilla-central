@@ -177,7 +177,7 @@ retry:
 #undef ALLOCATE_ARRAY
 
   /* Ok, we've got everything we need, now compose output buffer,
-   * very, *very*, carefully! */
+   * very, *very*, carefuly! */
 
   unsigned int j = 0;
   hb_glyph_info_t *info = buffer->info;
