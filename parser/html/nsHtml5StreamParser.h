@@ -212,7 +212,7 @@ class nsHtml5StreamParser : public nsIStreamListener,
 
     /**
      * Marks the stream parser as interrupted. If you ever add calls to this
-     * method, be sure to review Uninterrupt usage very, very carefully to
+     * method, be sure to review Uninterrupt usage very, very carefuly to
      * avoid having a previous in-flight runnable cancel your Interrupt()
      * call on the other thread too soon.
      */
