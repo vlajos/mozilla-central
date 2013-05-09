@@ -3618,7 +3618,7 @@ File Transfer Protocol
    SUBTLETIES
 
       Because these commands will be most useful in transferring
-      subtrees from one machine to another, carefully observe that the
+      subtrees from one machine to another, carefuly observe that the
       argument to MKD is to be interpreted as a sub-directory of  the
       current working directory, unless it contains enough information
       for the destination host to tell otherwise.  A hypothetical
