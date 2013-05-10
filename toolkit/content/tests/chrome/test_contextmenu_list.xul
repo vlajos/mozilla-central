@@ -157,7 +157,7 @@ function nextTest()
 // is run in the mochitest harness, the nearest widget is the main mochitest
 // window, and our document can have a fractional position within that
 // mochitest window. So when we round coordinates for comparison in this
-// test, we need to do so very carefully, especially if the target element
+// test, we need to do so very carefuly, especially if the target element
 // also has a fractional position within our document.
 //
 // For example, if the y-offset of our containing IFRAME is 100.4px,

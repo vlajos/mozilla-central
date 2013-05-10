@@ -462,7 +462,7 @@ StyleSheetActor.prototype = {
   },
 
   /**
-   * Send an event notifying that an error has occured
+   * Send an event notifying that an error has occurred
    *
    * @param  {string} message
    *         Error message

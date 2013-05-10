@@ -38,7 +38,7 @@
   <script type="application/javascript"><![CDATA[
 SimpleTest.waitForExplicitFinish();
 
-// ---- NOTE: the numbers used in these tests are carefully chosen to avoid
+// ---- NOTE: the numbers used in these tests are carefuly chosen to avoid
 // ----       floating point rounding issues
 
 function doTests() {
