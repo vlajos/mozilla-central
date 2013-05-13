@@ -812,7 +812,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
     # but there are a few significant deficiencies that render them unusable.
     # There are workarounds for some of its inadequacies, but in aggregate,
     # the workarounds added complexity to the generator, and some workarounds
-    # actually require input files to be crafted more carefuly than I'd like.
+    # actually require input files to be crafted more carefully than I'd like.
     # Consequently, until Xcode rules are made more capable, "rules" input
     # sections will be handled in Xcode output by shell script build phases
     # performed prior to the compilation phase.

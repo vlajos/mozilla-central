@@ -225,7 +225,7 @@ struct GetElementIC : public BasePolyIC {
     //  3) A data reg.
     // The sync bits are not set, and the type reg is never set and should not
     // be used, as it is encapsulated more accurately in |typeReg|. Also, note
-    // carefuly that the data reg is immutable.
+    // carefully that the data reg is immutable.
     ValueRemat idRemat;
 
     bool hasInlineTypeGuard() const {

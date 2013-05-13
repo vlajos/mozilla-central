@@ -7240,7 +7240,7 @@ nsCSSFrameConstructor::ContentRangeInserted(nsIContent*            aContainer,
       // Use more complicated insert logic when inserting
       // XXXbz this method is a no-op, so it's easy for the args being passed
       // here to make no sense without anyone noticing...  If it ever stops
-      // being a no-op, vet them carefuly!
+      // being a no-op, vet them carefully!
       InsertFirstLineFrames(state, container, containingBlock, &parentFrame,
                             prevSibling, frameItems);
     }

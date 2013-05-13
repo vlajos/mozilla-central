@@ -2890,7 +2890,7 @@ nsresult
 nsHTMLEditor::GetCellFromRange(nsIDOMRange *aRange, nsIDOMElement **aCell)
 {
   // Note: this might return a node that is outside of the range.
-  // Use carefuly.
+  // Use carefully.
   NS_ENSURE_TRUE(aRange && aCell, NS_ERROR_NULL_POINTER);
 
   *aCell = nullptr;

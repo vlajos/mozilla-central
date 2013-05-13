@@ -352,7 +352,7 @@ update-windows-makefiles: config.status
 	  rm "$${file}.bak"; \
 	done;
 	$(RMV) $(WINDOWS_UPDATEFILES_SED)
-	@echo Please check over the changes carefuly before checking them in.
+	@echo Please check over the changes carefully before checking them in.
 
 # For building a source distribution.
 distcheck dist-local:

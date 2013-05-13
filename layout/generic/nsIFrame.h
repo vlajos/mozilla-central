@@ -1978,7 +1978,7 @@ public:
    * This function works across document boundaries.
    *
    * Because this function may cross document boundaries that have different
-   * app units per dev pixel ratios it needs to be used very carefuly.
+   * app units per dev pixel ratios it needs to be used very carefully.
    *
    * NOTE: this actually returns the offset from aOther to |this|, but
    * that offset is added to transform _coordinates_ from |this| to

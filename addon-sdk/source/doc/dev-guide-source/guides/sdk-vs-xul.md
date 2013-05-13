@@ -36,7 +36,7 @@ on both products.</p></td>
 
 <tr>
 <td> <strong><a name="security">Security</a></strong></td>
-<td><p>If they're not carefuly designed, Firefox add-ons can open the browser
+<td><p>If they're not carefully designed, Firefox add-ons can open the browser
 to attack by malicious web pages. Although it's possible to write insecure
 add-ons using the SDK, it's not as easy, and the damage that a compromised
 add-on can do is usually more limited.</p></td>

@@ -355,7 +355,7 @@ public:
  * IMPORTANT INVARIANT:
  *     Because the policy can potentially block or cause re-entrance into the input dispatcher,
  *     the input dispatcher never calls into the policy while holding its internal locks.
- *     The implementation is also carefuly designed to recover from scenarios such as an
+ *     The implementation is also carefully designed to recover from scenarios such as an
  *     input channel becoming unregistered while identifying input targets or processing timeouts.
  *
  *     Methods marked 'Locked' must be called with the lock acquired.

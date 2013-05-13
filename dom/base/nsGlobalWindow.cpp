@@ -6708,7 +6708,7 @@ PostMessageEvent::Run()
   // is called because the target window might have been navigated to a
   // different location between then and now.  If this check happened when
   // postMessage was called, it would be fairly easy for a malicious webpage to
-  // intercept messages intended for another site by carefuly timing navigation
+  // intercept messages intended for another site by carefully timing navigation
   // of the target window so it changed location after postMessage but before
   // now.
   if (mProvidedOrigin) {

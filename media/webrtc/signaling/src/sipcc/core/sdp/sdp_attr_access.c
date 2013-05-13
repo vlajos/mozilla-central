@@ -1452,7 +1452,7 @@ sdp_result_e sdp_get_attr_type (void *sdp_ptr, u16 level, u8 cap_num,
  * Note that this routine may be called at any point (i.e., may be
  * called due to a failure case) and so the additional memory
  * associated with an attribute may or may not have been already
- * allocated. This routine should check this carefuly.
+ * allocated. This routine should check this carefully.
  */
 void sdp_free_attr (sdp_attr_t *attr_p)
 {

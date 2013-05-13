@@ -618,7 +618,7 @@
 	(ps_get_macintosh_name, ps_get_standard_strings): Updated.
 
 	* src/base/ftobjs.c (FT_Set_Char_Sizes): Handle fractional sizes
-	more carefuly.  This fixes Savannah bug #12263.
+	more carefully.  This fixes Savannah bug #12263.
 
 2005-03-06  David Turner  <david@freetype.org>
 

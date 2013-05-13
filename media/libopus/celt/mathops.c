@@ -105,7 +105,7 @@ opus_val16 celt_rsqrt_norm(opus_val32 x)
    r = ADD16(23557, MULT16_16_Q15(n, ADD16(-13490, MULT16_16_Q15(n, 6713))));
    /* We want y = x*r*r-1 in Q15, but x is 32-bit Q16 and r is Q14.
       We can compute the result from n and r using Q15 multiplies with some
-       adjustment, carefuly done to avoid overflow.
+       adjustment, carefully done to avoid overflow.
       Range of y is [-1564,1594]. */
    r2 = MULT16_16_Q15(r, r);
    y = SHL16(SUB16(ADD16(MULT16_16_Q15(r2, n), r2), 16384), 1);

@@ -735,7 +735,7 @@ nsHttpTransaction::Close(nsresult reason)
     // repeat the request over a new connection.
     //
     // NOTE: the conditions under which we will automatically retry the HTTP
-    // request have to be carefuly selected to avoid duplication of the
+    // request have to be carefully selected to avoid duplication of the
     // request from the point-of-view of the server.  such duplication could
     // have dire consequences including repeated purchases, etc.
     //

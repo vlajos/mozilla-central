@@ -359,7 +359,7 @@ retry:
   num_glyphs = item.num_glyphs;
 
   /* Ok, we've got everything we need, now compose output buffer,
-   * very, *very*, carefuly! */
+   * very, *very*, carefully! */
 
   /* Calculate visual-clusters.  That's what we ship. */
   for (unsigned int i = 0; i < num_glyphs; i++)

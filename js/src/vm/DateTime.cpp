@@ -140,7 +140,7 @@ js::DateTimeInfo::updateTimeZoneAdjustment()
     localTZA_ = newTZA;
 
     /*
-     * The initial range values are carefuly chosen to result in a cache miss
+     * The initial range values are carefully chosen to result in a cache miss
      * on first use given the range of possible values.  Be careful to keep
      * these values and the caching algorithm in sync!
      */

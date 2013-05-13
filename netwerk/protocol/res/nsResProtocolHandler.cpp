@@ -164,7 +164,7 @@ nsResProtocolHandler::Init()
     // but once I finish multiple chrome registration I'm not sure that it is needed
 
     // XXX dveditz: resource://pchrome/ defeats profile directory salting
-    // if web content can load it. Tread carefuly.
+    // if web content can load it. Tread carefully.
 
     return rv;
 }

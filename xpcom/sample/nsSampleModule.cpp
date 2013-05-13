@@ -72,5 +72,5 @@ NSMODULE_DEFN(nsSampleModule) = &kSampleModule;
 // The following line implements the one-and-only "NSGetModule" symbol
 // for compatibility with mozilla 1.9.2. You should only use this
 // if you need a binary which is backwards-compatible and if you use
-// interfaces carefuly across multiple versions.
+// interfaces carefully across multiple versions.
 NS_IMPL_MOZILLA192_NSGETMODULE(&kSampleModule)

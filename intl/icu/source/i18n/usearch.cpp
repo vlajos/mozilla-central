@@ -3250,7 +3250,7 @@ U_CAPI int32_t U_EXPORT2 usearch_next(UStringSearch *strsrch,
                 }
                 else {
                     // for boundary check purposes. this will ensure that the
-                    // next match will not preced the current offset
+                    // next match will not precede the current offset
                     // note search->matchedIndex will always be set to something
                     // in the code
                     search->matchedIndex = offset - 1;

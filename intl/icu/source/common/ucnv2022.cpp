@@ -2799,21 +2799,21 @@ getTrailByte:
 *       SS2 is a Chinese character as defined in CNS
 *       11643-plane-2, until another SS2designation
 *       appears
-*       (Meaning <ESC>N must preced every 2 byte
+*       (Meaning <ESC>N must precede every 2 byte
 *        sequence.)
 *
 *      ESC $ + I       Indicates the immediate two bytes following SS3
 *       is a Chinese character as defined in CNS
 *       11643-plane-3, until another SS3designation
 *       appears
-*       (Meaning <ESC>O must preced every 2 byte
+*       (Meaning <ESC>O must precede every 2 byte
 *        sequence.)
 *
 *      ESC $ + J       Indicates the immediate two bytes following SS3
 *       is a Chinese character as defined in CNS
 *       11643-plane-4, until another SS3designation
 *       appears
-*       (In English: <ESC>O must preced every 2 byte
+*       (In English: <ESC>O must precede every 2 byte
 *        sequence.)
 *
 *      ESC $ + K       Indicates the immediate two bytes following SS3

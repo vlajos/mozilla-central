@@ -2139,7 +2139,7 @@ function ServerHandler(server)
 * all directory mappings set in the server (e.g., "/" for /var/www/html/,
 * "/foo/bar/" for /local/path/, and "/foo/bar/baz/" for /local/path2).
 *
-* Note carefuly: the leading and trailing "/" in each path (not file) are
+* Note carefully: the leading and trailing "/" in each path (not file) are
 * removed before insertion to simplify the code which uses this. You have
 * been warned!
 */

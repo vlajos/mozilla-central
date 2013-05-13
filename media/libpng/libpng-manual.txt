@@ -3330,7 +3330,7 @@ Then write the complete image number_of_passes times.
 
     png_write_rows(png_ptr, row_pointers, number_of_rows);
 
-Think carefuly before you write an interlaced image.  Typically code that
+Think carefully before you write an interlaced image.  Typically code that
 reads such images reads all the image data into memory, uncompressed, before
 doing any processing.  Only code that can display an image on the fly can
 take advantage of the interlacing and even then the image has to be exactly

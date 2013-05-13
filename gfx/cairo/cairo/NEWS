@@ -319,7 +319,7 @@ miter limit is 10.0, etc.).
 general
 -------
 Several cleanups have been made along many error-path returns,
-(carefuly propagating up the original error status values, cleaning
+(carefully propagating up the original error status values, cleaning
 up memory leaks during error recovery, etc.). This is yet another in
 Chris "ickle" Wilson's long series of error-handling cleanups during
 the 1.5 series.
@@ -1131,7 +1131,7 @@ entire PostScript page to be rendered as a giant image. Now, the
 majority of that page will be nice text, and there will only be a tiny
 image in the output.
 
-Additionally, the PostScript output now carefuly encodes text so that
+Additionally, the PostScript output now carefully encodes text so that
 if it is subsequently converted to PDF, the text will be
 selectable.
 
@@ -1392,7 +1392,7 @@ during text rendering to the same level as Xft.
 This cache first made its appearance in a 1.3.x snapshot, but was
 removed before appearing in any previous major release due to
 complications with multi-threaded programs. For example, programs like
-evince that would carefuly restrict usage of cairo-xlib to a single
+evince that would carefully restrict usage of cairo-xlib to a single
 thread were unpleasantly surprised to find that using cairo-image in a
 separate thread could trigger X requests.
 
@@ -4302,7 +4302,7 @@ The following public functions have been removed:
 	let us know and we have another idea for a potential
 	replacement.
 
-And while we're on the subject of removals, we carefuly tightened up
+And while we're on the subject of removals, we carefully tightened up
 the cairo header files so they no longer gratuitously include header
 files that are not strictly necessary, (stdio.h, stdint.h, pixman.h,
 Xrender.h, etc. and their dependencies). This may lead to some

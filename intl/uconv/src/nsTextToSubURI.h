@@ -23,7 +23,7 @@ private:
   // if the IRI option is true then we assume that the URI is encoded as UTF-8
   // note: there is no definite way to distinguish between IRI and a URI encoded 
   // with a non-UTF-8 charset
-  // Use this option carefuly -- it may cause dataloss
+  // Use this option carefully -- it may cause dataloss
   // (recommended to set to true for UI purpose only)
   //
   nsresult convertURItoUnicode(const nsAFlatCString &aCharset,

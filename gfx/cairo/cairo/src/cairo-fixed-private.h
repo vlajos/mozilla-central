@@ -78,7 +78,7 @@ _cairo_fixed_from_int (int i)
  * is reliable on most modern platforms as it is mandated by the IEEE-754
  * standard for floating point arithmetic.
  *
- * For our purposes, a "magic number" must be carefuly selected that is
+ * For our purposes, a "magic number" must be carefully selected that is
  * both large enough to produce the desired point-shifting effect, and also
  * has no lower bits in its representation that would interfere with our
  * value at the bottom of the mantissa. The magic number is calculated as

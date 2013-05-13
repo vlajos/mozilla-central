@@ -1306,7 +1306,7 @@ using std::string;
 
 ///////////////////////////////////////////////////////////////////
 /* Implement MemoryRegion, so that it hauls stack image data out of
-   the stack top snapshots that the signal handler has so carefuly
+   the stack top snapshots that the signal handler has so carefully
    snarfed. */
 
 // BEGIN: DERIVED FROM src/processor/stackwalker_selftest.cc
@@ -1500,7 +1500,7 @@ class MyCodeModules : public google_breakpad::CodeModules
 };
 
 ///////////////////////////////////////////////////////////////////
-/* Top level interface to breakpad.  Given a Buffer* as carefuly
+/* Top level interface to breakpad.  Given a Buffer* as carefully
    acquired by the signal handler and later handed to this thread,
    unwind it.
 

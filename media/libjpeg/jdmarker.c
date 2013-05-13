@@ -456,7 +456,7 @@ get_dht (j_decompress_ptr cinfo)
 	     bits[13], bits[14], bits[15], bits[16]);
 
     /* Here we just do minimal validation of the counts to avoid walking
-     * off the end of our table space.  jdhuff.c will check more carefuly.
+     * off the end of our table space.  jdhuff.c will check more carefully.
      */
     if (count > 256 || ((INT32) count) > length)
       ERREXIT(cinfo, JERR_BAD_HUFF_TABLE);

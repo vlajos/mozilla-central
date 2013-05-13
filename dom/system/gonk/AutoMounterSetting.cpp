@@ -104,7 +104,7 @@ AutoMounterSetting::Observe(nsISupports* aSubject,
   }
 
   // Note that this function gets called for any and all settings changes,
-  // so we need to carefuly check if we have the one we're interested in.
+  // so we need to carefully check if we have the one we're interested in.
   //
   // The string that we're interested in will be a JSON string that looks like:
   //  {"key":"ums.autoMount","value":true}

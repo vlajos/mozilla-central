@@ -34,7 +34,7 @@ function stage1()
   setImagePref(DISCARD_TIMEOUT_PREF, 500);
 
   // Create the image _after_ setting the discard timer pref
-  // This image was carefuly constructed to make it a "big win" for discarding,
+  // This image was carefully constructed to make it a "big win" for discarding,
   // so any reasonable heuristic should still discard it.
   var image = new Image();
   image.setAttribute("id", "testimage");

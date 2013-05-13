@@ -583,7 +583,7 @@ void HebrewCalendar::handleComputeFields(int32_t julianDay, UErrorCode &status) 
         // to reduce the chace, but it could be still reproduced either
         // by startOfYear or other places.  For now, we check
         // the month is in valid range to avoid out of array index
-        // access problem here.  However, we need to carefuly review
+        // access problem here.  However, we need to carefully review
         // the calendar implementation to check the extreme limit of
         // each calendar field and the code works well for any values
         // in the valid value range.  -yoshito

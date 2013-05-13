@@ -297,7 +297,7 @@ class Lexer:
     # ------------------------------------------------------------
     # opttoken() - Return the next token from the Lexer
     #
-    # Note: This function has been carefuly implemented to be as fast
+    # Note: This function has been carefully implemented to be as fast
     # as possible.  Don't make changes unless you really know what
     # you are doing
     # ------------------------------------------------------------

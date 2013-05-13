@@ -1081,7 +1081,7 @@ NS_IMETHODIMP
 nsLocalFile::SetPermissionsOfLink(uint32_t aPermissions)
 {
     // There isn't a consistent mechanism for doing this on UNIX platforms. We
-    // might want to carefuly implement this in the future though.
+    // might want to carefully implement this in the future though.
     return NS_ERROR_NOT_IMPLEMENTED;
 }
 

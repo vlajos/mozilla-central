@@ -1771,7 +1771,7 @@ Loader::DoSheetComplete(SheetLoadData* aLoadData, nsresult aStatus,
   // adjust the PostLoadEvent code that thinks anything already
   // complete must have loaded successfully.
   if (NS_SUCCEEDED(aStatus) && aLoadData->mURI) {
-    // Pick our sheet to cache carefuly.  Ideally, we want to cache
+    // Pick our sheet to cache carefully.  Ideally, we want to cache
     // one of the sheets that will be kept alive by a document or
     // parent sheet anyway, so that if someone then accesses it via
     // CSSOM we won't have extra clones of the inner lying around.

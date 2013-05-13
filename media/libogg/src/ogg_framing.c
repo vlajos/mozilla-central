@@ -1519,7 +1519,7 @@ void test_pack(const int *pl, const int **headers, int byteskip,
       ogg_page og;
 
       while(ogg_stream_pageout(&os_en,&og)){
-        /* We have a page.  Check it carefuly */
+        /* We have a page.  Check it carefully */
 
         fprintf(stderr,"%ld, ",pageno);
 

@@ -43,7 +43,7 @@
 // done, and leaves no sleeping threads... and performance is less
 // critical at that point.
 //
-// The semantics of Broadcast() are carefuly crafted so that *all*
+// The semantics of Broadcast() are carefully crafted so that *all*
 // threads that were waiting when the request was made will indeed
 // get signaled.  Some implementations mess up, and don't signal them
 // all, while others allow the wait to be effectively turned off (for

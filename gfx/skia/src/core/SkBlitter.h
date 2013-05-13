@@ -150,7 +150,7 @@ private:
 
 /** Factory to set up the appropriate most-efficient wrapper blitter
     to apply a clip. Returns a pointer to a member, so lifetime must
-    be managed carefuly.
+    be managed carefully.
 */
 class SkBlitterClipper {
 public:

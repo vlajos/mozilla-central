@@ -46,7 +46,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 -    const UndefinedRule *our_rhs = dynamic_cast<const UndefinedRule *>(&rhs);
 -    return (our_rhs != NULL);
 +    if (rhs.getTag() != CFIR_UNDEFINED_RULE) return false;
@@ -66,7 +66,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 -    const SameValueRule *our_rhs = dynamic_cast<const SameValueRule *>(&rhs);
 -    return (our_rhs != NULL);
 +    if (rhs.getTag() != CFIR_SAME_VALUE_RULE) return false;
@@ -88,7 +88,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 -    const OffsetRule *our_rhs = dynamic_cast<const OffsetRule *>(&rhs);
 -    return (our_rhs &&
 -            base_register_ == our_rhs->base_register_ &&
@@ -118,7 +118,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 -    const ValOffsetRule *our_rhs = dynamic_cast<const ValOffsetRule *>(&rhs);
 -    return (our_rhs &&
 -            base_register_ == our_rhs->base_register_ &&
@@ -147,7 +147,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 -    const RegisterRule *our_rhs = dynamic_cast<const RegisterRule *>(&rhs);
 -    return (our_rhs && register_number_ == our_rhs->register_number_);
 +    if (rhs.getTag() != CFIR_REGISTER_RULE) return false;
@@ -171,7 +171,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 -    const ExpressionRule *our_rhs = dynamic_cast<const ExpressionRule *>(&rhs);
 -    return (our_rhs && expression_ == our_rhs->expression_);
 +    if (rhs.getTag() != CFIR_EXPRESSION_RULE) return false;
@@ -195,7 +195,7 @@ diff --git a/src/common/dwarf/dwarf2reader.cc b/src/common/dwarf/dwarf2reader.cc
    }
    bool operator==(const Rule &rhs) const {
 -    // dynamic_cast is allowed by the Google C++ Style Guide, if the use has
--    // been carefuly considered; cheap RTTI-like workarounds are forbidden.
+-    // been carefully considered; cheap RTTI-like workarounds are forbidden.
 +    if (rhs.getTag() != CFIR_VAL_EXPRESSION_RULE) return false;
      const ValExpressionRule *our_rhs =
 -        dynamic_cast<const ValExpressionRule *>(&rhs);

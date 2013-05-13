@@ -57,7 +57,7 @@ void leaky::readSymbols(const char *fileName)
 	       shdr->sh_type, shdr->sh_type);
 #endif
 	if (shdr->sh_type == SHT_STRTAB) {
-	    /* We assume here that string tables preced symbol tables... */
+	    /* We assume here that string tables precede symbol tables... */
 	    strtabndx = i;
 	    continue;
 	}
