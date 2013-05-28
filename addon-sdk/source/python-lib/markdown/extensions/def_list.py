@@ -47,7 +47,7 @@ class DefListProcessor(markdown.blockprocessors.BlockProcessor):
             state = 'looselist'
             terms = sibling.text.split('\n')
             parent.remove(sibling)
-            # Aquire new sibling
+            # Acquire new sibling
             sibling = self.lastChild(parent)
         else:
             state = 'list'

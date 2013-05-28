@@ -1291,7 +1291,7 @@ xmlns:Sk="urn:screenplay" targetNamespace="urn:screenplay">
 			dashes and gaps. Intervals must contain an even number of entries. -->
 			<xs:attribute name="intervals" type="Sk:FloatArray"/>
 			<!-- @attribute phase Phase advances the placement of the first dash. A positive phase 
-			preceds the first dash with a gap. A negative phase shortens the length of the first dash. -->
+			precede the first dash with a gap. A negative phase shortens the length of the first dash. -->
 			<xs:attribute name="phase" type="Sk:Float"/>
 			<xs:attribute name="id" type="xs:ID"/>
 		</xs:complexType>

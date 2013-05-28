@@ -1102,7 +1102,7 @@ extern JSD_PUBLIC_API(JSDStaticLock*)
 JSD_CreateLock();
 
 /*
-* Aquire lock for this thread (or block until available). Increments a
+* Acquire lock for this thread (or block until available). Increments a
 * counter if this thread already owns the lock.
 */
 extern JSD_PUBLIC_API(void)

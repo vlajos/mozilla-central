@@ -7613,7 +7613,7 @@ nsresult nsWindow::UpdateTranslucentWindow()
   }
 #endif
   // perform the alpha blend
-  bool updateSuccesful = 
+  bool updateSuccessful = 
     ::UpdateLayeredWindow(hWnd, NULL, (POINT*)&winRect, &winSize, mMemoryDC, &srcPos, 0, &bf, ULW_ALPHA);
 
 #ifdef CAIRO_HAS_D2D_SURFACE
@@ -7624,7 +7624,7 @@ nsresult nsWindow::UpdateTranslucentWindow()
   }
 #endif
 
-  if (!updateSuccesful) {
+  if (!updateSuccessful) {
     return NS_ERROR_FAILURE;
   }
 

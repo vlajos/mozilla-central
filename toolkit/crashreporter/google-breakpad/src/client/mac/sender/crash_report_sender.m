@@ -49,7 +49,7 @@ const int kEmailMaxLength = 64;
 
 #pragma mark -
 
-@interface NSView (ResizabilityExtentions)
+@interface NSView (ResizabilityExtensions)
 // Shifts the view vertically by the given amount.
 - (void)breakpad_shiftVertically:(CGFloat)offset;
 
@@ -57,7 +57,7 @@ const int kEmailMaxLength = 64;
 - (void)breakpad_shiftHorizontally:(CGFloat)offset;
 @end
 
-@implementation NSView (ResizabilityExtentions)
+@implementation NSView (ResizabilityExtensions)
 - (void)breakpad_shiftVertically:(CGFloat)offset {
   NSPoint origin = [self frame].origin;
   origin.y += offset;
@@ -71,13 +71,13 @@ const int kEmailMaxLength = 64;
 }
 @end
 
-@interface NSWindow (ResizabilityExtentions)
+@interface NSWindow (ResizabilityExtensions)
 // Adjusts the window height by heightDelta relative to its current height,
 // keeping all the content at the same size.
 - (void)breakpad_adjustHeight:(CGFloat)heightDelta;
 @end
 
-@implementation NSWindow (ResizabilityExtentions)
+@implementation NSWindow (ResizabilityExtensions)
 - (void)breakpad_adjustHeight:(CGFloat)heightDelta {
   [[self contentView] setAutoresizesSubviews:NO];
 
@@ -92,7 +92,7 @@ const int kEmailMaxLength = 64;
 }
 @end
 
-@interface NSTextField (ResizabilityExtentions)
+@interface NSTextField (ResizabilityExtensions)
 // Grows or shrinks the height of the field to the minimum required to show the
 // current text, preserving the existing width and origin.
 // Returns the change in height.
@@ -104,7 +104,7 @@ const int kEmailMaxLength = 64;
 - (CGFloat)breakpad_adjustWidthToFit;
 @end
 
-@implementation NSTextField (ResizabilityExtentions)
+@implementation NSTextField (ResizabilityExtensions)
 - (CGFloat)breakpad_adjustHeightToFit {
   NSRect oldFrame = [self frame];
   // Starting with the 10.5 SDK, height won't grow, so make it huge to start.
@@ -127,14 +127,14 @@ const int kEmailMaxLength = 64;
 }
 @end
 
-@interface NSButton (ResizabilityExtentions)
+@interface NSButton (ResizabilityExtensions)
 // Resizes to fit the label using IB-style size-to-fit metrics and enforcing a
 // minimum width of 70, while preserving the right edge location.
 // Returns the change in width.
 - (CGFloat)breakpad_smartSizeToFit;
 @end
 
-@implementation NSButton (ResizabilityExtentions)
+@implementation NSButton (ResizabilityExtensions)
 - (CGFloat)breakpad_smartSizeToFit {
   NSRect oldFrame = [self frame];
   [self sizeToFit];

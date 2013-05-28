@@ -545,7 +545,7 @@ pkix_pl_CRL_Hashcode(
             crlDer = crl->nssSignedCrl->derCrl;
         }
         if (!crlDer || !crlDer->data) {
-            PKIX_ERROR(PKIX_CANNOTAQUIRECRLDER);
+            PKIX_ERROR(PKIX_CANNOTACQUIRECRLDER);
         }
 
         PKIX_CHECK(pkix_hash(crlDer->data, crlDer->len,
@@ -1058,9 +1058,9 @@ PKIX_PL_CRL_AdoptDerCrl(PKIX_PL_CRL *crl,
                          SECItem *derCrl,
                          void *plContext)
 {
-    PKIX_ENTER(CRL, "PKIX_PL_CRL_AquireDerCrl");
+    PKIX_ENTER(CRL, "PKIX_PL_CRL_AcquireDerCrl");
     if (crl->adoptedDerCrl) {
-        PKIX_ERROR(PKIX_CANNOTAQUIRECRLDER);
+        PKIX_ERROR(PKIX_CANNOTACQUIRECRLDER);
     }
     crl->adoptedDerCrl = derCrl;
 cleanup:        

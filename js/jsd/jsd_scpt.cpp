@@ -37,7 +37,7 @@ void JSD_ASSERT_VALID_EXEC_HOOK(JSDExecHook* jsdhook)
 
 #ifdef LIVEWIRE
 static JSBool
-HasFileExtention(const char* name, const char* ext)
+HasFileExtension(const char* name, const char* ext)
 {
     int i;
     int len = strlen(ext);
@@ -116,8 +116,8 @@ _newJSDScript(JSDContext*  jsdc,
             JS_Free(cx, funbytes);
     
             /* also, make sure this file is added to filelist if is .js file */
-            if( HasFileExtention(raw_filename,"js") || 
-                HasFileExtention(raw_filename,"sjs") )
+            if( HasFileExtension(raw_filename,"js") || 
+                HasFileExtension(raw_filename,"sjs") )
             {
                 jsdlw_PreLoadSource(jsdc, jsdscript->app, raw_filename, JS_FALSE);
             }

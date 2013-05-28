@@ -60,7 +60,7 @@ public:
         SkASSERT(fRefCnt > 0);
         // Release barrier (SL/S), if not provided below.
         if (sk_atomic_dec(&fRefCnt) == 1) {
-            // Aquire barrier (L/SL), if not provided above.
+            // Acquire barrier (L/SL), if not provided above.
             // Prevents code in dispose from happening before the decrement.
             sk_membar_acquire__after_atomic_dec();
             internal_dispose();

@@ -1082,7 +1082,7 @@ GrGLvoid GR_GL_FUNCTION_TYPE debugGLGetBufferParameteriv(GrGLenum target,
                 *params = buffer->getUsage();
             break;
         default:
-            GrCrash("Unexpected value to glGetBufferParamateriv");
+            GrCrash("Unexpected value to glGetBufferParameteriv");
             break;
     }
 };

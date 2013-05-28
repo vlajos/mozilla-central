@@ -265,7 +265,7 @@ bool UdpSocket2Windows::SetSockopt(WebRtc_Word32 level, WebRtc_Word32 optname,
                                    WebRtc_Word32 optlen)
 {
     bool returnValue = true;
-    if(!AquireSocket())
+    if(!AcquireSocket())
     {
         return false;
     }
@@ -332,7 +332,7 @@ bool UdpSocket2Windows::Bind(const SocketAddress& name)
     const struct sockaddr* addr =
         reinterpret_cast<const struct sockaddr*>(&name);
     bool returnValue = true;
-    if(!AquireSocket())
+    if(!AcquireSocket())
     {
         return false;
     }
@@ -394,7 +394,7 @@ WebRtc_Word32 UdpSocket2Windows::SendTo(const WebRtc_Word8* buf,
     DWORD numOfbytesSent = 0;
     const struct sockaddr* addr = reinterpret_cast<const struct sockaddr*>(&to);
 
-    if(!AquireSocket())
+    if(!AcquireSocket())
     {
         _mgr->PushIoContext(pIoContext);
         return -1;
@@ -582,9 +582,9 @@ WebRtc_Word32 UdpSocket2Windows::PostRecv(PerIoContext* pIoContext)
     pIoContext->ioOperation = OP_READ;
     WebRtc_Word32 rxError = 0;
     WebRtc_Word32 nRet = 0;
-    WebRtc_Word32 postingSucessfull = false;
+    WebRtc_Word32 postingSuccessfull = false;
 
-    if(!AquireSocket())
+    if(!AcquireSocket())
     {
         _mgr->PushIoContext(pIoContext);
         return -1;
@@ -632,13 +632,13 @@ WebRtc_Word32 UdpSocket2Windows::PostRecv(PerIoContext* pIoContext)
         }
         if((rxError == ERROR_IO_PENDING) || (nRet == 0))
         {
-            postingSucessfull = true;
+            postingSuccessfull = true;
             break;
         }
     }
     ReleaseSocket();
 
-    if(postingSucessfull)
+    if(postingSuccessfull)
     {
         return 0;
     }
@@ -669,7 +669,7 @@ void UdpSocket2Windows::CloseBlocking()
 
     lingerStruct.l_onoff = 1;
     lingerStruct.l_linger = 0;
-    if(AquireSocket())
+    if(AcquireSocket())
     {
         setsockopt(_socket, SOL_SOCKET, SO_LINGER,
                    reinterpret_cast<const char*>(&lingerStruct),
@@ -715,7 +715,7 @@ bool UdpSocket2Windows::SetQos(WebRtc_Word32 serviceType,
         struct sockaddr_in* name =
             reinterpret_cast<struct sockaddr_in*>(&socketName);
         int nameLength = sizeof(SocketAddress);
-        if(AquireSocket())
+        if(AcquireSocket())
         {
             getsockname(_socket, (struct sockaddr*)name, &nameLength);
             ReleaseSocket();
@@ -801,7 +801,7 @@ bool UdpSocket2Windows::SetQos(WebRtc_Word32 serviceType,
         Qos.ProviderSpecific.buf = (char*)&QosDestaddr;
     }
 
-    if(!AquireSocket()) {
+    if(!AcquireSocket()) {
         return false;
     }
     // To set QoS with SIO_SET_QOS the socket must be locally bound first
@@ -826,7 +826,7 @@ WebRtc_Word32 UdpSocket2Windows::SetTOS(WebRtc_Word32 serviceType)
     struct sockaddr_in* name =
         reinterpret_cast<struct sockaddr_in*>(&socketName);
     int nameLength = sizeof(SocketAddress);
-    if(AquireSocket())
+    if(AcquireSocket())
     {
         getsockname(_socket, (struct sockaddr*)name, &nameLength);
         ReleaseSocket();
@@ -857,7 +857,7 @@ WebRtc_Word32 UdpSocket2Windows::SetPCP(WebRtc_Word32 pcp)
     struct sockaddr_in* name =
         reinterpret_cast<struct sockaddr_in*>(&socketName);
     int nameLength = sizeof(SocketAddress);
-    if(AquireSocket())
+    if(AcquireSocket())
     {
         getsockname(_socket, (struct sockaddr*)name, &nameLength);
         ReleaseSocket();
@@ -1347,7 +1347,7 @@ void UdpSocket2Windows::RemoveSocketFromManager()
     }
 }
 
-bool UdpSocket2Windows::AquireSocket()
+bool UdpSocket2Windows::AcquireSocket()
 {
     _ptrSocketRWLock->AcquireLockShared();
     const bool returnValue = _socket != INVALID_SOCKET;

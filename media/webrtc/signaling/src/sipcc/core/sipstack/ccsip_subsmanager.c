@@ -2593,7 +2593,7 @@ subsmanager_handle_ev_sip_subscribe (sipMessage_t *pSipMessage,
         requestStatus = sipSPICheckRequest(NULL, pSipMessage);
         if (requestStatus != SIP_MESSAGING_OK) {
             if (requestStatus == SIP_MESSAGING_DUPLICATE) {
-                CCSIP_DEBUG_ERROR(SIP_F_PREFIX"Recieved duplicate request", fname);
+                CCSIP_DEBUG_ERROR(SIP_F_PREFIX"Received duplicate request", fname);
             } else {
                 if (sipSPISendErrorResponse(pSipMessage, SIP_CLI_ERR_BAD_REQ,
                                             SIP_CLI_ERR_BAD_REQ_PHRASE,

@@ -1095,7 +1095,7 @@ int WebRtcNetEQ_GetSpeechOutputType(void *inst, enum WebRtcNetEQOutputType *outp
 
 #define WEBRTC_NETEQ_CONCEALMENTFLAG_LOST       0x01
 #define WEBRTC_NETEQ_CONCEALMENTFLAG_DISCARDED  0x02
-#define WEBRTC_NETEQ_CONCEALMENTFLAG_SUPRESS    0x04
+#define WEBRTC_NETEQ_CONCEALMENTFLAG_SUPPRESS    0x04
 #define WEBRTC_NETEQ_CONCEALMENTFLAG_CNGACTIVE  0x80
 
 int WebRtcNetEQ_VQmonRecOutStatistics(void *inst, WebRtc_UWord16 *validVoiceDurationMs,

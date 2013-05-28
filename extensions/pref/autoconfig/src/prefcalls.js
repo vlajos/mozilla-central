@@ -152,7 +152,7 @@ function getLDAPAttributes(host, base, filter, attribs) {
         processLDAPValues(ldapquery.getQueryResults(url, gVersion));
     }
     catch(e) {
-        displayError("getLDAPAttibutes", e);
+        displayError("getLDAPAttributes", e);
     }
 }
 

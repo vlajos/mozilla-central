@@ -258,9 +258,9 @@ interface TestInterface {
   attribute IndirectlyImplementedInterface nonNullOther;
   attribute IndirectlyImplementedInterface? nullableOther;
   // Optional arguments
-  void passOptionalOther(optional IndirectlyImplementedInterface? arg);
+  void passOptiona lother(optional IndirectlyImplementedInterface? arg);
   void passOptionalNonNullOther(optional IndirectlyImplementedInterface arg);
-  void passOptionalOtherWithDefault(optional IndirectlyImplementedInterface? arg = null);
+  void passOptiona lotherWithDefault(optional IndirectlyImplementedInterface? arg = null);
 
   // External interface types
   TestExternalInterface receiveExternal();
@@ -463,9 +463,9 @@ interface TestInterface {
 
   // Typedefs
   const myLong myLongConstant = 5;
-  void exerciseTypedefInterfaces1(AnotherNameForTestInterface arg);
-  AnotherNameForTestInterface exerciseTypedefInterfaces2(NullableTestInterface arg);
-  void exerciseTypedefInterfaces3(YetAnotherNameForTestInterface arg);
+  void exerciseTypedefiniterfaces1(AnotherNameForTestInterface arg);
+  AnotherNameForTestInterface exerciseTypedefiniterfaces2(NullableTestInterface arg);
+  void exerciseTypedefiniterfaces3(YetAnotherNameForTestInterface arg);
 
   // Static methods and attributes
   static attribute boolean staticAttribute;

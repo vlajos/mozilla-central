@@ -30,7 +30,7 @@ sub daysFromBuildID
 
 #Creates version resource file
 
-#Paramaters are passed on the command line:
+#Parameters are passed on the command line:
 
 #Example: -MODNAME nsToolkitCompsModule -DEBUG=1
 

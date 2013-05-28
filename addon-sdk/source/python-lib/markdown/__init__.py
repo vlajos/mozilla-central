@@ -455,7 +455,7 @@ Extensions
 class Extension:
     """ Base class for extensions to subclass. """
     def __init__(self, configs = {}):
-        """Create an instance of an Extention.
+        """Create an instance of an Extension.
 
         Keyword arguments:
 

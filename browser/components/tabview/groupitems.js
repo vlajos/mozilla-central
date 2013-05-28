@@ -2384,7 +2384,7 @@ let GroupItems = {
   // Sets the active groupItem, thereby showing only the relevant tabs and
   // setting the groupItem which will receive new tabs.
   //
-  // Paramaters:
+  // Parameters:
   //  groupItem - the active <GroupItem>
   setActiveGroupItem: function GroupItems_setActiveGroupItem(groupItem) {
     Utils.assert(groupItem, "groupItem must be given");
@@ -2438,7 +2438,7 @@ let GroupItems = {
 
   // ----------
   // Function: getNextGroupItemTab
-  // Paramaters:
+  // Parameters:
   //  reverse - the boolean indicates the direction to look for the next groupItem.
   // Returns the <tabItem>. If nothing is found, return null.
   getNextGroupItemTab: function GroupItems_getNextGroupItemTab(reverse) {
@@ -2524,7 +2524,7 @@ let GroupItems = {
   // Function: moveTabToGroupItem
   // Used for the right click menu in the tab strip; moves the given tab
   // into the given group. Does nothing if the tab is an app tab.
-  // Paramaters:
+  // Parameters:
   //  tab - the <xul:tab>.
   //  groupItemId - the <groupItem>'s id.  If nothing, create a new <groupItem>.
   moveTabToGroupItem : function GroupItems_moveTabToGroupItem(tab, groupItemId) {

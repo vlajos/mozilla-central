@@ -477,7 +477,7 @@ static void nr_turn_client_allocate_cb(NR_SOCKET s, int how, void *arg)
     ABORT(r);
 
   r_log(NR_LOG_TURN, LOG_INFO,
-        "TURN(%s): Succesfully allocated addr %s lifetime=%u",
+        "TURN(%s): Successfully allocated addr %s lifetime=%u",
         ctx->tctx->label,
         ctx->tctx->relay_addr.as_string,
         ctx->stun->results.allocate_response.lifetime_secs);

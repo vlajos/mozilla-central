@@ -33,7 +33,7 @@ nss_cmsrecipientinfo_usessubjectkeyid(NSSCMSRecipientInfo *ri)
  * NOTE: fakeContent marks CMSMessage structure which is only used as a carrier
  * of pwfn_arg and arena pools. In an ideal world, NSSCMSMessage would not have
  * been exported, and we would have added an ordinary enum to handle this 
- * check. Unfortunatly wo don't have that luxury so we are overloading the
+ * check. Unfortunately wo don't have that luxury so we are overloading the
  * contentTypeTag field. NO code should every try to interpret this content tag
  * as a real OID tag, or use any fields other than pwfn_arg or poolp of this 
  * CMSMessage for that matter */

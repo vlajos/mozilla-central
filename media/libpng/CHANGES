@@ -935,7 +935,7 @@ Version 1.0.8 [July 24, 2000]
 Version 1.0.9beta1 [November 10, 2000]
   Fixed typo in scripts/makefile.hpux
   Updated makevms.com in scripts and contrib/* and contrib/* (Martin Zinser)
-  Fixed seqence-point bug in contrib/pngminus/png2pnm (Martin Zinser)
+  Fixed sequence-point bug in contrib/pngminus/png2pnm (Martin Zinser)
   Changed "cdrom.com" in documentation to "libpng.org"
   Revised pnggccrd.c to get it all working, and updated makefile.gcmmx (Greg).
   Changed type of "params" from voidp to png_voidp in png_read|write_png().

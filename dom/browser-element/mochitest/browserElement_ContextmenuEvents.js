@@ -100,7 +100,7 @@ function runTest() {
     }
   }
 
-  function ctxCallbackRecieved(msg) {
+  function ctxCallbackReceived(msg) {
     msg = SpecialPowers.wrap(msg);
     ctxCallbackEvents++;
     if (ctxCallbackEvents === 1) {
@@ -129,7 +129,7 @@ function runTest() {
     numIframeLoaded++;
     if (numIframeLoaded === 2) {
       mm = SpecialPowers.getBrowserFrameMessageManager(iframe1);
-      mm.addMessageListener('test:callbackfired', ctxCallbackRecieved);
+      mm.addMessageListener('test:callbackfired', ctxCallbackReceived);
       mm.addMessageListener('test:errorTriggered', errorTriggered);
       mm.loadFrameScript('data:,(' + iframeScript.toString() + ')();', false);
     }

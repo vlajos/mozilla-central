@@ -3797,7 +3797,7 @@ nsHTMLEditRules::WillCSSIndent(Selection* aSelection,
           continue;
         }
       }
-      // Check for whether we should join a list that preceds curNode.
+      // Check for whether we should join a list that precede curNode.
       // We do this if the previous element is a list, and the list is of
       // the same type (li/ol) as curNode was a part of.
       NS_ENSURE_STATE(mHTMLEditor);
@@ -3998,7 +3998,7 @@ nsHTMLEditRules::WillHTMLIndent(Selection* aSelection,
         }
       }
 
-      // Check for whether we should join a list that preceds curNode.
+      // Check for whether we should join a list that precede curNode.
       // We do this if the previous element is a list, and the list is of
       // the same type (li/ol) as curNode was a part of.
       NS_ENSURE_STATE(mHTMLEditor);

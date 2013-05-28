@@ -34,8 +34,8 @@
  *	Chris Wilson <chris@chris-wilson.co.uk>
  */
 
-#ifndef CAIRO_REFRENCE_COUNT_PRIVATE_H
-#define CAIRO_REFRENCE_COUNT_PRIVATE_H
+#ifndef CAIRO_REFERENCE_COUNT_PRIVATE_H
+#define CAIRO_REFERENCE_COUNT_PRIVATE_H
 
 #include "cairo-atomic-private.h"
 

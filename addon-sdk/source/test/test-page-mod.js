@@ -528,7 +528,7 @@ exports.testAttachToTabsOnly = function(test) {
     onAttach: function onAttach(worker) {
       if (worker.tab === openedTab) {
         if (++workerCount == 3) {
-          test.pass('Succesfully applied to tab documents and its iframe');
+          test.pass('Successfully applied to tab documents and its iframe');
           worker.destroy();
           mod.destroy();
           openedTab.close(function() {

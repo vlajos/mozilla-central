@@ -64,6 +64,6 @@ int WebRtcIsacfix_EstimateBandwidth(BwEstimatorstr *bwest_str,
     return err;
   }
 
-  /* Succesful */
+  /* Successful */
   return 0;
 }

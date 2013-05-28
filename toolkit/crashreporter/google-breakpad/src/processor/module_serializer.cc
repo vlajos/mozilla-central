@@ -43,7 +43,7 @@
 
 namespace google_breakpad {
 
-// Definition of static member variable in SimplerSerializer<Funcion>, which
+// Definition of static member variable in SimplerSerializer<Function>, which
 // is declared in file "simple_serializer-inl.h"
 RangeMapSerializer< MemAddr, linked_ptr<BasicSourceLineResolver::Line> >
 SimpleSerializer<BasicSourceLineResolver::Function>::range_map_serializer_;

@@ -193,7 +193,7 @@ options, onemore, options2)")
 A value telling you just how cool you are.
 A boa-constructor!
 This description can go on for a while, and can even contain
-some **realy** fancy things. Like `code`, or even
+some **really** fancy things. Like `code`, or even
 ~~~~{.javascript}
 // Some code!
 ~~~~""")

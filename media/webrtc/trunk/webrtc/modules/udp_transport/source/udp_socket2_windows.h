@@ -151,7 +151,7 @@ private:
     // is used for creating and deleting socket. Read lock is used for
     // accessing the socket.
     RWLockWrapper* _ptrSocketRWLock;
-    bool AquireSocket();
+    bool AcquireSocket();
     void ReleaseSocket();
     bool InvalidateSocket();
 

@@ -422,7 +422,7 @@ function nextIteration(tests) {
 
 var POINTLESS_ERRORS = [
   'Invalid chrome URI:',
-  'OpenGL LayerManager Initialized Succesfully.',
+  'OpenGL LayerManager Initialized Successfully.',
   '[JavaScript Error: "TelemetryStopwatch:',
   '[JavaScript Warning: "ReferenceError: reference to undefined property',
   '[JavaScript Error: "The character encoding of the HTML document was ' +

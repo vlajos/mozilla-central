@@ -225,7 +225,7 @@ GrGLvoid GR_GL_FUNCTION_TYPE nullGLGetBufferParameteriv(GrGLenum target, GrGLenu
             }
             break; }
         default:
-            GrCrash("Unexpected pname to GetBufferParamateriv");
+            GrCrash("Unexpected pname to GetBufferParameteriv");
             break;
     }
 };

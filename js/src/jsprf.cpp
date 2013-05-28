@@ -55,7 +55,7 @@ struct SprintfStateStr {
 };
 
 /*
-** Numbered Arguement State
+** Numbered Argument State
 */
 struct NumArgState{
     int     type;               /* type of the current ap                    */

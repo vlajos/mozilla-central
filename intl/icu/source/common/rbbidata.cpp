@@ -254,7 +254,7 @@ void  RBBIDataWrapper::printData() {
     printTable("Safe Forward State Transition Table", fSafeFwdTable);
     printTable("Safe Reverse State Transition Table", fSafeRevTable);
 
-    RBBIDebugPrintf("\nOrignal Rules source:\n");
+    RBBIDebugPrintf("\nOriginal Rules source:\n");
     for (int32_t c=0; fRuleSource[c] != 0; c++) {
         RBBIDebugPrintf("%c", fRuleSource[c]);
     }

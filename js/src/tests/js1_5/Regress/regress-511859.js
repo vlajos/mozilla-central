@@ -6,14 +6,14 @@
 /*
  *
  * Date:    22 Aug 2009
- * SUMMARY: Utf8ToOneUcs4Char in jsstr.cpp ,overlong UTF-8 seqence detection problem
+ * SUMMARY: Utf8ToOneUcs4Char in jsstr.cpp ,overlong UTF-8 sequence detection problem
  * See http://bugzilla.mozilla.org/show_bug.cgi?id=511859
  *
  */
 //-----------------------------------------------------------------------------
 var UBound = 0;
 var BUGNUMBER = 511859;
-var summary = 'Utf8ToOneUcs4Char in jsstr.cpp ,overlong UTF-8 seqence detection problem';
+var summary = 'Utf8ToOneUcs4Char in jsstr.cpp ,overlong UTF-8 sequence detection problem';
 var status = '';
 var statusitems = [];
 var actual = '';

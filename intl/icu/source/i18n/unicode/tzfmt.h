@@ -245,7 +245,7 @@ public:
      * Sets the localized GMT format pattern. The pattern must contain
      * a single argument {0}, for example "GMT {0}".
      * @param pattern The localized GMT format pattern to be used by this object.
-     * @param status Recieves the status.
+     * @param status Receives the status.
      * @see #getGMTPattern
      * @draft ICU 50
      */

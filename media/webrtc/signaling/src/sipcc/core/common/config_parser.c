@@ -398,7 +398,7 @@ void config_setup_elements (const char *sipUser, const char *sipPassword, const 
     compare_or_set_int_value(CFGID_PROXY_EMERGENCY_PORT, gEmergencyProxyPort, (const unsigned char *) "emergencyProxyPort");
     compare_or_set_string_value(CFGID_OUTBOUND_PROXY, gOutboundProxy, (const unsigned char *) "outboundProxy");
     compare_or_set_int_value(CFGID_OUTBOUND_PROXY_PORT, gOutboundProxyPort, (const unsigned char *) "outboundProxyPort");
-    compare_or_set_boolean_value(CFGID_NAT_RECEIVED_PROCESSING, gNatRecievedProcessing, (const unsigned char *) "natRecievedProcessing");
+    compare_or_set_boolean_value(CFGID_NAT_RECEIVED_PROCESSING, gNatReceivedProcessing, (const unsigned char *) "natReceivedProcessing");
     compare_or_set_string_value(CFGID_REG_USER_INFO, gUserInfo, (const unsigned char *) "userInfo");
     compare_or_set_boolean_value(CFGID_REMOTE_PARTY_ID, gRemotePartyID, (const unsigned char *) "remotePartyID");
     compare_or_set_boolean_value (CFGID_SEMI_XFER, gSemiAttendedTransfer, (const unsigned char *) "semiAttendedTransfer");

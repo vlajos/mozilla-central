@@ -151,7 +151,7 @@ enum {
      URX_DOLLAR_M      = 42,   // $ in multi-line mode.
      URX_CARET_M       = 43,   // ^ in multi-line mode.
      URX_LB_START      = 44,   // LookBehind Start.
-                               //   Paramater is data location
+                               //   Parameter is data location
      URX_LB_CONT       = 45,   // LookBehind Continue.
                                //   Param 0:  the data location
                                //   Param 1:  The minimum length of the look-behind match

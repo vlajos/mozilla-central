@@ -35,7 +35,7 @@
 #define CFGID_OUTBOUND_PROXY_STRING            CFGID_BEGIN_INDEX + 21      //tag:outboundProxy
 #define CFGID_OUTBOUND_PROXY_PORT_INT          CFGID_BEGIN_INDEX + 22      //tag:outboundProxyPort
 
-#define CFGID_NAT_RECEIVED_PROCESSING_BOOL     CFGID_BEGIN_INDEX + 23      //tag:natRecievedProcessing
+#define CFGID_NAT_RECEIVED_PROCESSING_BOOL     CFGID_BEGIN_INDEX + 23      //tag:natReceivedProcessing
 #define CFGID_REG_USER_INFO_STRING             CFGID_BEGIN_INDEX + 24      //tag:userInfo
 #define CFGID_CNF_JOIN_ENABLE_BOOL             CFGID_BEGIN_INDEX + 25      //tag:cnfJoinEnable
 #define CFGID_REMOTE_PARTY_ID_BOOL             CFGID_BEGIN_INDEX + 26      //tag:remotePartyID

@@ -1047,11 +1047,11 @@ SSLServerCertVerificationJob::Run()
       Telemetry::ID telemetryID;
 #ifndef NSS_NO_LIBPKIX
       if(nsNSSComponent::globalConstFlagUsePKIXVerification){
-        telemetryID = Telemetry::SSL_SUCCESFUL_CERT_VALIDATION_TIME_LIBPKIX;
+        telemetryID = Telemetry::SSL_Successful_CERT_VALIDATION_TIME_LIBPKIX;
       }
       else{
 #endif
-        telemetryID = Telemetry::SSL_SUCCESFUL_CERT_VALIDATION_TIME_CLASSIC;
+        telemetryID = Telemetry::SSL_Successful_CERT_VALIDATION_TIME_CLASSIC;
 #ifndef NSS_NO_LIBPKIX
       }
 #endif

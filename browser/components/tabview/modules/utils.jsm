@@ -181,7 +181,7 @@ Rect.prototype = {
   // Makes the rect smaller (if the arguments are positive) as if a margin is added all around
   // the initial rect, with the margin widths (symmetric) being specified by the arguments.
   //
-  // Paramaters
+  // Parameters
   //  - A <Point> or two arguments: x and y
   inset: function Rect_inset(a, b) {
     if (Utils.isPoint(a)) {
@@ -199,7 +199,7 @@ Rect.prototype = {
   // Function: offset
   // Moves (translates) the rect by the given vector.
   //
-  // Paramaters
+  // Parameters
   //  - A <Point> or two arguments: x and y
   offset: function Rect_offset(a, b) {
     if (Utils.isPoint(a)) {

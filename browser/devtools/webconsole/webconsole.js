@@ -4579,7 +4579,7 @@ WebConsoleConnectionProxy.prototype = {
                                         timeout, Ci.nsITimer.TYPE_ONE_SHOT);
 
     let promise = this._connectDefer.promise;
-    promise.then(function _onSucess() {
+    promise.then(function _onSuccess() {
       this._connectTimer.cancel();
       this._connectTimer = null;
     }.bind(this), function _onFailure() {

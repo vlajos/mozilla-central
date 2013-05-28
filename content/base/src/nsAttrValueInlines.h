@@ -209,7 +209,7 @@ nsAttrValue::GetIntInternal() const
   NS_ASSERTION(BaseType() == eIntegerBase,
                "getting integer from non-integer");
   // Make sure we get a signed value.
-  // Lets hope the optimizer optimizes this into a shift. Unfortunatly signed
+  // Lets hope the optimizer optimizes this into a shift. Unfortunately signed
   // bitshift right is implementaion dependant.
   return static_cast<int32_t>(mBits & ~NS_ATTRVALUE_INTEGERTYPE_MASK) /
          NS_ATTRVALUE_INTEGERTYPE_MULTIPLIER;

@@ -8,7 +8,7 @@
 #include "cc_constants.h"
 
 /**
- * Recieve SIP INFO for the specified session
+ * Receive SIP INFO for the specified session
  * @param call_handle call handle
  * @param pack_id the info package id number
  * @param info_package the Info-Package header of the Info Package

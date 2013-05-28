@@ -834,7 +834,7 @@ public:
     return GetCachedBoolPref(kPresContext_UseDocumentColors) || IsChrome();
   }
 
-  bool             SupressingResizeReflow() const { return mSupressResizeReflow; }
+  bool             SuppressingResizeReflow() const { return mSuppressResizeReflow; }
   
   virtual NS_HIDDEN_(gfxUserFontSet*) GetUserFontSetExternal();
   NS_HIDDEN_(gfxUserFontSet*) GetUserFontSetInternal();
@@ -1283,7 +1283,7 @@ protected:
 
   // resize reflow is suppressed when the only change has been to zoom
   // the document rather than to change the document's dimensions
-  unsigned              mSupressResizeReflow : 1;
+  unsigned              mSuppressResizeReflow : 1;
 
   unsigned              mIsVisual : 1;
 

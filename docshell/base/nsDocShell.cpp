@@ -6561,7 +6561,7 @@ nsDocShell::EndPageLoad(nsIWebProgress * aProgress,
 
     // clean up reload state for meta charset
     if (eCharsetReloadRequested == mCharsetReloadState)
-        mCharsetReloadState = eCharsetReloadStopOrigional;
+        mCharsetReloadState = eCharsetReloadStopOriginal;
     else 
         mCharsetReloadState = eCharsetReloadInit;
 

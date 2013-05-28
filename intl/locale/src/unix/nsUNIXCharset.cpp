@@ -170,7 +170,7 @@ nsPlatformCharset::Init()
     mLocale.AssignLiteral("en_US");
   }
 
-  // InitGetCharset only returns NS_OK or NS_SUCESS_USING_FALLBACK_LOCALE
+  // InitGetCharset only returns NS_OK or NS_SUCCESS_USING_FALLBACK_LOCALE
   return InitGetCharset(mCharset);
 }
 

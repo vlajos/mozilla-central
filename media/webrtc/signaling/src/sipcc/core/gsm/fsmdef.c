@@ -2486,7 +2486,7 @@ fsmdef_ev_idle_setup (sm_event_t *event)
     /*
      * Set default orientation for the incoming setup as "from" to
      * avoid updating UI when call info is received in "ACK" which
-     * shoule be "from" for typicall incoming call.
+     * shoule be "from" for typical incoming call.
      */
     dcb->orientation = CC_ORIENTATION_FROM;
 

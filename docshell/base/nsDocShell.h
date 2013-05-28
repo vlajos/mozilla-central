@@ -127,7 +127,7 @@ protected:
 typedef enum {
     eCharsetReloadInit,
     eCharsetReloadRequested,
-    eCharsetReloadStopOrigional
+    eCharsetReloadStopOriginal
 } eCharsetReloadState;
 
 //*****************************************************************************
